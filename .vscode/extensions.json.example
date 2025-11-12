@@ -1,0 +1,16 @@
+{
+  // Extensiones recomendadas para este proyecto
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "ms-vscode.vscode-typescript-next",
+    "christian-kohler.path-intellisense",
+    "usernamehw.errorlens",
+    "streetsidesoftware.code-spell-checker",
+    "streetsidesoftware.code-spell-checker-spanish",
+    "gruntfuggly.todo-tree",
+    "yzhang.markdown-all-in-one",
+    "bierner.markdown-mermaid",
+    "alexcvzz.vscode-sqlite"
+  ]
+}

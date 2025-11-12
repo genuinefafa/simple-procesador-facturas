@@ -1,0 +1,46 @@
+{
+  // Configuraciones de debug para VS Code
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug: Procesar Factura",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": ["-r", "tsx"],
+      "args": [
+        "${workspaceFolder}/src/main.ts",
+        "process",
+        "--file",
+        "${workspaceFolder}/data/input/test.pdf"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen"
+    },
+    {
+      "name": "Debug: Tests",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": ["--loader", "tsx", "--test"],
+      "args": ["${workspaceFolder}/tests/**/*.test.ts"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug: CLI Actual",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": ["-r", "tsx"],
+      "args": ["${workspaceFolder}/src/main.ts", "${input:cliArgs}"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal"
+    }
+  ],
+  "inputs": [
+    {
+      "id": "cliArgs",
+      "type": "promptString",
+      "description": "Argumentos del CLI (ej: list, search --cuit 30-12345678-9)"
+    }
+  ]
+}

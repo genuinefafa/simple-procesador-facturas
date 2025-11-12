@@ -1,0 +1,114 @@
+# Dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Archivos de distribución / build
+dist/
+build/
+*.tsbuildinfo
+
+# Datos del proyecto
+data/*
+!data/README.md
+!data/.gitkeep
+exports/*
+!exports/.gitkeep
+*.sqlite
+*.sqlite3
+*.db
+
+# Respaldos
+backup/
+*.backup
+
+# Logs
+logs/
+*.log
+combined.log
+error.log
+
+# Archivos de ambiente
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# VS Code
+.vscode/*
+!.vscode/settings.json.example
+!.vscode/launch.json.example
+!.vscode/extensions.json.example
+!.vscode/README.md
+.history/
+*.code-workspace
+
+# JetBrains IDEs (IntelliJ, WebStorm, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# Archivos temporales
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Coverage (tests)
+coverage/
+.nyc_output/
+*.lcov
+
+# Archivos de configuración local
+config.local.json
+config.override.json
+
+# Archivos de prueba generados
+test-output/
+test-results/
+
+# Certificados y claves
+*.pem
+*.key
+*.cert
+*.crt
+
+# Caché
+.cache/
+.parcel-cache/
+.eslintcache
+
+# Binarios compilados (si se generan con pkg/nexe)
+procesador-linux-x64
+procesador-macos-x64
+procesador-macos-arm64
+procesador-win-x64.exe
+
+# Docker
+docker-compose.override.yml
+
+# Archivos de sistema
+.fuse_hidden*
