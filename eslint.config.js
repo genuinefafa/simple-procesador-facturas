@@ -4,7 +4,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/', 'node_modules/', '*.js', '*.mjs'],
+    ignores: ['dist/', 'node_modules/', '*.js', '*.mjs', 'coverage/'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
@@ -36,5 +36,10 @@ export default tseslint.config(
       'prefer-const': 'error',
       'no-var': 'error',
     },
+  },
+  // Configuración especial para archivos de test (sin type checking estricto)
+  {
+    files: ['**/*.test.ts', '**/*.spec.ts', 'tests/**/*.ts'],
+    ...tseslint.configs.disableTypeChecked,
   }
 );

@@ -9,11 +9,7 @@ export type DocumentType = 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
 export type ExtractionStrategy = 'REGEX' | 'OCR_ZONES' | 'PDF_TEXT' | 'HYBRID';
 
 // Categoría de template
-export type TemplateCategory =
-  | 'SOFTWARE_COMERCIAL'
-  | 'AFIP_ELECTRONICA'
-  | 'MANUAL'
-  | 'GENERICO';
+export type TemplateCategory = 'SOFTWARE_COMERCIAL' | 'AFIP_ELECTRONICA' | 'MANUAL' | 'GENERICO';
 
 // Tipo de persona
 export type PersonType = 'FISICA' | 'JURIDICA';
