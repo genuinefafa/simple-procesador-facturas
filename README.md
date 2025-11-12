@@ -28,7 +28,7 @@ Este proyecto permite procesar facturas en diversos formatos (imágenes, PDFs di
 - **PDFs**: pdf-parse, pdf-lib
 - **Imágenes**: sharp
 - **CLI**: commander
-- **Exportación**: xlsx
+- **Exportación**: ExcelJS
 
 ### Estructura del Proyecto
 
