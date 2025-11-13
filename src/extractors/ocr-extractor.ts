@@ -19,9 +19,7 @@ export class OCRExtractor {
    * TODO: Implementar con Tesseract.js
    */
   extractText(_filePath: string): Promise<string> {
-    return Promise.reject(
-      new Error('OCR no implementado aún. Se implementará en Fase 2.')
-    );
+    return Promise.reject(new Error('OCR no implementado aún. Se implementará en Fase 2.'));
   }
 
   /**
