@@ -4,10 +4,25 @@
  * Punto de entrada principal del procesador de facturas
  */
 
-console.info('🚀 Procesador de Facturas - v0.1.0');
-console.info('Inicializando...');
+import { Command } from 'commander';
+import { createProcessCommand, createListCommand, createStatsCommand } from './cli';
 
-// TODO: Implementar CLI con Commander
-// TODO: Implementar comandos: process, list, search, export, templates, etc.
+const program = new Command();
 
-process.exit(0);
+program
+  .name('procesador')
+  .description('Procesador Inteligente de Facturas Argentinas')
+  .version('0.1.0');
+
+// Registrar comandos
+program.addCommand(createProcessCommand());
+program.addCommand(createListCommand());
+program.addCommand(createStatsCommand());
+
+// Parsear argumentos
+program.parse(process.argv);
+
+// Si no se proporciona ningún comando, mostrar ayuda
+if (!process.argv.slice(2).length) {
+  program.outputHelp();
+}

@@ -18,8 +18,10 @@ export class OCRExtractor {
    *
    * TODO: Implementar con Tesseract.js
    */
-  async extractText(_filePath: string): Promise<string> {
-    throw new Error('OCR no implementado aún. Se implementará en Fase 2.');
+  extractText(_filePath: string): Promise<string> {
+    return Promise.reject(
+      new Error('OCR no implementado aún. Se implementará en Fase 2.')
+    );
   }
 
   /**
@@ -29,13 +31,13 @@ export class OCRExtractor {
    *
    * TODO: Implementar extracción de campos específicos
    */
-  async extract(_filePath: string): Promise<ExtractionResult> {
-    return {
+  extract(_filePath: string): Promise<ExtractionResult> {
+    return Promise.resolve({
       success: false,
       confidence: 0,
       data: {},
       errors: ['OCR no implementado. Se implementará en Fase 2 con Tesseract.js'],
       method: 'GENERICO',
-    };
+    });
   }
 }
