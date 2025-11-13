@@ -30,6 +30,29 @@
     "*.json": "jsonc"
   },
 
+  // Spell Checker - Español
+  "cSpell.language": "es,en",
+  "cSpell.enabledLanguageIds": [
+    "typescript",
+    "javascript",
+    "markdown",
+    "plaintext"
+  ],
+  "cSpell.words": [
+    "procesador",
+    "facturas",
+    "afip",
+    "cuit",
+    "cuil",
+    "emisor",
+    "emisores",
+    "comprobante",
+    "exceljs",
+    "tesseract",
+    "vitest",
+    "tseslint"
+  ],
+
   // Comentarios en español (proyecto argentino)
   "better-comments.tags": [
     {
