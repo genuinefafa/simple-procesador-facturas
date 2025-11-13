@@ -31,6 +31,7 @@ export interface Emitter {
   cuitNumeric: string; // Sin guiones
   name: string;
   legalName?: string;
+  aliases: string[]; // Nombres cortos/alias del emisor
   templateId?: number; // FK a template preferido
   configOverride?: string; // JSON con ajustes específicos
   personType?: PersonType;

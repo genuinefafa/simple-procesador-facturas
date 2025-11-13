@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS emisores (
   cuit_numerico TEXT NOT NULL UNIQUE,           -- Sin guiones (XXXXXXXXXXX)
   nombre TEXT NOT NULL,
   razon_social TEXT,
+  aliases TEXT,                                 -- JSON array de strings (nombres cortos)
 
   -- Relación con template
   template_preferido_id INTEGER,

@@ -39,7 +39,7 @@ export class PDFExtractor {
     // Extraer fecha (patrones comunes argentinos)
     const datePatterns = [
       /FECHA:\s*[\r\n]+[^\d]*(\d{2}[/-]\d{2}[/-]\d{4})/i, // FECHA: seguida de fecha
-      /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/,  // Fecha justo antes del número de 12-13 dígitos
+      /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/, // Fecha justo antes del número de 12-13 dígitos
       /Fecha[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
       /Emisión[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
     ];
@@ -54,8 +54,10 @@ export class PDFExtractor {
           Math.max(0, (match.index || 0) - 50),
           (match.index || 0) + 80
         );
-        if (!context.toLowerCase().includes('inicio') &&
-            !context.toLowerCase().includes('actividad')) {
+        if (
+          !context.toLowerCase().includes('inicio') &&
+          !context.toLowerCase().includes('actividad')
+        ) {
           date = extractedDate;
           break;
         }
@@ -91,7 +93,7 @@ export class PDFExtractor {
       /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*([A-C])\s*[\r\n]/i, // CODIGO: seguido de letra en otra línea
       /Factura\s+([A-C])\s/i,
       /Tipo\s+([A-C])\s/i,
-      /\b([A-C])\s+-?\s+\d{4,5}\s*-?\s*\d{8}/,  // Letra seguida de números
+      /\b([A-C])\s+-?\s+\d{4,5}\s*-?\s*\d{8}/, // Letra seguida de números
     ];
 
     for (const pattern of typePatterns) {

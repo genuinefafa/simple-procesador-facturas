@@ -7,6 +7,7 @@ import { FileScanner } from '../../scanner';
 import { PDFExtractor } from '../../extractors';
 import { EmitterRepository, InvoiceRepository } from '../../database';
 import { normalizeCUIT, getPersonType } from '../../validators/cuit';
+import { generateProcessedFilename } from '../../utils/file-naming';
 
 export function createProcessCommand(): Command {
   const command = new Command('process');
@@ -130,6 +131,15 @@ async function processFile(filePath: string): Promise<void> {
     return;
   }
 
+  // Generar nombre de archivo procesado
+  const processedFilename = generateProcessedFilename(
+    emitter,
+    result.data.invoiceType,
+    result.data.pointOfSale,
+    result.data.invoiceNumber,
+    filePath
+  );
+
   // Crear factura
   const invoice = invoiceRepo.create({
     emitterCuit: normalizedCuit,
@@ -139,7 +149,7 @@ async function processFile(filePath: string): Promise<void> {
     invoiceNumber: result.data.invoiceNumber,
     total: result.data.total,
     originalFile: filePath,
-    processedFile: filePath, // TODO: Renombrar en Fase 3
+    processedFile: processedFilename,
     fileType: 'PDF_DIGITAL',
     extractionMethod: 'GENERICO',
     extractionConfidence: result.confidence,
@@ -149,6 +159,7 @@ async function processFile(filePath: string): Promise<void> {
   console.info('✅ Factura procesada exitosamente!');
   console.info(`   ID: ${invoice.id}`);
   console.info(`   Comprobante: ${invoice.fullInvoiceNumber}`);
+  console.info(`   Archivo: ${processedFilename}`);
 
   if (invoice.requiresReview) {
     console.warn('⚠️  Marcada para revisión (confianza < 80%)');
