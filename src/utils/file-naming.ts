@@ -81,10 +81,24 @@ export function padNumber(num: number, width: number): string {
 }
 
 /**
- * Genera el nombre de archivo procesado según el formato estándar argentino
- * Formato: {alias_corto}_{tipo}_{punto_venta}_{numero}.{ext}
- * Ejemplo: andereggen_faca_00003_00003668.pdf
+ * Formatea una fecha en formato YYYY-MM-DD
  *
+ * @param date - Fecha a formatear
+ * @returns String en formato YYYY-MM-DD
+ */
+export function formatDateForFilename(date: Date): string {
+  const year = date.getFullYear();
+  const month = padNumber(date.getMonth() + 1, 2);
+  const day = padNumber(date.getDate(), 2);
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Genera el nombre de archivo procesado según el formato estándar argentino
+ * Formato: {yyyy-mm-dd}_{cuit}_{alias_corto}_{tipo}_{punto_venta}_{numero}.{ext}
+ * Ejemplo: 2023-02-14_20-13046568-5_oscar_faca_00003_00003668.pdf
+ *
+ * @param issueDate - Fecha de emisión de la factura
  * @param emitter - Emisor de la factura
  * @param invoiceType - Tipo de comprobante (A, B, C, etc.)
  * @param pointOfSale - Punto de venta (se formateará con 5 dígitos)
@@ -93,17 +107,19 @@ export function padNumber(num: number, width: number): string {
  * @returns Nombre de archivo procesado
  */
 export function generateProcessedFilename(
+  issueDate: Date,
   emitter: Emitter,
   invoiceType: InvoiceType,
   pointOfSale: number,
   invoiceNumber: number,
   originalFile: string
 ): string {
+  const dateFormatted = formatDateForFilename(issueDate);
   const shortName = getShortestName(emitter);
   const typeCode = getComprobanteCode(invoiceType);
   const pvFormatted = padNumber(pointOfSale, 5);
   const numFormatted = padNumber(invoiceNumber, 8);
   const extension = path.extname(originalFile);
 
-  return `${shortName}_${typeCode}_${pvFormatted}_${numFormatted}${extension}`;
+  return `${dateFormatted}_${emitter.cuit}_${shortName}_${typeCode}_${pvFormatted}_${numFormatted}${extension}`;
 }

@@ -8,6 +8,7 @@ import { PDFExtractor } from '../../extractors';
 import { EmitterRepository, InvoiceRepository } from '../../database';
 import { normalizeCUIT, getPersonType } from '../../validators/cuit';
 import { generateProcessedFilename } from '../../utils/file-naming';
+import { generateYAMLFile } from '../../utils/yaml-generator';
 
 export function createProcessCommand(): Command {
   const command = new Command('process');
@@ -80,14 +81,13 @@ async function processFile(filePath: string): Promise<void> {
   console.info(`   Total: $${result.data.total?.toFixed(2) || '❌'}`);
   console.info(`   Confianza: ${result.confidence.toFixed(1)}%\n`);
 
-  // Validar datos mínimos
+  // Validar datos mínimos (el total es útil pero no obligatorio)
   if (
     !result.data.cuit ||
     !result.data.date ||
     !result.data.invoiceType ||
     result.data.pointOfSale === undefined ||
-    result.data.invoiceNumber === undefined ||
-    !result.data.total
+    result.data.invoiceNumber === undefined
   ) {
     console.error('❌ Faltan datos obligatorios para crear la factura');
     return;
@@ -133,6 +133,7 @@ async function processFile(filePath: string): Promise<void> {
 
   // Generar nombre de archivo procesado
   const processedFilename = generateProcessedFilename(
+    issueDate,
     emitter,
     result.data.invoiceType,
     result.data.pointOfSale,
@@ -155,6 +156,24 @@ async function processFile(filePath: string): Promise<void> {
     extractionConfidence: result.confidence,
     requiresReview: result.confidence < 80,
   });
+
+  // Generar archivo YAML de anotación
+  try {
+    const yamlPath = generateYAMLFile(filePath, {
+      emitter,
+      invoiceType: result.data.invoiceType,
+      pointOfSale: result.data.pointOfSale,
+      invoiceNumber: result.data.invoiceNumber,
+      issueDate,
+      total: result.data.total,
+      extractionConfidence: result.confidence,
+    });
+    console.info(`📝 YAML generado: ${yamlPath}`);
+  } catch (error) {
+    console.warn(
+      `⚠️  No se pudo generar YAML de anotación: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
 
   console.info('✅ Factura procesada exitosamente!');
   console.info(`   ID: ${invoice.id}`);

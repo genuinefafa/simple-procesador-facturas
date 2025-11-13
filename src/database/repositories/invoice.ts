@@ -25,7 +25,7 @@ export class InvoiceRepository {
     invoiceType: InvoiceType;
     pointOfSale: number;
     invoiceNumber: number;
-    total: number;
+    total?: number;
     currency?: Currency;
     originalFile: string;
     processedFile: string;
@@ -53,7 +53,7 @@ export class InvoiceRepository {
       data.pointOfSale,
       data.invoiceNumber,
       fullInvoiceNumber,
-      data.total,
+      data.total ?? null,
       data.currency || 'ARS',
       data.originalFile,
       data.processedFile,

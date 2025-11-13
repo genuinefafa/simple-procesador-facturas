@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS facturas (
   punto_venta INTEGER NOT NULL,
   numero_comprobante INTEGER NOT NULL,
   comprobante_completo TEXT NOT NULL,           -- "A-0001-00000123"
-  total REAL NOT NULL,
+  total REAL,                                   -- Opcional: útil pero no crítico para procesamiento
   moneda TEXT DEFAULT 'ARS' CHECK(moneda IN ('ARS', 'USD', 'EUR')),
 
   -- Archivos

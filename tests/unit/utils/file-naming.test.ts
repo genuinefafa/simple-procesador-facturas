@@ -8,6 +8,7 @@ import {
   sanitizeFilename,
   getComprobanteCode,
   padNumber,
+  formatDateForFilename,
   generateProcessedFilename,
 } from '../../../src/utils/file-naming';
 import type { Emitter } from '../../../src/utils/types';
@@ -111,8 +112,21 @@ describe('file-naming utils', () => {
     });
   });
 
+  describe('formatDateForFilename', () => {
+    it('debe formatear fecha correctamente', () => {
+      const date = new Date('2023-02-14');
+      expect(formatDateForFilename(date)).toBe('2023-02-14');
+    });
+
+    it('debe agregar ceros a mes y día', () => {
+      const date = new Date('2023-01-05');
+      expect(formatDateForFilename(date)).toBe('2023-01-05');
+    });
+  });
+
   describe('generateProcessedFilename', () => {
     it('debe generar nombre correcto con todos los componentes', () => {
+      const issueDate = new Date('2023-02-14');
       const emitter: Emitter = {
         cuit: '20-13046568-5',
         cuitNumeric: '20130465685',
@@ -124,12 +138,13 @@ describe('file-naming utils', () => {
         updatedAt: new Date(),
       };
 
-      const filename = generateProcessedFilename(emitter, 'A', 3, 3668, 'factura.pdf');
+      const filename = generateProcessedFilename(issueDate, emitter, 'A', 3, 3668, 'factura.pdf');
 
-      expect(filename).toBe('oscar_faca_00003_00003668.pdf');
+      expect(filename).toBe('2023-02-14_20-13046568-5_oscar_faca_00003_00003668.pdf');
     });
 
     it('debe preservar la extensión del archivo original', () => {
+      const issueDate = new Date('2023-05-20');
       const emitter: Emitter = {
         cuit: '30-50001770-4',
         cuitNumeric: '30500017704',
@@ -141,12 +156,20 @@ describe('file-naming utils', () => {
         updatedAt: new Date(),
       };
 
-      const filename = generateProcessedFilename(emitter, 'B', 124, 17649, 'original.tif');
+      const filename = generateProcessedFilename(
+        issueDate,
+        emitter,
+        'B',
+        124,
+        17649,
+        'original.tif'
+      );
 
-      expect(filename).toBe('seguros_facb_00124_00017649.tif');
+      expect(filename).toBe('2023-05-20_30-50001770-4_seguros_facb_00124_00017649.tif');
     });
 
     it('debe manejar punto de venta de 5 dígitos', () => {
+      const issueDate = new Date('2024-12-31');
       const emitter: Emitter = {
         cuit: '20-12345678-9',
         cuitNumeric: '20123456789',
@@ -158,9 +181,9 @@ describe('file-naming utils', () => {
         updatedAt: new Date(),
       };
 
-      const filename = generateProcessedFilename(emitter, 'C', 99999, 1, 'test.pdf');
+      const filename = generateProcessedFilename(issueDate, emitter, 'C', 99999, 1, 'test.pdf');
 
-      expect(filename).toBe('test_facc_99999_00000001.pdf');
+      expect(filename).toBe('2024-12-31_20-12345678-9_test_facc_99999_00000001.pdf');
     });
   });
 });
