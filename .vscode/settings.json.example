@@ -32,12 +32,12 @@
 
   // Spell Checker - Español
   "cSpell.language": "es,en",
-  "cSpell.enabledLanguageIds": [
-    "typescript",
-    "javascript",
-    "markdown",
-    "plaintext"
-  ],
+  "cSpell.enabledFileTypes": {
+    "typescript": true,
+    "javascript": true,
+    "markdown": true,
+    "plaintext": true
+  },
   "cSpell.words": [
     "procesador",
     "facturas",
