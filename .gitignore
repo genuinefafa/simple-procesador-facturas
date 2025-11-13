@@ -112,3 +112,4 @@ docker-compose.override.yml
 
 # Archivos de sistema
 .fuse_hidden*
+/examples/
