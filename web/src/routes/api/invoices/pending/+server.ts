@@ -6,9 +6,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 // Importar repositorios desde la raíz del proyecto
-// Nota: Necesitamos configurar el path correctamente
-import { InvoiceRepository } from '../../../../../src/database/repositories/invoice.js';
-import { EmitterRepository } from '../../../../../src/database/repositories/emitter.js';
+import type { Invoice } from '../../../../../../src/utils/types.js';
+import { InvoiceRepository } from '../../../../../../src/database/repositories/invoice.js';
+import { EmitterRepository } from '../../../../../../src/database/repositories/emitter.js';
 
 export const GET: RequestHandler = async () => {
   try {
@@ -22,7 +22,7 @@ export const GET: RequestHandler = async () => {
     });
 
     // Enriquecer con datos del emisor
-    const enrichedInvoices = pendingInvoices.map((invoice) => {
+    const enrichedInvoices = pendingInvoices.map((invoice: Invoice) => {
       const emitter = emitterRepo.findByCUIT(invoice.emitterCuit);
       return {
         id: invoice.id,
