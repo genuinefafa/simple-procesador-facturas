@@ -18,13 +18,46 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     // Resolve the absolute path
-    const absolutePath = path.isAbsolute(filePath)
-      ? filePath
-      : path.resolve(process.cwd(), filePath);
+    // IMPORTANTE: process.cwd() es /web/ cuando ejecutamos desde npm run web:dev,
+    // pero las rutas en la DB pueden ser:
+    // 1. Absolutas: /ruta/completa/archivo.pdf
+    // 2. Relativas al proyecto: examples/factura4.pdf
+    // 3. Solo nombre: factura.pdf (buscar en directorios comunes)
+
+    const projectRoot = path.resolve(process.cwd(), '..');
+    let absolutePath: string;
+
+    if (path.isAbsolute(filePath)) {
+      // Ruta absoluta
+      absolutePath = filePath;
+    } else {
+      // Intentar primero como ruta relativa al proyecto
+      absolutePath = path.resolve(projectRoot, filePath);
+
+      // Si no existe, buscar en directorios comunes
+      if (!fs.existsSync(absolutePath)) {
+        const searchDirs = [
+          path.join(projectRoot, 'examples'),
+          path.join(projectRoot, 'data/input'),
+          path.join(projectRoot, 'data/processed'),
+        ];
+
+        for (const dir of searchDirs) {
+          const candidatePath = path.join(dir, path.basename(filePath));
+          if (fs.existsSync(candidatePath)) {
+            absolutePath = candidatePath;
+            break;
+          }
+        }
+      }
+    }
 
     // Check if file exists
     if (!fs.existsSync(absolutePath)) {
-      throw error(404, 'File not found');
+      console.error(`File not found: ${absolutePath}`);
+      console.error(`  Original path: ${filePath}`);
+      console.error(`  Searched in: examples/, data/input/, data/processed/`);
+      throw error(404, `File not found: ${path.basename(filePath)}`);
     }
 
     // Read file
