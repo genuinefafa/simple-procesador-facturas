@@ -15,9 +15,9 @@ export const GET: RequestHandler = async () => {
     const invoiceRepo = new InvoiceRepository();
     const emitterRepo = new EmitterRepository();
 
-    // Obtener facturas que requieren revisión o tienen confianza < 80%
+    // Obtener todas las facturas recientes (ordenadas por fecha)
+    // El frontend puede filtrar por confianza o estado de revisión
     const pendingInvoices = invoiceRepo.list({
-      requiresReview: true,
       limit: 50
     });
 
