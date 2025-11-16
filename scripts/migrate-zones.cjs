@@ -1,7 +1,8 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 
-const DB_PATH = path.join(__dirname, 'data/database.sqlite');
+// La DB está en el directorio padre de scripts/
+const DB_PATH = path.join(__dirname, '../data/database.sqlite');
 
 console.log('📦 Conectando a la base de datos:', DB_PATH);
 const db = new Database(DB_PATH);

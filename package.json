@@ -20,6 +20,8 @@
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
+    "db:init": "tsx scripts/init-db.ts",
+    "db:seed": "tsx scripts/seed.ts",
     "db:migrate:zones": "node scripts/migrate-zones.cjs",
     "web:dev": "cd web && npm run dev",
     "web:build": "cd web && npm run build",
