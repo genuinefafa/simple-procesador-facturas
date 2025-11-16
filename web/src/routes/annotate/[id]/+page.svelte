@@ -131,6 +131,9 @@
 				img.onload = resolve;
 			});
 			imageElement = img;
+
+			// Redibujar para mostrar la imagen (importante!)
+			redraw();
 		}
 	}
 
