@@ -1,38 +1,76 @@
-# sv
+# Interfaz Web - Procesador de Facturas
 
-Everything you need to build a Svelte project, powered by [`sv`](https://github.com/sveltejs/cli).
+Interfaz web para anotar y entrenar el sistema de extracción de facturas.
 
-## Creating a project
+## Inicio rápido
 
-If you're seeing this, you've probably already done this step. Congrats!
+Desde el directorio raíz del proyecto:
 
-```sh
-# create a new project in the current directory
-npx sv create
+```bash
+# Primera vez: instalar dependencias
+cd web && npm install && cd ..
 
-# create a new project in my-app
-npx sv create my-app
+# Iniciar servidor de desarrollo
+npm run web:dev
 ```
 
-## Developing
+La aplicación estará disponible en http://localhost:5173/
 
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
+## Funcionalidades
 
-```sh
-npm run dev
+### Página principal (/)
 
-# or start the server and open the app in a new browser tab
-npm run dev -- --open
-```
+- Lista de facturas pendientes de revisión
+- Estadísticas de facturas con baja confianza
+- Acceso rápido a la herramienta de anotación
 
-## Building
+### Herramienta de anotación (/annotate/[id])
 
-To create a production version of your app:
+Permite anotar visualmente las zonas de una factura para entrenar el sistema de extracción.
 
-```sh
+**Campos disponibles:**
+- CUIT (rojo)
+- Fecha (azul)
+- Tipo de comprobante (morado)
+- Punto de venta (verde)
+- Número de comprobante (naranja)
+- Total (rosa)
+
+**Cómo usar:**
+1. Selecciona el campo a anotar en el panel izquierdo
+2. Arrastra el mouse sobre la imagen para dibujar un rectángulo en la zona correspondiente
+3. Repite para todos los campos necesarios
+4. Haz clic en "Guardar anotaciones"
+
+**Características:**
+- Soporte para PDFs e imágenes (JPG, PNG, TIF)
+- Los PDFs se renderizan automáticamente en el navegador
+- Las zonas se guardan con coordenadas absolutas del documento original
+- Al guardar, la factura se marca como validada manualmente
+
+## API Endpoints
+
+- `GET /api/invoices/pending` - Lista de facturas pendientes
+- `GET /api/invoices/[id]` - Detalle de una factura con zonas anotadas
+- `GET /api/files/[...path]` - Servir archivos de facturas
+- `POST /api/annotations` - Guardar anotaciones de zonas
+
+## Desarrollo
+
+```bash
+# Verificar tipos
+cd web && npm run check
+
+# Construir para producción
 npm run build
+
+# Preview de producción
+npm run preview
 ```
 
-You can preview the production build with `npm run preview`.
+## Notas técnicas
 
-> To deploy your app, you may need to install an [adapter](https://svelte.dev/docs/kit/adapters) for your target environment.
+- Las rutas de archivos se sirven a través de `/api/files/` con validación de seguridad
+- PDF.js se usa para renderizar PDFs en canvas
+- Las zonas se almacenan en la tabla `facturas_zonas_anotadas`
+- Al guardar anotaciones, se eliminan las anteriores de esa factura
