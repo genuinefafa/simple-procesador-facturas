@@ -73,7 +73,26 @@
 			if (data.success) {
 				invoice = data.invoice;
 				zones = data.zones || [];
-				// No cargar la imagen aquí - esperar a que el canvas esté disponible
+
+				// Esperar a que el DOM se actualice y el canvas esté disponible
+				// setTimeout con 0ms permite que el rendering complete antes de continuar
+				await new Promise(resolve => setTimeout(resolve, 100));
+
+				console.log('onMount: Verificando canvas...');
+				if (canvas) {
+					console.log('onMount: Canvas disponible, cargando imagen');
+					await loadImage();
+				} else {
+					console.error('onMount: Canvas aún es null después del timeout');
+					// Reintentar después de otro delay
+					await new Promise(resolve => setTimeout(resolve, 200));
+					if (canvas) {
+						console.log('onMount: Canvas disponible en segundo intento');
+						await loadImage();
+					} else {
+						error = 'Error: No se pudo inicializar el canvas';
+					}
+				}
 			} else {
 				error = data.error || 'Error al cargar factura';
 			}
@@ -81,14 +100,6 @@
 			error = err instanceof Error ? err.message : 'Error de conexión';
 		} finally {
 			loading = false;
-		}
-	});
-
-	// $effect se ejecuta cuando sus dependencias cambian
-	// Cargar la imagen cuando tanto invoice como canvas estén disponibles
-	$effect(() => {
-		if (invoice && canvas && !imageElement) {
-			loadImage();
 		}
 	});
 
