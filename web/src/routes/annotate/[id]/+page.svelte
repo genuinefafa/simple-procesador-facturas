@@ -73,7 +73,7 @@
 			if (data.success) {
 				invoice = data.invoice;
 				zones = data.zones || [];
-				await loadImage();
+				// No cargar la imagen aquí - esperar a que el canvas esté disponible
 			} else {
 				error = data.error || 'Error al cargar factura';
 			}
@@ -84,57 +84,91 @@
 		}
 	});
 
-	async function loadImage() {
-		if (!invoice) return;
+	// $effect se ejecuta cuando sus dependencias cambian
+	// Cargar la imagen cuando tanto invoice como canvas estén disponibles
+	$effect(() => {
+		if (invoice && canvas && !imageElement) {
+			loadImage();
+		}
+	});
 
+	async function loadImage() {
+		if (!invoice) {
+			console.error('loadImage: invoice is null');
+			return;
+		}
+
+		if (!canvas) {
+			console.error('loadImage: canvas is null');
+			return;
+		}
+
+		console.log('loadImage: Cargando archivo:', invoice.originalFile);
 		const fileUrl = `/api/files/${encodeURIComponent(invoice.originalFile)}`;
 		const isPDF = invoice.originalFile.toLowerCase().endsWith('.pdf');
 
 		try {
 			if (isPDF) {
+				console.log('loadImage: Es PDF, usando loadPDF');
 				await loadPDF(fileUrl);
 			} else {
+				console.log('loadImage: Es imagen, usando loadRegularImage');
 				await loadRegularImage(fileUrl);
 			}
+			console.log('loadImage: Carga completada');
 		} catch (err) {
 			error = 'Error al cargar el archivo de la factura';
-			console.error(err);
+			console.error('loadImage: Error:', err);
 		}
 	}
 
 	async function loadPDF(url: string) {
+		console.log('loadPDF: Iniciando carga de PDF desde', url);
 		const loadingTask = pdfjsLib.getDocument(url);
 		const pdf = await loadingTask.promise;
+		console.log('loadPDF: PDF cargado, páginas:', pdf.numPages);
 
 		// Get first page
 		const page = await pdf.getPage(1);
+		console.log('loadPDF: Página 1 obtenida');
 
 		// Set canvas size based on viewport
 		const viewport = page.getViewport({ scale: 1.5 });
+		console.log('loadPDF: Viewport:', viewport.width, 'x', viewport.height);
 
-		if (canvas) {
-			canvas.width = viewport.width;
-			canvas.height = viewport.height;
-			ctx = canvas.getContext('2d');
-
-			// Render PDF page to canvas
-			await page.render({
-				canvasContext: ctx!,
-				viewport: viewport
-			} as any).promise;
-
-			// Create a temporary image element from the rendered canvas
-			// so we can redraw it later with annotations
-			const img = new Image();
-			img.src = canvas.toDataURL();
-			await new Promise((resolve) => {
-				img.onload = resolve;
-			});
-			imageElement = img;
-
-			// Redibujar para mostrar la imagen (importante!)
-			redraw();
+		if (!canvas) {
+			console.error('loadPDF: canvas es null!');
+			return;
 		}
+
+		console.log('loadPDF: Configurando canvas...');
+		canvas.width = viewport.width;
+		canvas.height = viewport.height;
+		ctx = canvas.getContext('2d');
+		console.log('loadPDF: Canvas configurado:', canvas.width, 'x', canvas.height);
+
+		// Render PDF page to canvas
+		console.log('loadPDF: Renderizando PDF en canvas...');
+		await page.render({
+			canvasContext: ctx!,
+			viewport: viewport
+		} as any).promise;
+		console.log('loadPDF: PDF renderizado en canvas');
+
+		// Create a temporary image element from the rendered canvas
+		// so we can redraw it later with annotations
+		const img = new Image();
+		img.src = canvas.toDataURL();
+		await new Promise((resolve) => {
+			img.onload = resolve;
+		});
+		imageElement = img;
+		console.log('loadPDF: Imagen temporal creada');
+
+		// Redibujar para mostrar la imagen (importante!)
+		console.log('loadPDF: Llamando a redraw()');
+		redraw();
+		console.log('loadPDF: redraw() completado');
 	}
 
 	async function loadRegularImage(url: string) {
@@ -158,15 +192,25 @@
 	}
 
 	function redraw() {
-		if (!ctx || !imageElement) return;
+		console.log('redraw: Iniciando. ctx:', !!ctx, 'imageElement:', !!imageElement);
+		if (!ctx || !imageElement) {
+			console.warn('redraw: Abortando - ctx o imageElement es null');
+			return;
+		}
+
+		console.log('redraw: Canvas size:', canvas!.width, 'x', canvas!.height);
+		console.log('redraw: Image size:', imageElement.width, 'x', imageElement.height);
 
 		// Clear canvas
 		ctx.clearRect(0, 0, canvas!.width, canvas!.height);
+		console.log('redraw: Canvas limpiado');
 
 		// Draw image
 		ctx.drawImage(imageElement, 0, 0);
+		console.log('redraw: Imagen dibujada');
 
 		// Draw existing zones
+		console.log('redraw: Dibujando', zones.length, 'zonas existentes');
 		zones.forEach((zone) => {
 			drawZone(zone.x, zone.y, zone.width, zone.height, getFieldColor(zone.field), false);
 		});
@@ -175,8 +219,10 @@
 		if (isDrawing) {
 			const width = currentX - startX;
 			const height = currentY - startY;
+			console.log('redraw: Dibujando zona actual:', { startX, startY, width, height });
 			drawZone(startX, startY, width, height, getFieldColor(selectedField), true);
 		}
+		console.log('redraw: Completado');
 	}
 
 	function drawZone(
