@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { page } from '$app/stores';
 	import * as pdfjsLib from 'pdfjs-dist';
 
@@ -74,30 +74,30 @@
 				invoice = data.invoice;
 				zones = data.zones || [];
 
-				// Esperar a que el DOM se actualice y el canvas esté disponible
-				// setTimeout con 0ms permite que el rendering complete antes de continuar
-				await new Promise(resolve => setTimeout(resolve, 100));
+				// IMPORTANTE: tick() espera a que Svelte complete el renderizado del DOM
+				// Esto es necesario porque el canvas está dentro de {:else if invoice}
+				console.log('onMount: Esperando a que el DOM se actualice (tick)...');
+				await tick();
+				console.log('onMount: tick() completado');
 
-				console.log('onMount: Verificando canvas...');
+				// Dar un frame adicional para asegurar que el binding esté completo
+				await new Promise(resolve => requestAnimationFrame(resolve));
+				console.log('onMount: requestAnimationFrame completado');
+
+				console.log('onMount: Verificando canvas...', !!canvas);
 				if (canvas) {
-					console.log('onMount: Canvas disponible, cargando imagen');
+					console.log('onMount: ✅ Canvas disponible, cargando imagen');
 					await loadImage();
 				} else {
-					console.error('onMount: Canvas aún es null después del timeout');
-					// Reintentar después de otro delay
-					await new Promise(resolve => setTimeout(resolve, 200));
-					if (canvas) {
-						console.log('onMount: Canvas disponible en segundo intento');
-						await loadImage();
-					} else {
-						error = 'Error: No se pudo inicializar el canvas';
-					}
+					console.error('onMount: ❌ Canvas sigue siendo null después de tick + RAF');
+					error = 'Error: No se pudo inicializar el canvas';
 				}
 			} else {
 				error = data.error || 'Error al cargar factura';
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Error de conexión';
+			console.error('onMount: Error:', err);
 		} finally {
 			loading = false;
 		}
