@@ -7,18 +7,35 @@ import type { RequestHandler } from './$types';
 import { InvoiceProcessingService } from '@server/services/invoice-processing.service.js';
 
 export const POST: RequestHandler = async ({ request }) => {
+  console.log('⚙️  [PROCESS] Iniciando procesamiento de facturas...');
+
   try {
     const body: unknown = await request.json();
     const { files } = body as {
       files: Array<{ name: string; path: string }>;
     };
 
+    console.log(`⚙️  [PROCESS] Archivos a procesar: ${files?.length || 0}`);
+
     if (!files || !Array.isArray(files) || files.length === 0) {
+      console.warn('⚠️  [PROCESS] No se recibió array de archivos');
       return json({ success: false, error: 'Se requiere un array de archivos' }, { status: 400 });
     }
 
+    files.forEach((f, i) => {
+      console.log(`  ${i + 1}. ${f.name} -> ${f.path}`);
+    });
+
     const processingService = new InvoiceProcessingService();
+    console.log('⚙️  [PROCESS] Service inicializado, procesando...');
+
     const results = await processingService.processBatch(files);
+
+    console.log(`⚙️  [PROCESS] Resultados:`);
+    results.forEach((r, i) => {
+      const status = r.success ? '✅' : '❌';
+      console.log(`  ${status} ${files[i]?.name}: ${r.success ? `OK (conf: ${r.confidence}%)` : r.error}`);
+    });
 
     // Estadísticas del procesamiento
     const stats = {
@@ -27,6 +44,8 @@ export const POST: RequestHandler = async ({ request }) => {
       failed: results.filter((r) => !r.success).length,
       requireReview: results.filter((r) => r.requiresReview).length,
     };
+
+    console.log(`✅ [PROCESS] Completado: ${stats.successful}/${stats.total} exitosas`);
 
     return json({
       success: true,
@@ -54,7 +73,7 @@ export const POST: RequestHandler = async ({ request }) => {
       })),
     });
   } catch (error) {
-    console.error('Error processing invoices:', error);
+    console.error('❌ [PROCESS] Error:', error);
     return json(
       {
         success: false,

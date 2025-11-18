@@ -44,11 +44,17 @@ export class InvoiceProcessingService {
    * @returns Resultado del procesamiento
    */
   async processInvoice(filePath: string, fileName: string): Promise<ProcessingResult> {
+    console.log(`\n🔧 [SERVICE] Procesando archivo: ${fileName}`);
+    console.log(`   📂 Ruta: ${filePath}`);
+
     try {
       // 1. Extraer información del PDF
+      console.log(`   📄 Extrayendo datos del PDF...`);
       const extraction = await this.pdfExtractor.extract(filePath);
+      console.log(`   📊 Extracción completada - Éxito: ${extraction.success}, Confianza: ${extraction.confidence}%`);
 
       if (!extraction.success || !extraction.data) {
+        console.log(`   ❌ Extracción falló: No se pudo extraer información`);
         return {
           success: false,
           error: 'No se pudo extraer información del archivo',
@@ -60,8 +66,18 @@ export class InvoiceProcessingService {
       const data = extraction.data;
       const confidence = extraction.confidence || 0;
 
+      console.log(`   📋 Datos extraídos:`);
+      console.log(`      CUIT: ${data.cuit || 'N/A'}`);
+      console.log(`      Fecha: ${data.date || 'N/A'}`);
+      console.log(`      Total: ${data.total || 'N/A'}`);
+      console.log(`      Tipo: ${data.invoiceType || 'N/A'}`);
+      console.log(`      Punto Venta: ${data.pointOfSale || 'N/A'}`);
+      console.log(`      Número: ${data.invoiceNumber || 'N/A'}`);
+
       // 2. Validar CUIT
+      console.log(`   🔍 Validando CUIT...`);
       if (!data.cuit || !validateCUIT(data.cuit)) {
+        console.log(`   ❌ CUIT inválido o no encontrado: ${data.cuit}`);
         return {
           success: false,
           error: 'CUIT inválido o no encontrado',
@@ -79,11 +95,14 @@ export class InvoiceProcessingService {
       }
 
       const normalizedCuit = normalizeCUIT(data.cuit);
+      console.log(`   ✅ CUIT válido: ${normalizedCuit}`);
 
       // 3. Buscar o crear emisor
+      console.log(`   🏢 Buscando emisor...`);
       let emitter = this.emitterRepo.findByCUIT(normalizedCuit);
 
       if (!emitter) {
+        console.log(`   ➕ Emisor no existe, creando nuevo...`);
         const cuitNumeric = normalizedCuit.replace(/-/g, '');
         const personType = getPersonType(normalizedCuit);
 
@@ -94,10 +113,18 @@ export class InvoiceProcessingService {
           aliases: JSON.stringify([]),
           tipoPersona: personType,
         });
+        console.log(`   ✅ Emisor creado: ${emitter.nombre}`);
+      } else {
+        console.log(`   ✅ Emisor encontrado: ${emitter.nombre}`);
       }
 
       // 4. Validar datos requeridos
+      console.log(`   🔍 Validando datos obligatorios...`);
       if (!data.invoiceType || data.pointOfSale === undefined || data.invoiceNumber === undefined) {
+        console.log(`   ❌ Faltan datos obligatorios:`);
+        console.log(`      Tipo: ${data.invoiceType || 'FALTA'}`);
+        console.log(`      Punto Venta: ${data.pointOfSale !== undefined ? data.pointOfSale : 'FALTA'}`);
+        console.log(`      Número: ${data.invoiceNumber !== undefined ? data.invoiceNumber : 'FALTA'}`);
         return {
           success: false,
           error: 'Faltan datos obligatorios de la factura',
@@ -116,6 +143,7 @@ export class InvoiceProcessingService {
 
       // 5. Verificar si ya existe
       const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(5, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
+      console.log(`   🔍 Verificando duplicados: ${fullInvoiceNumber}`);
 
       const existing = this.invoiceRepo.findByEmitterAndNumber(
         normalizedCuit,
@@ -125,6 +153,7 @@ export class InvoiceProcessingService {
       );
 
       if (existing) {
+        console.log(`   ⚠️  Factura duplicada - ya existe en BD`);
         return {
           success: false,
           error: 'Esta factura ya fue procesada',
@@ -144,8 +173,10 @@ export class InvoiceProcessingService {
           // Usar fecha actual si falla el parseo
         }
       }
+      console.log(`   📅 Fecha formateada: ${formattedDate}`);
 
       // 7. Crear factura en BD
+      console.log(`   💾 Guardando factura en base de datos...`);
       const invoice = this.invoiceRepo.create({
         emitterCuit: normalizedCuit,
         issueDate: formattedDate,
@@ -163,6 +194,9 @@ export class InvoiceProcessingService {
         requiresReview: confidence < 80,
       });
 
+      console.log(`   ✅ Factura guardada exitosamente - ID: ${invoice.id}`);
+      console.log(`   📊 Requiere revisión: ${confidence < 80 ? 'SÍ' : 'NO'} (confianza: ${confidence}%)`);
+
       return {
         success: true,
         invoice,
@@ -178,6 +212,10 @@ export class InvoiceProcessingService {
         },
       };
     } catch (error) {
+      console.log(`   ❌ Error durante procesamiento: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      if (error instanceof Error && error.stack) {
+        console.log(`   Stack trace:`, error.stack);
+      }
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Error desconocido',
@@ -193,12 +231,20 @@ export class InvoiceProcessingService {
    * @returns Array de resultados
    */
   async processBatch(files: Array<{ path: string; name: string }>): Promise<ProcessingResult[]> {
+    console.log(`\n🚀 [SERVICE] Iniciando procesamiento de ${files.length} archivo(s)`);
     const results: ProcessingResult[] = [];
 
     for (const file of files) {
       const result = await this.processInvoice(file.path, file.name);
       results.push(result);
     }
+
+    const successful = results.filter((r) => r.success).length;
+    const failed = results.filter((r) => !r.success).length;
+    console.log(`\n📊 [SERVICE] Resumen del procesamiento:`);
+    console.log(`   ✅ Exitosas: ${successful}`);
+    console.log(`   ❌ Fallidas: ${failed}`);
+    console.log(`   📝 Total: ${results.length}\n`);
 
     return results;
   }

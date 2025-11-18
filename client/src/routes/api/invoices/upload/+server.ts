@@ -11,25 +11,35 @@ import { existsSync } from 'fs';
 const UPLOAD_DIR = join(process.cwd(), '..', 'data', 'input');
 
 export const POST: RequestHandler = async ({ request }) => {
+  console.log('📤 [UPLOAD] Iniciando subida de archivos...');
+  console.log('📤 [UPLOAD] Directorio destino:', UPLOAD_DIR);
+
   try {
     // Crear directorio si no existe
     if (!existsSync(UPLOAD_DIR)) {
       await mkdir(UPLOAD_DIR, { recursive: true });
+      console.log('📁 [UPLOAD] Directorio creado');
     }
 
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
 
+    console.log(`📤 [UPLOAD] Archivos recibidos: ${files.length}`);
+
     if (!files || files.length === 0) {
+      console.warn('⚠️  [UPLOAD] No se recibieron archivos');
       return json({ success: false, error: 'No se recibieron archivos' }, { status: 400 });
     }
 
     const uploadedFiles = [];
 
     for (const file of files) {
+      console.log(`📄 [UPLOAD] Procesando: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);
+
       // Validar extensión
       const ext = file.name.split('.').pop()?.toLowerCase();
       if (!ext || !['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
+        console.warn(`⚠️  [UPLOAD] Tipo no soportado: ${file.name}`);
         return json(
           {
             success: false,
@@ -41,6 +51,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
       // Validar tamaño (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
+        console.warn(`⚠️  [UPLOAD] Archivo muy grande: ${file.name}`);
         return json(
           {
             success: false,
@@ -56,6 +67,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
       // Verificar si ya existe
       if (existsSync(filePath)) {
+        console.warn(`⚠️  [UPLOAD] Archivo ya existe: ${file.name}`);
         return json(
           {
             success: false,
@@ -66,6 +78,7 @@ export const POST: RequestHandler = async ({ request }) => {
       }
 
       await writeFile(filePath, buffer);
+      console.log(`✅ [UPLOAD] Guardado: ${filePath}`);
 
       uploadedFiles.push({
         name: file.name,
@@ -74,13 +87,15 @@ export const POST: RequestHandler = async ({ request }) => {
       });
     }
 
+    console.log(`✅ [UPLOAD] Completado: ${uploadedFiles.length} archivo(s)`);
+
     return json({
       success: true,
       message: `${uploadedFiles.length} archivo(s) subido(s) correctamente`,
       files: uploadedFiles,
     });
   } catch (error) {
-    console.error('Error uploading files:', error);
+    console.error('❌ [UPLOAD] Error:', error);
     return json(
       {
         success: false,
