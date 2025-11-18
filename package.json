@@ -2,15 +2,8 @@
   "name": "simple-procesador-facturas",
   "version": "0.1.0",
   "description": "Sistema automatizado para procesamiento, extracción y gestión de facturas argentinas con reconocimiento OCR y aprendizaje de patrones",
-  "main": "dist/main.js",
   "type": "module",
-  "bin": {
-    "procesador": "./dist/main.js"
-  },
   "scripts": {
-    "dev": "tsx watch src/main.ts",
-    "build": "tsc",
-    "start": "node dist/main.js",
     "test": "vitest",
     "test:unit": "vitest run tests/unit",
     "test:integration": "vitest run tests/integration",
@@ -18,14 +11,16 @@
     "test:watch": "vitest watch",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "db:init": "tsx scripts/init-db.ts",
+    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"web/src/**/*.{ts,svelte}\"",
+    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"web/src/**/*.{ts,svelte}\"",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts",
-    "db:migrate:zones": "node scripts/migrate-zones.cjs",
-    "web:dev": "cd web && npm run dev",
-    "web:build": "cd web && npm run build",
-    "web:preview": "cd web && npm run preview"
+    "dev": "cd web && npm run dev",
+    "build": "cd web && npm run build",
+    "preview": "cd web && npm run preview"
   },
   "keywords": [
     "facturas",
@@ -44,6 +39,8 @@
     "better-sqlite3": "^11.7.0",
     "commander": "^12.1.0",
     "date-fns": "^4.1.0",
+    "drizzle-kit": "^0.31.7",
+    "drizzle-orm": "^0.44.7",
     "exceljs": "^4.4.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
