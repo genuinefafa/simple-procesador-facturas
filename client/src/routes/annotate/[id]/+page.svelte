@@ -30,8 +30,18 @@
 		extractionConfidence: number | null;
 	}
 
+	interface ExtractedValues {
+		cuit?: string;
+		fecha?: string;
+		tipo?: string;
+		punto_venta?: string;
+		numero?: string;
+		total?: string;
+	}
+
 	let invoice: InvoiceData | null = $state(null);
 	let zones: Zone[] = $state([]);
+	let extractedValues: ExtractedValues = $state({});
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let saving = $state(false);
@@ -64,6 +74,10 @@
 		return fieldOptions.find((f) => f.value === field)?.label || field;
 	}
 
+	function getExtractedValue(field: string): string | undefined {
+		return extractedValues[field as keyof ExtractedValues];
+	}
+
 	// onMount solo carga los datos
 	onMount(async () => {
 		try {
@@ -74,6 +88,7 @@
 			if (data.success) {
 				invoice = data.invoice;
 				zones = data.zones || [];
+				extractedValues = data.extractedValues || {};
 			} else {
 				error = data.error || 'Error al cargar factura';
 			}
@@ -342,7 +357,12 @@
 								bind:group={selectedField}
 							/>
 							<span class="field-color" style="background-color: {option.color}"></span>
-							{option.label}
+							<div class="field-info">
+								<span class="field-name">{option.label}</span>
+								{#if getExtractedValue(option.value)}
+									<span class="field-value">"{getExtractedValue(option.value)}"</span>
+								{/if}
+							</div>
 						</label>
 					{/each}
 				</div>
@@ -359,7 +379,12 @@
 										class="zone-color"
 										style="background-color: {getFieldColor(zone.field)}"
 									></span>
-									<span class="zone-label">{getFieldLabel(zone.field)}</span>
+									<div class="zone-details">
+										<span class="zone-label">{getFieldLabel(zone.field)}</span>
+										{#if zone.extractedValue || getExtractedValue(zone.field)}
+											<span class="zone-value">"{zone.extractedValue || getExtractedValue(zone.field)}"</span>
+										{/if}
+									</div>
 								</div>
 								<button class="delete-btn" onclick={() => deleteZone(i)}>✕</button>
 							</div>
@@ -505,11 +530,30 @@
 		background: #f3f4f6;
 	}
 
+	.field-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		flex: 1;
+	}
+
+	.field-name {
+		font-weight: 500;
+		color: #374151;
+	}
+
+	.field-value {
+		font-size: 0.8rem;
+		color: #6b7280;
+		font-style: italic;
+	}
+
 	.field-color,
 	.zone-color {
 		width: 16px;
 		height: 16px;
 		border-radius: 3px;
+		flex-shrink: 0;
 	}
 
 	.zones-list {
@@ -538,11 +582,31 @@
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;
+		flex: 1;
+		min-width: 0;
+	}
+
+	.zone-details {
+		display: flex;
+		flex-direction: column;
+		gap: 0.2rem;
+		min-width: 0;
+		flex: 1;
 	}
 
 	.zone-label {
 		font-size: 0.9rem;
 		color: #374151;
+		font-weight: 500;
+	}
+
+	.zone-value {
+		font-size: 0.8rem;
+		color: #6b7280;
+		font-style: italic;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.delete-btn {

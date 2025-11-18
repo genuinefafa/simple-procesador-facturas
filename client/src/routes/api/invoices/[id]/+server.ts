@@ -51,6 +51,14 @@ export const GET: RequestHandler = async ({ params }) => {
         requiresReview: invoice.requiresReview,
         manuallyValidated: invoice.manuallyValidated,
       },
+      extractedValues: {
+        cuit: invoice.emitterCuit,
+        fecha: invoice.issueDate,
+        tipo: invoice.invoiceType,
+        punto_venta: invoice.pointOfSale?.toString(),
+        numero: invoice.invoiceNumber?.toString(),
+        total: invoice.total?.toString(),
+      },
       zones: zones.map((zone) => ({
         id: zone.id,
         field: zone.field,
