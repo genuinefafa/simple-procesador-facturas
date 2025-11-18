@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import { page } from '$app/stores';
 	import * as pdfjsLib from 'pdfjs-dist';
 
@@ -64,7 +64,6 @@
 		return fieldOptions.find((f) => f.value === field)?.label || field;
 	}
 
-	// onMount solo carga los datos
 	onMount(async () => {
 		try {
 			const invoiceId = $page.params.id;
@@ -74,6 +73,25 @@
 			if (data.success) {
 				invoice = data.invoice;
 				zones = data.zones || [];
+
+				// IMPORTANTE: tick() espera a que Svelte complete el renderizado del DOM
+				// Esto es necesario porque el canvas está dentro de {:else if invoice}
+				console.log('onMount: Esperando a que el DOM se actualice (tick)...');
+				await tick();
+				console.log('onMount: tick() completado');
+
+				// Dar un frame adicional para asegurar que el binding esté completo
+				await new Promise(resolve => requestAnimationFrame(resolve));
+				console.log('onMount: requestAnimationFrame completado');
+
+				console.log('onMount: Verificando canvas...', !!canvas);
+				if (canvas) {
+					console.log('onMount: ✅ Canvas disponible, cargando imagen');
+					await loadImage();
+				} else {
+					console.error('onMount: ❌ Canvas sigue siendo null después de tick + RAF');
+					error = 'Error: No se pudo inicializar el canvas';
+				}
 			} else {
 				error = data.error || 'Error al cargar factura';
 			}
@@ -82,14 +100,6 @@
 			console.error('onMount: Error:', err);
 		} finally {
 			loading = false;
-		}
-	});
-
-	// $effect reacciona cuando canvas e invoice están disponibles
-	$effect(() => {
-		if (canvas && invoice && !imageElement) {
-			console.log('$effect: Canvas e invoice disponibles, cargando imagen...');
-			loadImage();
 		}
 	});
 

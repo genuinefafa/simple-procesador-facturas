@@ -114,19 +114,19 @@ describe('file-naming utils', () => {
 
   describe('formatDateForFilename', () => {
     it('debe formatear fecha correctamente', () => {
-      const date = new Date('2023-02-14');
+      const date = new Date(2023, 1, 14); // Mes 1 = Febrero
       expect(formatDateForFilename(date)).toBe('2023-02-14');
     });
 
     it('debe agregar ceros a mes y día', () => {
-      const date = new Date('2023-01-05');
+      const date = new Date(2023, 0, 5); // Mes 0 = Enero
       expect(formatDateForFilename(date)).toBe('2023-01-05');
     });
   });
 
   describe('generateProcessedFilename', () => {
     it('debe generar nombre correcto con todos los componentes', () => {
-      const issueDate = new Date('2023-02-14');
+      const issueDate = new Date(2023, 1, 14); // Mes 1 = Febrero
       const emitter: Emitter = {
         cuit: '20-13046568-5',
         cuitNumeric: '20130465685',
@@ -144,7 +144,7 @@ describe('file-naming utils', () => {
     });
 
     it('debe preservar la extensión del archivo original', () => {
-      const issueDate = new Date('2023-05-20');
+      const issueDate = new Date(2023, 4, 20); // Mes 4 = Mayo
       const emitter: Emitter = {
         cuit: '30-50001770-4',
         cuitNumeric: '30500017704',
@@ -169,7 +169,7 @@ describe('file-naming utils', () => {
     });
 
     it('debe manejar punto de venta de 5 dígitos', () => {
-      const issueDate = new Date('2024-12-31');
+      const issueDate = new Date(2024, 11, 31); // Mes 11 = Diciembre
       const emitter: Emitter = {
         cuit: '20-12345678-9',
         cuitNumeric: '20123456789',
