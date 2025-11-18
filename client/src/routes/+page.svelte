@@ -257,7 +257,7 @@
 						<button class="btn btn-secondary" onclick={() => (uploadedFiles = [])}>
 							🗑️ Limpiar todo
 						</button>
-					</div}
+					</div>
 				{/if}
 			</section>
 		{:else if activeTab === 'review'}
