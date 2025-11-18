@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import * as pdfjsLib from 'pdfjs-dist';
 
@@ -64,6 +64,7 @@
 		return fieldOptions.find((f) => f.value === field)?.label || field;
 	}
 
+	// onMount solo carga los datos
 	onMount(async () => {
 		try {
 			const invoiceId = $page.params.id;
@@ -73,98 +74,62 @@
 			if (data.success) {
 				invoice = data.invoice;
 				zones = data.zones || [];
-
-				// IMPORTANTE: tick() espera a que Svelte complete el renderizado del DOM
-				// Esto es necesario porque el canvas está dentro de {:else if invoice}
-				console.log('onMount: Esperando a que el DOM se actualice (tick)...');
-				await tick();
-				console.log('onMount: tick() completado');
-
-				// Dar un frame adicional para asegurar que el binding esté completo
-				await new Promise(resolve => requestAnimationFrame(resolve));
-				console.log('onMount: requestAnimationFrame completado');
-
-				console.log('onMount: Verificando canvas...', !!canvas);
-				if (canvas) {
-					console.log('onMount: ✅ Canvas disponible, cargando imagen');
-					await loadImage();
-				} else {
-					console.error('onMount: ❌ Canvas sigue siendo null después de tick + RAF');
-					error = 'Error: No se pudo inicializar el canvas';
-				}
 			} else {
 				error = data.error || 'Error al cargar factura';
 			}
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Error de conexión';
-			console.error('onMount: Error:', err);
 		} finally {
 			loading = false;
 		}
 	});
 
+	// $effect reacciona cuando canvas e invoice están disponibles
+	$effect(() => {
+		if (canvas && invoice && !imageElement) {
+			loadImage();
+		}
+	});
+
 	async function loadImage() {
-		if (!invoice) {
-			console.error('loadImage: invoice is null');
-			return;
-		}
+		if (!invoice || !canvas) return;
 
-		if (!canvas) {
-			console.error('loadImage: canvas is null');
-			return;
-		}
-
-		console.log('loadImage: Cargando archivo:', invoice.originalFile);
 		const fileUrl = `/api/files/${encodeURIComponent(invoice.originalFile)}`;
 		const isPDF = invoice.originalFile.toLowerCase().endsWith('.pdf');
 
 		try {
 			if (isPDF) {
-				console.log('loadImage: Es PDF, usando loadPDF');
 				await loadPDF(fileUrl);
 			} else {
-				console.log('loadImage: Es imagen, usando loadRegularImage');
 				await loadRegularImage(fileUrl);
 			}
-			console.log('loadImage: Carga completada');
 		} catch (err) {
 			error = 'Error al cargar el archivo de la factura';
-			console.error('loadImage: Error:', err);
+			console.error('Error cargando imagen:', err);
 		}
 	}
 
 	async function loadPDF(url: string) {
-		console.log('loadPDF: Iniciando carga de PDF desde', url);
 		const loadingTask = pdfjsLib.getDocument(url);
 		const pdf = await loadingTask.promise;
-		console.log('loadPDF: PDF cargado, páginas:', pdf.numPages);
 
 		// Get first page
 		const page = await pdf.getPage(1);
-		console.log('loadPDF: Página 1 obtenida');
 
 		// Set canvas size based on viewport
 		const viewport = page.getViewport({ scale: 1.5 });
-		console.log('loadPDF: Viewport:', viewport.width, 'x', viewport.height);
 
-		if (!canvas) {
-			console.error('loadPDF: canvas es null!');
-			return;
-		}
+		if (!canvas) return;
 
-		console.log('loadPDF: Configurando canvas...');
 		canvas.width = viewport.width;
 		canvas.height = viewport.height;
 		ctx = canvas.getContext('2d');
-		console.log('loadPDF: Canvas configurado:', canvas.width, 'x', canvas.height);
 
 		// Render PDF page to canvas
-		console.log('loadPDF: Renderizando PDF en canvas...');
 		await page.render({
 			canvasContext: ctx!,
 			viewport: viewport
 		} as any).promise;
-		console.log('loadPDF: PDF renderizado en canvas');
 
 		// Create a temporary image element from the rendered canvas
 		// so we can redraw it later with annotations
@@ -174,12 +139,8 @@
 			img.onload = resolve;
 		});
 		imageElement = img;
-		console.log('loadPDF: Imagen temporal creada');
 
-		// Redibujar para mostrar la imagen (importante!)
-		console.log('loadPDF: Llamando a redraw()');
 		redraw();
-		console.log('loadPDF: redraw() completado');
 	}
 
 	async function loadRegularImage(url: string) {
@@ -203,25 +164,15 @@
 	}
 
 	function redraw() {
-		console.log('redraw: Iniciando. ctx:', !!ctx, 'imageElement:', !!imageElement);
-		if (!ctx || !imageElement) {
-			console.warn('redraw: Abortando - ctx o imageElement es null');
-			return;
-		}
-
-		console.log('redraw: Canvas size:', canvas!.width, 'x', canvas!.height);
-		console.log('redraw: Image size:', imageElement.width, 'x', imageElement.height);
+		if (!ctx || !imageElement) return;
 
 		// Clear canvas
 		ctx.clearRect(0, 0, canvas!.width, canvas!.height);
-		console.log('redraw: Canvas limpiado');
 
 		// Draw image
 		ctx.drawImage(imageElement, 0, 0);
-		console.log('redraw: Imagen dibujada');
 
 		// Draw existing zones
-		console.log('redraw: Dibujando', zones.length, 'zonas existentes');
 		zones.forEach((zone) => {
 			drawZone(zone.x, zone.y, zone.width, zone.height, getFieldColor(zone.field), false);
 		});
@@ -230,10 +181,8 @@
 		if (isDrawing) {
 			const width = currentX - startX;
 			const height = currentY - startY;
-			console.log('redraw: Dibujando zona actual:', { startX, startY, width, height });
 			drawZone(startX, startY, width, height, getFieldColor(selectedField), true);
 		}
-		console.log('redraw: Completado');
 	}
 
 	function drawZone(
