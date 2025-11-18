@@ -108,14 +108,14 @@ export class InvoiceProcessingService {
 
         emitter = this.emitterRepo.create({
           cuit: normalizedCuit,
-          cuitNumerico: cuitNumeric,
-          nombre: `Emisor ${normalizedCuit}`,
-          aliases: JSON.stringify([]),
-          tipoPersona: personType,
+          cuitNumeric: cuitNumeric,
+          name: `Emisor ${normalizedCuit}`,
+          aliases: [],
+          personType: personType,
         });
-        console.log(`   ✅ Emisor creado: ${emitter.nombre}`);
+        console.log(`   ✅ Emisor creado: ${emitter.name}`);
       } else {
-        console.log(`   ✅ Emisor encontrado: ${emitter.nombre}`);
+        console.log(`   ✅ Emisor encontrado: ${emitter.name}`);
       }
 
       // 4. Validar datos requeridos
