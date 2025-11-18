@@ -6,6 +6,28 @@ import type { Database } from 'better-sqlite3';
 import type { Invoice, InvoiceType, Currency, ExtractionMethod } from '../../utils/types';
 import { getDatabase } from '../connection';
 
+interface InvoiceRow {
+  id: number;
+  emisor_cuit: string;
+  template_usado_id: number | null;
+  fecha_emision: string;
+  tipo_comprobante: InvoiceType;
+  punto_venta: number;
+  numero_comprobante: number;
+  comprobante_completo: string;
+  total: number | null;
+  moneda: Currency;
+  archivo_original: string;
+  archivo_procesado: string;
+  tipo_archivo: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
+  file_hash: string | null;
+  metodo_extraccion: ExtractionMethod;
+  confianza_extraccion: number | null;
+  validado_manualmente: number;
+  requiere_revision: number;
+  procesado_en: string;
+}
+
 export class InvoiceRepository {
   private db: Database;
 
@@ -67,14 +89,40 @@ export class InvoiceRepository {
   }
 
   /**
+   * Mapea una fila de la base de datos a un objeto Invoice
+   */
+  private mapRowToInvoice(row: InvoiceRow): Invoice {
+    return {
+      id: row.id,
+      emitterCuit: row.emisor_cuit,
+      templateUsedId: row.template_usado_id ?? undefined,
+      issueDate: new Date(row.fecha_emision),
+      invoiceType: row.tipo_comprobante,
+      pointOfSale: row.punto_venta,
+      invoiceNumber: row.numero_comprobante,
+      fullInvoiceNumber: row.comprobante_completo,
+      total: row.total ?? 0,
+      currency: row.moneda,
+      originalFile: row.archivo_original,
+      processedFile: row.archivo_procesado,
+      fileType: row.tipo_archivo,
+      extractionMethod: row.metodo_extraccion,
+      extractionConfidence: row.confianza_extraccion ?? undefined,
+      manuallyValidated: row.validado_manualmente === 1,
+      requiresReview: row.requiere_revision === 1,
+      processedAt: new Date(row.procesado_en),
+    };
+  }
+
+  /**
    * Busca una factura por ID
    * @param id - ID de la factura
    * @returns Factura o null
    */
   findById(id: number): Invoice | null {
     const stmt = this.db.prepare('SELECT * FROM facturas WHERE id = ?');
-    const row = stmt.get(id) as Invoice | undefined;
-    return row || null;
+    const row = stmt.get(id) as InvoiceRow | undefined;
+    return row ? this.mapRowToInvoice(row) : null;
   }
 
   /**
@@ -99,8 +147,8 @@ export class InvoiceRepository {
         AND numero_comprobante = ?
     `);
 
-    const row = stmt.get(emitterCuit, type, pointOfSale, number) as Invoice | undefined;
-    return row || null;
+    const row = stmt.get(emitterCuit, type, pointOfSale, number) as InvoiceRow | undefined;
+    return row ? this.mapRowToInvoice(row) : null;
   }
 
   /**
@@ -170,7 +218,8 @@ export class InvoiceRepository {
     }
 
     const stmt = this.db.prepare(query);
-    return stmt.all(...params) as Invoice[];
+    const rows = stmt.all(...params) as InvoiceRow[];
+    return rows.map((row) => this.mapRowToInvoice(row));
   }
 
   /**
