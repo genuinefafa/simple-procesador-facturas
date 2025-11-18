@@ -18,7 +18,7 @@ interface ZoneData {
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
-    const body = await request.json();
+    const body: unknown = await request.json();
     const { invoiceId, zones } = body as { invoiceId: number; zones: ZoneData[] };
 
     if (!invoiceId || !zones || !Array.isArray(zones)) {

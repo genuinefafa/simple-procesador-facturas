@@ -12,6 +12,7 @@ export default tseslint.config(
       'coverage/',
       'scripts/',
       'vitest.config.ts',
+      'web/**',
     ],
   },
   eslint.configs.recommended,
