@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "postinstall": ".githooks/install.sh 2>/dev/null || echo '⚠️  Nota: No se pudieron instalar git hooks'",
     "dev": "npm run dev -w client",
     "build": "npm run build -w client",
     "preview": "npm run preview -w client",
