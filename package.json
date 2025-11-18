@@ -1,26 +1,33 @@
 {
   "name": "simple-procesador-facturas",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sistema automatizado para procesamiento, extracción y gestión de facturas argentinas con reconocimiento OCR y aprendizaje de patrones",
+  "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest",
-    "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
-    "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest watch",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write \"server/**/*.ts\" \"tests/**/*.ts\" \"client/src/**/*.{ts,svelte}\"",
-    "format:check": "prettier --check \"server/**/*.ts\" \"tests/**/*.ts\" \"client/src/**/*.{ts,svelte}\"",
-    "db:generate": "drizzle-kit generate",
-    "db:migrate": "tsx scripts/migrate.ts",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio",
-    "db:seed": "tsx scripts/seed.ts",
+    "install:all": "npm install && cd client && npm install && cd ../server && npm install && cd ..",
     "dev": "cd client && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "dev:db": "cd server && npm run db:studio",
     "build": "cd client && npm run build",
-    "preview": "cd client && npm run preview"
+    "preview": "cd client && npm run preview",
+    "test": "cd server && npm test",
+    "test:unit": "cd server && npm run test:unit",
+    "test:integration": "cd server && npm run test:integration",
+    "test:coverage": "cd server && npm run test:coverage",
+    "lint": "cd server && npm run lint && cd ../client && npm run lint || true",
+    "lint:fix": "cd server && npm run lint:fix && cd ../client && npm run lint:fix || true",
+    "format": "cd server && npm run format && cd ../client && npm run format || true",
+    "format:check": "cd server && npm run format:check && cd ../client && npm run format:check || true",
+    "db:generate": "cd server && npm run db:generate",
+    "db:migrate": "cd server && npm run db:migrate",
+    "db:push": "cd server && npm run db:push",
+    "db:studio": "cd server && npm run db:studio",
+    "db:seed": "cd server && npm run db:seed",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
   },
   "keywords": [
     "facturas",
@@ -35,33 +42,12 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {
-    "better-sqlite3": "^11.7.0",
-    "date-fns": "^4.1.0",
-    "drizzle-kit": "^0.31.7",
-    "drizzle-orm": "^0.44.7",
-    "exceljs": "^4.4.0",
-    "pdf-lib": "^1.17.1",
-    "pdf-parse": "^1.1.1",
-    "sharp": "^0.33.5",
-    "tesseract.js": "^5.1.1",
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.16.0",
-    "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^22.10.1",
-    "@types/pdf-parse": "^1.1.4",
-    "@vitest/coverage-v8": "^4.0.10",
-    "eslint": "^9.16.0",
-    "prettier": "^3.4.2",
-    "tsx": "^4.20.6",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.17.0",
-    "vitest": "^4.0.10"
-  },
   "engines": {
-    "node": ">=22.12.0",
+    "node": ">=22.21.0",
     "npm": ">=10.0.0"
-  }
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ]
 }

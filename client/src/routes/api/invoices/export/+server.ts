@@ -4,8 +4,8 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { FileExportService } from '../../../../../../server/services/file-export.service.js';
-import { InvoiceRepository } from '../../../../../../server/database/repositories/invoice.js';
+import { FileExportService } from '@server/services/file-export.service.js';
+import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { join } from 'path';
 
 const INPUT_DIR = join(process.cwd(), '..', 'data', 'input');

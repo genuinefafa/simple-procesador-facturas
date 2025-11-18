@@ -48,18 +48,20 @@ Aplicación web que permite procesar facturas en diversos formatos (PDF, JPG, PN
 ```
 simple-procesador-facturas/
 ├── client/                        # 🎨 FRONTEND (SvelteKit)
-│   └── src/
-│       ├── routes/
-│       │   ├── +page.svelte      # UI principal
-│       │   └── api/              # API endpoints
-│       │       └── invoices/
-│       │           ├── upload/+server.ts      # POST subir archivos
-│       │           ├── process/+server.ts     # POST procesar
-│       │           ├── export/+server.ts      # POST exportar
-│       │           ├── pending/+server.ts     # GET listar
-│       │           └── [id]/+server.ts        # GET/PATCH/DELETE
-│       └── lib/
-│           └── components/       # Componentes Svelte
+│   ├── src/
+│   │   ├── routes/
+│   │   │   ├── +page.svelte      # UI principal
+│   │   │   └── api/              # API endpoints
+│   │   │       └── invoices/
+│   │   │           ├── upload/+server.ts      # POST subir archivos
+│   │   │           ├── process/+server.ts     # POST procesar
+│   │   │           ├── export/+server.ts      # POST exportar
+│   │   │           ├── pending/+server.ts     # GET listar
+│   │   │           └── [id]/+server.ts        # GET/PATCH/DELETE
+│   │   └── lib/
+│   │       └── components/       # Componentes Svelte
+│   ├── package.json              # Frontend dependencies
+│   └── vite.config.ts            # Vite config + @server alias
 ├── server/                        # ⚙️ BACKEND (Services + DB)
 │   ├── database/
 │   │   ├── schema.ts             # Schema Drizzle (TypeScript)
@@ -68,19 +70,22 @@ simple-procesador-facturas/
 │   │   └── migrations/           # Migraciones SQL generadas
 │   ├── extractors/               # Extractores de información (PDF)
 │   ├── validators/               # Validación de CUIT
-│   └── services/                 # Lógica de negocio
-│       ├── invoice-processing.service.ts
-│       └── file-export.service.ts
+│   ├── services/                 # Lógica de negocio
+│   │   ├── invoice-processing.service.ts
+│   │   └── file-export.service.ts
+│   ├── scripts/
+│   │   ├── migrate.ts            # Ejecutar migraciones
+│   │   └── seed.ts               # Datos de prueba
+│   ├── package.json              # Backend dependencies
+│   ├── drizzle.config.ts         # Configuración Drizzle Kit
+│   └── tsconfig.json             # TypeScript config
 ├── data/
 │   ├── input/                    # Archivos subidos
 │   ├── processed/                # Archivos renombrados
 │   └── database.sqlite           # Base de datos
-├── scripts/
-│   ├── migrate.ts                # Ejecutar migraciones
-│   └── seed.ts                   # Datos de prueba
+├── package.json                  # Root orchestrator (workspaces)
 ├── Dockerfile
-├── docker-compose.yml
-└── drizzle.config.ts             # Configuración Drizzle Kit
+└── docker-compose.yml
 ```
 
 ## 🚀 Inicio Rápido
@@ -97,9 +102,8 @@ simple-procesador-facturas/
 git clone https://github.com/genuinefafa/simple-procesador-facturas.git
 cd simple-procesador-facturas
 
-# 2. Instalar dependencias
+# 2. Instalar dependencias (workspaces: root, client, server)
 npm install
-cd client && npm install && cd ..
 
 # 3. Ejecutar migraciones de BD
 npm run db:migrate
@@ -143,9 +147,13 @@ La aplicación estará disponible en `http://localhost:3000`
 
 ### Comandos NPM
 
+**Nota:** Todos los comandos se ejecutan desde la raíz del proyecto. El orquestador delegará automáticamente a los workspaces correspondientes (client/ o server/).
+
 ```bash
 # Desarrollo
-npm run dev                    # Iniciar servidor de desarrollo
+npm run dev                    # Iniciar servidor de desarrollo (client)
+npm run dev:client             # Iniciar cliente
+npm run dev:db                 # Abrir Drizzle Studio
 
 # Base de datos
 npm run db:generate            # Generar nueva migración desde schema
@@ -154,21 +162,27 @@ npm run db:push                # Push directo a BD (dev only)
 npm run db:studio              # Abrir Drizzle Studio (GUI)
 npm run db:seed                # Cargar datos de prueba
 
-# Testing
+# Testing (server)
 npm run test                   # Ejecutar todos los tests
 npm run test:unit              # Solo tests unitarios
 npm run test:integration       # Solo tests de integración
 npm run test:coverage          # Generar reporte de cobertura
 
-# Linting & Formatting
-npm run lint                   # Ejecutar ESLint
+# Linting & Formatting (ambos workspaces)
+npm run lint                   # Ejecutar ESLint en server y client
 npm run lint:fix               # Arreglar problemas automáticamente
 npm run format                 # Formatear código con Prettier
 npm run format:check           # Verificar formato
 
 # Build & Preview
-npm run build                  # Build para producción
+npm run build                  # Build para producción (client)
 npm run preview                # Preview del build
+
+# Docker
+npm run docker:build           # Construir imagen Docker
+npm run docker:up              # Levantar contenedores
+npm run docker:down            # Detener contenedores
+npm run docker:logs            # Ver logs
 ```
 
 ## 🗄️ Base de Datos
@@ -178,7 +192,7 @@ npm run preview                # Preview del build
 Este proyecto usa **Drizzle ORM** para gestionar migraciones automáticamente:
 
 ```bash
-# 1. Modificar src/database/schema.ts
+# 1. Modificar server/database/schema.ts
 # 2. Generar migración
 npm run db:generate
 

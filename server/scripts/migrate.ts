@@ -3,7 +3,7 @@
  */
 
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { db, rawDb } from '../server/database/db.js';
+import { db, rawDb } from '../database/db.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -16,7 +16,7 @@ console.info('🚀 Ejecutando migraciones...');
 try {
   // 1. Ejecutar migraciones de Drizzle
   console.info('📦 Aplicando migraciones de Drizzle...');
-  migrate(db, { migrationsFolder: './src/database/migrations' });
+  migrate(db, { migrationsFolder: './database/migrations' });
   console.info('✅ Migraciones de Drizzle aplicadas');
 
   // 2. Ejecutar post-migration.sql (triggers y views)
@@ -24,7 +24,6 @@ try {
   const postMigrationPath = join(
     __dirname,
     '..',
-    'src',
     'database',
     'migrations',
     'post-migration.sql'

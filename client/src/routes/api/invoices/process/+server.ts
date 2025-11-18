@@ -4,7 +4,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { InvoiceProcessingService } from '../../../../../../server/services/invoice-processing.service.js';
+import { InvoiceProcessingService } from '@server/services/invoice-processing.service.js';
 
 export const POST: RequestHandler = async ({ request }) => {
   try {

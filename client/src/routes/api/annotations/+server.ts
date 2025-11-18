@@ -4,8 +4,8 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { ZoneAnnotationRepository } from '../../../../../../server/database/repositories/zone-annotation.js';
-import { InvoiceRepository } from '../../../../../../server/database/repositories/invoice.js';
+import { ZoneAnnotationRepository } from '@server/database/repositories/zone-annotation.js';
+import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 
 interface ZoneData {
   field: string;

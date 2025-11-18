@@ -4,10 +4,10 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { InvoiceRepository } from '../../../../../../server/database/repositories/invoice.js';
-import { EmitterRepository } from '../../../../../../server/database/repositories/emitter.js';
-import { ZoneAnnotationRepository } from '../../../../../../server/database/repositories/zone-annotation.js';
-import { getDatabase } from '../../../../../../server/database/connection.js';
+import { InvoiceRepository } from '@server/database/repositories/invoice.js';
+import { EmitterRepository } from '@server/database/repositories/emitter.js';
+import { ZoneAnnotationRepository } from '@server/database/repositories/zone-annotation.js';
+import { getDatabase } from '@server/database/connection.js';
 
 export const GET: RequestHandler = async ({ params }) => {
   try {

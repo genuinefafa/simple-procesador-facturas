@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const DB_PATH = join(__dirname, '..', 'data', 'database.sqlite');
+const DB_PATH = join(__dirname, '..', '..', 'data', 'database.sqlite');
 
 if (!existsSync(DB_PATH)) {
   console.error('❌ La base de datos no existe. Ejecutá primero: npm run db:init');

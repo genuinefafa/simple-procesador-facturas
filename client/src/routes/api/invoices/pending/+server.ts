@@ -5,10 +5,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
-// Importar repositorios desde la raíz del proyecto
-import type { Invoice } from '../../../../../../server/utils/types.js';
-import { InvoiceRepository } from '../../../../../../server/database/repositories/invoice.js';
-import { EmitterRepository } from '../../../../../../server/database/repositories/emitter.js';
+// Importar repositorios desde @server
+import type { Invoice } from '@server/utils/types.js';
+import { InvoiceRepository } from '@server/database/repositories/invoice.js';
+import { EmitterRepository } from '@server/database/repositories/emitter.js';
 
 export const GET: RequestHandler = async () => {
   try {
