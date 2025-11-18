@@ -7,17 +7,17 @@ WORKDIR /app
 
 # Copiar package files
 COPY package*.json ./
-COPY web/package*.json ./web/
+COPY client/package*.json ./client/
 
 # Instalar dependencias
 RUN npm ci --only=production && \
-    cd web && npm ci --only=production
+    cd client && npm ci --only=production
 
 # Copiar código fuente
 COPY . .
 
 # Build de la aplicación web
-RUN cd web && npm run build
+RUN cd client && npm run build
 
 # Stage 2: Production
 FROM node:22.21.0-alpine
@@ -36,12 +36,12 @@ RUN addgroup -g 1001 -S nodejs && \
 # Copiar archivos necesarios desde builder
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nodejs:nodejs /app/src ./src
+COPY --from=builder --chown=nodejs:nodejs /app/server ./server
 COPY --from=builder --chown=nodejs:nodejs /app/scripts ./scripts
 COPY --from=builder --chown=nodejs:nodejs /app/drizzle.config.ts ./
-COPY --from=builder --chown=nodejs:nodejs /app/web/build ./web/build
-COPY --from=builder --chown=nodejs:nodejs /app/web/package*.json ./web/
-COPY --from=builder --chown=nodejs:nodejs /app/web/node_modules ./web/node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/client/build ./client/build
+COPY --from=builder --chown=nodejs:nodejs /app/client/package*.json ./client/
+COPY --from=builder --chown=nodejs:nodejs /app/client/node_modules ./client/node_modules
 
 # Crear directorios de datos
 RUN mkdir -p data/input data/processed data/backup && \
@@ -62,5 +62,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"
 
 # Iniciar aplicación
-WORKDIR /app/web
+WORKDIR /app/client
 CMD ["npm", "run", "preview", "--", "--host", "0.0.0.0", "--port", "3000"]

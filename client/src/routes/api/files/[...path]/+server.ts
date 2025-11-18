@@ -79,8 +79,8 @@ export const GET: RequestHandler = async ({ params }) => {
     return new Response(fileBuffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=3600'
-      }
+        'Cache-Control': 'public, max-age=3600',
+      },
     });
   } catch (err) {
     if (err instanceof Error && 'status' in err) {

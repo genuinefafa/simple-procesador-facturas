@@ -4,7 +4,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { InvoiceProcessingService } from '../../../../../src/services/invoice-processing.service.js';
+import { InvoiceProcessingService } from '../../../../../../server/services/invoice-processing.service.js';
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
@@ -14,10 +14,7 @@ export const POST: RequestHandler = async ({ request }) => {
     };
 
     if (!files || !Array.isArray(files) || files.length === 0) {
-      return json(
-        { success: false, error: 'Se requiere un array de archivos' },
-        { status: 400 }
-      );
+      return json({ success: false, error: 'Se requiere un array de archivos' }, { status: 400 });
     }
 
     const processingService = new InvoiceProcessingService();

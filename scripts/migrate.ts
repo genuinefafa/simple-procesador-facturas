@@ -3,7 +3,7 @@
  */
 
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { db, rawDb } from '../src/database/db.js';
+import { db, rawDb } from '../server/database/db.js';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';

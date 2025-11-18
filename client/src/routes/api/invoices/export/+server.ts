@@ -4,8 +4,8 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { FileExportService } from '../../../../../src/services/file-export.service.js';
-import { InvoiceRepository } from '../../../../../src/database/repositories/invoice.js';
+import { FileExportService } from '../../../../../../server/services/file-export.service.js';
+import { InvoiceRepository } from '../../../../../../server/database/repositories/invoice.js';
 import { join } from 'path';
 
 const INPUT_DIR = join(process.cwd(), '..', 'data', 'input');
@@ -26,9 +26,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const invoiceRepo = new InvoiceRepository();
     const exportService = new FileExportService(OUTPUT_DIR);
 
-    const invoices = invoiceIds
-      .map((id) => invoiceRepo.findById(id))
-      .filter((inv) => inv !== null);
+    const invoices = invoiceIds.map((id) => invoiceRepo.findById(id)).filter((inv) => inv !== null);
 
     if (invoices.length === 0) {
       return json({ success: false, error: 'No se encontraron facturas' }, { status: 404 });

@@ -36,11 +36,7 @@ export class FileExportService {
    * @param options - Opciones de exportación
    * @returns Resultado de la exportación
    */
-  exportInvoice(
-    invoice: Invoice,
-    originalPath: string,
-    options: ExportOptions = {}
-  ): ExportResult {
+  exportInvoice(invoice: Invoice, originalPath: string, options: ExportOptions = {}): ExportResult {
     try {
       const outputDir = options.outputDir || this.defaultOutputDir;
 
@@ -101,11 +97,7 @@ export class FileExportService {
    * @param format - Formato personalizado (opcional)
    * @returns Nombre del archivo
    */
-  private generateFileName(
-    invoice: Invoice,
-    originalPath: string,
-    format?: string
-  ): string {
+  private generateFileName(invoice: Invoice, originalPath: string, format?: string): string {
     const ext = extname(originalPath);
     const cuitNumeric = invoice.emitterCuit.replace(/-/g, '');
 
@@ -116,12 +108,14 @@ export class FileExportService {
 
     if (format) {
       // Formato personalizado
-      return format
-        .replace('{CUIT}', cuitNumeric)
-        .replace('{DATE}', dateFormatted)
-        .replace('{TYPE}', invoice.invoiceType)
-        .replace('{PV}', pvFormatted)
-        .replace('{NUM}', numFormatted) + ext;
+      return (
+        format
+          .replace('{CUIT}', cuitNumeric)
+          .replace('{DATE}', dateFormatted)
+          .replace('{TYPE}', invoice.invoiceType)
+          .replace('{PV}', pvFormatted)
+          .replace('{NUM}', numFormatted) + ext
+      );
     }
 
     // Formato default

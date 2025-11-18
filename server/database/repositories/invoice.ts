@@ -59,9 +59,10 @@ export class InvoiceRepository {
     const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(4, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
 
     // Normalizar fecha
-    const issueDateStr = typeof data.issueDate === 'string'
-      ? data.issueDate
-      : data.issueDate.toISOString().split('T')[0];
+    const issueDateStr =
+      typeof data.issueDate === 'string'
+        ? data.issueDate
+        : data.issueDate.toISOString().split('T')[0];
 
     const stmt = this.db.prepare(`
       INSERT INTO facturas (

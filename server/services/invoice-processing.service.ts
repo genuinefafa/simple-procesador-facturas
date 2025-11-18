@@ -97,11 +97,7 @@ export class InvoiceProcessingService {
       }
 
       // 4. Validar datos requeridos
-      if (
-        !data.invoiceType ||
-        data.pointOfSale === undefined ||
-        data.invoiceNumber === undefined
-      ) {
+      if (!data.invoiceType || data.pointOfSale === undefined || data.invoiceNumber === undefined) {
         return {
           success: false,
           error: 'Faltan datos obligatorios de la factura',
@@ -196,9 +192,7 @@ export class InvoiceProcessingService {
    * @param files - Array de {path, name}
    * @returns Array de resultados
    */
-  async processBatch(
-    files: Array<{ path: string; name: string }>
-  ): Promise<ProcessingResult[]> {
+  async processBatch(files: Array<{ path: string; name: string }>): Promise<ProcessingResult[]> {
     const results: ProcessingResult[] = [];
 
     for (const file of files) {

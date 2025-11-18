@@ -11,16 +11,16 @@
     "test:watch": "vitest watch",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\" \"web/src/**/*.{ts,svelte}\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\" \"web/src/**/*.{ts,svelte}\"",
+    "format": "prettier --write \"server/**/*.ts\" \"tests/**/*.ts\" \"client/src/**/*.{ts,svelte}\"",
+    "format:check": "prettier --check \"server/**/*.ts\" \"tests/**/*.ts\" \"client/src/**/*.{ts,svelte}\"",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts",
-    "dev": "cd web && npm run dev",
-    "build": "cd web && npm run build",
-    "preview": "cd web && npm run preview"
+    "dev": "cd client && npm run dev",
+    "build": "cd client && npm run build",
+    "preview": "cd client && npm run preview"
   },
   "keywords": [
     "facturas",

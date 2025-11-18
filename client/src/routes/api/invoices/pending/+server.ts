@@ -6,9 +6,9 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 // Importar repositorios desde la raíz del proyecto
-import type { Invoice } from '../../../../../../src/utils/types.js';
-import { InvoiceRepository } from '../../../../../../src/database/repositories/invoice.js';
-import { EmitterRepository } from '../../../../../../src/database/repositories/emitter.js';
+import type { Invoice } from '../../../../../../server/utils/types.js';
+import { InvoiceRepository } from '../../../../../../server/database/repositories/invoice.js';
+import { EmitterRepository } from '../../../../../../server/database/repositories/emitter.js';
 
 export const GET: RequestHandler = async () => {
   try {
@@ -18,7 +18,7 @@ export const GET: RequestHandler = async () => {
     // Obtener todas las facturas recientes (ordenadas por fecha)
     // El frontend puede filtrar por confianza o estado de revisión
     const pendingInvoices = invoiceRepo.list({
-      limit: 50
+      limit: 50,
     });
 
     // Enriquecer con datos del emisor
@@ -36,21 +36,21 @@ export const GET: RequestHandler = async () => {
         originalFile: invoice.originalFile,
         extractionConfidence: invoice.extractionConfidence,
         requiresReview: invoice.requiresReview,
-        manuallyValidated: invoice.manuallyValidated
+        manuallyValidated: invoice.manuallyValidated,
       };
     });
 
     return json({
       success: true,
       count: enrichedInvoices.length,
-      invoices: enrichedInvoices
+      invoices: enrichedInvoices,
     });
   } catch (error) {
     console.error('Error fetching pending invoices:', error);
     return json(
       {
         success: false,
-        error: error instanceof Error ? error.message : 'Error desconocido'
+        error: error instanceof Error ? error.message : 'Error desconocido',
       },
       { status: 500 }
     );

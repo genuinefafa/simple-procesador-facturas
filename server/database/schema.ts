@@ -64,12 +64,8 @@ export const emisores = sqliteTable(
     aliases: text('aliases'), // JSON array
 
     // Relación con template
-    templatePreferidoId: integer('template_preferido_id').references(
-      () => templatesExtraccion.id
-    ),
-    templateAutoDetectado: integer('template_auto_detectado', { mode: 'boolean' }).default(
-      true
-    ),
+    templatePreferidoId: integer('template_preferido_id').references(() => templatesExtraccion.id),
+    templateAutoDetectado: integer('template_auto_detectado', { mode: 'boolean' }).default(true),
     configOverride: text('config_override'), // JSON
 
     // Metadata

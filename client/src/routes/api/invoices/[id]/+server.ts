@@ -4,10 +4,10 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { InvoiceRepository } from '../../../../../../src/database/repositories/invoice.js';
-import { EmitterRepository } from '../../../../../../src/database/repositories/emitter.js';
-import { ZoneAnnotationRepository } from '../../../../../../src/database/repositories/zone-annotation.js';
-import { getDatabase } from '../../../../../../src/database/connection.js';
+import { InvoiceRepository } from '../../../../../../server/database/repositories/invoice.js';
+import { EmitterRepository } from '../../../../../../server/database/repositories/emitter.js';
+import { ZoneAnnotationRepository } from '../../../../../../server/database/repositories/zone-annotation.js';
+import { getDatabase } from '../../../../../../server/database/connection.js';
 
 export const GET: RequestHandler = async ({ params }) => {
   try {
@@ -129,10 +129,15 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     }
 
     // Si se actualizó tipo, pv o número, recalcular comprobante completo
-    if (updates.invoiceType || updates.pointOfSale !== undefined || updates.invoiceNumber !== undefined) {
+    if (
+      updates.invoiceType ||
+      updates.pointOfSale !== undefined ||
+      updates.invoiceNumber !== undefined
+    ) {
       const newType = updates.invoiceType || invoice.invoiceType;
       const newPV = updates.pointOfSale !== undefined ? updates.pointOfSale : invoice.pointOfSale;
-      const newNum = updates.invoiceNumber !== undefined ? updates.invoiceNumber : invoice.invoiceNumber;
+      const newNum =
+        updates.invoiceNumber !== undefined ? updates.invoiceNumber : invoice.invoiceNumber;
       const fullNumber = `${newType}-${String(newPV).padStart(5, '0')}-${String(newNum).padStart(8, '0')}`;
       fields.push('comprobante_completo = ?');
       values.push(fullNumber);
