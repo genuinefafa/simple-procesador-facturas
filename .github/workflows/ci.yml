@@ -98,13 +98,14 @@ jobs:
           path: coverage/
           retention-days: 30
 
-      - name: Comment coverage on PR
-        if: github.event_name == 'pull_request'
-        uses: romeovs/lcov-reporter-action@v0.3.1
-        with:
-          lcov-file: ./coverage/lcov.info
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          delete-old-comments: true
+      # Comentado temporalmente - la action puede fallar
+      # - name: Comment coverage on PR
+      #   if: github.event_name == 'pull_request'
+      #   uses: romeovs/lcov-reporter-action@v0.3.1
+      #   with:
+      #     lcov-file: ./coverage/lcov.info
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     delete-old-comments: true
 
   security:
     name: Security Audit
