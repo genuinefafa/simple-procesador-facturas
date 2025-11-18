@@ -8,5 +8,14 @@ export default defineConfig({
 		alias: {
 			'@root': path.resolve(__dirname, '../src')
 		}
+	},
+	server: {
+		port: parseInt(process.env.VITE_PORT || '5173'),
+		host: process.env.VITE_HOST || 'localhost',
+		strictPort: false, // Si el puerto está ocupado, intenta el siguiente disponible
+	},
+	preview: {
+		port: parseInt(process.env.VITE_PREVIEW_PORT || '4173'),
+		host: process.env.VITE_HOST || 'localhost',
 	}
 });
