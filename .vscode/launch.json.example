@@ -1,46 +1,55 @@
 {
   // Configuraciones de debug para VS Code
+  // Copiar a launch.json para usar
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug: Procesar Factura",
+      "name": "Debug: SvelteKit Dev Server",
       "type": "node",
       "request": "launch",
-      "runtimeArgs": ["-r", "tsx"],
-      "args": [
-        "${workspaceFolder}/src/main.ts",
-        "process",
-        "--file",
-        "${workspaceFolder}/data/input/test.pdf"
-      ],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
       "cwd": "${workspaceFolder}",
       "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen"
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "Debug: Tests",
+      "name": "Debug: Server Tests",
       "type": "node",
       "request": "launch",
-      "runtimeArgs": ["--loader", "tsx", "--test"],
-      "args": ["${workspaceFolder}/tests/**/*.test.ts"],
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "test", "-w", "server"],
       "cwd": "${workspaceFolder}",
-      "console": "integratedTerminal"
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
     },
     {
-      "name": "Debug: CLI Actual",
+      "name": "Debug: Migrate DB",
       "type": "node",
       "request": "launch",
       "runtimeArgs": ["-r", "tsx"],
-      "args": ["${workspaceFolder}/src/main.ts", "${input:cliArgs}"],
-      "cwd": "${workspaceFolder}",
+      "args": ["${workspaceFolder}/server/scripts/migrate.ts"],
+      "cwd": "${workspaceFolder}/server",
       "console": "integratedTerminal"
-    }
-  ],
-  "inputs": [
+    },
     {
-      "id": "cliArgs",
-      "type": "promptString",
-      "description": "Argumentos del CLI (ej: list, search --cuit 30-12345678-9)"
+      "name": "Debug: Seed DB",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": ["-r", "tsx"],
+      "args": ["${workspaceFolder}/server/scripts/seed.ts"],
+      "cwd": "${workspaceFolder}/server",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Debug: Invoice Processing Service",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": ["-r", "tsx"],
+      "program": "${workspaceFolder}/server/services/invoice-processing.service.ts",
+      "cwd": "${workspaceFolder}/server",
+      "console": "integratedTerminal"
     }
   ]
 }

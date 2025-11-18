@@ -1,16 +1,30 @@
 {
   // Extensiones recomendadas para este proyecto
   "recommendations": [
+    // Svelte & SvelteKit
+    "svelte.svelte-vscode",
+
+    // Linting & Formatting
     "dbaeumer.vscode-eslint",
     "esbenp.prettier-vscode",
+
+    // TypeScript
     "ms-vscode.vscode-typescript-next",
+
+    // Utilidades
     "christian-kohler.path-intellisense",
     "usernamehw.errorlens",
+
+    // Spell Checker
     "streetsidesoftware.code-spell-checker",
     "streetsidesoftware.code-spell-checker-spanish",
+
+    // Productividad
     "gruntfuggly.todo-tree",
     "yzhang.markdown-all-in-one",
     "bierner.markdown-mermaid",
+
+    // Database
     "alexcvzz.vscode-sqlite"
   ]
 }
