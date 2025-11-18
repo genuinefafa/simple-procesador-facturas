@@ -25,65 +25,61 @@ Aplicación web que permite procesar facturas en diversos formatos (PDF, JPG, PN
 
 ## 🏗️ Arquitectura
 
+**Monorepo con npm workspaces:**
+- `client/` = SvelteKit fullstack (Frontend UI + Backend API)
+- `server/` = Shared libraries (Database, Services, Extractors)
+- `package.json` root = Orquestador
+
+**Importante:** No hay servidor HTTP separado. Todo corre dentro de SvelteKit. Los servicios en `server/` son importados por los API endpoints en `client/src/routes/api/`.
+
 ### Stack Tecnológico
 
-**Backend:**
-- Node.js 22.21.0+
-- TypeScript 5.7
-- Drizzle ORM (migraciones automáticas)
-- SQLite (better-sqlite3)
-- pdf-parse (extracción de texto)
-
-**Frontend:**
-- SvelteKit 2
-- Vite
-- PDF.js (visualización)
-
-**DevOps:**
-- Docker & Docker Compose
-- Nginx (reverse proxy, opcional)
+- **Runtime:** Node.js 22.21.0+, TypeScript 5.7
+- **Framework:** SvelteKit 2 (fullstack)
+- **Database:** SQLite (better-sqlite3) + Drizzle ORM
+- **PDF Processing:** pdf-parse, pdf-lib
+- **Build:** Vite
+- **DevOps:** Docker, Docker Compose
 
 ### Estructura del Proyecto
 
 ```
 simple-procesador-facturas/
-├── client/                        # 🎨 FRONTEND (SvelteKit)
+├── client/                        # 🌐 SVELTEKIT FULLSTACK
 │   ├── src/
 │   │   ├── routes/
-│   │   │   ├── +page.svelte      # UI principal
-│   │   │   └── api/              # API endpoints
-│   │   │       └── invoices/
-│   │   │           ├── upload/+server.ts      # POST subir archivos
-│   │   │           ├── process/+server.ts     # POST procesar
-│   │   │           ├── export/+server.ts      # POST exportar
-│   │   │           ├── pending/+server.ts     # GET listar
-│   │   │           └── [id]/+server.ts        # GET/PATCH/DELETE
-│   │   └── lib/
-│   │       └── components/       # Componentes Svelte
-│   ├── package.json              # Frontend dependencies
-│   └── vite.config.ts            # Vite config + @server alias
-├── server/                        # ⚙️ BACKEND (Services + DB)
+│   │   │   ├── +page.svelte      # Frontend UI
+│   │   │   └── api/              # Backend API (SvelteKit endpoints)
+│   │   │       ├── invoices/upload/+server.ts
+│   │   │       ├── invoices/process/+server.ts
+│   │   │       ├── invoices/export/+server.ts
+│   │   │       └── annotations/+server.ts
+│   │   └── lib/components/       # Svelte components
+│   ├── package.json
+│   └── vite.config.ts            # Alias @server para imports
+│
+├── server/                        # 📚 SHARED LIBRARIES (NO es servidor HTTP)
 │   ├── database/
-│   │   ├── schema.ts             # Schema Drizzle (TypeScript)
-│   │   ├── db.ts                 # Conexión a BD
-│   │   ├── repositories/         # Repositorios de acceso a datos
-│   │   └── migrations/           # Migraciones SQL generadas
-│   ├── extractors/               # Extractores de información (PDF)
-│   ├── validators/               # Validación de CUIT
-│   ├── services/                 # Lógica de negocio
+│   │   ├── schema.ts             # Drizzle ORM schema
+│   │   ├── db.ts                 # SQLite connection
+│   │   ├── repositories/         # Data access layer
+│   │   └── migrations/           # SQL migrations
+│   ├── services/                 # Business logic
 │   │   ├── invoice-processing.service.ts
 │   │   └── file-export.service.ts
+│   ├── extractors/               # PDF extraction logic
+│   ├── validators/               # CUIT validation
 │   ├── scripts/
-│   │   ├── migrate.ts            # Ejecutar migraciones
-│   │   └── seed.ts               # Datos de prueba
-│   ├── package.json              # Backend dependencies
-│   ├── drizzle.config.ts         # Configuración Drizzle Kit
-│   └── tsconfig.json             # TypeScript config
-├── data/
-│   ├── input/                    # Archivos subidos
-│   ├── processed/                # Archivos renombrados
-│   └── database.sqlite           # Base de datos
-├── package.json                  # Root orchestrator (workspaces)
+│   │   ├── migrate.ts            # Run migrations
+│   │   └── seed.ts               # Seed test data
+│   └── package.json
+│
+├── data/                          # Persistent data
+│   ├── input/                    # Uploaded files
+│   ├── processed/                # Renamed files
+│   └── database.sqlite           # SQLite database
+│
+├── package.json                   # Monorepo orchestrator
 ├── Dockerfile
 └── docker-compose.yml
 ```
@@ -147,57 +143,63 @@ La aplicación estará disponible en `http://localhost:3000`
 
 ### Comandos NPM
 
-**Nota:** Todos los comandos se ejecutan desde la raíz del proyecto. El orquestador delegará automáticamente a los workspaces correspondientes (client/ o server/).
+**Desde la raíz del proyecto** (usa npm workspaces):
 
 ```bash
 # Desarrollo
-npm run dev                    # Iniciar servidor de desarrollo (client)
-npm run dev:client             # Iniciar cliente
-npm run dev:db                 # Abrir Drizzle Studio
-
-# Base de datos
-npm run db:generate            # Generar nueva migración desde schema
-npm run db:migrate             # Ejecutar migraciones pendientes
-npm run db:push                # Push directo a BD (dev only)
-npm run db:studio              # Abrir Drizzle Studio (GUI)
-npm run db:seed                # Cargar datos de prueba
-
-# Testing (server)
-npm run test                   # Ejecutar todos los tests
-npm run test:unit              # Solo tests unitarios
-npm run test:integration       # Solo tests de integración
-npm run test:coverage          # Generar reporte de cobertura
-
-# Linting & Formatting (ambos workspaces)
-npm run lint                   # Ejecutar ESLint en server y client
-npm run lint:fix               # Arreglar problemas automáticamente
-npm run format                 # Formatear código con Prettier
-npm run format:check           # Verificar formato
-
-# Build & Preview
-npm run build                  # Build para producción (client)
+npm run dev                    # Inicia SvelteKit (http://localhost:5173)
+npm run build                  # Build de producción
 npm run preview                # Preview del build
 
+# CI/CD
+npm run test                   # Tests (server workspace)
+npm run lint                   # ESLint en todos los workspaces
+npm run format:check           # Prettier check en todos los workspaces
+
+# Base de datos
+npm run db:migrate             # Aplicar migraciones
+npm run db:seed                # Cargar datos de prueba
+npm run db:studio              # Drizzle Studio GUI
+
 # Docker
-npm run docker:build           # Construir imagen Docker
+npm run docker:build           # Construir imagen
 npm run docker:up              # Levantar contenedores
 npm run docker:down            # Detener contenedores
 npm run docker:logs            # Ver logs
 ```
 
+**Dentro de cada workspace:**
+
+```bash
+# En server/ - solo si necesitás operaciones específicas
+cd server
+npm run db:generate            # Generar nueva migración
+npm run db:push                # Push directo (dev only)
+npm run test:unit              # Tests unitarios
+npm run test:coverage          # Reporte de cobertura
+npm run lint:fix               # Fix linting issues
+npm run format                 # Format code
+
+# En client/ - rara vez necesario
+cd client
+npm run check                  # SvelteKit type check
+npm run lint                   # Lint frontend
+```
+
 ## 🗄️ Base de Datos
 
-### Migraciones
-
-Este proyecto usa **Drizzle ORM** para gestionar migraciones automáticamente:
+### Migraciones con Drizzle ORM
 
 ```bash
 # 1. Modificar server/database/schema.ts
-# 2. Generar migración
-npm run db:generate
+# 2. Generar migración SQL
+cd server && npm run db:generate
 
-# 3. Aplicar migración
-npm run db:migrate
+# 3. Aplicar migraciones
+npm run db:migrate  # (desde root)
+
+# 4. (Opcional) Cargar datos de prueba
+npm run db:seed
 ```
 
 ### Schema Principal
