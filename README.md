@@ -101,17 +101,23 @@ cd simple-procesador-facturas
 # 2. Instalar dependencias (workspaces: root, client, server)
 npm install
 
-# 3. Ejecutar migraciones de BD
+# 3. (Opcional) Configurar puerto personalizado
+cd client
+cp .env.example .env
+# Editar .env y cambiar VITE_PORT si querés usar otro puerto
+cd ..
+
+# 4. Ejecutar migraciones de BD
 npm run db:migrate
 
-# 4. (Opcional) Cargar datos de prueba
+# 5. (Opcional) Cargar datos de prueba
 npm run db:seed
 
-# 5. Iniciar servidor de desarrollo
+# 6. Iniciar servidor de desarrollo
 npm run dev
 ```
 
-La aplicación estará disponible en `http://localhost:5173`
+La aplicación estará disponible en `http://localhost:5173` (o el puerto configurado en `client/.env`)
 
 ### Con Docker
 
@@ -185,6 +191,34 @@ cd client
 npm run check                  # SvelteKit type check
 npm run lint                   # Lint frontend
 ```
+
+### Variables de Entorno
+
+El proyecto usa dos archivos `.env` separados:
+
+**1. `client/.env` - Configuración de Vite (desarrollo)**
+
+```bash
+cd client
+cp .env.example .env
+```
+
+Variables disponibles:
+- `VITE_PORT=5173` - Puerto del dev server
+- `VITE_PREVIEW_PORT=4173` - Puerto del preview
+- `VITE_HOST=localhost` - Host (usar `0.0.0.0` para LAN)
+
+**2. `.env` (root) - Configuración de Docker (producción)**
+
+```bash
+cp .env.example .env
+```
+
+Variables disponibles:
+- `APP_PORT=3000` - Puerto mapeado en Docker
+- `NODE_ENV=production` - Modo de ejecución
+
+**Nota:** Las variables con prefijo `VITE_` solo se usan en `vite.config.ts` para configurar el servidor de desarrollo, NO se exponen al código del cliente por razones de seguridad.
 
 ## 🗄️ Base de Datos
 
