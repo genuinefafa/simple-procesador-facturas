@@ -47,18 +47,7 @@ Aplicación web que permite procesar facturas en diversos formatos (PDF, JPG, PN
 
 ```
 simple-procesador-facturas/
-├── src/
-│   ├── database/
-│   │   ├── schema.ts             # Schema Drizzle (TypeScript)
-│   │   ├── db.ts                 # Conexión a BD
-│   │   ├── repositories/         # Repositorios de acceso a datos
-│   │   └── migrations/           # Migraciones SQL generadas
-│   ├── extractors/               # Extractores de información (PDF)
-│   ├── validators/               # Validación de CUIT
-│   └── services/                 # Lógica de negocio
-│       ├── invoice-processing.service.ts
-│       └── file-export.service.ts
-├── web/
+├── client/                        # 🎨 FRONTEND (SvelteKit)
 │   └── src/
 │       ├── routes/
 │       │   ├── +page.svelte      # UI principal
@@ -71,6 +60,17 @@ simple-procesador-facturas/
 │       │           └── [id]/+server.ts        # GET/PATCH/DELETE
 │       └── lib/
 │           └── components/       # Componentes Svelte
+├── server/                        # ⚙️ BACKEND (Services + DB)
+│   ├── database/
+│   │   ├── schema.ts             # Schema Drizzle (TypeScript)
+│   │   ├── db.ts                 # Conexión a BD
+│   │   ├── repositories/         # Repositorios de acceso a datos
+│   │   └── migrations/           # Migraciones SQL generadas
+│   ├── extractors/               # Extractores de información (PDF)
+│   ├── validators/               # Validación de CUIT
+│   └── services/                 # Lógica de negocio
+│       ├── invoice-processing.service.ts
+│       └── file-export.service.ts
 ├── data/
 │   ├── input/                    # Archivos subidos
 │   ├── processed/                # Archivos renombrados
@@ -99,7 +99,7 @@ cd simple-procesador-facturas
 
 # 2. Instalar dependencias
 npm install
-cd web && npm install && cd ..
+cd client && npm install && cd ..
 
 # 3. Ejecutar migraciones de BD
 npm run db:migrate
@@ -206,7 +206,7 @@ npm run db:migrate
 
 ### Variables de Entorno
 
-**Web (web/.env):**
+**Frontend (client/.env):**
 ```bash
 VITE_PORT=5173              # Puerto dev server
 VITE_PREVIEW_PORT=4173      # Puerto preview
