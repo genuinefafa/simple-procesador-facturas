@@ -37,7 +37,6 @@
   "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^11.7.0",
-    "commander": "^12.1.0",
     "date-fns": "^4.1.0",
     "drizzle-kit": "^0.31.7",
     "drizzle-orm": "^0.44.7",
