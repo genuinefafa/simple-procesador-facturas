@@ -21,13 +21,7 @@ try {
 
   // 2. Ejecutar post-migration.sql (triggers y views)
   console.info('🔧 Aplicando triggers y views...');
-  const postMigrationPath = join(
-    __dirname,
-    '..',
-    'database',
-    'migrations',
-    'post-migration.sql'
-  );
+  const postMigrationPath = join(__dirname, '..', 'database', 'migrations', 'post-migration.sql');
   const postMigrationSQL = readFileSync(postMigrationPath, 'utf-8');
   rawDb.exec(postMigrationSQL);
   console.info('✅ Triggers y views aplicados');

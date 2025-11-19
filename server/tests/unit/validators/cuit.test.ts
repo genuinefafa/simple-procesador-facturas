@@ -8,7 +8,7 @@ import {
   normalizeCUIT,
   extractCUITFromText,
   getPersonType,
-} from '../../../src/validators/cuit';
+} from '../../../validators/cuit';
 
 describe('validateCUIT', () => {
   describe('debe validar CUITs correctos', () => {

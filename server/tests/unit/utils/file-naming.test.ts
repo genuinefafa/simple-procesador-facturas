@@ -10,8 +10,8 @@ import {
   padNumber,
   formatDateForFilename,
   generateProcessedFilename,
-} from '../../../src/utils/file-naming';
-import type { Emitter } from '../../../src/utils/types';
+} from '../../../utils/file-naming';
+import type { Emitter } from '../../../utils/types';
 
 describe('file-naming utils', () => {
   describe('sanitizeFilename', () => {

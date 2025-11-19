@@ -97,11 +97,7 @@ export class FileExportService {
    * @param customFormat - Formato personalizado (opcional)
    * @returns Nombre del archivo
    */
-  private generateFileName(
-    invoice: Invoice,
-    originalPath: string,
-    customFormat?: string
-  ): string {
+  private generateFileName(invoice: Invoice, originalPath: string, customFormat?: string): string {
     const ext = extname(originalPath);
     const cuitNumeric = invoice.emitterCuit.replace(/-/g, '');
 

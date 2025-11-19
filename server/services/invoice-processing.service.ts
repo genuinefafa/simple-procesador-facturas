@@ -128,7 +128,9 @@ export class InvoiceProcessingService {
         console.warn(
           `      Punto Venta: ${data.pointOfSale !== undefined ? data.pointOfSale : 'FALTA'}`
         );
-        console.warn(`      Número: ${data.invoiceNumber !== undefined ? data.invoiceNumber : 'FALTA'}`);
+        console.warn(
+          `      Número: ${data.invoiceNumber !== undefined ? data.invoiceNumber : 'FALTA'}`
+        );
         return {
           success: false,
           error: 'Faltan datos obligatorios de la factura',
