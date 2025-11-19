@@ -18,7 +18,21 @@
 - ✅ **Logging**: Agregado logging exhaustivo a upload, process y service
 - ✅ **Valores Extraídos**: UI de anotación muestra qué se reconoció en cada campo
 
-### 🔴 Problema Principal Identificado
+#### FASE 1 - Sistema de Archivos Pendientes (2025-11-19)
+- ✅ **Tabla pending_files**: Migración y schema de Drizzle creados
+- ✅ **PendingFileRepository**: CRUD completo con métodos de gestión
+- ✅ **Endpoints API**: GET, PATCH, DELETE y POST /finalize
+- ✅ **Upload modificado**: Crea registros en pending_files automáticamente
+- ✅ **Process modificado**: Guarda datos extraídos aunque fallen validaciones
+- ✅ **UI actualizada**: Nueva pestaña "Archivos Pendientes" con:
+  - Visualización de datos extraídos (completos o parciales)
+  - Acciones: Reintentar, Editar manualmente, Eliminar
+  - Badges de estado (pending, failed, reviewing, processed)
+  - Contador de archivos pendientes en la pestaña
+
+**Resultado**: El flujo ya no pierde archivos si la extracción falla. Todos los archivos subidos se guardan en pending_files y pueden ser corregidos manualmente.
+
+### 🔴 Problema Principal Identificado (RESUELTO ✅)
 
 **El flujo actual es demasiado rígido:**
 - Si falla cualquier validación (CUIT inválido, falta fecha, etc.), el archivo no se guarda
