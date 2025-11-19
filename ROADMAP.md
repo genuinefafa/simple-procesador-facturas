@@ -12,25 +12,53 @@
 - ✅ Vulnerabilidades resueltas, GitHub Actions funcionando
 - ✅ Scripts de package.json simplificados (21 → 13)
 
-#### Bugfixes de Hoy (2025-11-19)
+#### Bugfixes de Hoy (2025-11-19 - Sesión Temprana)
 - ✅ **Canvas Fix**: Reemplazado `tick()` por `$effect()` en herramienta de anotación
 - ✅ **Property Names**: Corregido mismatch entre service/repository al crear emisor
 - ✅ **Logging**: Agregado logging exhaustivo a upload, process y service
 - ✅ **Valores Extraídos**: UI de anotación muestra qué se reconoció en cada campo
 
-#### FASE 1 - Sistema de Archivos Pendientes (2025-11-19)
+#### ✅ FASE 1 COMPLETADA - Sistema de Archivos Pendientes (2025-11-19)
 - ✅ **Tabla pending_files**: Migración y schema de Drizzle creados
 - ✅ **PendingFileRepository**: CRUD completo con métodos de gestión
-- ✅ **Endpoints API**: GET, PATCH, DELETE y POST /finalize
+- ✅ **Endpoints API**:
+  - GET /api/pending-files (con filtros por status)
+  - GET /api/pending-files/[id]
+  - PATCH /api/pending-files/[id]
+  - DELETE /api/pending-files/[id]
+  - POST /api/pending-files/[id]/finalize
+  - GET /api/pending-files/[id]/file (servir archivo para preview)
 - ✅ **Upload modificado**: Crea registros en pending_files automáticamente
 - ✅ **Process modificado**: Guarda datos extraídos aunque fallen validaciones
-- ✅ **UI actualizada**: Nueva pestaña "Archivos Pendientes" con:
-  - Visualización de datos extraídos (completos o parciales)
-  - Acciones: Reintentar, Editar manualmente, Eliminar
-  - Badges de estado (pending, failed, reviewing, processed)
-  - Contador de archivos pendientes en la pestaña
+  - Siempre retorna extractedData incluso con confianza baja
+  - Logging mejorado con "❌ NO DETECTADO" para campos vacíos
+- ✅ **UI COMPLETAMENTE REDISEÑADA**: Nuevo flujo de 3 pestañas:
+  - 📤 **Subir**: Drag & drop con lista de archivos seleccionados
+  - ✏️ **Revisar**: (NUEVO) Vista principal con:
+    - Layout de dos columnas: PDF preview + formulario edición
+    - Overlay flotante mostrando datos detectados sobre el PDF
+    - Edición inline con todos los campos
+    - Auto-navegación a esta pestaña después de upload
+    - Contador de archivos pendientes en tab
+  - 📋 **Facturas**: Listado de facturas finales procesadas
+- ✅ **Sistema de Notificaciones Moderno**:
+  - Eliminados TODOS los alert() del sistema
+  - Implementado svelte-sonner con toasts ricos
+  - Toasts diferenciados: success, error, warning, info, loading
+  - Duración y mensajes específicos por tipo de operación
+- ✅ **Manejo de Errores Mejorado**:
+  - Logging detallado en todos los endpoints de archivos
+  - Mensajes de error con nombre de archivo y razón específica
+  - Cliente hace fetch para obtener detalles cuando falla preview
+  - Logs del servidor con prefijo [FILE-SERVER] y emojis
 
-**Resultado**: El flujo ya no pierde archivos si la extracción falla. Todos los archivos subidos se guardan en pending_files y pueden ser corregidos manualmente.
+**Resultado**:
+- ✅ Archivos nunca se pierden, siempre van a pending_files
+- ✅ Usuario puede ver y editar datos extraídos parcialmente
+- ✅ Preview del PDF mientras edita para leer manualmente
+- ✅ Overlay muestra qué datos se detectaron
+- ✅ UX moderna sin popups molestos
+- ✅ Errores claros y accionables
 
 ### 🔴 Problema Principal Identificado (RESUELTO ✅)
 
@@ -259,26 +287,27 @@ async extract(filePath: string, templateId?: number): Promise<ExtractionResult> 
 ### FASE 3: Mejoras de UI/UX
 **Prioridad**: 🟢 MEDIA
 
-#### 3.1. Reemplazar `alert()` con UI moderna
-- Usar toast notifications (ej: svelte-sonner)
-- Mostrar errores en panel dedicado
-- Confirmaciones con modal
+#### ✅ 3.1. Reemplazar `alert()` con UI moderna (COMPLETADO)
+- ✅ Toast notifications con svelte-sonner
+- ✅ Todos los alert() eliminados
+- ⏳ Confirmaciones con modal (pending - actualmente usa toast.warning)
 
-#### 3.2. Drag & Drop mejorado
-- Preview de archivos antes de subir
-- Progress bar durante upload
-- Soporte para múltiples archivos simultáneos
+#### ✅ 3.2. Drag & Drop mejorado (PARCIALMENTE COMPLETADO)
+- ✅ Preview de archivos antes de subir (lista con nombre, tamaño, tipo)
+- ⏳ Progress bar durante upload
+- ✅ Soporte para múltiples archivos simultáneos
 
-#### 3.3. Vista de Factura Mejorada
-- Preview del PDF/imagen embebido
-- Zoom y navegación
-- Highlight de campos extraídos sobre la imagen
+#### ✅ 3.3. Vista de Factura Mejorada (COMPLETADO)
+- ✅ Preview del PDF/imagen embebido (iframe para PDF, img para imágenes)
+- ✅ Overlay con campos extraídos destacados sobre el preview
+- ⏳ Zoom y navegación (pendiente)
+- ⏳ Highlight de campos extraídos directamente sobre la imagen (requiere FASE 2)
 
-#### 3.4. Dashboard
-- Estadísticas: facturas procesadas hoy/semana/mes
-- Emisores más frecuentes
-- Success rate de extracción
-- Archivos pendientes de revisión
+#### 3.4. Dashboard (PENDIENTE)
+- ⏳ Estadísticas: facturas procesadas hoy/semana/mes
+- ⏳ Emisores más frecuentes
+- ⏳ Success rate de extracción
+- ⏳ Archivos pendientes de revisión
 
 ---
 
@@ -329,43 +358,48 @@ async extract(filePath: string, templateId?: number): Promise<ExtractionResult> 
 
 ## 📋 Siguiente Sesión Recomendada
 
-### Opción A: FASE 1 - Workflow Redesign (Recomendado)
+### Opción A: FASE 2.1-2.3 - Templates Básicos (RECOMENDADO)
+**Duración estimada**: 2-3 horas
+**Objetivo**: Sistema de templates para mejorar reconocimiento automático
+
+**Tareas**:
+1. Crear tabla `extraction_templates` con migración
+2. Implementar `TemplateRepository`
+3. Modificar endpoint de anotaciones para ofrecer "Crear template"
+4. Modificar PDFExtractor para usar templates cuando existan
+5. UI: Checkbox "Crear template para este emisor" al guardar anotaciones
+6. Auto-detección de template basada en CUIT
+7. Testing del flujo completo
+
+**Por qué primero**:
+- Complementa la herramienta de anotación que ya funciona
+- Permite "aprender" de facturas procesadas manualmente
+- Mejora drásticamente la confianza de extracción para emisores recurrentes
+- Usuario reportó problema de regresión en detección → templates lo solucionan
+
+### Opción B: FASE 2.4 - Mostrar Zonas de Detección
 **Duración estimada**: 1-2 horas
-**Objetivo**: Implementar sistema de archivos pendientes completo
+**Objetivo**: Marcar en el PDF DÓNDE se detectó cada campo
 
 **Tareas**:
-1. Crear migración `pending_files`
-2. Implementar `PendingFileRepository`
-3. Modificar endpoints upload/process
-4. Crear endpoint `/api/pending-files`
-5. Actualizar UI para mostrar archivos pendientes
-6. Testing del flujo completo
+1. Modificar PDFExtractor para capturar posiciones (x, y, width, height)
+2. Agregar columna JSON en pending_files para guardar coordenadas
+3. Renderizar anotaciones/highlights sobre el PDF preview
+4. Mostrar tooltips al hover sobre cada zona
 
-**Por qué primero**: Es el problema más crítico que bloquea el uso normal
+**Por qué**: Usuario lo pidió explícitamente ("marcame dónde del archivo es que detectaste")
 
-### Opción B: FASE 2.1-2.3 - Templates Básicos
+### Opción C: FASE 3.4 - Dashboard con Estadísticas
 **Duración estimada**: 1 hora
-**Objetivo**: Permitir crear templates desde anotaciones
+**Objetivo**: Vista de métricas del sistema
 
 **Tareas**:
-1. Crear tabla `extraction_templates`
-2. Modificar endpoint de anotaciones para crear template
-3. UI: Checkbox "Crear template para este emisor"
-4. Testing de creación de template
+1. Nueva ruta `/dashboard`
+2. Queries agregadas en repositories
+3. Componentes de gráficos (Chart.js o similar)
+4. Mostrar: success rate, archivos pendientes, emisores frecuentes
 
-**Por qué**: Complementa la herramienta de anotación que ya funciona
-
-### Opción C: FASE 3.1 - Mejorar UI
-**Duración estimada**: 30min - 1 hora
-**Objetivo**: Eliminar alerts, agregar toasts
-
-**Tareas**:
-1. Instalar svelte-sonner o similar
-2. Reemplazar todos los `alert()` por toasts
-3. Agregar loading states
-4. Mejorar feedback visual
-
-**Por qué**: Quick win, mejora UX inmediatamente
+**Por qué**: Quick win, agrega valor inmediato para entender el estado del sistema
 
 ---
 
