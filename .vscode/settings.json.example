@@ -3,6 +3,12 @@
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
 
+  // Svelte
+  "svelte.enable-ts-plugin": true,
+  "[svelte]": {
+    "editor.defaultFormatter": "svelte.svelte-vscode"
+  },
+
   // Formateo automático
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",

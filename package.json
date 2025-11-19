@@ -1,31 +1,24 @@
 {
   "name": "simple-procesador-facturas",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Sistema automatizado para procesamiento, extracción y gestión de facturas argentinas con reconocimiento OCR y aprendizaje de patrones",
-  "main": "dist/main.js",
+  "private": true,
   "type": "module",
-  "bin": {
-    "procesador": "./dist/main.js"
-  },
   "scripts": {
-    "dev": "tsx watch src/main.ts",
-    "build": "tsc",
-    "start": "node dist/main.js",
-    "test": "vitest",
-    "test:unit": "vitest run tests/unit",
-    "test:integration": "vitest run tests/integration",
-    "test:coverage": "vitest run --coverage",
-    "test:watch": "vitest watch",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "format:check": "prettier --check \"src/**/*.ts\" \"tests/**/*.ts\"",
-    "db:init": "tsx scripts/init-db.ts",
-    "db:seed": "tsx scripts/seed.ts",
-    "db:migrate:zones": "node scripts/migrate-zones.cjs",
-    "web:dev": "cd web && npm run dev",
-    "web:build": "cd web && npm run build",
-    "web:preview": "cd web && npm run preview"
+    "postinstall": ".githooks/install.sh 2>/dev/null || echo '⚠️  Nota: No se pudieron instalar git hooks'",
+    "dev": "npm run dev -w client",
+    "build": "npm run build -w client",
+    "preview": "npm run preview -w client",
+    "test": "npm run test -w server",
+    "lint": "npm run lint --workspaces --if-present",
+    "format:check": "npm run format:check --workspaces --if-present",
+    "db:migrate": "npm run db:migrate -w server",
+    "db:seed": "npm run db:seed -w server",
+    "db:studio": "npm run db:studio -w server",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f"
   },
   "keywords": [
     "facturas",
@@ -40,32 +33,12 @@
   ],
   "author": "",
   "license": "MIT",
-  "dependencies": {
-    "better-sqlite3": "^11.7.0",
-    "commander": "^12.1.0",
-    "date-fns": "^4.1.0",
-    "exceljs": "^4.4.0",
-    "pdf-lib": "^1.17.1",
-    "pdf-parse": "^1.1.1",
-    "sharp": "^0.33.5",
-    "tesseract.js": "^5.1.1",
-    "zod": "^3.23.8"
-  },
-  "devDependencies": {
-    "@eslint/js": "^9.16.0",
-    "@types/better-sqlite3": "^7.6.12",
-    "@types/node": "^22.10.1",
-    "@types/pdf-parse": "^1.1.4",
-    "@vitest/coverage-v8": "^2.1.8",
-    "eslint": "^9.16.0",
-    "prettier": "^3.4.2",
-    "tsx": "^4.20.6",
-    "typescript": "^5.7.2",
-    "typescript-eslint": "^8.17.0",
-    "vitest": "^2.1.8"
-  },
   "engines": {
-    "node": ">=22.12.0",
+    "node": ">=22.21.0",
     "npm": ">=10.0.0"
-  }
+  },
+  "workspaces": [
+    "client",
+    "server"
+  ]
 }

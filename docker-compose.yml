@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: procesador-facturas
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      # Persistir base de datos
+      - ./data:/app/data
+      # Archivos de entrada (bind mount para subir facturas)
+      - ./data/input:/app/data/input
+      # Archivos procesados
+      - ./data/processed:/app/data/processed
+      # Backups opcionales
+      - ./data/backup:/app/data/backup
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # Configuración de base de datos
+      - DB_PATH=/app/data/database.sqlite
+    networks:
+      - procesador-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Opcional: Reverse proxy con Nginx
+  # Si ya tienes tu propio reverse proxy, puedes comentar o eliminar esto
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: procesador-nginx
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - app
+  #   networks:
+  #     - procesador-network
+
+networks:
+  procesador-network:
+    driver: bridge
+
+volumes:
+  data:

@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+web/node_modules/
+
+# Build outputs
+dist/
+web/build/
+web/.svelte-kit/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+
+# Data directory (se monta como volumen)
+data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+
+# Config files
+.editorconfig
+.prettierrc
+.eslintrc*

@@ -1,0 +1,66 @@
+#!/bin/bash
+# Pre-commit hook: Validar archivos Svelte antes de commitear
+
+set -e
+
+echo "🔍 Validando archivos Svelte..."
+
+# Obtener archivos .svelte en staging
+SVELTE_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.svelte$' || true)
+
+if [ -z "$SVELTE_FILES" ]; then
+  echo "✅ No hay archivos .svelte para validar"
+  exit 0
+fi
+
+echo "📝 Archivos a validar:"
+echo "$SVELTE_FILES" | sed 's/^/  - /'
+
+# Validar sintaxis básica con grep
+echo ""
+echo "🔎 Verificando sintaxis básica..."
+
+ERRORS=0
+while IFS= read -r file; do
+  # Verificar errores comunes
+  if grep -n '<\/[a-z]*}' "$file" > /dev/null 2>&1; then
+    echo "❌ Error en $file: etiqueta de cierre con } en lugar de >"
+    grep -n '<\/[a-z]*}' "$file"
+    ERRORS=$((ERRORS + 1))
+  fi
+
+  if grep -n '{\/if}' "$file" > /dev/null 2>&1; then
+    echo "⚠️  Advertencia en $file: posible error en bloque {/if}"
+  fi
+done <<< "$SVELTE_FILES"
+
+if [ $ERRORS -gt 0 ]; then
+  echo ""
+  echo "❌ Se encontraron $ERRORS error(es) de sintaxis."
+  echo "   Por favor, corregalos antes de commitear."
+  exit 1
+fi
+
+# Si hay SvelteKit en client/, correr svelte-check
+if [ -d "client" ] && [ -f "client/package.json" ]; then
+  echo ""
+  echo "🔬 Ejecutando svelte-check (puede tardar)..."
+
+  # Solo correr en los archivos modificados
+  if ! (cd client && npm run check > /dev/null 2>&1); then
+    echo ""
+    echo "⚠️  svelte-check encontró errores de tipos."
+    echo "   Podés ver los detalles con: cd client && npm run check"
+    echo ""
+    read -p "¿Querés commitear igual? (y/N): " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+      echo "❌ Commit cancelado"
+      exit 1
+    fi
+  fi
+fi
+
+echo ""
+echo "✅ Validación completada"
+exit 0
