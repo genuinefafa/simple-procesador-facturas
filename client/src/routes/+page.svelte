@@ -481,32 +481,43 @@
 										</div>
 									{/if}
 
-									<!-- Mostrar valores detectados superpuestos -->
-									{#if file.extractionConfidence !== null && file.extractionConfidence > 0}
-										<div class="detected-overlay">
-											<h4>📊 Datos detectados:</h4>
-											<div class="detected-list">
-												{#if file.extractedCuit}
-													<div class="detected-item">✓ CUIT: {file.extractedCuit}</div>
-												{/if}
-												{#if file.extractedDate}
-													<div class="detected-item">✓ Fecha: {file.extractedDate}</div>
-												{/if}
-												{#if file.extractedType}
-													<div class="detected-item">✓ Tipo: {file.extractedType}</div>
-												{/if}
-												{#if file.extractedPointOfSale !== null}
-													<div class="detected-item">✓ P.Venta: {file.extractedPointOfSale}</div>
-												{/if}
-												{#if file.extractedInvoiceNumber !== null}
-													<div class="detected-item">✓ Número: {file.extractedInvoiceNumber}</div>
-												{/if}
-												{#if file.extractedTotal}
-													<div class="detected-item">✓ Total: ${file.extractedTotal.toLocaleString('es-AR')}</div>
-												{/if}
+									<!-- Mostrar SIEMPRE qué se detectó y qué no -->
+									<div class="detected-overlay">
+										<h4>🔍 Detección automática</h4>
+
+										{#if file.extractionConfidence !== null}
+											<div class="confidence-display" class:low={file.extractionConfidence < 50} class:medium={file.extractionConfidence >= 50 && file.extractionConfidence < 80} class:high={file.extractionConfidence >= 80}>
+												Confianza: {file.extractionConfidence}%
+											</div>
+										{/if}
+
+										<div class="detected-list">
+											<div class="detected-item" class:missing={!file.extractedCuit}>
+												{file.extractedCuit ? '✓' : '❌'} CUIT: {file.extractedCuit || 'No detectado'}
+											</div>
+											<div class="detected-item" class:missing={!file.extractedDate}>
+												{file.extractedDate ? '✓' : '❌'} Fecha: {file.extractedDate || 'No detectado'}
+											</div>
+											<div class="detected-item" class:missing={!file.extractedType}>
+												{file.extractedType ? '✓' : '❌'} Tipo: {file.extractedType || 'No detectado'}
+											</div>
+											<div class="detected-item" class:missing={file.extractedPointOfSale !== null && file.extractedPointOfSale !== undefined}>
+												{file.extractedPointOfSale !== null && file.extractedPointOfSale !== undefined ? '✓' : '❌'} P.Venta: {file.extractedPointOfSale ?? 'No detectado'}
+											</div>
+											<div class="detected-item" class:missing={file.extractedInvoiceNumber !== null && file.extractedInvoiceNumber !== undefined}>
+												{file.extractedInvoiceNumber !== null && file.extractedInvoiceNumber !== undefined ? '✓' : '❌'} Número: {file.extractedInvoiceNumber ?? 'No detectado'}
+											</div>
+											<div class="detected-item" class:missing={!file.extractedTotal}>
+												{file.extractedTotal ? '✓' : '❌'} Total: {file.extractedTotal ? `$${file.extractedTotal.toLocaleString('es-AR')}` : 'No detectado'}
 											</div>
 										</div>
-									{/if}
+
+										{#if file.extractionErrors}
+											<div class="extraction-errors-overlay">
+												⚠️ {file.extractionErrors}
+											</div>
+										{/if}
+									</div>
 								</div>
 
 								<!-- DATOS / FORMULARIO -->
@@ -1531,34 +1542,78 @@
 		position: absolute;
 		top: 1rem;
 		right: 1rem;
-		background: rgba(255, 255, 255, 0.95);
+		background: rgba(255, 255, 255, 0.97);
 		border: 2px solid #3b82f6;
 		border-radius: 8px;
 		padding: 1rem;
-		max-width: 250px;
+		max-width: 280px;
 		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 		z-index: 10;
 	}
 
 	.detected-overlay h4 {
-		margin: 0 0 0.75rem 0;
+		margin: 0 0 0.5rem 0;
 		font-size: 0.9rem;
 		color: #1e293b;
-		border-bottom: 1px solid #e5e7eb;
-		padding-bottom: 0.5rem;
+		font-weight: 600;
+	}
+
+	.confidence-display {
+		font-size: 0.85rem;
+		font-weight: 600;
+		padding: 0.5rem;
+		border-radius: 4px;
+		margin-bottom: 0.75rem;
+		text-align: center;
+	}
+
+	.confidence-display.low {
+		background: #fef2f2;
+		color: #dc2626;
+		border: 1px solid #fecaca;
+	}
+
+	.confidence-display.medium {
+		background: #fef3c7;
+		color: #ca8a04;
+		border: 1px solid #fde68a;
+	}
+
+	.confidence-display.high {
+		background: #dcfce7;
+		color: #16a34a;
+		border: 1px solid #bbf7d0;
 	}
 
 	.detected-list {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.4rem;
 	}
 
 	.detected-item {
-		font-size: 0.85rem;
-		color: #059669;
+		font-size: 0.8rem;
 		font-weight: 500;
-		padding: 0.25rem 0;
+		padding: 0.35rem 0.5rem;
+		border-radius: 4px;
+		background: #f0fdf4;
+		color: #059669;
+	}
+
+	.detected-item.missing {
+		background: #fef2f2;
+		color: #dc2626;
+	}
+
+	.extraction-errors-overlay {
+		margin-top: 0.75rem;
+		padding: 0.5rem;
+		background: #fef2f2;
+		border-left: 3px solid #ef4444;
+		border-radius: 4px;
+		color: #991b1b;
+		font-size: 0.75rem;
+		line-height: 1.3;
 	}
 
 	/* FILE DATA COLUMN */

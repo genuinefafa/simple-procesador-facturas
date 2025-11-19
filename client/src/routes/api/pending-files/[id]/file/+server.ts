@@ -69,10 +69,15 @@ export const GET: RequestHandler = async ({ params }) => {
       contentType = 'image/png';
     }
 
+    // Encodear filename para soportar caracteres UTF-8 (ñ, tildes, etc)
+    // RFC 5987: filename*=UTF-8''encoded-filename
+    const encodedFilename = encodeURIComponent(filename);
+
     return new Response(fileBuffer, {
       headers: {
         'Content-Type': contentType,
-        'Content-Disposition': `inline; filename="${filename}"`,
+        // Usar ambos formatos para compatibilidad
+        'Content-Disposition': `inline; filename="${filename.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFilename}`,
       },
     });
   } catch (error) {

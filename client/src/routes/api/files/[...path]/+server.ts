@@ -90,10 +90,15 @@ export const GET: RequestHandler = async ({ params }) => {
       contentType = 'image/tiff';
     }
 
+    // Encodear filename para soportar caracteres UTF-8 (ñ, tildes, etc)
+    const encodedFilename = encodeURIComponent(filename);
+
     return new Response(fileBuffer, {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=3600',
+        // Usar ambos formatos para compatibilidad con navegadores
+        'Content-Disposition': `inline; filename="${filename.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFilename}`,
       },
     });
   } catch (err) {
