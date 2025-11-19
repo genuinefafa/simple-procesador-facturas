@@ -5,7 +5,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { InvoiceProcessingService } from '@server/services/invoice-processing.service.js';
-import { PendingFileRepository } from '@server/database/repositories/pending-file';
+import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
 
 export const POST: RequestHandler = async ({ request }) => {
   console.info('⚙️  [PROCESS] Iniciando procesamiento de facturas...');

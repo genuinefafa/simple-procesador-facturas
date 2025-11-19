@@ -7,7 +7,7 @@ import type { RequestHandler } from './$types';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { PendingFileRepository } from '@server/database/repositories/pending-file';
+import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
 
 const UPLOAD_DIR = join(process.cwd(), '..', 'data', 'input');
 

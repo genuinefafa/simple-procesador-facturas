@@ -4,8 +4,8 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { PendingFileRepository } from '@server/database/repositories/pending-file';
-import type { PendingFileStatus } from '@server/database/repositories/pending-file';
+import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
+import type { PendingFileStatus } from '@server/database/repositories/pending-file.js';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 

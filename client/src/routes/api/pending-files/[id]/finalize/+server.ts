@@ -4,14 +4,14 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { PendingFileRepository } from '@server/database/repositories/pending-file';
-import { EmitterRepository } from '@server/database/repositories/emitter';
-import { InvoiceRepository } from '@server/database/repositories/invoice';
-import { validateCUIT, normalizeCUIT, getPersonType } from '@server/validators/cuit';
+import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
+import { EmitterRepository } from '@server/database/repositories/emitter.js';
+import { InvoiceRepository } from '@server/database/repositories/invoice.js';
+import { validateCUIT, normalizeCUIT, getPersonType } from '@server/validators/cuit.js';
 import { join, dirname, basename, extname } from 'path';
 import { mkdir, rename, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
-import type { InvoiceType } from '@server/utils/types';
+import type { InvoiceType } from '@server/utils/types.js';
 
 const PROCESSED_DIR = join(process.cwd(), '..', 'data', 'processed');
 

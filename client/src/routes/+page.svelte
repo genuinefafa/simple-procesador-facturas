@@ -16,17 +16,40 @@
 		manuallyValidated: boolean;
 	}
 
+	interface PendingFileItem {
+		id: number;
+		originalFilename: string;
+		filePath: string;
+		fileSize: number | null;
+		uploadDate: string;
+		extractedCuit: string | null;
+		extractedDate: string | null;
+		extractedTotal: number | null;
+		extractedType: string | null;
+		extractedPointOfSale: number | null;
+		extractedInvoiceNumber: number | null;
+		extractionConfidence: number | null;
+		extractionErrors: string | null;
+		status: 'pending' | 'reviewing' | 'processed' | 'failed';
+		invoiceId: number | null;
+		createdAt: string;
+		updatedAt: string;
+	}
+
 	let invoices: PendingInvoice[] = $state([]);
+	let pendingFiles: PendingFileItem[] = $state([]);
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let uploading = $state(false);
 	let processing = $state(false);
 	let uploadedFiles: File[] = $state([]);
 	let selectedInvoices = $state<Set<number>>(new Set());
-	let activeTab = $state<'upload' | 'review'>('upload');
+	let selectedPendingFiles = $state<Set<number>>(new Set());
+	let activeTab = $state<'upload' | 'pending' | 'review'>('upload');
 
 	onMount(async () => {
 		await loadInvoices();
+		await loadPendingFiles();
 	});
 
 	async function loadInvoices() {
@@ -44,6 +67,73 @@
 			error = err instanceof Error ? err.message : 'Error de conexión';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadPendingFiles() {
+		loading = true;
+		try {
+			const response = await fetch('/api/pending-files?status=pending,failed');
+			const data = await response.json();
+
+			if (data.success) {
+				pendingFiles = data.pendingFiles;
+			} else {
+				error = data.error || 'Error al cargar archivos pendientes';
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Error de conexión';
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function deletePendingFile(id: number) {
+		if (!confirm('¿Eliminar este archivo? Esta acción no se puede deshacer.')) {
+			return;
+		}
+
+		try {
+			const response = await fetch(`/api/pending-files/${id}`, {
+				method: 'DELETE'
+			});
+			const data = await response.json();
+
+			if (data.success) {
+				await loadPendingFiles();
+				alert('✅ Archivo eliminado correctamente');
+			} else {
+				alert(`❌ Error: ${data.error}`);
+			}
+		} catch (err) {
+			alert(`❌ Error al eliminar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+		}
+	}
+
+	async function processPendingFile(id: number) {
+		try {
+			const response = await fetch('/api/invoices/process', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ pendingFileIds: [id] })
+			});
+			const data = await response.json();
+
+			if (data.success) {
+				await loadPendingFiles();
+				await loadInvoices();
+				const result = data.results[0];
+				if (result.success) {
+					alert('✅ Factura procesada correctamente');
+					activeTab = 'review';
+				} else {
+					alert(`⚠️  ${result.error || 'No se pudo procesar automáticamente'}`);
+				}
+			} else {
+				alert(`❌ Error: ${data.error}`);
+			}
+		} catch (err) {
+			alert(`❌ Error al procesar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
 		}
 	}
 
@@ -99,12 +189,13 @@
 				throw new Error(uploadData.error || 'Error al subir archivos');
 			}
 
-			// 2. Process uploaded files
+			// 2. Process uploaded files usando pendingFileIds
 			processing = true;
+			const pendingFileIds = uploadData.files.map((f: any) => f.pendingFileId);
 			const processResponse = await fetch('/api/invoices/process', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ files: uploadData.files })
+				body: JSON.stringify({ pendingFileIds })
 			});
 			const processData = await processResponse.json();
 
@@ -117,9 +208,11 @@
 			await loadInvoices();
 			activeTab = 'review';
 
-			// Show success message
+			// Show success message con nuevas estadísticas
+			const { stats } = processData;
 			alert(
-				`✅ Procesadas ${processData.stats.successful}/${processData.stats.total} facturas`
+				`✅ Procesadas ${stats.processed}/${stats.total} facturas\n` +
+				`⚠️  ${stats.pending} requieren revisión manual`
 			);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Error desconocido';
@@ -189,8 +282,11 @@
 		<button class="tab" class:active={activeTab === 'upload'} onclick={() => (activeTab = 'upload')}>
 			📤 1. Subir Archivos
 		</button>
+		<button class="tab" class:active={activeTab === 'pending'} onclick={() => (activeTab = 'pending')}>
+			⏳ 2. Archivos Pendientes {pendingFiles.length > 0 ? `(${pendingFiles.length})` : ''}
+		</button>
 		<button class="tab" class:active={activeTab === 'review'} onclick={() => (activeTab = 'review')}>
-			📋 2. Revisar y Exportar
+			📋 3. Revisar y Exportar
 		</button>
 	</nav>
 
@@ -260,6 +356,148 @@
 					</div>
 				{/if}
 			</section>
+		{:else if activeTab === 'pending'}
+			<!-- PENDING FILES SECTION -->
+			<div class="stats-bar">
+				<div class="stat">
+					<span class="stat-value">{pendingFiles.length}</span>
+					<span class="stat-label">Archivos pendientes</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">
+						{pendingFiles.filter((pf) => pf.status === 'failed').length}
+					</span>
+					<span class="stat-label">Fallidos</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">
+						{pendingFiles.filter((pf) => (pf.extractionConfidence || 0) > 0).length}
+					</span>
+					<span class="stat-label">Con datos parciales</span>
+				</div>
+			</div>
+
+			{#if loading}
+				<div class="loading">
+					<p>⏳ Cargando archivos pendientes...</p>
+				</div>
+			{:else if pendingFiles.length === 0}
+				<div class="empty">
+					<p>✅ No hay archivos pendientes de revisión</p>
+					<button class="btn btn-primary" onclick={() => (activeTab = 'upload')}>
+						📤 Subir más archivos
+					</button>
+				</div>
+			{:else}
+				<div class="pending-file-list">
+					{#each pendingFiles as pendingFile (pendingFile.id)}
+						<div class="pending-file-card" class:failed={pendingFile.status === 'failed'}>
+							<div class="pending-file-header">
+								<div>
+									<h3>📄 {pendingFile.originalFilename}</h3>
+									<p class="upload-date">
+										Subido: {new Date(pendingFile.uploadDate).toLocaleString('es-AR')}
+									</p>
+									<p class="file-size">
+										{pendingFile.fileSize ? `${(pendingFile.fileSize / 1024).toFixed(0)} KB` : 'Tamaño desconocido'}
+									</p>
+								</div>
+								<div class="status-badge status-{pendingFile.status}">
+									{#if pendingFile.status === 'pending'}
+										⏳ Pendiente
+									{:else if pendingFile.status === 'failed'}
+										❌ Fallido
+									{:else if pendingFile.status === 'reviewing'}
+										✏️ En revisión
+									{:else}
+										✅ Procesado
+									{/if}
+								</div>
+							</div>
+
+							<div class="extracted-data">
+								<h4>Datos extraídos:</h4>
+								<div class="data-grid">
+									<div class="data-item">
+										<span class="label">CUIT:</span>
+										<span class="value" class:missing={!pendingFile.extractedCuit}>
+											{pendingFile.extractedCuit || '❌ No detectado'}
+										</span>
+									</div>
+									<div class="data-item">
+										<span class="label">Fecha:</span>
+										<span class="value" class:missing={!pendingFile.extractedDate}>
+											{pendingFile.extractedDate || '❌ No detectado'}
+										</span>
+									</div>
+									<div class="data-item">
+										<span class="label">Tipo:</span>
+										<span class="value" class:missing={!pendingFile.extractedType}>
+											{pendingFile.extractedType || '❌ No detectado'}
+										</span>
+									</div>
+									<div class="data-item">
+										<span class="label">P.Venta:</span>
+										<span class="value" class:missing={pendingFile.extractedPointOfSale === null}>
+											{pendingFile.extractedPointOfSale !== null ? pendingFile.extractedPointOfSale : '❌ No detectado'}
+										</span>
+									</div>
+									<div class="data-item">
+										<span class="label">Número:</span>
+										<span class="value" class:missing={pendingFile.extractedInvoiceNumber === null}>
+											{pendingFile.extractedInvoiceNumber !== null ? pendingFile.extractedInvoiceNumber : '❌ No detectado'}
+										</span>
+									</div>
+									<div class="data-item">
+										<span class="label">Total:</span>
+										<span class="value" class:missing={!pendingFile.extractedTotal}>
+											{pendingFile.extractedTotal !== null ? `$${pendingFile.extractedTotal.toLocaleString('es-AR')}` : '❌ No detectado'}
+										</span>
+									</div>
+								</div>
+								{#if pendingFile.extractionConfidence !== null}
+									<div class="confidence-info">
+										<span class="label">Confianza:</span>
+										<span class="value {getConfidenceColor(pendingFile.extractionConfidence)}">
+											{pendingFile.extractionConfidence}%
+										</span>
+									</div>
+								{/if}
+								{#if pendingFile.extractionErrors}
+									<div class="extraction-errors">
+										<span class="label">⚠️ Errores:</span>
+										<span class="value">{pendingFile.extractionErrors}</span>
+									</div>
+								{/if}
+							</div>
+
+							<div class="pending-file-actions">
+								<button
+									class="btn btn-sm btn-primary"
+									onclick={() => processPendingFile(pendingFile.id)}
+									title="Reintentar procesamiento automático"
+								>
+									🔄 Reintentar
+								</button>
+								<a
+									href="/annotate/{pendingFile.id}?type=pending"
+									class="btn btn-sm btn-secondary"
+									title="Editar datos manualmente"
+								>
+									✏️ Editar
+								</a>
+								<button
+									class="btn btn-sm btn-danger"
+									onclick={() => deletePendingFile(pendingFile.id)}
+									title="Eliminar archivo"
+								>
+									🗑️ Eliminar
+								</button>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		{:else if activeTab === 'review'}
 			<!-- REVIEW SECTION -->
 			<div class="stats-bar">
@@ -766,5 +1004,159 @@
 
 	.btn-secondary:hover {
 		background: #e5e7eb;
+	}
+
+	.btn-danger {
+		background: #ef4444;
+		color: white;
+	}
+
+	.btn-danger:hover:not(:disabled) {
+		background: #dc2626;
+	}
+
+	.btn-sm {
+		padding: 0.5rem 1rem;
+		font-size: 0.9rem;
+	}
+
+	/* PENDING FILES SECTION */
+	.pending-file-list {
+		display: flex;
+		flex-direction: column;
+		gap: 1.5rem;
+	}
+
+	.pending-file-card {
+		background: white;
+		border-radius: 12px;
+		padding: 1.5rem;
+		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+		border: 2px solid #e5e7eb;
+	}
+
+	.pending-file-card.failed {
+		border-color: #fecaca;
+		background: #fef2f2;
+	}
+
+	.pending-file-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: flex-start;
+		margin-bottom: 1rem;
+		padding-bottom: 1rem;
+		border-bottom: 1px solid #e5e7eb;
+	}
+
+	.pending-file-header h3 {
+		margin: 0 0 0.5rem 0;
+		font-size: 1.2rem;
+		color: #1e293b;
+	}
+
+	.upload-date,
+	.file-size {
+		font-size: 0.9rem;
+		color: #64748b;
+		margin: 0.25rem 0;
+	}
+
+	.status-badge {
+		padding: 0.5rem 1rem;
+		border-radius: 6px;
+		font-weight: 500;
+		font-size: 0.9rem;
+	}
+
+	.status-pending {
+		background: #fef3c7;
+		color: #92400e;
+	}
+
+	.status-failed {
+		background: #fecaca;
+		color: #991b1b;
+	}
+
+	.status-reviewing {
+		background: #dbeafe;
+		color: #1e40af;
+	}
+
+	.status-processed {
+		background: #d1fae5;
+		color: #065f46;
+	}
+
+	.extracted-data {
+		margin-bottom: 1rem;
+	}
+
+	.extracted-data h4 {
+		font-size: 1rem;
+		color: #64748b;
+		margin: 0 0 1rem 0;
+	}
+
+	.data-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+		gap: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.data-item {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.data-item .label {
+		font-size: 0.85rem;
+		color: #64748b;
+		font-weight: 500;
+	}
+
+	.data-item .value {
+		font-size: 1rem;
+		color: #1e293b;
+		font-weight: 500;
+	}
+
+	.data-item .value.missing {
+		color: #ef4444;
+		font-weight: 400;
+	}
+
+	.confidence-info,
+	.extraction-errors {
+		display: flex;
+		gap: 0.5rem;
+		align-items: center;
+		margin-top: 0.5rem;
+	}
+
+	.extraction-errors {
+		padding: 0.75rem;
+		background: #fef2f2;
+		border-radius: 6px;
+		border-left: 3px solid #ef4444;
+	}
+
+	.extraction-errors .label {
+		font-weight: 600;
+		color: #991b1b;
+	}
+
+	.extraction-errors .value {
+		color: #7f1d1d;
+		font-size: 0.9rem;
+	}
+
+	.pending-file-actions {
+		display: flex;
+		gap: 0.75rem;
+		flex-wrap: wrap;
 	}
 </style>
