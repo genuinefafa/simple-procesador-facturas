@@ -11,20 +11,20 @@ import { existsSync } from 'fs';
 const UPLOAD_DIR = join(process.cwd(), '..', 'data', 'input');
 
 export const POST: RequestHandler = async ({ request }) => {
-  console.log('📤 [UPLOAD] Iniciando subida de archivos...');
-  console.log('📤 [UPLOAD] Directorio destino:', UPLOAD_DIR);
+  console.info('📤 [UPLOAD] Iniciando subida de archivos...');
+  console.info('📤 [UPLOAD] Directorio destino:', UPLOAD_DIR);
 
   try {
     // Crear directorio si no existe
     if (!existsSync(UPLOAD_DIR)) {
       await mkdir(UPLOAD_DIR, { recursive: true });
-      console.log('📁 [UPLOAD] Directorio creado');
+      console.info('📁 [UPLOAD] Directorio creado');
     }
 
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
 
-    console.log(`📤 [UPLOAD] Archivos recibidos: ${files.length}`);
+    console.info(`📤 [UPLOAD] Archivos recibidos: ${files.length}`);
 
     if (!files || files.length === 0) {
       console.warn('⚠️  [UPLOAD] No se recibieron archivos');
@@ -34,7 +34,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const uploadedFiles = [];
 
     for (const file of files) {
-      console.log(`📄 [UPLOAD] Procesando: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);
+      console.info(`📄 [UPLOAD] Procesando: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);
 
       // Validar extensión
       const ext = file.name.split('.').pop()?.toLowerCase();
@@ -78,7 +78,7 @@ export const POST: RequestHandler = async ({ request }) => {
       }
 
       await writeFile(filePath, buffer);
-      console.log(`✅ [UPLOAD] Guardado: ${filePath}`);
+      console.info(`✅ [UPLOAD] Guardado: ${filePath}`);
 
       uploadedFiles.push({
         name: file.name,
@@ -87,7 +87,7 @@ export const POST: RequestHandler = async ({ request }) => {
       });
     }
 
-    console.log(`✅ [UPLOAD] Completado: ${uploadedFiles.length} archivo(s)`);
+    console.info(`✅ [UPLOAD] Completado: ${uploadedFiles.length} archivo(s)`);
 
     return json({
       success: true,

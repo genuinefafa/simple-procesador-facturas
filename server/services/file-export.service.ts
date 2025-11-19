@@ -94,10 +94,14 @@ export class FileExportService {
    * Genera el nombre del archivo según el formato
    * @param invoice - Factura
    * @param originalPath - Ruta original
-   * @param format - Formato personalizado (opcional)
+   * @param customFormat - Formato personalizado (opcional)
    * @returns Nombre del archivo
    */
-  private generateFileName(invoice: Invoice, originalPath: string, format?: string): string {
+  private generateFileName(
+    invoice: Invoice,
+    originalPath: string,
+    customFormat?: string
+  ): string {
     const ext = extname(originalPath);
     const cuitNumeric = invoice.emitterCuit.replace(/-/g, '');
 
@@ -106,10 +110,10 @@ export class FileExportService {
     const pvFormatted = String(invoice.pointOfSale).padStart(5, '0');
     const numFormatted = String(invoice.invoiceNumber).padStart(8, '0');
 
-    if (format) {
+    if (customFormat) {
       // Formato personalizado
       return (
-        format
+        customFormat
           .replace('{CUIT}', cuitNumeric)
           .replace('{DATE}', dateFormatted)
           .replace('{TYPE}', invoice.invoiceType)

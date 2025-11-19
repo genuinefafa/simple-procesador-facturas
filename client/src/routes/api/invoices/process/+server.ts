@@ -7,7 +7,7 @@ import type { RequestHandler } from './$types';
 import { InvoiceProcessingService } from '@server/services/invoice-processing.service.js';
 
 export const POST: RequestHandler = async ({ request }) => {
-  console.log('⚙️  [PROCESS] Iniciando procesamiento de facturas...');
+  console.info('⚙️  [PROCESS] Iniciando procesamiento de facturas...');
 
   try {
     const body: unknown = await request.json();
@@ -15,7 +15,7 @@ export const POST: RequestHandler = async ({ request }) => {
       files: Array<{ name: string; path: string }>;
     };
 
-    console.log(`⚙️  [PROCESS] Archivos a procesar: ${files?.length || 0}`);
+    console.info(`⚙️  [PROCESS] Archivos a procesar: ${files?.length || 0}`);
 
     if (!files || !Array.isArray(files) || files.length === 0) {
       console.warn('⚠️  [PROCESS] No se recibió array de archivos');
@@ -23,18 +23,18 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     files.forEach((f, i) => {
-      console.log(`  ${i + 1}. ${f.name} -> ${f.path}`);
+      console.info(`  ${i + 1}. ${f.name} -> ${f.path}`);
     });
 
     const processingService = new InvoiceProcessingService();
-    console.log('⚙️  [PROCESS] Service inicializado, procesando...');
+    console.info('⚙️  [PROCESS] Service inicializado, procesando...');
 
     const results = await processingService.processBatch(files);
 
-    console.log(`⚙️  [PROCESS] Resultados:`);
+    console.info(`⚙️  [PROCESS] Resultados:`);
     results.forEach((r, i) => {
       const status = r.success ? '✅' : '❌';
-      console.log(`  ${status} ${files[i]?.name}: ${r.success ? `OK (conf: ${r.confidence}%)` : r.error}`);
+      console.info(`  ${status} ${files[i]?.name}: ${r.success ? `OK (conf: ${r.confidence}%)` : r.error}`);
     });
 
     // Estadísticas del procesamiento
@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ request }) => {
       requireReview: results.filter((r) => r.requiresReview).length,
     };
 
-    console.log(`✅ [PROCESS] Completado: ${stats.successful}/${stats.total} exitosas`);
+    console.info(`✅ [PROCESS] Completado: ${stats.successful}/${stats.total} exitosas`);
 
     return json({
       success: true,
