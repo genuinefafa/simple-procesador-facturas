@@ -37,6 +37,11 @@ export default defineConfig(({ mode }) => {
 			port: parseInt(env.VITE_PREVIEW_PORT || '4173'),
 			host: env.VITE_HOST || 'localhost',
 		},
+		build: {
+			rollupOptions: {
+				external: ['better-sqlite3', 'drizzle-orm', 'pdf-parse', 'sharp', 'exceljs']
+			}
+		},
 		ssr: {
 			external: ['better-sqlite3', 'drizzle-orm', 'pdf-parse', 'sharp', 'exceljs']
 		}
