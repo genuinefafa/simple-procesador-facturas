@@ -7,6 +7,7 @@ import type { RequestHandler } from './$types';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
+import { PendingFileRepository } from '@server/database/repositories/pending-file';
 
 const UPLOAD_DIR = join(process.cwd(), '..', 'data', 'input');
 
@@ -80,7 +81,19 @@ export const POST: RequestHandler = async ({ request }) => {
       await writeFile(filePath, buffer);
       console.info(`✅ [UPLOAD] Guardado: ${filePath}`);
 
+      // Crear registro en pending_files
+      const pendingFileRepo = new PendingFileRepository();
+      const pendingFile = pendingFileRepo.create({
+        originalFilename: file.name,
+        filePath: filePath,
+        fileSize: file.size,
+        status: 'pending',
+      });
+
+      console.info(`📝 [UPLOAD] Registro creado en BD: ID ${pendingFile.id}`);
+
       uploadedFiles.push({
+        pendingFileId: pendingFile.id,
         name: file.name,
         size: file.size,
         path: filePath,
