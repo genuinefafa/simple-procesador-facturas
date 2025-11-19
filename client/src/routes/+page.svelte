@@ -55,6 +55,27 @@
 		await loadPendingFilesToReview();
 	});
 
+	// Manejar errores de carga de archivos con información detallada
+	async function handleFileLoadError(fileId: number, filename: string) {
+		try {
+			// Intentar obtener detalles del error desde el servidor
+			const response = await fetch(`/api/pending-files/${fileId}/file`);
+			if (!response.ok) {
+				const errorData = await response.json();
+				console.error('❌ Error cargando archivo:', errorData);
+				toast.error(
+					`No se pudo cargar "${filename}": ${errorData.error || 'Error desconocido'}`,
+					{ duration: 5000 }
+				);
+			}
+		} catch (err) {
+			console.error('❌ Error verificando archivo:', err);
+			toast.error(`Error al cargar "${filename}": No se pudo conectar con el servidor`, {
+				duration: 5000
+			});
+		}
+	}
+
 	async function loadInvoices() {
 		loading = true;
 		try {
@@ -444,14 +465,14 @@
 											src="/api/pending-files/{file.id}/file"
 											title="Preview de {file.originalFilename}"
 											class="pdf-iframe"
-											onerror={() => toast.error(`Error al cargar PDF: ${file.originalFilename}`)}
+											onerror={() => handleFileLoadError(file.id, file.originalFilename)}
 										></iframe>
 									{:else if file.originalFilename.toLowerCase().match(/\.(jpg|jpeg|png)$/)}
 										<img
 											src="/api/pending-files/{file.id}/file"
 											alt="Preview de {file.originalFilename}"
 											class="image-preview"
-											onerror={() => toast.error(`Error al cargar imagen: ${file.originalFilename}`)}
+											onerror={() => handleFileLoadError(file.id, file.originalFilename)}
 										/>
 									{:else}
 										<div class="preview-error">
