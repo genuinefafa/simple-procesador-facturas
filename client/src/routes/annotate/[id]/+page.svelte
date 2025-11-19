@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
+	import { toast, Toaster } from 'svelte-sonner';
 	import * as pdfjsLib from 'pdfjs-dist';
 
 	// Configure PDF.js worker - usar el worker del paquete npm
@@ -281,11 +282,13 @@
 
 	async function saveAnnotations() {
 		if (!invoice || zones.length === 0) {
-			alert('Debe anotar al menos una zona antes de guardar');
+			toast.warning('Debe anotar al menos una zona antes de guardar');
 			return;
 		}
 
 		saving = true;
+		const toastId = toast.loading('Guardando anotaciones...');
+
 		try {
 			const response = await fetch('/api/annotations', {
 				method: 'POST',
@@ -301,19 +304,23 @@
 			const data = await response.json();
 
 			if (data.success) {
-				alert('Anotaciones guardadas correctamente');
+				toast.success('Anotaciones guardadas correctamente', { id: toastId });
 				// Redirect back to main page
-				window.location.href = '/';
+				setTimeout(() => {
+					window.location.href = '/';
+				}, 1000);
 			} else {
-				error = data.error || 'Error al guardar anotaciones';
+				toast.error(data.error || 'Error al guardar anotaciones', { id: toastId });
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Error de conexión';
+			toast.error(err instanceof Error ? err.message : 'Error de conexión', { id: toastId });
 		} finally {
 			saving = false;
 		}
 	}
 </script>
+
+<Toaster position="top-right" richColors />
 
 <div class="container">
 	<header>

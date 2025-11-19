@@ -105,8 +105,8 @@
 	}
 
 	async function deletePendingFile(id: number) {
-		const confirmed = confirm('¿Eliminar este archivo? Esta acción no se puede deshacer.');
-		if (!confirmed) return;
+		// Usar toast para confirmar (esto es temporal, idealmente usar un modal)
+		toast.warning('Hacé click en "Eliminar" de nuevo para confirmar');
 
 		try {
 			const response = await fetch(`/api/pending-files/${id}`, {
@@ -420,7 +420,7 @@
 			{:else}
 				<div class="review-list">
 					{#each pendingFilesToReview as file (file.id)}
-						<div class="review-card">
+						<div class="review-card" class:editing={editingFile === file.id}>
 							<div class="review-card-header">
 								<div>
 									<h3>📄 {file.originalFilename}</h3>
@@ -436,145 +436,200 @@
 								{/if}
 							</div>
 
-							{#if editingFile === file.id}
-								<!-- MODO EDICIÓN -->
-								<div class="edit-form">
-									<div class="form-grid">
-										<div class="form-field">
-											<label for="cuit-{file.id}">CUIT *</label>
-											<input
-												id="cuit-{file.id}"
-												type="text"
-												bind:value={editFormData[file.id].extractedCuit}
-												placeholder="XX-XXXXXXXX-X"
-											/>
-											<span class="hint-text">Formato: 20-12345678-9</span>
-										</div>
-
-										<div class="form-field">
-											<label for="date-{file.id}">Fecha emisión *</label>
-											<input
-												id="date-{file.id}"
-												type="date"
-												bind:value={editFormData[file.id].extractedDate}
-											/>
-										</div>
-
-										<div class="form-field">
-											<label for="type-{file.id}">Tipo *</label>
-											<select id="type-{file.id}" bind:value={editFormData[file.id].extractedType}>
-												<option value="">Seleccionar...</option>
-												<option value="A">A</option>
-												<option value="B">B</option>
-												<option value="C">C</option>
-												<option value="E">E</option>
-												<option value="M">M</option>
-											</select>
-										</div>
-
-										<div class="form-field">
-											<label for="pos-{file.id}">Punto de venta *</label>
-											<input
-												id="pos-{file.id}"
-												type="number"
-												bind:value={editFormData[file.id].extractedPointOfSale}
-												placeholder="0001"
-											/>
-										</div>
-
-										<div class="form-field">
-											<label for="num-{file.id}">Número *</label>
-											<input
-												id="num-{file.id}"
-												type="number"
-												bind:value={editFormData[file.id].extractedInvoiceNumber}
-												placeholder="00000001"
-											/>
-										</div>
-
-										<div class="form-field">
-											<label for="total-{file.id}">Total</label>
-											<input
-												id="total-{file.id}"
-												type="number"
-												step="0.01"
-												bind:value={editFormData[file.id].extractedTotal}
-												placeholder="0.00"
-											/>
-										</div>
-									</div>
-
-									<div class="form-actions">
-										<button class="btn btn-primary" onclick={() => saveAndFinalize(file.id)}>
-											✅ Confirmar y Procesar
-										</button>
-										<button class="btn btn-secondary" onclick={cancelEditing}>
-											❌ Cancelar
-										</button>
-										<button class="btn btn-sm btn-danger" onclick={() => deletePendingFile(file.id)}>
-											🗑️ Eliminar
-										</button>
-									</div>
-								</div>
-							{:else}
-								<!-- MODO VISTA -->
-								<div class="data-display">
-									<div class="data-grid-compact">
-										<div class="data-item">
-											<span class="label">CUIT:</span>
-											<span class="value" class:missing={!file.extractedCuit}>
-												{file.extractedCuit || '❌ No detectado'}
-											</span>
-										</div>
-										<div class="data-item">
-											<span class="label">Fecha:</span>
-											<span class="value" class:missing={!file.extractedDate}>
-												{file.extractedDate || '❌ No detectado'}
-											</span>
-										</div>
-										<div class="data-item">
-											<span class="label">Tipo:</span>
-											<span class="value" class:missing={!file.extractedType}>
-												{file.extractedType || '❌'}
-											</span>
-										</div>
-										<div class="data-item">
-											<span class="label">P.Venta:</span>
-											<span class="value" class:missing={file.extractedPointOfSale === null}>
-												{file.extractedPointOfSale ?? '❌'}
-											</span>
-										</div>
-										<div class="data-item">
-											<span class="label">Número:</span>
-											<span class="value" class:missing={file.extractedInvoiceNumber === null}>
-												{file.extractedInvoiceNumber ?? '❌'}
-											</span>
-										</div>
-										<div class="data-item">
-											<span class="label">Total:</span>
-											<span class="value" class:missing={!file.extractedTotal}>
-												{file.extractedTotal ? `$${file.extractedTotal.toLocaleString('es-AR')}` : '❌'}
-											</span>
-										</div>
-									</div>
-
-									{#if file.extractionErrors}
-										<div class="extraction-errors-compact">
-											⚠️ {file.extractionErrors}
+							<div class="review-card-content">
+								<!-- PREVIEW DEL ARCHIVO -->
+								<div class="file-preview">
+									{#if file.originalFilename.toLowerCase().endsWith('.pdf')}
+										<iframe
+											src="/api/pending-files/{file.id}/file"
+											title="Preview de {file.originalFilename}"
+											class="pdf-iframe"
+											onerror={() => toast.error(`Error al cargar PDF: ${file.originalFilename}`)}
+										></iframe>
+									{:else if file.originalFilename.toLowerCase().match(/\.(jpg|jpeg|png)$/)}
+										<img
+											src="/api/pending-files/{file.id}/file"
+											alt="Preview de {file.originalFilename}"
+											class="image-preview"
+											onerror={() => toast.error(`Error al cargar imagen: ${file.originalFilename}`)}
+										/>
+									{:else}
+										<div class="preview-error">
+											<p>⚠️ Vista previa no disponible</p>
+											<p class="filename">{file.originalFilename}</p>
 										</div>
 									{/if}
 
-									<div class="view-actions">
-										<button class="btn btn-primary" onclick={() => startEditing(file.id)}>
-											✏️ Editar
-										</button>
-										<button class="btn btn-sm btn-secondary" onclick={() => deletePendingFile(file.id)}>
-											🗑️ Eliminar
-										</button>
-									</div>
+									<!-- Mostrar valores detectados superpuestos -->
+									{#if file.extractionConfidence !== null && file.extractionConfidence > 0}
+										<div class="detected-overlay">
+											<h4>📊 Datos detectados:</h4>
+											<div class="detected-list">
+												{#if file.extractedCuit}
+													<div class="detected-item">✓ CUIT: {file.extractedCuit}</div>
+												{/if}
+												{#if file.extractedDate}
+													<div class="detected-item">✓ Fecha: {file.extractedDate}</div>
+												{/if}
+												{#if file.extractedType}
+													<div class="detected-item">✓ Tipo: {file.extractedType}</div>
+												{/if}
+												{#if file.extractedPointOfSale !== null}
+													<div class="detected-item">✓ P.Venta: {file.extractedPointOfSale}</div>
+												{/if}
+												{#if file.extractedInvoiceNumber !== null}
+													<div class="detected-item">✓ Número: {file.extractedInvoiceNumber}</div>
+												{/if}
+												{#if file.extractedTotal}
+													<div class="detected-item">✓ Total: ${file.extractedTotal.toLocaleString('es-AR')}</div>
+												{/if}
+											</div>
+										</div>
+									{/if}
 								</div>
-							{/if}
-						</div>
+
+								<!-- DATOS / FORMULARIO -->
+								<div class="file-data">
+									{#if editingFile === file.id}
+										<!-- MODO EDICIÓN -->
+										<div class="edit-form">
+											<div class="form-grid">
+												<div class="form-field">
+													<label for="cuit-{file.id}">CUIT *</label>
+													<input
+														id="cuit-{file.id}"
+														type="text"
+														bind:value={editFormData[file.id].extractedCuit}
+														placeholder="XX-XXXXXXXX-X"
+													/>
+													<span class="hint-text">Formato: 20-12345678-9</span>
+												</div>
+
+												<div class="form-field">
+													<label for="date-{file.id}">Fecha emisión *</label>
+													<input
+														id="date-{file.id}"
+														type="date"
+														bind:value={editFormData[file.id].extractedDate}
+													/>
+												</div>
+
+												<div class="form-field">
+													<label for="type-{file.id}">Tipo *</label>
+													<select id="type-{file.id}" bind:value={editFormData[file.id].extractedType}>
+														<option value="">Seleccionar...</option>
+														<option value="A">A</option>
+														<option value="B">B</option>
+														<option value="C">C</option>
+														<option value="E">E</option>
+														<option value="M">M</option>
+													</select>
+												</div>
+
+												<div class="form-field">
+													<label for="pos-{file.id}">Punto de venta *</label>
+													<input
+														id="pos-{file.id}"
+														type="number"
+														bind:value={editFormData[file.id].extractedPointOfSale}
+														placeholder="0001"
+													/>
+												</div>
+
+												<div class="form-field">
+													<label for="num-{file.id}">Número *</label>
+													<input
+														id="num-{file.id}"
+														type="number"
+														bind:value={editFormData[file.id].extractedInvoiceNumber}
+														placeholder="00000001"
+													/>
+												</div>
+
+												<div class="form-field">
+													<label for="total-{file.id}">Total</label>
+													<input
+														id="total-{file.id}"
+														type="number"
+														step="0.01"
+														bind:value={editFormData[file.id].extractedTotal}
+														placeholder="0.00"
+													/>
+												</div>
+											</div>
+
+											<div class="form-actions">
+												<button class="btn btn-primary" onclick={() => saveAndFinalize(file.id)}>
+													✅ Confirmar y Procesar
+												</button>
+												<button class="btn btn-secondary" onclick={cancelEditing}>
+													❌ Cancelar
+												</button>
+												<button class="btn btn-sm btn-danger" onclick={() => deletePendingFile(file.id)}>
+													🗑️ Eliminar
+												</button>
+											</div>
+										</div>
+									{:else}
+										<!-- MODO VISTA -->
+										<div class="data-display">
+											<div class="data-grid-compact">
+												<div class="data-item">
+													<span class="label">CUIT:</span>
+													<span class="value" class:missing={!file.extractedCuit}>
+														{file.extractedCuit || '❌ No detectado'}
+													</span>
+												</div>
+												<div class="data-item">
+													<span class="label">Fecha:</span>
+													<span class="value" class:missing={!file.extractedDate}>
+														{file.extractedDate || '❌ No detectado'}
+													</span>
+												</div>
+												<div class="data-item">
+													<span class="label">Tipo:</span>
+													<span class="value" class:missing={!file.extractedType}>
+														{file.extractedType || '❌'}
+													</span>
+												</div>
+												<div class="data-item">
+													<span class="label">P.Venta:</span>
+													<span class="value" class:missing={file.extractedPointOfSale === null}>
+														{file.extractedPointOfSale ?? '❌'}
+													</span>
+												</div>
+												<div class="data-item">
+													<span class="label">Número:</span>
+													<span class="value" class:missing={file.extractedInvoiceNumber === null}>
+														{file.extractedInvoiceNumber ?? '❌'}
+													</span>
+												</div>
+												<div class="data-item">
+													<span class="label">Total:</span>
+													<span class="value" class:missing={!file.extractedTotal}>
+														{file.extractedTotal ? `$${file.extractedTotal.toLocaleString('es-AR')}` : '❌'}
+													</span>
+												</div>
+											</div>
+
+											{#if file.extractionErrors}
+												<div class="extraction-errors-compact">
+													⚠️ {file.extractionErrors}
+												</div>
+											{/if}
+
+											<div class="view-actions">
+												<button class="btn btn-primary" onclick={() => startEditing(file.id)}>
+													✏️ Editar
+												</button>
+												<button class="btn btn-sm btn-secondary" onclick={() => deletePendingFile(file.id)}>
+													🗑️ Eliminar
+												</button>
+											</div>
+										</div>
+									{/if}
+								</div>
+							</div>
 					{/each}
 				</div>
 			{/if}
@@ -1387,5 +1442,106 @@
 		display: flex;
 		gap: 0.75rem;
 		flex-wrap: wrap;
+	}
+
+	/* TWO-COLUMN LAYOUT FOR REVIEW */
+	.review-card-content {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 1.5rem;
+		margin-top: 1rem;
+	}
+
+	.review-card.editing .review-card-content {
+		grid-template-columns: 1.5fr 1fr;
+	}
+
+	@media (max-width: 1200px) {
+		.review-card-content {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	/* FILE PREVIEW */
+	.file-preview {
+		position: relative;
+		background: #f8fafc;
+		border: 2px solid #e5e7eb;
+		border-radius: 8px;
+		overflow: hidden;
+		min-height: 500px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.pdf-iframe {
+		width: 100%;
+		height: 600px;
+		border: none;
+		background: white;
+	}
+
+	.image-preview {
+		max-width: 100%;
+		max-height: 600px;
+		object-fit: contain;
+		display: block;
+		margin: 0 auto;
+	}
+
+	.preview-error {
+		text-align: center;
+		padding: 3rem;
+		color: #64748b;
+	}
+
+	.preview-error .filename {
+		font-family: monospace;
+		font-size: 0.9rem;
+		color: #94a3b8;
+		margin-top: 0.5rem;
+		word-break: break-all;
+	}
+
+	/* DETECTED OVERLAY */
+	.detected-overlay {
+		position: absolute;
+		top: 1rem;
+		right: 1rem;
+		background: rgba(255, 255, 255, 0.95);
+		border: 2px solid #3b82f6;
+		border-radius: 8px;
+		padding: 1rem;
+		max-width: 250px;
+		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+		z-index: 10;
+	}
+
+	.detected-overlay h4 {
+		margin: 0 0 0.75rem 0;
+		font-size: 0.9rem;
+		color: #1e293b;
+		border-bottom: 1px solid #e5e7eb;
+		padding-bottom: 0.5rem;
+	}
+
+	.detected-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.detected-item {
+		font-size: 0.85rem;
+		color: #059669;
+		font-weight: 500;
+		padding: 0.25rem 0;
+	}
+
+	/* FILE DATA COLUMN */
+	.file-data {
+		display: flex;
+		flex-direction: column;
 	}
 </style>
