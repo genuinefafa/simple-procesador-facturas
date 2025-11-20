@@ -255,3 +255,48 @@ export type NewFacturaCorreccion = typeof facturasCorrecciones.$inferInsert;
 
 export type FacturaZonaAnotada = typeof facturasZonasAnotadas.$inferSelect;
 export type NewFacturaZonaAnotada = typeof facturasZonasAnotadas.$inferInsert;
+
+// =============================================================================
+// ARCHIVOS PENDIENTES
+// =============================================================================
+
+export const pendingFiles = sqliteTable(
+  'pending_files',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    originalFilename: text('original_filename').notNull(),
+    filePath: text('file_path').notNull(),
+    fileSize: integer('file_size'),
+    uploadDate: text('upload_date').default(sql`CURRENT_TIMESTAMP`),
+
+    // Datos extraídos (pueden estar incompletos/nulos)
+    extractedCuit: text('extracted_cuit'),
+    extractedDate: text('extracted_date'),
+    extractedTotal: real('extracted_total'),
+    extractedType: text('extracted_type'),
+    extractedPointOfSale: integer('extracted_point_of_sale'),
+    extractedInvoiceNumber: integer('extracted_invoice_number'),
+
+    extractionConfidence: integer('extraction_confidence'),
+    extractionErrors: text('extraction_errors'), // JSON con array de errores
+
+    // Estados: pending, reviewing, processed, failed
+    status: text('status', {
+      enum: ['pending', 'reviewing', 'processed', 'failed'],
+    }).default('pending'),
+
+    // Referencia a factura final (si se completó)
+    invoiceId: integer('invoice_id').references(() => facturas.id, { onDelete: 'set null' }),
+
+    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    statusIdx: index('idx_pending_files_status').on(table.status),
+    uploadDateIdx: index('idx_pending_files_upload_date').on(table.uploadDate),
+    invoiceIdx: index('idx_pending_files_invoice').on(table.invoiceId),
+  })
+);
+
+export type PendingFile = typeof pendingFiles.$inferSelect;
+export type NewPendingFile = typeof pendingFiles.$inferInsert;

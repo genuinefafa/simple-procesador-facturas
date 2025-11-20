@@ -16,18 +16,61 @@
 		manuallyValidated: boolean;
 	}
 
+	interface PendingFile {
+		id: number;
+		originalFilename: string;
+		filePath: string;
+		fileSize: number | null;
+		uploadDate: string;
+		extractedCuit: string | null;
+		extractedDate: string | null;
+		extractedTotal: number | null;
+		extractedType: string | null;
+		extractedPointOfSale: number | null;
+		extractedInvoiceNumber: number | null;
+		extractionConfidence: number | null;
+		extractionErrors: string | null;
+		status: 'pending' | 'reviewing' | 'processed' | 'failed';
+		invoiceId: number | null;
+		createdAt: string;
+		updatedAt: string;
+	}
+
 	let invoices: PendingInvoice[] = $state([]);
+	let pendingFiles: PendingFile[] = $state([]);
+	let pendingFilesStats = $state({ total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 });
 	let loading = $state(false);
 	let error = $state<string | null>(null);
 	let uploading = $state(false);
 	let processing = $state(false);
 	let uploadedFiles: File[] = $state([]);
 	let selectedInvoices = $state<Set<number>>(new Set());
-	let activeTab = $state<'upload' | 'review'>('upload');
+	let selectedPendingFiles = $state<Set<number>>(new Set());
+	let activeTab = $state<'upload' | 'pending' | 'review'>('upload');
 
 	onMount(async () => {
 		await loadInvoices();
+		await loadPendingFiles();
 	});
+
+	async function loadPendingFiles() {
+		loading = true;
+		try {
+			const response = await fetch('/api/pending-files?limit=100');
+			const data = await response.json();
+
+			if (data.success) {
+				pendingFiles = data.data;
+				pendingFilesStats = data.stats;
+			} else {
+				error = data.error || 'Error al cargar archivos pendientes';
+			}
+		} catch (err) {
+			error = err instanceof Error ? err.message : 'Error de conexión';
+		} finally {
+			loading = false;
+		}
+	}
 
 	async function loadInvoices() {
 		loading = true;
@@ -101,10 +144,11 @@
 
 			// 2. Process uploaded files
 			processing = true;
+			const pendingFileIds = uploadData.files.map((f: any) => f.id);
 			const processResponse = await fetch('/api/invoices/process', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ files: uploadData.files })
+				body: JSON.stringify({ pendingFileIds })
 			});
 			const processData = await processResponse.json();
 
@@ -115,7 +159,8 @@
 			// 3. Clear uploaded files and reload
 			uploadedFiles = [];
 			await loadInvoices();
-			activeTab = 'review';
+			await loadPendingFiles();
+			activeTab = 'pending';
 
 			// Show success message
 			alert(
@@ -177,6 +222,106 @@
 		if (confidence >= 70) return 'text-yellow-600';
 		return 'text-red-600';
 	}
+
+	function togglePendingFileSelection(id: number) {
+		if (selectedPendingFiles.has(id)) {
+			selectedPendingFiles.delete(id);
+		} else {
+			selectedPendingFiles.add(id);
+		}
+		selectedPendingFiles = selectedPendingFiles;
+	}
+
+	function selectAllPendingFiles() {
+		selectedPendingFiles = new Set(pendingFiles.map((pf) => pf.id));
+	}
+
+	function clearPendingFileSelection() {
+		selectedPendingFiles = new Set();
+	}
+
+	async function processPendingFiles() {
+		if (selectedPendingFiles.size === 0) {
+			alert('⚠️ Seleccioná al menos un archivo para procesar');
+			return;
+		}
+
+		processing = true;
+		error = null;
+
+		try {
+			const response = await fetch('/api/invoices/process', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ pendingFileIds: Array.from(selectedPendingFiles) })
+			});
+			const data = await response.json();
+
+			if (data.success) {
+				alert(`✅ Procesadas ${data.stats.successful}/${data.stats.total} facturas`);
+				clearPendingFileSelection();
+				await loadPendingFiles();
+				await loadInvoices();
+			} else {
+				alert(`❌ Error: ${data.error}`);
+			}
+		} catch (err) {
+			alert(`❌ Error al procesar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+		} finally {
+			processing = false;
+		}
+	}
+
+	async function deletePendingFile(id: number) {
+		if (!confirm('¿Estás seguro de eliminar este archivo?')) {
+			return;
+		}
+
+		try {
+			const response = await fetch(`/api/pending-files/${id}`, {
+				method: 'DELETE'
+			});
+			const data = await response.json();
+
+			if (data.success) {
+				await loadPendingFiles();
+			} else {
+				alert(`❌ Error: ${data.error}`);
+			}
+		} catch (err) {
+			alert(`❌ Error al eliminar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+		}
+	}
+
+	function getStatusBadgeClass(status: string): string {
+		switch (status) {
+			case 'pending':
+				return 'badge-pending';
+			case 'reviewing':
+				return 'badge-reviewing';
+			case 'processed':
+				return 'badge-processed';
+			case 'failed':
+				return 'badge-failed';
+			default:
+				return '';
+		}
+	}
+
+	function getStatusText(status: string): string {
+		switch (status) {
+			case 'pending':
+				return '🟡 Pendiente';
+			case 'reviewing':
+				return '🔵 En Revisión';
+			case 'processed':
+				return '✅ Procesado';
+			case 'failed':
+				return '❌ Error';
+			default:
+				return status;
+		}
+	}
 </script>
 
 <div class="container">
@@ -189,8 +334,18 @@
 		<button class="tab" class:active={activeTab === 'upload'} onclick={() => (activeTab = 'upload')}>
 			📤 1. Subir Archivos
 		</button>
+		<button
+			class="tab"
+			class:active={activeTab === 'pending'}
+			onclick={() => (activeTab = 'pending')}
+		>
+			📂 2. Archivos Pendientes
+			{#if pendingFilesStats.pending + pendingFilesStats.reviewing > 0}
+				<span class="badge">{pendingFilesStats.pending + pendingFilesStats.reviewing}</span>
+			{/if}
+		</button>
 		<button class="tab" class:active={activeTab === 'review'} onclick={() => (activeTab = 'review')}>
-			📋 2. Revisar y Exportar
+			📋 3. Revisar y Exportar
 		</button>
 	</nav>
 
@@ -260,6 +415,157 @@
 					</div>
 				{/if}
 			</section>
+		{:else if activeTab === 'pending'}
+			<!-- PENDING FILES SECTION -->
+			<div class="stats-bar">
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats.total}</span>
+					<span class="stat-label">Total</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats.pending}</span>
+					<span class="stat-label">Pendientes</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats.reviewing}</span>
+					<span class="stat-label">En Revisión</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats.processed}</span>
+					<span class="stat-label">Procesados</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats.failed}</span>
+					<span class="stat-label">Errores</span>
+				</div>
+			</div>
+
+			{#if pendingFiles.length > 0}
+				<div class="bulk-actions">
+					<button class="btn btn-secondary" onclick={selectAllPendingFiles}>
+						✓ Seleccionar todos
+					</button>
+					<button class="btn btn-secondary" onclick={clearPendingFileSelection}>
+						✕ Limpiar selección
+					</button>
+					<button
+						class="btn btn-primary"
+						onclick={processPendingFiles}
+						disabled={selectedPendingFiles.size === 0 || processing}
+					>
+						{#if processing}
+							⏳ Procesando...
+						{:else}
+							🔄 Procesar seleccionados ({selectedPendingFiles.size})
+						{/if}
+					</button>
+				</div>
+			{/if}
+
+			{#if loading}
+				<div class="loading">
+					<p>⏳ Cargando archivos pendientes...</p>
+				</div>
+			{:else if pendingFiles.length === 0}
+				<div class="empty">
+					<p>📭 No hay archivos pendientes</p>
+					<button class="btn btn-primary" onclick={() => (activeTab = 'upload')}>
+						📤 Subir archivos
+					</button>
+				</div>
+			{:else}
+				<div class="invoice-list">
+					{#each pendingFiles as pf (pf.id)}
+						<div
+							class="invoice-card pending-file-card"
+							class:selected={selectedPendingFiles.has(pf.id)}
+						>
+							<label class="checkbox-label">
+								<input
+									type="checkbox"
+									checked={selectedPendingFiles.has(pf.id)}
+									onchange={() => togglePendingFileSelection(pf.id)}
+								/>
+							</label>
+
+							<div class="invoice-header">
+								<div>
+									<h3>{pf.originalFilename}</h3>
+									<span class="status-badge {getStatusBadgeClass(pf.status)}">
+										{getStatusText(pf.status)}
+									</span>
+								</div>
+								<div class="confidence {getConfidenceColor(pf.extractionConfidence)}">
+									{pf.extractionConfidence?.toFixed(0) || '?'}%
+								</div>
+							</div>
+
+							<div class="invoice-details">
+								<div class="detail">
+									<span class="label">CUIT:</span>
+									<span class="value">
+										{pf.extractedCuit || '❌ No detectado'}
+									</span>
+								</div>
+								<div class="detail">
+									<span class="label">Fecha:</span>
+									<span class="value">
+										{pf.extractedDate || '❌ No detectado'}
+									</span>
+								</div>
+								<div class="detail">
+									<span class="label">Total:</span>
+									<span class="value">
+										{pf.extractedTotal !== null
+											? `$${pf.extractedTotal.toLocaleString('es-AR')}`
+											: '❌ No detectado'}
+									</span>
+								</div>
+								<div class="detail">
+									<span class="label">Tipo:</span>
+									<span class="value">
+										{pf.extractedType || '❌ No detectado'}
+									</span>
+								</div>
+								<div class="detail">
+									<span class="label">Punto Venta:</span>
+									<span class="value">
+										{pf.extractedPointOfSale !== null ? pf.extractedPointOfSale : '❌ No detectado'}
+									</span>
+								</div>
+								<div class="detail">
+									<span class="label">Número:</span>
+									<span class="value">
+										{pf.extractedInvoiceNumber !== null
+											? pf.extractedInvoiceNumber
+											: '❌ No detectado'}
+									</span>
+								</div>
+							</div>
+
+							{#if pf.extractionErrors}
+								<div class="extraction-errors">
+									<p class="error-title">⚠️ Errores de extracción:</p>
+									<p class="error-text">{pf.extractionErrors}</p>
+								</div>
+							{/if}
+
+							<div class="actions">
+								{#if pf.status === 'processed' && pf.invoiceId}
+									<a href="/annotate/{pf.invoiceId}" class="btn btn-secondary"> 📝 Ver Factura </a>
+								{:else}
+									<button class="btn btn-primary btn-sm" onclick={() => processPendingFiles()}>
+										🔄 Procesar
+									</button>
+								{/if}
+								<button class="btn btn-secondary btn-sm" onclick={() => deletePendingFile(pf.id)}>
+									🗑️ Eliminar
+								</button>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		{:else if activeTab === 'review'}
 			<!-- REVIEW SECTION -->
 			<div class="stats-bar">
@@ -766,5 +1072,78 @@
 
 	.btn-secondary:hover {
 		background: #e5e7eb;
+	}
+
+	.btn-sm {
+		padding: 0.5rem 1rem;
+		font-size: 0.9rem;
+	}
+
+	/* TAB BADGE */
+	.badge {
+		display: inline-block;
+		background: #ef4444;
+		color: white;
+		font-size: 0.75rem;
+		font-weight: bold;
+		padding: 0.25rem 0.5rem;
+		border-radius: 12px;
+		margin-left: 0.5rem;
+	}
+
+	/* STATUS BADGES */
+	.status-badge {
+		display: inline-block;
+		padding: 0.4rem 0.8rem;
+		border-radius: 6px;
+		font-size: 0.85rem;
+		font-weight: 500;
+		margin-top: 0.5rem;
+	}
+
+	.badge-pending {
+		background: #fef3c7;
+		color: #92400e;
+	}
+
+	.badge-reviewing {
+		background: #dbeafe;
+		color: #1e40af;
+	}
+
+	.badge-processed {
+		background: #d1fae5;
+		color: #065f46;
+	}
+
+	.badge-failed {
+		background: #fee2e2;
+		color: #991b1b;
+	}
+
+	/* PENDING FILE CARD */
+	.pending-file-card .invoice-details {
+		grid-template-columns: repeat(3, 1fr);
+	}
+
+	.extraction-errors {
+		background: #fef2f2;
+		border: 1px solid #fecaca;
+		border-radius: 8px;
+		padding: 1rem;
+		margin-top: 1rem;
+		margin-bottom: 1rem;
+	}
+
+	.error-title {
+		font-weight: 600;
+		color: #dc2626;
+		margin: 0 0 0.5rem 0;
+	}
+
+	.error-text {
+		color: #991b1b;
+		margin: 0;
+		font-size: 0.9rem;
 	}
 </style>
