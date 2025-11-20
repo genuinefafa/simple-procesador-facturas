@@ -8,6 +8,13 @@
       "when": 1763480098809,
       "tag": "0000_mixed_impossible_man",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1763655413631,
+      "tag": "0001_lame_doctor_doom",
+      "breakpoints": true
     }
   ]
 }
