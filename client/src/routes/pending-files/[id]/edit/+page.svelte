@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { toast } from '$lib/toast.svelte';
 
 	interface Props {
 		data: {
@@ -86,7 +87,7 @@
 			const data = await response.json();
 
 			if (data.success) {
-				alert('✅ Archivo procesado correctamente');
+				toast.success('Archivo procesado correctamente');
 				goto('/');
 			} else {
 				error = data.error || 'Error al procesar';

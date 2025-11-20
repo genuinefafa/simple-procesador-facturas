@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { toast } from '$lib/toast.svelte';
 
 	interface PendingInvoice {
 		id: number;
@@ -163,8 +164,8 @@
 			activeTab = 'pending';
 
 			// Show success message
-			alert(
-				`✅ Procesadas ${processData.stats.successful}/${processData.stats.total} facturas`
+			toast.success(
+				`Procesadas ${processData.stats.successful}/${processData.stats.total} facturas`
 			);
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Error desconocido';
@@ -193,7 +194,7 @@
 
 	async function exportSelected() {
 		if (selectedInvoices.size === 0) {
-			alert('⚠️ Seleccioná al menos una factura para exportar');
+			toast.warning('Seleccioná al menos una factura para exportar');
 			return;
 		}
 
@@ -206,13 +207,13 @@
 			const data = await response.json();
 
 			if (data.success) {
-				alert(`✅ Exportadas ${data.stats.successful}/${data.stats.total} facturas`);
+				toast.success(`Exportadas ${data.stats.successful}/${data.stats.total} facturas`);
 				clearSelection();
 			} else {
-				alert(`❌ Error: ${data.error}`);
+				toast.error(`Error: ${data.error}`);
 			}
 		} catch (err) {
-			alert(`❌ Error al exportar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+			toast.error(`Error al exportar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
 		}
 	}
 
@@ -242,7 +243,7 @@
 
 	async function processPendingFiles() {
 		if (selectedPendingFiles.size === 0) {
-			alert('⚠️ Seleccioná al menos un archivo para procesar');
+			toast.warning('Seleccioná al menos un archivo para procesar');
 			return;
 		}
 
@@ -258,15 +259,15 @@
 			const data = await response.json();
 
 			if (data.success) {
-				alert(`✅ Procesadas ${data.stats.successful}/${data.stats.total} facturas`);
+				toast.success(`Procesadas ${data.stats.successful}/${data.stats.total} facturas`);
 				clearPendingFileSelection();
 				await loadPendingFiles();
 				await loadInvoices();
 			} else {
-				alert(`❌ Error: ${data.error}`);
+				toast.error(`Error: ${data.error}`);
 			}
 		} catch (err) {
-			alert(`❌ Error al procesar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+			toast.error(`Error al procesar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
 		} finally {
 			processing = false;
 		}
@@ -284,12 +285,13 @@
 			const data = await response.json();
 
 			if (data.success) {
+				toast.success('Archivo eliminado correctamente');
 				await loadPendingFiles();
 			} else {
-				alert(`❌ Error: ${data.error}`);
+				toast.error(`Error: ${data.error}`);
 			}
 		} catch (err) {
-			alert(`❌ Error al eliminar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
+			toast.error(`Error al eliminar: ${err instanceof Error ? err.message : 'Error desconocido'}`);
 		}
 	}
 

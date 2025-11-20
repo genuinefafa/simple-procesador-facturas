@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import * as pdfjsLib from 'pdfjs-dist';
+	import { toast } from '$lib/toast.svelte';
 
 	// Configure PDF.js worker - usar el worker del paquete npm
 	pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -281,7 +282,7 @@
 
 	async function saveAnnotations() {
 		if (!invoice || zones.length === 0) {
-			alert('Debe anotar al menos una zona antes de guardar');
+			toast.warning('Debe anotar al menos una zona antes de guardar');
 			return;
 		}
 
@@ -301,7 +302,7 @@
 			const data = await response.json();
 
 			if (data.success) {
-				alert('Anotaciones guardadas correctamente');
+				toast.success('Anotaciones guardadas correctamente');
 				// Redirect back to main page
 				window.location.href = '/';
 			} else {
