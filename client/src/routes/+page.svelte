@@ -552,9 +552,20 @@
 
 							<div class="actions">
 								{#if pf.status === 'processed' && pf.invoiceId}
-									<a href="/annotate/{pf.invoiceId}" class="btn btn-secondary"> 📝 Ver Factura </a>
+									<a href="/annotate/{pf.invoiceId}" class="btn btn-secondary btn-sm">
+										📝 Ver Factura
+									</a>
 								{:else}
-									<button class="btn btn-primary btn-sm" onclick={() => processPendingFiles()}>
+									<a href="/pending-files/{pf.id}/edit" class="btn btn-primary btn-sm">
+										✏️ Editar
+									</a>
+									<button
+										class="btn btn-secondary btn-sm"
+										onclick={() => {
+											selectedPendingFiles = new Set([pf.id]);
+											processPendingFiles();
+										}}
+									>
 										🔄 Procesar
 									</button>
 								{/if}
