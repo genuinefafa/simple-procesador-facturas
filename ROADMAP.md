@@ -1,8 +1,16 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2025-11-19)
+## Estado Actual (2025-11-20)
 
 ### ✅ Completado Recientemente
+
+#### Fase 1: Sistema de Archivos Pendientes (2025-11-20)
+- ✅ **Base de datos**: Migración 003_add_pending_files.sql con estados y datos parciales
+- ✅ **Repository**: PendingFileRepository con CRUD completo y métodos auxiliares
+- ✅ **Upload/Process**: Flujo redesignado para guardar archivos aunque extracción falle
+- ✅ **API Endpoints**: 5 endpoints nuevos para gestión de archivos pendientes
+- ✅ **UI**: Pestaña "Archivos Pendientes" con estados, estadísticas y acciones
+- ✅ **Build**: Compilación exitosa, migraciones aplicadas correctamente
 
 #### Refactor a Monorepo SvelteKit (Sesión anterior)
 - ✅ Eliminado CLI, migrado a app web única
@@ -12,28 +20,28 @@
 - ✅ Vulnerabilidades resueltas, GitHub Actions funcionando
 - ✅ Scripts de package.json simplificados (21 → 13)
 
-#### Bugfixes de Hoy (2025-11-19)
+#### Bugfixes (2025-11-19)
 - ✅ **Canvas Fix**: Reemplazado `tick()` por `$effect()` en herramienta de anotación
 - ✅ **Property Names**: Corregido mismatch entre service/repository al crear emisor
 - ✅ **Logging**: Agregado logging exhaustivo a upload, process y service
 - ✅ **Valores Extraídos**: UI de anotación muestra qué se reconoció en cada campo
 
-### 🔴 Problema Principal Identificado
+### ✅ Problema Principal RESUELTO
 
-**El flujo actual es demasiado rígido:**
-- Si falla cualquier validación (CUIT inválido, falta fecha, etc.), el archivo no se guarda
-- El usuario sube el archivo pero desaparece de la UI si no se procesa completamente
-- No hay forma de ver archivos "pendientes" que requieren corrección manual
-- El renombrado depende del contenido, pero si no se reconoce no se puede guardar
+**El flujo rígido fue solucionado con la Fase 1:**
+- ✅ Archivos se guardan en `pending_files` aunque la extracción falle
+- ✅ Usuario puede ver todos los archivos subidos en pestaña "Archivos Pendientes"
+- ✅ Datos extraídos parciales se muestran para corrección manual
+- ✅ Sistema permite reprocesar archivos después de correcciones
 
 ---
 
 ## 🎯 Roadmap por Fases
 
-### FASE 1: Workflow Redesign - Sistema de Archivos Pendientes
-**Objetivo**: Permitir que archivos se guarden aunque la extracción falle
+### ✅ FASE 1: Workflow Redesign - Sistema de Archivos Pendientes [COMPLETADA]
+**Objetivo**: Permitir que archivos se guarden aunque la extracción falle ✅
 
-**Prioridad**: 🔴 CRÍTICA (bloquea workflow normal del usuario)
+**Estado**: ✅ COMPLETADA (2025-11-20)
 
 #### 1.1. Crear Tabla `pending_files`
 ```sql
