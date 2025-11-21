@@ -63,8 +63,12 @@ export class InvoiceProcessingService {
       console.info(`      Fecha: ${data.date || '❌ NO DETECTADO'}`);
       console.info(`      Total: ${data.total !== undefined ? data.total : '❌ NO DETECTADO'}`);
       console.info(`      Tipo: ${data.invoiceType || '❌ NO DETECTADO'}`);
-      console.info(`      Punto Venta: ${data.pointOfSale !== undefined ? data.pointOfSale : '❌ NO DETECTADO'}`);
-      console.info(`      Número: ${data.invoiceNumber !== undefined ? data.invoiceNumber : '❌ NO DETECTADO'}`);
+      console.info(
+        `      Punto Venta: ${data.pointOfSale !== undefined ? data.pointOfSale : '❌ NO DETECTADO'}`
+      );
+      console.info(
+        `      Número: ${data.invoiceNumber !== undefined ? data.invoiceNumber : '❌ NO DETECTADO'}`
+      );
 
       // IMPORTANTE: Siempre guardar datos extraídos, incluso si están incompletos
       if (!extraction.success || confidence < 50) {
