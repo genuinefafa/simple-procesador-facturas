@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "8a98fda4-9fe0-406b-973e-5e9ddada408e",
+  "id": "c1bbaf8f-9fb5-47c3-bca4-0ee8899c8528",
   "prevId": "5eb53fbd-0da8-48e3-bfac-11cd63cb9864",
   "tables": {
     "emisor_templates_historial": {
@@ -872,22 +872,22 @@
         }
       },
       "indexes": {
-        "idx_pending_files_status": {
-          "name": "idx_pending_files_status",
+        "idx_pending_status": {
+          "name": "idx_pending_status",
           "columns": [
             "status"
           ],
           "isUnique": false
         },
-        "idx_pending_files_upload_date": {
-          "name": "idx_pending_files_upload_date",
+        "idx_pending_upload_date": {
+          "name": "idx_pending_upload_date",
           "columns": [
             "upload_date"
           ],
           "isUnique": false
         },
-        "idx_pending_files_invoice": {
-          "name": "idx_pending_files_invoice",
+        "idx_pending_invoice": {
+          "name": "idx_pending_invoice",
           "columns": [
             "invoice_id"
           ],

@@ -8,12 +8,18 @@ import fs from 'fs';
 import path from 'path';
 
 export const GET: RequestHandler = async ({ params }) => {
+  const filename = path.basename(decodeURIComponent(params.path));
+
   try {
     // Decode the path parameter (it may be URL-encoded)
     const filePath = decodeURIComponent(params.path);
 
+    console.info(`📂 [FILE-SERVER] Solicitado: ${filename}`);
+    console.info(`   Path original: ${filePath}`);
+
     // Security: Ensure the path doesn't contain directory traversal attempts
     if (filePath.includes('..') || filePath.includes('~')) {
+      console.error(`❌ [FILE-SERVER] Path inválido (directory traversal): ${filePath}`);
       throw error(400, 'Invalid file path');
     }
 
@@ -30,9 +36,11 @@ export const GET: RequestHandler = async ({ params }) => {
     if (path.isAbsolute(filePath)) {
       // Ruta absoluta
       absolutePath = filePath;
+      console.info(`   Usando ruta absoluta: ${absolutePath}`);
     } else {
       // Intentar primero como ruta relativa al proyecto
       absolutePath = path.resolve(projectRoot, filePath);
+      console.info(`   Intentando ruta relativa: ${absolutePath}`);
 
       // Si no existe, buscar en directorios comunes
       if (!fs.existsSync(absolutePath)) {
@@ -42,10 +50,13 @@ export const GET: RequestHandler = async ({ params }) => {
           path.join(projectRoot, 'data/processed'),
         ];
 
+        console.info(`   No encontrado, buscando en directorios comunes...`);
         for (const dir of searchDirs) {
           const candidatePath = path.join(dir, path.basename(filePath));
+          console.info(`     Probando: ${candidatePath}`);
           if (fs.existsSync(candidatePath)) {
             absolutePath = candidatePath;
+            console.info(`     ✅ Encontrado!`);
             break;
           }
         }
@@ -54,15 +65,18 @@ export const GET: RequestHandler = async ({ params }) => {
 
     // Check if file exists
     if (!fs.existsSync(absolutePath)) {
-      console.error(`File not found: ${absolutePath}`);
-      console.error(`  Original path: ${filePath}`);
-      console.error(`  Searched in: examples/, data/input/, data/processed/`);
-      throw error(404, `File not found: ${path.basename(filePath)}`);
+      console.error(`❌ [FILE-SERVER] Archivo no encontrado: ${filename}`);
+      console.error(`   Path original: ${filePath}`);
+      console.error(`   Path buscado: ${absolutePath}`);
+      console.error(`   Directorios revisados: examples/, data/input/, data/processed/`);
+      throw error(404, `File not found: ${filename}`);
     }
 
     // Read file
     const fileBuffer = fs.readFileSync(absolutePath);
     const ext = path.extname(absolutePath).toLowerCase();
+
+    console.info(`✅ [FILE-SERVER] Sirviendo: ${filename} (${fileBuffer.length} bytes)`);
 
     // Determine content type
     let contentType = 'application/octet-stream';
@@ -76,17 +90,23 @@ export const GET: RequestHandler = async ({ params }) => {
       contentType = 'image/tiff';
     }
 
+    // Encodear filename para soportar caracteres UTF-8 (ñ, tildes, etc)
+    const encodedFilename = encodeURIComponent(filename);
+
     return new Response(fileBuffer, {
       headers: {
         'Content-Type': contentType,
         'Cache-Control': 'public, max-age=3600',
+        // Usar ambos formatos para compatibilidad con navegadores
+        'Content-Disposition': `inline; filename="${filename.replace(/[^\x00-\x7F]/g, '_')}"; filename*=UTF-8''${encodedFilename}`,
       },
     });
   } catch (err) {
     if (err instanceof Error && 'status' in err) {
       throw err;
     }
-    console.error('Error serving file:', err);
+    console.error(`❌ [FILE-SERVER] Error sirviendo archivo: ${filename}`);
+    console.error(`   Error:`, err);
     throw error(500, 'Internal server error');
   }
 };

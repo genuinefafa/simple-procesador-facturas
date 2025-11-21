@@ -292,9 +292,9 @@ export const pendingFiles = sqliteTable(
     updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
-    statusIdx: index('idx_pending_files_status').on(table.status),
-    uploadDateIdx: index('idx_pending_files_upload_date').on(table.uploadDate),
-    invoiceIdx: index('idx_pending_files_invoice').on(table.invoiceId),
+    statusIdx: index('idx_pending_status').on(table.status),
+    uploadDateIdx: index('idx_pending_upload_date').on(table.uploadDate),
+    invoiceIdx: index('idx_pending_invoice').on(table.invoiceId),
   })
 );
 

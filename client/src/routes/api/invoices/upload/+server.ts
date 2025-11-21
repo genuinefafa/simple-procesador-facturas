@@ -33,7 +33,6 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     const uploadedFiles = [];
-    const pendingFileRepo = new PendingFileRepository();
 
     for (const file of files) {
       console.info(`📄 [UPLOAD] Procesando: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);
@@ -83,16 +82,18 @@ export const POST: RequestHandler = async ({ request }) => {
       console.info(`✅ [UPLOAD] Guardado: ${filePath}`);
 
       // Crear registro en pending_files
+      const pendingFileRepo = new PendingFileRepository();
       const pendingFile = pendingFileRepo.create({
         originalFilename: file.name,
         filePath: filePath,
         fileSize: file.size,
         status: 'pending',
       });
-      console.info(`📝 [UPLOAD] Registro creado en BD: ID=${pendingFile.id}`);
+
+      console.info(`📝 [UPLOAD] Registro creado en BD: ID ${pendingFile.id}`);
 
       uploadedFiles.push({
-        id: pendingFile.id,
+        pendingFileId: pendingFile.id,
         name: file.name,
         size: file.size,
         path: filePath,

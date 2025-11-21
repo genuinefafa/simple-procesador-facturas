@@ -55,6 +55,31 @@ export class PendingFileRepository {
   }
 
   /**
+   * Convierte una fila de base de datos a objeto PendingFile
+   */
+  private rowToObject(row: PendingFileRow): PendingFile {
+    return {
+      id: row.id,
+      originalFilename: row.original_filename,
+      filePath: row.file_path,
+      fileSize: row.file_size,
+      uploadDate: row.upload_date,
+      extractedCuit: row.extracted_cuit,
+      extractedDate: row.extracted_date,
+      extractedTotal: row.extracted_total,
+      extractedType: row.extracted_type,
+      extractedPointOfSale: row.extracted_point_of_sale,
+      extractedInvoiceNumber: row.extracted_invoice_number,
+      extractionConfidence: row.extraction_confidence,
+      extractionErrors: row.extraction_errors,
+      status: row.status,
+      invoiceId: row.invoice_id,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  /**
    * Crea un nuevo registro de archivo pendiente
    */
   create(data: {
@@ -71,8 +96,8 @@ export class PendingFileRepository {
     extractionErrors?: string | string[];
     status?: PendingFileStatus;
   }): PendingFile {
-    // Convertir array de errores a JSON string si es necesario
-    const extractionErrors =
+    // Serializar errores si es un array
+    const errorsJson =
       data.extractionErrors && Array.isArray(data.extractionErrors)
         ? JSON.stringify(data.extractionErrors)
         : data.extractionErrors || null;
@@ -80,8 +105,8 @@ export class PendingFileRepository {
     const stmt = this.db.prepare(`
       INSERT INTO pending_files (
         original_filename, file_path, file_size,
-        extracted_cuit, extracted_date, extracted_total, extracted_type,
-        extracted_point_of_sale, extracted_invoice_number,
+        extracted_cuit, extracted_date, extracted_total,
+        extracted_type, extracted_point_of_sale, extracted_invoice_number,
         extraction_confidence, extraction_errors, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
@@ -97,11 +122,16 @@ export class PendingFileRepository {
       data.extractedPointOfSale || null,
       data.extractedInvoiceNumber || null,
       data.extractionConfidence || null,
-      extractionErrors,
+      errorsJson,
       data.status || 'pending'
     );
 
-    return this.findById(Number(result.lastInsertRowid))!;
+    const created = this.findById(Number(result.lastInsertRowid));
+    if (!created) {
+      throw new Error('Failed to create pending file record');
+    }
+
+    return created;
   }
 
   /**
@@ -111,21 +141,19 @@ export class PendingFileRepository {
     const stmt = this.db.prepare('SELECT * FROM pending_files WHERE id = ?');
     const row = stmt.get(id) as PendingFileRow | undefined;
 
-    return row ? this.mapRowToPendingFile(row) : null;
+    return row ? this.rowToObject(row) : null;
   }
 
   /**
-   * Lista archivos pendientes con filtros opcionales
+   * Lista archivos pendientes con filtros
    */
   list(filters?: {
     status?: PendingFileStatus | PendingFileStatus[];
-    dateFrom?: string;
-    dateTo?: string;
     limit?: number;
     offset?: number;
   }): PendingFile[] {
     let query = 'SELECT * FROM pending_files WHERE 1=1';
-    const params: any[] = [];
+    const params: (string | number)[] = [];
 
     if (filters?.status) {
       if (Array.isArray(filters.status)) {
@@ -138,32 +166,22 @@ export class PendingFileRepository {
       }
     }
 
-    if (filters?.dateFrom) {
-      query += ' AND upload_date >= ?';
-      params.push(filters.dateFrom);
-    }
-
-    if (filters?.dateTo) {
-      query += ' AND upload_date <= ?';
-      params.push(filters.dateTo);
-    }
-
     query += ' ORDER BY upload_date DESC';
 
     if (filters?.limit) {
       query += ' LIMIT ?';
       params.push(filters.limit);
+    }
 
-      if (filters?.offset) {
-        query += ' OFFSET ?';
-        params.push(filters.offset);
-      }
+    if (filters?.offset) {
+      query += ' OFFSET ?';
+      params.push(filters.offset);
     }
 
     const stmt = this.db.prepare(query);
     const rows = stmt.all(...params) as PendingFileRow[];
 
-    return rows.map(this.mapRowToPendingFile);
+    return rows.map((row) => this.rowToObject(row));
   }
 
   /**
@@ -181,9 +199,9 @@ export class PendingFileRepository {
       extractionConfidence?: number;
       extractionErrors?: string | string[];
     }
-  ): PendingFile | null {
+  ): PendingFile {
     const updates: string[] = [];
-    const params: any[] = [];
+    const params: (string | number | null)[] = [];
 
     if (data.extractedCuit !== undefined) {
       updates.push('extracted_cuit = ?');
@@ -214,53 +232,73 @@ export class PendingFileRepository {
       params.push(data.extractionConfidence);
     }
     if (data.extractionErrors !== undefined) {
+      const errorsJson = Array.isArray(data.extractionErrors)
+        ? JSON.stringify(data.extractionErrors)
+        : data.extractionErrors;
       updates.push('extraction_errors = ?');
-      const errors =
-        Array.isArray(data.extractionErrors)
-          ? JSON.stringify(data.extractionErrors)
-          : data.extractionErrors;
-      params.push(errors);
+      params.push(errorsJson);
     }
 
     if (updates.length === 0) {
-      return this.findById(id);
+      throw new Error('No fields to update');
     }
 
-    params.push(id);
-    const stmt = this.db.prepare(`
-      UPDATE pending_files
-      SET ${updates.join(', ')}
-      WHERE id = ?
-    `);
+    updates.push('updated_at = CURRENT_TIMESTAMP');
 
+    const query = `UPDATE pending_files SET ${updates.join(', ')} WHERE id = ?`;
+    params.push(id);
+
+    const stmt = this.db.prepare(query);
     stmt.run(...params);
-    return this.findById(id);
+
+    const updated = this.findById(id);
+    if (!updated) {
+      throw new Error('Pending file not found after update');
+    }
+
+    return updated;
   }
 
   /**
    * Actualiza el estado de un archivo pendiente
    */
-  updateStatus(id: number, status: PendingFileStatus): PendingFile | null {
-    const stmt = this.db.prepare('UPDATE pending_files SET status = ? WHERE id = ?');
+  updateStatus(id: number, status: PendingFileStatus): PendingFile {
+    const stmt = this.db.prepare(`
+      UPDATE pending_files
+      SET status = ?, updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `);
     stmt.run(status, id);
-    return this.findById(id);
+
+    const updated = this.findById(id);
+    if (!updated) {
+      throw new Error('Pending file not found after status update');
+    }
+
+    return updated;
   }
 
   /**
-   * Asocia un archivo pendiente con una factura procesada
+   * Vincula un archivo pendiente con una factura procesada
    */
-  linkToInvoice(id: number, invoiceId: number): PendingFile | null {
+  linkToInvoice(id: number, invoiceId: number): PendingFile {
     const stmt = this.db.prepare(`
       UPDATE pending_files
-      SET invoice_id = ?, status = 'processed'
+      SET invoice_id = ?, status = 'processed', updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `);
     stmt.run(invoiceId, id);
-    return this.findById(id);
+
+    const updated = this.findById(id);
+    if (!updated) {
+      throw new Error('Pending file not found after linking to invoice');
+    }
+
+    return updated;
   }
 
   /**
-   * Elimina un archivo pendiente
+   * Elimina un registro de archivo pendiente
    */
   delete(id: number): boolean {
     const stmt = this.db.prepare('DELETE FROM pending_files WHERE id = ?');
@@ -271,42 +309,25 @@ export class PendingFileRepository {
   /**
    * Cuenta archivos pendientes por estado
    */
-  countByStatus(status?: PendingFileStatus): number {
-    let query = 'SELECT COUNT(*) as count FROM pending_files';
-    const params: any[] = [];
+  countByStatus(): Record<PendingFileStatus, number> {
+    const stmt = this.db.prepare(`
+      SELECT status, COUNT(*) as count
+      FROM pending_files
+      GROUP BY status
+    `);
+    const rows = stmt.all() as { status: PendingFileStatus; count: number }[];
 
-    if (status) {
-      query += ' WHERE status = ?';
-      params.push(status);
+    const counts: Record<PendingFileStatus, number> = {
+      pending: 0,
+      reviewing: 0,
+      processed: 0,
+      failed: 0,
+    };
+
+    for (const row of rows) {
+      counts[row.status] = row.count;
     }
 
-    const stmt = this.db.prepare(query);
-    const result = stmt.get(...params) as { count: number };
-    return result.count;
-  }
-
-  /**
-   * Mapea una fila de la base de datos a un objeto PendingFile
-   */
-  private mapRowToPendingFile(row: PendingFileRow): PendingFile {
-    return {
-      id: row.id,
-      originalFilename: row.original_filename,
-      filePath: row.file_path,
-      fileSize: row.file_size,
-      uploadDate: row.upload_date,
-      extractedCuit: row.extracted_cuit,
-      extractedDate: row.extracted_date,
-      extractedTotal: row.extracted_total,
-      extractedType: row.extracted_type,
-      extractedPointOfSale: row.extracted_point_of_sale,
-      extractedInvoiceNumber: row.extracted_invoice_number,
-      extractionConfidence: row.extraction_confidence,
-      extractionErrors: row.extraction_errors,
-      status: row.status,
-      invoiceId: row.invoice_id,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
+    return counts;
   }
 }

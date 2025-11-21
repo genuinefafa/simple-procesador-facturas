@@ -22,7 +22,8 @@
   },
   "dependencies": {
     "date-fns": "^4.1.0",
-    "pdfjs-dist": "^5.4.394"
+    "pdfjs-dist": "^5.4.394",
+    "svelte-sonner": "^1.0.6"
   },
   "engines": {
     "node": ">=22.12.0",
