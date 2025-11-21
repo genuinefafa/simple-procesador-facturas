@@ -55,26 +55,39 @@ export class InvoiceProcessingService {
         `   📊 Extracción completada - Éxito: ${extraction.success}, Confianza: ${extraction.confidence}%`
       );
 
-      if (!extraction.success || !extraction.data) {
-        console.warn(`   ❌ Extracción falló: No se pudo extraer información`);
-        return {
-          success: false,
-          error: 'No se pudo extraer información del archivo',
-          requiresReview: true,
-          confidence: 0,
-        };
-      }
-
       const data = extraction.data;
       const confidence = extraction.confidence || 0;
 
-      console.info(`   📋 Datos extraídos:`);
-      console.info(`      CUIT: ${data.cuit || 'N/A'}`);
-      console.info(`      Fecha: ${data.date || 'N/A'}`);
-      console.info(`      Total: ${data.total || 'N/A'}`);
-      console.info(`      Tipo: ${data.invoiceType || 'N/A'}`);
-      console.info(`      Punto Venta: ${data.pointOfSale || 'N/A'}`);
-      console.info(`      Número: ${data.invoiceNumber || 'N/A'}`);
+      console.info(`   📋 Datos extraídos (RAW):`);
+      console.info(`      CUIT: ${data.cuit || '❌ NO DETECTADO'}`);
+      console.info(`      Fecha: ${data.date || '❌ NO DETECTADO'}`);
+      console.info(`      Total: ${data.total !== undefined ? data.total : '❌ NO DETECTADO'}`);
+      console.info(`      Tipo: ${data.invoiceType || '❌ NO DETECTADO'}`);
+      console.info(
+        `      Punto Venta: ${data.pointOfSale !== undefined ? data.pointOfSale : '❌ NO DETECTADO'}`
+      );
+      console.info(
+        `      Número: ${data.invoiceNumber !== undefined ? data.invoiceNumber : '❌ NO DETECTADO'}`
+      );
+
+      // IMPORTANTE: Siempre guardar datos extraídos, incluso si están incompletos
+      if (!extraction.success || confidence < 50) {
+        console.warn(`   ⚠️  Confianza baja (${confidence}%) - Requiere revisión manual`);
+        return {
+          success: false,
+          error: `Extracción con confianza baja: ${confidence}%`,
+          requiresReview: true,
+          confidence,
+          extractedData: {
+            cuit: data.cuit,
+            date: data.date,
+            total: data.total,
+            invoiceType: data.invoiceType,
+            pointOfSale: data.pointOfSale,
+            invoiceNumber: data.invoiceNumber,
+          },
+        };
+      }
 
       // 2. Validar CUIT
       console.info(`   🔍 Validando CUIT...`);
