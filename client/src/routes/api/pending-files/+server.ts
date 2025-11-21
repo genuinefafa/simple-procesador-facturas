@@ -36,12 +36,18 @@ export const GET: RequestHandler = async ({ url }) => {
     const pendingFiles = pendingFileRepo.list({ status, limit, offset });
     const counts = pendingFileRepo.countByStatus();
 
+    // Calcular total
+    const total = counts.pending + counts.reviewing + counts.processed + counts.failed;
+
     console.info(`✅ [PENDING-FILES] Encontrados ${pendingFiles.length} archivos`);
 
     return json({
       success: true,
       pendingFiles,
-      counts,
+      stats: {
+        total,
+        ...counts,
+      },
     });
   } catch (error) {
     console.error('❌ [PENDING-FILES] Error:', error);

@@ -89,10 +89,10 @@
 			if (data.success) {
 				invoices = data.invoices;
 			} else {
-				error = data.error || 'Error al cargar facturas';
+				toast.error(data.error || 'Error al cargar facturas');
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Error de conexión';
+			toast.error(err instanceof Error ? err.message : 'Error de conexión');
 		} finally {
 			loading = false;
 		}
@@ -136,13 +136,19 @@
 			const data = await response.json();
 
 			if (data.success) {
-				pendingFiles = data.pendingFiles;
-				pendingFilesStats = data.stats;
+				pendingFiles = data.pendingFiles || [];
+				pendingFilesStats = data.stats || { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
 			} else {
 				toast.error('Error al cargar archivos pendientes');
+				// Mantener valores por defecto
+				pendingFiles = [];
+				pendingFilesStats = { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
 			}
 		} catch (err) {
-			toast.error('Error de conexión');
+			toast.error('Error de conexión al cargar archivos pendientes');
+			// Mantener valores por defecto
+			pendingFiles = [];
+			pendingFilesStats = { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
 		} finally {
 			loading = false;
 		}
@@ -471,8 +477,8 @@
 		</button>
 		<button class="tab" class:active={activeTab === 'pending'} onclick={() => (activeTab = 'pending')}>
 			📂 Archivos Pendientes
-			{#if pendingFilesStats.pending + pendingFilesStats.reviewing > 0}
-				<span class="badge">{pendingFilesStats.pending + pendingFilesStats.reviewing}</span>
+			{#if (pendingFilesStats?.pending || 0) + (pendingFilesStats?.reviewing || 0) > 0}
+				<span class="badge">{(pendingFilesStats?.pending || 0) + (pendingFilesStats?.reviewing || 0)}</span>
 			{/if}
 		</button>
 		<button class="tab" class:active={activeTab === 'review'} onclick={() => (activeTab = 'review')}>
@@ -546,23 +552,23 @@
 			<!-- PENDING FILES SECTION - Todos los archivos pendientes con selección múltiple -->
 			<div class="stats-bar">
 				<div class="stat">
-					<span class="stat-value">{pendingFilesStats.total}</span>
+					<span class="stat-value">{pendingFilesStats?.total || 0}</span>
 					<span class="stat-label">Total</span>
 				</div>
 				<div class="stat">
-					<span class="stat-value">{pendingFilesStats.pending}</span>
+					<span class="stat-value">{pendingFilesStats?.pending || 0}</span>
 					<span class="stat-label">Pendientes</span>
 				</div>
 				<div class="stat">
-					<span class="stat-value">{pendingFilesStats.reviewing}</span>
+					<span class="stat-value">{pendingFilesStats?.reviewing || 0}</span>
 					<span class="stat-label">En Revisión</span>
 				</div>
 				<div class="stat">
-					<span class="stat-value">{pendingFilesStats.processed}</span>
+					<span class="stat-value">{pendingFilesStats?.processed || 0}</span>
 					<span class="stat-label">Procesados</span>
 				</div>
 				<div class="stat">
-					<span class="stat-value">{pendingFilesStats.failed}</span>
+					<span class="stat-value">{pendingFilesStats?.failed || 0}</span>
 					<span class="stat-label">Errores</span>
 				</div>
 			</div>
