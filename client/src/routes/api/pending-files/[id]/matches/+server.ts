@@ -6,7 +6,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice.js';
-import { normalizeCUIT } from '@server/utils/validation.js';
+import { normalizeCUIT } from '@server/validators/cuit.js';
 
 /**
  * GET /api/pending-files/:id/matches
