@@ -5,6 +5,11 @@
 import ExcelJS from 'exceljs';
 import { readFile } from 'fs/promises';
 import path from 'path';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export class TemplateGeneratorService {
   /**
@@ -12,12 +17,8 @@ export class TemplateGeneratorService {
    */
   async generateExcelTemplate(): Promise<Buffer> {
     // Leer metadata del template
-    const templateMetadata = JSON.parse(
-      await readFile(
-        path.join(process.cwd(), 'server', 'templates', 'excel-afip-template.json'),
-        'utf-8'
-      )
-    );
+    const templatePath = path.join(__dirname, '..', 'templates', 'excel-afip-template.json');
+    const templateMetadata = JSON.parse(await readFile(templatePath, 'utf-8'));
 
     // Crear workbook
     const workbook = new ExcelJS.Workbook();
