@@ -57,6 +57,9 @@
 	let excelImportResult = $state<any>(null);
 	let importBatches = $state<any[]>([]);
 
+	// Estado para matches de expected invoices
+	let matchesData = $state<Record<number, any>>({});
+
 	onMount(async () => {
 		await loadInvoices();
 		await loadPendingFilesToReview();
@@ -124,6 +127,9 @@
 						};
 					}
 				});
+
+				// Cargar matches de expected invoices para cada archivo
+				await loadMatchesForPendingFiles(data.pendingFiles);
 			} else {
 				toast.error('Error al cargar archivos pendientes');
 			}
@@ -132,6 +138,25 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function loadMatchesForPendingFiles(files: PendingFileItem[]) {
+		// Cargar matches para cada archivo en paralelo
+		const matchPromises = files.map(async (pf) => {
+			try {
+				const response = await fetch(`/api/pending-files/${pf.id}/matches`);
+				const data = await response.json();
+				if (data.success) {
+					matchesData[pf.id] = data;
+				}
+			} catch (err) {
+				console.error(`Error cargando matches para archivo ${pf.id}:`, err);
+			}
+		});
+
+		await Promise.all(matchPromises);
+		// Trigger reactivity
+		matchesData = matchesData;
 	}
 
 	async function loadPendingFiles() {
@@ -847,6 +872,105 @@
 
 								<!-- DATOS / FORMULARIO -->
 								<div class="file-data">
+									<!-- MATCH INFORMATION FROM EXCEL -->
+									{#if matchesData[file.id]}
+										{@const matchData = matchesData[file.id]}
+										{#if matchData.hasExactMatch && matchData.exactMatch}
+											<div class="excel-match-card exact-match">
+												<h4>✅ Match exacto encontrado en Excel AFIP</h4>
+												<div class="excel-match-data">
+													<div class="match-item">
+														<span class="match-label">CUIT:</span>
+														<span class="match-value">{matchData.exactMatch.cuit}</span>
+													</div>
+													{#if matchData.exactMatch.emitterName}
+														<div class="match-item">
+															<span class="match-label">Razón Social:</span>
+															<span class="match-value">{matchData.exactMatch.emitterName}</span>
+														</div>
+													{/if}
+													<div class="match-item">
+														<span class="match-label">Fecha:</span>
+														<span class="match-value">{matchData.exactMatch.issueDate}</span>
+													</div>
+													<div class="match-item">
+														<span class="match-label">Tipo:</span>
+														<span class="match-value">{matchData.exactMatch.invoiceType}</span>
+													</div>
+													<div class="match-item">
+														<span class="match-label">Punto Venta:</span>
+														<span class="match-value">{matchData.exactMatch.pointOfSale}</span>
+													</div>
+													<div class="match-item">
+														<span class="match-label">Número:</span>
+														<span class="match-value">{matchData.exactMatch.invoiceNumber}</span>
+													</div>
+													{#if matchData.exactMatch.total}
+														<div class="match-item">
+															<span class="match-label">Total:</span>
+															<span class="match-value">
+																${matchData.exactMatch.total.toLocaleString('es-AR')}
+															</span>
+														</div>
+													{/if}
+													{#if matchData.exactMatch.cae}
+														<div class="match-item">
+															<span class="match-label">CAE:</span>
+															<span class="match-value">{matchData.exactMatch.cae}</span>
+														</div>
+													{/if}
+												</div>
+												<p class="match-hint">
+													💡 Los datos del Excel se usarán automáticamente al procesar este archivo
+												</p>
+											</div>
+										{:else if matchData.candidates && matchData.candidates.length > 0}
+											<div class="excel-match-card candidates-match">
+												<h4>🔍 {matchData.candidates.length} posibles matches en Excel AFIP</h4>
+												<p class="match-hint">
+													No hay match exacto, pero encontramos facturas similares por CUIT y fecha/monto:
+												</p>
+												<div class="candidates-list">
+													{#each matchData.candidates as candidate}
+														<div class="candidate-item">
+															<div class="candidate-header">
+																<strong>
+																	{candidate.invoiceType}-{candidate.pointOfSale
+																		.toString()
+																		.padStart(4, '0')}-{candidate.invoiceNumber
+																		.toString()
+																		.padStart(8, '0')}
+																</strong>
+																{#if candidate.matchConfidence}
+																	<span class="confidence-mini">{candidate.matchConfidence}% confianza</span
+																	>
+																{/if}
+															</div>
+															<div class="candidate-details">
+																<span>{candidate.emitterName || candidate.cuit}</span>
+																<span>Fecha: {candidate.issueDate}</span>
+																{#if candidate.total}
+																	<span>Total: ${candidate.total.toLocaleString('es-AR')}</span>
+																{/if}
+															</div>
+														</div>
+													{/each}
+												</div>
+												<p class="match-hint">
+													⚠️ Revisá manualmente cuál es la factura correcta antes de procesar
+												</p>
+											</div>
+										{:else}
+											<div class="excel-match-card no-match">
+												<h4>ℹ️ Sin match en Excel AFIP</h4>
+												<p class="match-hint">
+													No se encontró esta factura en el Excel importado. Verificá los datos extraídos
+													del PDF.
+												</p>
+											</div>
+										{/if}
+									{/if}
+
 									{#if editingFile === file.id}
 										<!-- MODO EDICIÓN -->
 										<div class="edit-form">
@@ -2134,5 +2258,137 @@
 	.file-data {
 		display: flex;
 		flex-direction: column;
+	}
+
+	/* EXCEL MATCH CARDS */
+	.excel-match-card {
+		margin-bottom: 1.5rem;
+		padding: 1.25rem;
+		border-radius: 10px;
+		border: 2px solid;
+	}
+
+	.excel-match-card h4 {
+		margin: 0 0 1rem 0;
+		font-size: 1.05rem;
+		font-weight: 600;
+	}
+
+	.excel-match-card.exact-match {
+		background: #f0fdf4;
+		border-color: #22c55e;
+	}
+
+	.excel-match-card.exact-match h4 {
+		color: #15803d;
+	}
+
+	.excel-match-card.candidates-match {
+		background: #fffbeb;
+		border-color: #f59e0b;
+	}
+
+	.excel-match-card.candidates-match h4 {
+		color: #b45309;
+	}
+
+	.excel-match-card.no-match {
+		background: #eff6ff;
+		border-color: #3b82f6;
+	}
+
+	.excel-match-card.no-match h4 {
+		color: #1e40af;
+	}
+
+	.excel-match-data {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+		gap: 0.75rem;
+		margin-bottom: 1rem;
+	}
+
+	.match-item {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+	}
+
+	.match-label {
+		font-size: 0.8rem;
+		font-weight: 500;
+		color: #64748b;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.match-value {
+		font-size: 0.95rem;
+		font-weight: 600;
+		color: #1e293b;
+	}
+
+	.match-hint {
+		margin: 0.75rem 0 0 0;
+		padding: 0.75rem;
+		background: rgba(255, 255, 255, 0.7);
+		border-radius: 6px;
+		font-size: 0.9rem;
+		color: #475569;
+		line-height: 1.5;
+	}
+
+	.candidates-list {
+		display: flex;
+		flex-direction: column;
+		gap: 0.75rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.candidate-item {
+		padding: 0.75rem;
+		background: white;
+		border: 1px solid #e5e7eb;
+		border-radius: 6px;
+		transition: all 0.2s;
+	}
+
+	.candidate-item:hover {
+		border-color: #f59e0b;
+		box-shadow: 0 2px 4px rgba(245, 158, 11, 0.1);
+	}
+
+	.candidate-header {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+		margin-bottom: 0.5rem;
+	}
+
+	.candidate-header strong {
+		font-family: monospace;
+		font-size: 0.95rem;
+		color: #1e293b;
+	}
+
+	.confidence-mini {
+		font-size: 0.75rem;
+		padding: 0.25rem 0.5rem;
+		background: #fef3c7;
+		color: #b45309;
+		border-radius: 4px;
+		font-weight: 600;
+	}
+
+	.candidate-details {
+		display: flex;
+		gap: 1rem;
+		flex-wrap: wrap;
+		font-size: 0.85rem;
+		color: #64748b;
+	}
+
+	.candidate-details span {
+		display: inline-block;
 	}
 </style>
