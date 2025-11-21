@@ -1042,7 +1042,8 @@
 					</div>
 				</div>
 
-				<div
+				<button
+					type="button"
 					class="dropzone excel-dropzone"
 					ondragover={(e) => {
 						e.preventDefault();
@@ -1071,13 +1072,11 @@
 						};
 						input.click();
 					}}
-					role="button"
-					tabindex="0"
 				>
 					<p class="dropzone-icon">📊</p>
 					<p class="dropzone-text">Click o arrastrá un archivo Excel/CSV</p>
 					<p class="dropzone-hint">Formatos: .xlsx, .xls, .csv</p>
-				</div>
+				</button>
 
 				{#if excelImportResult}
 					<div class="import-result">
@@ -1938,12 +1937,6 @@
 		border-bottom: 1px solid #e5e7eb;
 	}
 
-	.pending-file-header h3 {
-		margin: 0 0 0.5rem 0;
-		font-size: 1.2rem;
-		color: #1e293b;
-	}
-
 	.upload-date,
 	.file-size {
 		font-size: 0.9rem;
@@ -1976,16 +1969,6 @@
 	.status-processed {
 		background: #d1fae5;
 		color: #065f46;
-	}
-
-	.extracted-data {
-		margin-bottom: 1rem;
-	}
-
-	.extracted-data h4 {
-		font-size: 1rem;
-		color: #64748b;
-		margin: 0 0 1rem 0;
 	}
 
 	.data-grid {
@@ -2031,16 +2014,6 @@
 		background: #fef2f2;
 		border-radius: 6px;
 		border-left: 3px solid #ef4444;
-	}
-
-	.extraction-errors .label {
-		font-weight: 600;
-		color: #991b1b;
-	}
-
-	.extraction-errors .value {
-		color: #7f1d1d;
-		font-size: 0.9rem;
 	}
 
 	.pending-file-actions {
