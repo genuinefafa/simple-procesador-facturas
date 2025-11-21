@@ -264,16 +264,26 @@ export class ExcelImportService {
     // Extraer CUIT y validar
     let cuit = String(row[mapping.cuit] || '').trim();
 
-    // Limpiar CUIT (remover espacios, guiones innecesarios, etc.)
-    cuit = cuit.replace(/\s+/g, '');
+    // Limpiar CUIT (remover espacios, guiones, puntos, comillas, etc.)
+    cuit = cuit.replace(/[\s\-\.'"]/g, '');
 
-    // Si no tiene formato XX-XXXXXXXX-X, intentar agregarlo
-    if (cuit.length === 11 && !cuit.includes('-')) {
-      cuit = `${cuit.substring(0, 2)}-${cuit.substring(2, 10)}-${cuit.substring(10)}`;
+    // Extraer solo los dígitos si hay texto adicional
+    const digitsOnly = cuit.replace(/\D/g, '');
+
+    // Si tiene exactamente 11 dígitos, formatear como CUIT
+    if (digitsOnly.length === 11) {
+      cuit = `${digitsOnly.substring(0, 2)}-${digitsOnly.substring(2, 10)}-${digitsOnly.substring(10)}`;
+    } else if (digitsOnly.length > 11) {
+      // Si tiene más de 11 dígitos, tomar los primeros 11
+      const truncated = digitsOnly.substring(0, 11);
+      cuit = `${truncated.substring(0, 2)}-${truncated.substring(2, 10)}-${truncated.substring(10)}`;
+      console.warn(`   ⚠️  CUIT con más de 11 dígitos, truncado: ${digitsOnly} → ${cuit}`);
+    } else {
+      throw new Error(`CUIT con cantidad incorrecta de dígitos (esperado: 11, recibido: ${digitsOnly.length}): ${cuit}`);
     }
 
     if (!validateCUIT(cuit)) {
-      throw new Error(`CUIT inválido: ${cuit}`);
+      throw new Error(`CUIT inválido (falló validación de dígito verificador): ${cuit}`);
     }
 
     const normalizedCuit = normalizeCUIT(cuit);
@@ -299,10 +309,15 @@ export class ExcelImportService {
     // Extraer tipo de factura
     let invoiceType = String(row[mapping.invoiceType] || '').trim().toUpperCase();
 
-    // Si viene con formato "Factura A" o similar, extraer solo la letra
+    // Manejar formatos comunes:
+    // - "11 - Factura C" o "1 - Factura A" (formato AFIP)
+    // - "Factura A", "Factura B", etc.
+    // - Solo la letra: "A", "B", "C", etc.
     const typeMatch = invoiceType.match(/[ABCEMX]/);
     if (typeMatch) {
       invoiceType = typeMatch[0];
+    } else {
+      throw new Error(`No se pudo detectar tipo de factura en: "${invoiceType}"`);
     }
 
     if (!['A', 'B', 'C', 'E', 'M', 'X'].includes(invoiceType)) {
@@ -326,9 +341,11 @@ export class ExcelImportService {
       ? String(row[mapping.emitterName] || '').trim() || undefined
       : undefined;
 
-    const total = mapping.total ? parseFloat(String(row[mapping.total] || '0')) : undefined;
+    const totalRaw = mapping.total ? String(row[mapping.total] || '').trim() : '';
+    const total = totalRaw && totalRaw !== '0' && totalRaw !== '' ? parseFloat(totalRaw) : undefined;
 
-    const cae = mapping.cae ? String(row[mapping.cae] || '').trim() || undefined : undefined;
+    const caeRaw = mapping.cae ? String(row[mapping.cae] || '').trim() : '';
+    const cae = caeRaw && caeRaw !== '0' && caeRaw !== '' ? caeRaw : undefined;
 
     const caeExpiration = mapping.caeExpiration
       ? String(row[mapping.caeExpiration] || '').trim() || undefined

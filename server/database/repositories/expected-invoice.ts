@@ -266,8 +266,8 @@ export class ExpectedInvoiceRepository {
     const created: ExpectedInvoice[] = [];
 
     // Usar transacción para insertar todos los registros
-    const insertMany = this.db.transaction((invoices) => {
-      for (const invoice of invoices) {
+    const insertMany = this.db.transaction((invoicesToInsert) => {
+      for (const invoice of invoicesToInsert) {
         try {
           const result = stmt.run(
             batchId,
