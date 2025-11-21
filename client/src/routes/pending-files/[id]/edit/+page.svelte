@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { toast } from '$lib/toast.svelte';
+	import { toast, Toaster } from 'svelte-sonner';
 
 	interface Props {
 		data: {
@@ -117,6 +117,8 @@
 		cuit = formatted;
 	}
 </script>
+
+<Toaster position="top-right" richColors />
 
 <div class="container">
 	<header>
