@@ -1002,6 +1002,29 @@
 					</p>
 				</div>
 
+				<div class="template-download-section">
+					<div class="template-info">
+						<strong>¿Primera vez?</strong> Descargá el template de ejemplo para ver el formato
+						esperado
+					</div>
+					<div class="template-buttons">
+						<a
+							href="/api/expected-invoices/template?format=xlsx"
+							download="template-facturas-afip.xlsx"
+							class="btn btn-secondary"
+						>
+							📊 Descargar Template Excel
+						</a>
+						<a
+							href="/api/expected-invoices/template?format=csv"
+							download="template-facturas-afip.csv"
+							class="btn btn-secondary"
+						>
+							📄 Descargar Template CSV
+						</a>
+					</div>
+				</div>
+
 				<div
 					class="dropzone excel-dropzone"
 					ondragover={(e) => {
@@ -1280,6 +1303,49 @@
 	.upload-section {
 		max-width: 800px;
 		margin: 0 auto;
+	}
+
+	/* TEMPLATE DOWNLOAD SECTION */
+	.template-download-section {
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		border-radius: 12px;
+		padding: 1.5rem;
+		margin-bottom: 2rem;
+		color: white;
+	}
+
+	.template-info {
+		margin-bottom: 1rem;
+		font-size: 1rem;
+		text-align: center;
+	}
+
+	.template-info strong {
+		font-weight: 600;
+		font-size: 1.1rem;
+	}
+
+	.template-buttons {
+		display: flex;
+		justify-content: center;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.template-buttons .btn {
+		background: white;
+		color: #667eea;
+		text-decoration: none;
+		padding: 0.75rem 1.5rem;
+		border-radius: 8px;
+		font-weight: 600;
+		transition: all 0.2s;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	}
+
+	.template-buttons .btn:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 	}
 
 	.dropzone {

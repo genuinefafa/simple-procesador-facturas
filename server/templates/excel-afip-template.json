@@ -1,0 +1,90 @@
+{
+  "metadata": {
+    "name": "Template Facturas AFIP",
+    "description": "Formato esperado para importación de facturas desde Excel/CSV de AFIP",
+    "version": "1.0",
+    "created": "2025-11-21"
+  },
+  "columns": [
+    {
+      "name": "CUIT",
+      "required": true,
+      "description": "CUIT del emisor (formato: XX-XXXXXXXX-X o sin guiones)",
+      "example": "30-12345678-9"
+    },
+    {
+      "name": "Razon Social",
+      "required": false,
+      "description": "Nombre o razón social del emisor",
+      "example": "Proveedor SA"
+    },
+    {
+      "name": "Fecha",
+      "required": true,
+      "description": "Fecha de emisión (DD/MM/YYYY o YYYY-MM-DD)",
+      "example": "15/11/2025"
+    },
+    {
+      "name": "Tipo",
+      "required": true,
+      "description": "Tipo de comprobante (A, B, C, E, M)",
+      "example": "B"
+    },
+    {
+      "name": "Punto de Venta",
+      "required": true,
+      "description": "Número de punto de venta",
+      "example": "1"
+    },
+    {
+      "name": "Numero",
+      "required": true,
+      "description": "Número del comprobante",
+      "example": "12345"
+    },
+    {
+      "name": "Total",
+      "required": false,
+      "description": "Importe total del comprobante",
+      "example": "15234.50"
+    },
+    {
+      "name": "CAE",
+      "required": false,
+      "description": "Código de Autorización Electrónica",
+      "example": "12345678901234"
+    }
+  ],
+  "sampleData": [
+    {
+      "CUIT": "30-12345678-9",
+      "Razon Social": "Proveedor SA",
+      "Fecha": "15/11/2025",
+      "Tipo": "B",
+      "Punto de Venta": 1,
+      "Numero": 12345,
+      "Total": 15234.50,
+      "CAE": "12345678901234"
+    },
+    {
+      "CUIT": "20-98765432-1",
+      "Razon Social": "Distribuidora XYZ",
+      "Fecha": "18/11/2025",
+      "Tipo": "A",
+      "Punto de Venta": 3,
+      "Numero": 567,
+      "Total": 8920.00,
+      "CAE": "98765432109876"
+    },
+    {
+      "CUIT": "33-55555555-9",
+      "Razon Social": "Servicios ABC SRL",
+      "Fecha": "20/11/2025",
+      "Tipo": "C",
+      "Punto de Venta": 2,
+      "Numero": 9876,
+      "Total": 4500.75,
+      "CAE": ""
+    }
+  ]
+}
