@@ -39,12 +39,15 @@
 
 	let invoices: PendingInvoice[] = $state([]);
 	let pendingFilesToReview: PendingFileItem[] = $state([]);
+	let pendingFiles: PendingFileItem[] = $state([]); // TODOS los archivos pendientes
+	let pendingFilesStats = $state({ total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 });
 	let loading = $state(false);
 	let uploading = $state(false);
 	let processing = $state(false);
 	let uploadedFiles: File[] = $state([]);
 	let selectedInvoices = $state<Set<number>>(new Set());
-	let activeTab = $state<'upload' | 'review' | 'invoices'>('upload');
+	let selectedPendingFiles = $state<Set<number>>(new Set());
+	let activeTab = $state<'upload' | 'pending' | 'review' | 'invoices'>('upload');
 
 	// Estado para edición inline
 	let editingFile = $state<number | null>(null);
@@ -53,6 +56,7 @@
 	onMount(async () => {
 		await loadInvoices();
 		await loadPendingFilesToReview();
+		await loadPendingFiles();
 	});
 
 	// Manejar errores de carga de archivos con información detallada
@@ -85,10 +89,10 @@
 			if (data.success) {
 				invoices = data.invoices;
 			} else {
-				error = data.error || 'Error al cargar facturas';
+				toast.error(data.error || 'Error al cargar facturas');
 			}
 		} catch (err) {
-			error = err instanceof Error ? err.message : 'Error de conexión';
+			toast.error(err instanceof Error ? err.message : 'Error de conexión');
 		} finally {
 			loading = false;
 		}
@@ -125,6 +129,31 @@
 		}
 	}
 
+	async function loadPendingFiles() {
+		loading = true;
+		try {
+			const response = await fetch('/api/pending-files?limit=100');
+			const data = await response.json();
+
+			if (data.success) {
+				pendingFiles = data.pendingFiles || [];
+				pendingFilesStats = data.stats || { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
+			} else {
+				toast.error('Error al cargar archivos pendientes');
+				// Mantener valores por defecto
+				pendingFiles = [];
+				pendingFilesStats = { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
+			}
+		} catch (err) {
+			toast.error('Error de conexión al cargar archivos pendientes');
+			// Mantener valores por defecto
+			pendingFiles = [];
+			pendingFilesStats = { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
+		} finally {
+			loading = false;
+		}
+	}
+
 	async function deletePendingFile(id: number) {
 		// Usar toast para confirmar (esto es temporal, idealmente usar un modal)
 		toast.warning('Hacé click en "Eliminar" de nuevo para confirmar');
@@ -137,6 +166,7 @@
 
 			if (data.success) {
 				await loadPendingFilesToReview();
+				await loadPendingFiles();
 				toast.success('Archivo eliminado correctamente');
 			} else {
 				toast.error(data.error || 'Error al eliminar');
@@ -277,6 +307,7 @@
 			uploadedFiles = [];
 			await loadInvoices();
 			await loadPendingFilesToReview();
+			await loadPendingFiles();
 
 			// Navegar automáticamente a revisar
 			activeTab = 'review';
@@ -339,6 +370,97 @@
 		if (confidence >= 70) return 'text-yellow-600';
 		return 'text-red-600';
 	}
+
+	// Funciones para pending files (selección múltiple)
+	function togglePendingFileSelection(id: number) {
+		if (selectedPendingFiles.has(id)) {
+			selectedPendingFiles.delete(id);
+		} else {
+			selectedPendingFiles.add(id);
+		}
+		selectedPendingFiles = selectedPendingFiles;
+	}
+
+	function selectAllPendingFiles() {
+		selectedPendingFiles = new Set(pendingFiles.map((pf) => pf.id));
+	}
+
+	function clearPendingFileSelection() {
+		selectedPendingFiles = new Set();
+	}
+
+	async function processPendingFiles() {
+		if (selectedPendingFiles.size === 0) {
+			toast.warning('Seleccioná al menos un archivo para procesar');
+			return;
+		}
+
+		processing = true;
+		const toastId = toast.loading('Procesando archivos seleccionados...');
+
+		try {
+			const response = await fetch('/api/invoices/process', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ pendingFileIds: Array.from(selectedPendingFiles) })
+			});
+			const data = await response.json();
+
+			if (data.success) {
+				const stats = data.stats;
+				if (stats.processed > 0) {
+					toast.success(`Procesadas ${stats.processed}/${stats.total} facturas`, { id: toastId });
+				} else {
+					toast.dismiss(toastId);
+				}
+
+				if (stats.pending > 0) {
+					toast.info(`${stats.pending} archivo(s) requieren revisión manual`);
+				}
+
+				clearPendingFileSelection();
+				await loadPendingFiles();
+				await loadPendingFilesToReview();
+				await loadInvoices();
+			} else {
+				toast.error(data.error || 'Error al procesar', { id: toastId });
+			}
+		} catch (err) {
+			toast.error('Error al procesar archivos', { id: toastId });
+		} finally {
+			processing = false;
+		}
+	}
+
+	function getStatusBadgeClass(status: string): string {
+		switch (status) {
+			case 'pending':
+				return 'status-pending';
+			case 'reviewing':
+				return 'status-reviewing';
+			case 'processed':
+				return 'status-processed';
+			case 'failed':
+				return 'status-failed';
+			default:
+				return 'status-pending';
+		}
+	}
+
+	function getStatusText(status: string): string {
+		switch (status) {
+			case 'pending':
+				return '🟡 Pendiente';
+			case 'reviewing':
+				return '🔵 En Revisión';
+			case 'processed':
+				return '✅ Procesado';
+			case 'failed':
+				return '❌ Error';
+			default:
+				return status;
+		}
+	}
 </script>
 
 <Toaster position="top-right" richColors />
@@ -352,6 +474,12 @@
 	<nav class="tabs">
 		<button class="tab" class:active={activeTab === 'upload'} onclick={() => (activeTab = 'upload')}>
 			📤 Subir
+		</button>
+		<button class="tab" class:active={activeTab === 'pending'} onclick={() => (activeTab = 'pending')}>
+			📂 Archivos Pendientes
+			{#if (pendingFilesStats?.pending || 0) + (pendingFilesStats?.reviewing || 0) > 0}
+				<span class="badge">{(pendingFilesStats?.pending || 0) + (pendingFilesStats?.reviewing || 0)}</span>
+			{/if}
 		</button>
 		<button class="tab" class:active={activeTab === 'review'} onclick={() => (activeTab = 'review')}>
 			✏️ Revisar {pendingFilesToReview.length > 0 ? `(${pendingFilesToReview.length})` : ''}
@@ -420,6 +548,146 @@
 					</div>
 				{/if}
 			</section>
+		{:else if activeTab === 'pending'}
+			<!-- PENDING FILES SECTION - Todos los archivos pendientes con selección múltiple -->
+			<div class="stats-bar">
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats?.total || 0}</span>
+					<span class="stat-label">Total</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats?.pending || 0}</span>
+					<span class="stat-label">Pendientes</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats?.reviewing || 0}</span>
+					<span class="stat-label">En Revisión</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats?.processed || 0}</span>
+					<span class="stat-label">Procesados</span>
+				</div>
+				<div class="stat">
+					<span class="stat-value">{pendingFilesStats?.failed || 0}</span>
+					<span class="stat-label">Errores</span>
+				</div>
+			</div>
+
+			{#if pendingFiles.length > 0}
+				<div class="bulk-actions">
+					<button class="btn btn-secondary" onclick={selectAllPendingFiles}>
+						✓ Seleccionar todos
+					</button>
+					<button class="btn btn-secondary" onclick={clearPendingFileSelection}>
+						✕ Limpiar selección
+					</button>
+					{#if selectedPendingFiles.size > 0}
+						<button class="btn btn-primary" onclick={processPendingFiles} disabled={processing}>
+							{processing ? '⏳ Procesando...' : `🔄 Procesar ${selectedPendingFiles.size} seleccionado(s)`}
+						</button>
+					{/if}
+				</div>
+			{/if}
+
+			{#if loading}
+				<div class="loading">
+					<p>⏳ Cargando archivos pendientes...</p>
+				</div>
+			{:else if pendingFiles.length === 0}
+				<div class="empty">
+					<p>📭 No hay archivos pendientes</p>
+					<button class="btn btn-primary" onclick={() => (activeTab = 'upload')}>
+						📤 Subir archivos
+					</button>
+				</div>
+			{:else}
+				<div class="invoice-list">
+					{#each pendingFiles as pf (pf.id)}
+						<div class="invoice-card pending-file-card" class:selected={selectedPendingFiles.has(pf.id)}>
+							<label class="checkbox-label">
+								<input
+									type="checkbox"
+									checked={selectedPendingFiles.has(pf.id)}
+									onchange={() => togglePendingFileSelection(pf.id)}
+								/>
+							</label>
+
+							<div class="invoice-header">
+								<div>
+									<h3>{pf.originalFilename}</h3>
+									<span class="status-badge {getStatusBadgeClass(pf.status)}">
+										{getStatusText(pf.status)}
+									</span>
+									<p class="upload-date">Subido: {new Date(pf.uploadDate).toLocaleString('es-AR')}</p>
+								</div>
+								<div class="invoice-actions">
+									{#if pf.status === 'processed' && pf.invoiceId}
+										<a href="/annotate/{pf.invoiceId}" class="btn btn-secondary btn-sm">
+											📝 Ver Factura
+										</a>
+									{:else}
+										<a href="/pending-files/{pf.id}/edit" class="btn btn-primary btn-sm">
+											✏️ Editar
+										</a>
+										<button
+											class="btn btn-danger btn-sm"
+											onclick={() => deletePendingFile(pf.id)}
+										>
+											🗑️ Eliminar
+										</button>
+									{/if}
+								</div>
+							</div>
+
+							<div class="invoice-details pending-file-details">
+								<div class="detail-item">
+									<span class="label">CUIT</span>
+									<span class="value">{pf.extractedCuit || '❌ No detectado'}</span>
+								</div>
+								<div class="detail-item">
+									<span class="label">Fecha</span>
+									<span class="value">{pf.extractedDate || '❌ No detectado'}</span>
+								</div>
+								<div class="detail-item">
+									<span class="label">Tipo</span>
+									<span class="value">{pf.extractedType || '❌'}</span>
+								</div>
+								<div class="detail-item">
+									<span class="label">Punto Venta</span>
+									<span class="value">{pf.extractedPointOfSale || '❌'}</span>
+								</div>
+								<div class="detail-item">
+									<span class="label">Número</span>
+									<span class="value">{pf.extractedInvoiceNumber || '❌'}</span>
+								</div>
+								<div class="detail-item">
+									<span class="label">Total</span>
+									<span class="value">
+										{pf.extractedTotal ? `$${pf.extractedTotal.toLocaleString('es-AR')}` : '❌ No detectado'}
+									</span>
+								</div>
+							</div>
+
+							{#if pf.extractionConfidence !== null}
+								<div class="confidence-info">
+									<span class="label">Confianza de extracción:</span>
+									<span class="value {getConfidenceColor(pf.extractionConfidence)}">
+										{pf.extractionConfidence.toFixed(0)}%
+									</span>
+								</div>
+							{/if}
+
+							{#if pf.extractionErrors}
+								{@const errors = JSON.parse(pf.extractionErrors)}
+								<div class="extraction-errors">
+									<span class="label">Errores:</span>
+									<span class="value">{errors.join(', ')}</span>
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
 		{:else if activeTab === 'review'}
 			<!-- REVIEW SECTION - Revisar archivos subidos con edición inline -->
 			<div class="review-header">
@@ -826,6 +1094,17 @@
 	.tab.active {
 		color: #2563eb;
 		border-bottom-color: #2563eb;
+	}
+
+	.badge {
+		display: inline-block;
+		background: #ef4444;
+		color: white;
+		font-size: 0.75rem;
+		font-weight: 600;
+		padding: 0.25rem 0.5rem;
+		border-radius: 12px;
+		margin-left: 0.5rem;
 	}
 
 	/* UPLOAD SECTION */
@@ -1347,7 +1626,7 @@
 	.pending-file-card {
 		background: white;
 		border-radius: 12px;
-		padding: 1.5rem;
+		padding: 1.5rem 1.5rem 1.5rem 4rem; /* Más padding-left para el checkbox */
 		box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 		border: 2px solid #e5e7eb;
 	}

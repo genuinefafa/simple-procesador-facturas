@@ -1,5 +1,38 @@
 # Roadmap - Procesador de Facturas
 
+## Estado Actual (2025-11-21)
+
+### ✅ Sesión 2025-11-21: Continuación FASE 1 + Bugfixes + UX Improvements
+
+#### Merge de main y restauración de funcionalidades
+- ✅ **Merge conflictivo de main resuelto**: Combinado lo mejor de ambas ramas
+- ✅ **Sistema de toast mejorado**: Migrado de implementación custom a svelte-sonner (más robusto)
+- ✅ **Tab "Archivos Pendientes" restaurado**: Funcionalidad que se perdió en merge recuperada
+  - Estadísticas completas (total, pending, reviewing, processed, failed)
+  - Selección múltiple con checkboxes
+  - Procesamiento en lote
+  - Vista de TODOS los archivos (no solo pending/failed)
+- ✅ **4 tabs funcionales**: Upload → Archivos Pendientes → Revisar → Facturas
+
+#### Bugfixes importantes
+- ✅ **Migración duplicada eliminada**: `0001_lame_doctor_doom.sql` removida (obsoleta)
+- ✅ **Warning Chrome DevTools silenciado**: Creado `.well-known/appspecific/com.chrome.devtools.json`
+- ✅ **Error "Cannot read properties of undefined"**: Endpoint retorna `stats` con campo `total`
+- ✅ **Checkbox superpuesto**: Ajustado padding en `.pending-file-card`
+- ✅ **Manejo defensivo**: Optional chaining y valores por defecto en frontend
+
+#### Mejoras de UX
+- ✅ **Favicon personalizado**: Diseño custom (factura + checkmark verde)
+- ✅ **Meta tags actualizados**: Idioma español + descripción del proyecto
+- ✅ **Documentación UI/UX**: Prohibición absoluta de alert() documentada
+
+#### Documentación y lineamientos
+- ✅ **docs/UI_UX_GUIDELINES.md**: Creado con reglas estrictas anti-alert()
+- ✅ **Commits semánticos**: Todos los commits con prefijos (feat, fix, docs, design)
+- ✅ **Build exitoso**: Proyecto compila sin errores
+
+---
+
 ## Estado Actual (2025-11-19)
 
 ### ✅ Completado Recientemente
@@ -76,6 +109,141 @@
 **Objetivo**: Permitir que archivos se guarden aunque la extracción falle
 
 Ver sección "Estado Actual" arriba para detalles de implementación.
+
+---
+
+## 🎯 Próximos Pasos (Priorizados)
+
+### 🔴 PRIORIDAD 1: Visualización de Detecciones (2-3 horas)
+**Objetivo**: Mostrar rectángulos indicando DE DÓNDE se leyó cada dato
+
+**Motivación del usuario**:
+> "Una vez que indico los valores 'correctos' de la factura, no se muestra en ningún lado que se detectaron en la imagen (no me queda claro qué aprendimos)"
+
+**Implementación**:
+1. **Backend**: Modificar `InvoiceProcessingService` para retornar coordenadas
+   - pdf-parse ya tiene posiciones de texto
+   - Guardar coordenadas (x, y, width, height) de cada campo detectado
+   - Retornar como parte de extractedData
+
+2. **Tabla pending_files**: Agregar campo `detection_zones` (JSON)
+   ```typescript
+   {
+     cuit: { x: 100, y: 200, width: 150, height: 20, page: 1 },
+     fecha: { x: 100, y: 230, width: 100, height: 18, page: 1 },
+     total: { x: 400, y: 500, width: 80, height: 20, page: 1 }
+   }
+   ```
+
+3. **Frontend - Tab "Revisar"**:
+   - Renderizar PDF en canvas
+   - Dibujar rectángulos semitransparentes sobre campos detectados
+   - Color verde: detectado con alta confianza
+   - Color amarillo: detectado con baja confianza
+   - Color rojo: no detectado (usuario editó manualmente)
+   - Tooltip mostrando valor + confianza al hover
+
+4. **Beneficios**:
+   - Usuario ve EXACTAMENTE qué leyó el sistema
+   - Feedback visual para mejorar templates
+   - Preparación para FASE 2 (aprendizaje de zonas)
+
+---
+
+### 🔴 PRIORIDAD 2: Import de Excel/CSV AFIP (4-6 horas)
+**Objetivo**: Permitir upload de Excel AFIP como "fuente de verdad"
+
+**Workflow ideal del usuario**:
+1. Entrar a la app
+2. **Subir Excel AFIP** (o CSV)
+3. Subir PDFs (pueden ser más o menos que el Excel)
+4. Sistema matchea automáticamente Excel ↔ PDFs
+5. Revisar detecciones con rectángulos visuales
+
+**Implementación MVP (CSV primero)**:
+
+1. **Tabla `expected_invoices`**:
+   ```sql
+   CREATE TABLE expected_invoices (
+     id INTEGER PRIMARY KEY,
+     batch_id INTEGER REFERENCES import_batches(id),
+     emisor_cuit TEXT NOT NULL,
+     fecha_emision TEXT NOT NULL,
+     tipo_comprobante TEXT NOT NULL,
+     punto_venta INTEGER NOT NULL,
+     numero_comprobante INTEGER NOT NULL,
+     total REAL NOT NULL,
+     -- Metadata
+     matched_pending_file_id INTEGER REFERENCES pending_files(id),
+     match_confidence REAL,
+     match_status TEXT DEFAULT 'unmatched', -- unmatched, matched, confirmed, rejected
+     created_at TEXT DEFAULT CURRENT_TIMESTAMP
+   );
+   ```
+
+2. **Tabla `import_batches`**:
+   ```sql
+   CREATE TABLE import_batches (
+     id INTEGER PRIMARY KEY,
+     filename TEXT NOT NULL,
+     total_records INTEGER,
+     matched_count INTEGER DEFAULT 0,
+     imported_at TEXT DEFAULT CURRENT_TIMESTAMP
+   );
+   ```
+
+3. **Service: `ExcelImportService`** (o `CSVImportService`):
+   - Parser CSV con mapeo de columnas flexible
+   - Usuario mapea columnas → campos (primera vez)
+   - Validación de datos AFIP
+   - Inserción en `expected_invoices`
+
+4. **Service: `MatchingService`**:
+   - Función: `findBestMatch(pendingFile, expectedInvoices[])`
+   - Estrategia de matching progresiva:
+     a. Match exacto: CUIT + Tipo + PuntoVenta + Número
+     b. Match por CUIT + Total ± 5%
+     c. Match por CUIT + Fecha ± 7 días + Total similar
+   - Retorna score de confianza (0-100)
+
+5. **Endpoint: POST /api/excel/import**:
+   - Upload de archivo CSV/Excel
+   - Parseo e inserción en expected_invoices
+   - Auto-matching con pending_files existentes
+   - Retorna: { batch_id, total, matched, unmatched }
+
+6. **Endpoint: POST /api/matching/suggest**:
+   - Input: { pendingFileId }
+   - Output: [ { expectedInvoice, confidence, matchReason } ]
+   - Top 3 candidatos ordenados por confianza
+
+7. **UI - Nueva tab "Importar Excel"**:
+   - Dropzone para CSV/Excel
+   - Mapeo de columnas (primera vez)
+   - Vista de resultados: matched vs unmatched
+   - Botón: "Aplicar matches sugeridos"
+
+8. **UI - Modificar tab "Revisar"**:
+   - Si hay match sugerido, mostrar:
+     ```
+     ✨ Datos del Excel AFIP (confianza: 95%)
+     CUIT: 30-12345678-9
+     Fecha: 2024-01-15
+     Total: $12,500.00
+
+     [Usar estos datos] [Ignorar sugerencia]
+     ```
+
+**Ventajas de CSV primero**:
+- ✅ Más simple de parsear (sin dependencias de librerías Excel)
+- ✅ Usuario puede exportar Excel → CSV fácilmente
+- ✅ Formato más predecible
+- ✅ Implementación más rápida (2-3 horas vs 4-6)
+
+**Próximo paso (Excel nativo)**:
+- Usar librería `xlsx` o `exceljs`
+- Auto-detectar hojas y headers
+- Mismo workflow pero con .xlsx
 
 ---
 
