@@ -199,7 +199,7 @@ export class ExcelImportService {
     console.info(`   📦 Lote creado - ID: ${batch.id}`);
 
     // Insertar facturas en la base de datos
-    const imported = this.repo.createBatch(rows, batch.id);
+    const imported = this.repo.createManyInvoices(rows, batch.id);
 
     console.info(`   ✅ Facturas importadas: ${imported.length}`);
 

@@ -241,7 +241,7 @@ export class ExpectedInvoiceRepository {
   /**
    * Crea múltiples facturas esperadas en un lote
    */
-  createBatch(
+  createManyInvoices(
     invoices: Array<{
       cuit: string;
       emitterName?: string;
