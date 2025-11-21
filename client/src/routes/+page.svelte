@@ -47,16 +47,21 @@
 	let uploadedFiles: File[] = $state([]);
 	let selectedInvoices = $state<Set<number>>(new Set());
 	let selectedPendingFiles = $state<Set<number>>(new Set());
-	let activeTab = $state<'upload' | 'pending' | 'review' | 'invoices'>('upload');
+	let activeTab = $state<'upload' | 'pending' | 'review' | 'invoices' | 'excel'>('upload');
 
 	// Estado para edición inline
 	let editingFile = $state<number | null>(null);
 	let editFormData = $state<Record<number, Partial<PendingFileItem>>>({});
 
+	// Estado para importación de Excel
+	let excelImportResult = $state<any>(null);
+	let importBatches = $state<any[]>([]);
+
 	onMount(async () => {
 		await loadInvoices();
 		await loadPendingFilesToReview();
 		await loadPendingFiles();
+		await loadImportBatches();
 	});
 
 	// Manejar errores de carga de archivos con información detallada
@@ -151,6 +156,55 @@
 			pendingFilesStats = { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadImportBatches() {
+		try {
+			const response = await fetch('/api/expected-invoices', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'listBatches' })
+			});
+			const data = await response.json();
+
+			if (data.success) {
+				importBatches = data.batches || [];
+			}
+		} catch (err) {
+			console.error('Error cargando lotes de importación:', err);
+		}
+	}
+
+	async function handleExcelUpload(file: File) {
+		toast.loading('Importando Excel...', { id: 'excel-upload' });
+
+		try {
+			const formData = new FormData();
+			formData.append('file', file);
+
+			const response = await fetch('/api/expected-invoices/import', {
+				method: 'POST',
+				body: formData
+			});
+
+			const result = await response.json();
+			excelImportResult = result;
+
+			if (result.success) {
+				toast.success(`Importación exitosa: ${result.imported} facturas`, {
+					id: 'excel-upload'
+				});
+				await loadImportBatches();
+			} else {
+				toast.error(`Error: ${result.error}`, { id: 'excel-upload' });
+			}
+		} catch (err) {
+			toast.error('Error al importar Excel', { id: 'excel-upload' });
+			excelImportResult = {
+				success: false,
+				error: 'Error de conexión'
+			};
 		}
 	}
 
@@ -472,8 +526,11 @@
 	</header>
 
 	<nav class="tabs">
+		<button class="tab" class:active={activeTab === 'excel'} onclick={() => (activeTab = 'excel')}>
+			📥 Importar Excel
+		</button>
 		<button class="tab" class:active={activeTab === 'upload'} onclick={() => (activeTab = 'upload')}>
-			📤 Subir
+			📤 Subir PDFs
 		</button>
 		<button class="tab" class:active={activeTab === 'pending'} onclick={() => (activeTab = 'pending')}>
 			📂 Archivos Pendientes
@@ -934,6 +991,118 @@
 					{/each}
 				</div>
 			{/if}
+		{:else if activeTab === 'excel'}
+			<!-- EXCEL IMPORT SECTION - Importar Excel de AFIP -->
+			<section class="excel-import-section">
+				<div class="section-header">
+					<h2>📥 Importar Excel AFIP</h2>
+					<p class="help-text">
+						Importá el Excel o CSV de AFIP con las facturas esperadas. El sistema las usará para
+						validar y auto-completar los datos de los PDFs.
+					</p>
+				</div>
+
+				<div
+					class="dropzone excel-dropzone"
+					ondragover={(e) => {
+						e.preventDefault();
+						e.currentTarget.classList.add('dragover');
+					}}
+					ondragleave={(e) => {
+						e.currentTarget.classList.remove('dragover');
+					}}
+					ondrop={async (e) => {
+						e.preventDefault();
+						e.currentTarget.classList.remove('dragover');
+						const files = Array.from(e.dataTransfer?.files || []);
+						if (files.length > 0) {
+							await handleExcelUpload(files[0]);
+						}
+					}}
+					onclick={() => {
+						const input = document.createElement('input');
+						input.type = 'file';
+						input.accept = '.xlsx,.xls,.csv';
+						input.onchange = async (e) => {
+							const file = (e.target as HTMLInputElement).files?.[0];
+							if (file) {
+								await handleExcelUpload(file);
+							}
+						};
+						input.click();
+					}}
+					role="button"
+					tabindex="0"
+				>
+					<p class="dropzone-icon">📊</p>
+					<p class="dropzone-text">Click o arrastrá un archivo Excel/CSV</p>
+					<p class="dropzone-hint">Formatos: .xlsx, .xls, .csv</p>
+				</div>
+
+				{#if excelImportResult}
+					<div class="import-result">
+						{#if excelImportResult.success}
+							<div class="alert alert-success">
+								<h3>✅ Importación exitosa</h3>
+								<p>
+									<strong>{excelImportResult.imported}</strong> facturas importadas
+									{#if excelImportResult.skipped > 0}
+										<br /><em>{excelImportResult.skipped} saltadas (duplicadas)</em>
+									{/if}
+									{#if excelImportResult.errors.length > 0}
+										<br /><strong class="text-error"
+											>{excelImportResult.errors.length} errores</strong
+										>
+									{/if}
+								</p>
+							</div>
+
+							{#if excelImportResult.errors.length > 0}
+								<details class="error-details">
+									<summary>Ver errores ({excelImportResult.errors.length})</summary>
+									<ul>
+										{#each excelImportResult.errors as error}
+											<li>Fila {error.row}: {error.error}</li>
+										{/each}
+									</ul>
+								</details>
+							{/if}
+						{:else}
+							<div class="alert alert-error">
+								<p>❌ Error al importar: {excelImportResult.error}</p>
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				{#if importBatches.length > 0}
+					<div class="import-history">
+						<h3>📚 Últimas importaciones</h3>
+						<div class="batches-list">
+							{#each importBatches as batch}
+								<div class="batch-card">
+									<div class="batch-header">
+										<strong>📄 {batch.filename}</strong>
+										<span class="batch-date"
+											>{new Date(batch.importDate).toLocaleString('es-AR')}</span
+										>
+									</div>
+									<div class="batch-stats">
+										<span class="stat-badge">Total: {batch.totalRows}</span>
+										<span class="stat-badge success">Importadas: {batch.importedRows}</span>
+										{#if batch.skippedRows > 0}
+											<span class="stat-badge warning">Saltadas: {batch.skippedRows}</span>
+										{/if}
+										{#if batch.errorRows > 0}
+											<span class="stat-badge error">Errores: {batch.errorRows}</span>
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</section>
 		{:else if activeTab === 'invoices'}
 			<!-- INVOICES SECTION - Listado de facturas finales -->
 			<div class="stats-bar">
