@@ -148,8 +148,15 @@ export class PDFExtractor {
     }
 
     // Calcular confianza basada en campos extraídos
-    const fieldsExtracted = [cuit, date, total, invoiceType].filter(Boolean).length;
-    const confidence = (fieldsExtracted / 4) * 100;
+    // 5 campos obligatorios: CUIT, fecha, tipo, punto de venta, número
+    // Total es opcional pero suma si está
+    const requiredFields = [cuit, date, invoiceType, pointOfSale, invoiceNumber];
+    const requiredCount = requiredFields.filter((f) => f !== undefined && f !== null && f !== '').length;
+    const hasTotal = total !== undefined && total !== '';
+    // Confianza: 100% = 5 campos requeridos + total
+    // Sin total, máximo 90%
+    const baseConfidence = (requiredCount / 5) * (hasTotal ? 100 : 90);
+    const confidence = Math.round(baseConfidence);
 
     // Parsear total (formato argentino: punto para miles, coma para decimales)
     let parsedTotal: number | undefined;
