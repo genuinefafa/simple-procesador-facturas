@@ -373,6 +373,123 @@ export class ExpectedInvoiceRepository {
   }
 
   /**
+   * Busca matches parciales con los campos disponibles
+   * Devuelve candidatos con score de coincidencia
+   */
+  findPartialMatches(criteria: {
+    cuit?: string;
+    invoiceType?: string;
+    pointOfSale?: number;
+    invoiceNumber?: number;
+    issueDate?: string;
+    total?: number;
+    limit?: number;
+  }): Array<ExpectedInvoice & { matchScore: number; matchedFields: string[]; totalFieldsCompared: number }> {
+    // Necesitamos al menos un campo para buscar
+    if (!criteria.cuit && !criteria.invoiceType && criteria.pointOfSale === undefined &&
+        criteria.invoiceNumber === undefined) {
+      return [];
+    }
+
+    // Construir query dinámica
+    let query = "SELECT * FROM expected_invoices WHERE status = 'pending'";
+    const params: (string | number)[] = [];
+    const conditions: string[] = [];
+
+    // Agregar condiciones para campos disponibles
+    // Priorizamos CUIT como filtro principal si está disponible
+    if (criteria.cuit) {
+      conditions.push('cuit = ?');
+      params.push(criteria.cuit);
+    }
+
+    // Si no hay CUIT, necesitamos otros campos para filtrar
+    if (!criteria.cuit) {
+      if (criteria.invoiceNumber !== undefined) {
+        conditions.push('invoice_number = ?');
+        params.push(criteria.invoiceNumber);
+      }
+      if (criteria.pointOfSale !== undefined) {
+        conditions.push('point_of_sale = ?');
+        params.push(criteria.pointOfSale);
+      }
+    }
+
+    if (conditions.length > 0) {
+      query += ' AND ' + conditions.join(' AND ');
+    }
+
+    query += ' ORDER BY issue_date DESC';
+    query += ` LIMIT ${criteria.limit || 20}`;
+
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params) as ExpectedInvoiceRow[];
+
+    // Calcular score de coincidencia para cada resultado
+    return rows.map((row) => {
+      const invoice = this.rowToObject(row);
+      const matchedFields: string[] = [];
+      let fieldsCompared = 0;
+
+      // Comparar cada campo disponible
+      if (criteria.cuit !== undefined) {
+        fieldsCompared++;
+        if (invoice.cuit === criteria.cuit) {
+          matchedFields.push('cuit');
+        }
+      }
+
+      if (criteria.invoiceType !== undefined) {
+        fieldsCompared++;
+        if (invoice.invoiceType === criteria.invoiceType) {
+          matchedFields.push('invoiceType');
+        }
+      }
+
+      if (criteria.pointOfSale !== undefined) {
+        fieldsCompared++;
+        if (invoice.pointOfSale === criteria.pointOfSale) {
+          matchedFields.push('pointOfSale');
+        }
+      }
+
+      if (criteria.invoiceNumber !== undefined) {
+        fieldsCompared++;
+        if (invoice.invoiceNumber === criteria.invoiceNumber) {
+          matchedFields.push('invoiceNumber');
+        }
+      }
+
+      if (criteria.issueDate !== undefined) {
+        fieldsCompared++;
+        if (invoice.issueDate === criteria.issueDate) {
+          matchedFields.push('issueDate');
+        }
+      }
+
+      if (criteria.total !== undefined && invoice.total !== null) {
+        fieldsCompared++;
+        // Tolerancia del 1% para totales
+        const tolerance = criteria.total * 0.01;
+        if (Math.abs(invoice.total - criteria.total) <= tolerance) {
+          matchedFields.push('total');
+        }
+      }
+
+      const matchScore = fieldsCompared > 0
+        ? Math.round((matchedFields.length / fieldsCompared) * 100)
+        : 0;
+
+      return {
+        ...invoice,
+        matchScore,
+        matchedFields,
+        totalFieldsCompared: fieldsCompared,
+      };
+    }).sort((a, b) => b.matchScore - a.matchScore); // Ordenar por score descendente
+  }
+
+  /**
    * Lista facturas esperadas con filtros
    */
   list(filters?: {

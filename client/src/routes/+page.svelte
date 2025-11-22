@@ -249,6 +249,65 @@
 		editingFile = null;
 	}
 
+	/**
+	 * Selecciona un candidato del Excel y auto-completa los datos del formulario
+	 */
+	function selectCandidate(fileId: number, candidateIndex: number) {
+		const matchInfo = matchesData[fileId];
+		if (!matchInfo?.candidates?.[candidateIndex]) return;
+
+		const candidate = matchInfo.candidates[candidateIndex];
+
+		// Actualizar el formulario de edición con los datos del candidato
+		editFormData[fileId] = {
+			...editFormData[fileId],
+			extractedCuit: candidate.cuit,
+			extractedDate: candidate.issueDate,
+			extractedType: candidate.invoiceType,
+			extractedPointOfSale: candidate.pointOfSale,
+			extractedInvoiceNumber: candidate.invoiceNumber,
+			extractedTotal: candidate.total,
+		};
+
+		// Actualizar también matchesData para reflejar el candidato seleccionado
+		matchesData[fileId] = {
+			...matchInfo,
+			bestMatch: candidate,
+			selectedCandidateIndex: candidateIndex,
+		};
+
+		// Trigger reactivity
+		matchesData = matchesData;
+		editFormData = editFormData;
+
+		toast.success(`Candidato seleccionado: ${candidate.invoiceType}-${candidate.pointOfSale}-${candidate.invoiceNumber}`);
+	}
+
+	/**
+	 * Aplica los datos del mejor match del Excel al formulario
+	 */
+	function applyExcelData(fileId: number) {
+		const matchInfo = matchesData[fileId];
+		const excelData = matchInfo?.exactMatch || matchInfo?.bestMatch || matchInfo?.candidates?.[0];
+		if (!excelData) {
+			toast.error('No hay datos del Excel para aplicar');
+			return;
+		}
+
+		editFormData[fileId] = {
+			...editFormData[fileId],
+			extractedCuit: excelData.cuit,
+			extractedDate: excelData.issueDate,
+			extractedType: excelData.invoiceType,
+			extractedPointOfSale: excelData.pointOfSale,
+			extractedInvoiceNumber: excelData.invoiceNumber,
+			extractedTotal: excelData.total,
+		};
+
+		editFormData = editFormData;
+		toast.success('Datos del Excel aplicados');
+	}
+
 	async function saveAndFinalize(id: number) {
 		const formData = editFormData[id];
 		if (!formData) return;
@@ -684,7 +743,11 @@
 			{:else}
 				<div class="review-list">
 					{#each pendingFilesToReview as file (file.id)}
-						{@const excelData = matchesData[file.id]?.exactMatch || null}
+						{@const matchInfo = matchesData[file.id]}
+						{@const excelData = matchInfo?.exactMatch || matchInfo?.bestMatch || matchInfo?.candidates?.[0] || null}
+						{@const matchScore = excelData?.matchScore ?? (matchInfo?.hasExactMatch ? 100 : 0)}
+						{@const hasPartialMatches = (matchInfo?.candidates?.length || 0) > 0}
+						{@const ocrConfidence = matchInfo?.ocrConfidence ?? file.extractionConfidence ?? 0}
 						{@const cuitMatch = file.extractedCuit && excelData?.cuit && file.extractedCuit === excelData.cuit}
 						{@const dateMatch = file.extractedDate && excelData?.issueDate && file.extractedDate === excelData.issueDate}
 						{@const typeMatch = file.extractedType && excelData?.invoiceType && file.extractedType === excelData.invoiceType}
@@ -738,9 +801,45 @@
 									<div class="comparison-section">
 										<h4>Comparación de datos</h4>
 
-										{#if file.extractionConfidence !== null}
-											<div class="confidence-bar" class:low={file.extractionConfidence < 50} class:medium={file.extractionConfidence >= 50 && file.extractionConfidence < 80} class:high={file.extractionConfidence >= 80}>
-												Confianza OCR: {file.extractionConfidence}%
+										<!-- Métricas de confianza -->
+										<div class="confidence-metrics">
+											<div class="confidence-bar" class:low={ocrConfidence < 50} class:medium={ocrConfidence >= 50 && ocrConfidence < 80} class:high={ocrConfidence >= 80}>
+												<span class="metric-label">Detección PDF:</span>
+												<span class="metric-value">{ocrConfidence}%</span>
+											</div>
+											{#if excelData}
+												<div class="confidence-bar fisco" class:low={matchScore < 50} class:medium={matchScore >= 50 && matchScore < 80} class:high={matchScore >= 80}>
+													<span class="metric-label">Coincidencia Fisco:</span>
+													<span class="metric-value">{matchScore}%</span>
+													{#if matchInfo?.hasExactMatch}
+														<span class="match-badge exact">Exacto</span>
+													{:else if matchScore >= 75}
+														<span class="match-badge good">Parcial</span>
+													{:else}
+														<span class="match-badge low">Bajo</span>
+													{/if}
+												</div>
+											{:else}
+												<div class="confidence-bar fisco none">
+													<span class="metric-label">Coincidencia Fisco:</span>
+													<span class="metric-value">Sin match</span>
+												</div>
+											{/if}
+										</div>
+
+										<!-- Selector de candidatos si hay múltiples -->
+										{#if hasPartialMatches && matchInfo.candidates.length > 1}
+											<div class="candidates-selector">
+												<label>
+													<span class="selector-label">{matchInfo.candidates.length} candidatos encontrados:</span>
+													<select onchange={(e) => selectCandidate(file.id, parseInt(e.currentTarget.value))}>
+														{#each matchInfo.candidates as candidate, idx}
+															<option value={idx}>
+																{candidate.invoiceType}-{String(candidate.pointOfSale).padStart(4, '0')}-{String(candidate.invoiceNumber).padStart(8, '0')} ({candidate.matchScore}% match)
+															</option>
+														{/each}
+													</select>
+												</label>
 											</div>
 										{/if}
 
@@ -881,6 +980,11 @@
 
 									<!-- Acciones -->
 									<div class="review-actions">
+										{#if excelData}
+											<button class="btn btn-secondary" onclick={() => applyExcelData(file.id)} title="Usar datos del Excel">
+												📋 Aplicar Excel
+											</button>
+										{/if}
 										<button class="btn btn-primary" onclick={() => startEditing(file.id)}>
 											✏️ Editar datos
 										</button>
@@ -2028,6 +2132,96 @@
 	.confidence-bar.high {
 		background: #dcfce7;
 		color: #16a34a;
+	}
+
+	.confidence-bar.fisco.none {
+		background: #f3f4f6;
+		color: #6b7280;
+	}
+
+	/* CONFIDENCE METRICS */
+	.confidence-metrics {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.confidence-metrics .confidence-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0;
+		padding: 0.4rem 0.75rem;
+	}
+
+	.confidence-metrics .metric-label {
+		font-weight: 500;
+	}
+
+	.confidence-metrics .metric-value {
+		font-weight: 700;
+	}
+
+	.match-badge {
+		font-size: 0.7rem;
+		padding: 0.15rem 0.4rem;
+		border-radius: 4px;
+		margin-left: 0.5rem;
+		text-transform: uppercase;
+	}
+
+	.match-badge.exact {
+		background: #16a34a;
+		color: white;
+	}
+
+	.match-badge.good {
+		background: #2563eb;
+		color: white;
+	}
+
+	.match-badge.low {
+		background: #dc2626;
+		color: white;
+	}
+
+	/* CANDIDATES SELECTOR */
+	.candidates-selector {
+		margin-bottom: 1rem;
+		padding: 0.75rem;
+		background: #eff6ff;
+		border-radius: 6px;
+		border: 1px solid #bfdbfe;
+	}
+
+	.candidates-selector label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.candidates-selector .selector-label {
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: #1e40af;
+	}
+
+	.candidates-selector select {
+		padding: 0.5rem;
+		border: 1px solid #93c5fd;
+		border-radius: 4px;
+		font-size: 0.85rem;
+		background: white;
+	}
+
+	.btn-secondary {
+		background: #6b7280;
+		color: white;
+	}
+
+	.btn-secondary:hover {
+		background: #4b5563;
 	}
 
 	/* COMPARISON TABLE */
