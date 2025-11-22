@@ -1,5 +1,41 @@
 # Roadmap - Procesador de Facturas
 
+## Estado Actual (2025-11-22)
+
+### ✅ Sesión 2025-11-22: UI Review Rediseñada + TypeScript Fixes
+
+#### Rediseño completo de la sección "Revisar"
+- ✅ **Eliminado overlay "Detección automática"**: El overlay tapaba el PDF, ahora los datos se muestran al lado
+- ✅ **Nueva tabla comparativa**: Muestra lado a lado datos Detectados (PDF) vs Excel AFIP
+- ✅ **Indicadores visuales de status**:
+  - ✓ (verde): Coincide con Excel
+  - ⚠ (rojo): Difiere del Excel
+  - ❌ (amarillo): No detectado en PDF
+  - ⚪ (gris): Sin datos de Excel para comparar
+- ✅ **Tooltips informativos**: Muestran las diferencias específicas al hover
+- ✅ **Leyenda de estados**: Ayuda visual para interpretar iconos
+
+#### Unificación de tabs
+- ✅ **"Archivos Pendientes" unificado con "Revisar"**: Reducido de 4 a 3 tabs
+- ✅ **Filtros añadidos**: "Solo para revisar" vs "Todos los archivos"
+- ✅ **Título de página agregado**: `<title>Procesador de Facturas</title>`
+
+#### Bugfixes críticos
+- ✅ **Error {@const} placement**: Movido como hijo directo del {#each} (Svelte 5)
+- ✅ **Import error resuelto**: `@server/utils/validation.js` → `@server/validators/cuit.js`
+- ✅ **Alias @server en TypeScript**: Configurado en svelte.config.js
+- ✅ **Tipos corregidos**: personType null→undefined, InvoiceType casts
+- ✅ **findExactMatch/findCandidates**: Arregladas firmas de funciones
+- ✅ **fullInvoiceNumber**: Removido de create() (se calcula internamente)
+- ✅ **OCR Confidence fix**: Ahora considera 5 campos requeridos (era 4)
+
+#### Mejoras de código
+- ✅ **Warnings de a11y resueltos**: Dropzone convertido de div a button
+- ✅ **CSS no usado eliminado**: .form-field, .data-item .label/.value
+- ✅ **svelte-check pasa sin errores ni warnings**
+
+---
+
 ## Estado Actual (2025-11-21)
 
 ### ✅ Sesión 2025-11-21: Continuación FASE 1 + Bugfixes + UX Improvements
@@ -1024,51 +1060,32 @@ async extract(filePath: string, templateId?: number): Promise<ExtractionResult> 
 
 ## 📋 Siguiente Sesión Recomendada
 
-### Opción A: FASE 1.5 - Sistema de Matching con Excel AFIP 🔥 (RECOMENDADO FUERTEMENTE)
-**Duración estimada**: 3-4 horas para MVP, 6-8 horas para implementación completa
-**Objetivo**: Matching automático entre PDFs y datos estructurados de AFIP
+### 🔄 FASE 1.5 - Sistema de Matching con Excel AFIP (EN PROGRESO)
+**Estado**: MVP Backend completo, UI de comparación implementada
+**Pendiente**: Testing con datos reales, refinamiento de UI
 
-**Por qué primero**:
-- **Resuelve el 80% del trabajo manual** del usuario
-- **Valida con fuente oficial** (Excel AFIP es la verdad)
-- **Workflow más eficiente**: Usuario valida en vez de transcribir
-- **Genera templates automáticamente** cuando hay match exitoso
-- **Soluciona el problema de regresión**: Si PDF es ilegible pero está en Excel → datos completos
-- **Escalable**: Funciona con lotes grandes (100+ facturas)
+**Ya implementado**:
+- ✅ Tablas `expected_invoices` e `import_batches`
+- ✅ `ExpectedInvoiceRepository` completo
+- ✅ `ExcelImportService` con parsing de columnas estándar
+- ✅ Endpoints: import, list, match, template
+- ✅ UI: Tab "Importar Excel" con drag & drop
+- ✅ UI: Tabla comparativa en "Revisar" (PDF vs Excel)
+- ✅ Indicadores visuales de match/mismatch
 
-**MVP (3-4 horas)**:
-1. Crear tablas `expected_invoices` y `import_batches`
-2. Implementar `ExpectedInvoiceRepository` básico
-3. Implementar `ExcelImportService` con parsing de columnas estándar
-4. Modificar `InvoiceProcessingService` para matching automático
-5. Endpoint `/api/expected-invoices/import` (importar Excel)
-6. UI: Nueva tab "Importar Excel" con drag & drop básico
-7. Testing con archivo real del usuario
+**Próximos pasos sugeridos**:
+1. **Testing con Excel AFIP real** - Verificar que el parsing funcione
+2. **Mejorar búsqueda de Total en OCR** - Buscar de abajo hacia arriba, keywords específicos
+3. **Refinamiento UX** - Ajustar layout según feedback
+4. **Matching automático** - Cuando hay match exacto, auto-completar campos
 
-**Completa (6-8 horas adicionales)**:
-8. Endpoint `/api/expected-invoices` (listado y filtros)
-9. Endpoint `/api/expected-invoices/:id/match` (matching manual)
-10. UI: Modificar pestaña "Revisar" para mostrar candidatos
-11. UI: Dashboard de expected invoices (`/expected-invoices`)
-12. Mapeo flexible de columnas (si Excel no es estándar)
-13. Manejo de importaciones incrementales
-14. Generación automática de templates desde matches exitosos
-
-**Prerequisitos del usuario**:
-- Proveer Excel AFIP de ejemplo (con headers)
-- Responder preguntas sobre columnas y formato
-- Explicar workflow típico de importación
-
-### Opción B: FASE 2.1-2.3 - Templates Básicos
+### Opción B: FASE 2.1-2.3 - Templates Básicos (DESPUÉS DE FASE 1.5)
 **Duración estimada**: 2-3 horas
 **Objetivo**: Sistema de templates para mejorar reconocimiento automático
 
 **Por qué después de FASE 1.5**:
 - Templates se pueden generar automáticamente desde matches exitosos
 - Requiere datos limpios que FASE 1.5 provee
-- Complementa el sistema de matching
-
-**Tareas**: (ver FASE 2 arriba para detalles)
 
 ### Opción C: FASE 2.4 - Mostrar Zonas de Detección
 **Duración estimada**: 1-2 horas
@@ -1191,4 +1208,4 @@ Al terminar:
 
 ---
 
-Última actualización: 2025-11-19
+Última actualización: 2025-11-22
