@@ -701,8 +701,8 @@
 							</div>
 
 							<div class="review-card-content">
-								<!-- PREVIEW DEL ARCHIVO -->
-								<div class="file-preview">
+								<!-- PREVIEW DEL ARCHIVO (sin overlay) -->
+								<div class="file-preview clean">
 									{#if file.originalFilename.toLowerCase().endsWith('.pdf')}
 										<iframe
 											src="/api/pending-files/{file.id}/file"
@@ -719,286 +719,229 @@
 										/>
 									{:else}
 										<div class="preview-error">
-											<p>⚠️ Vista previa no disponible</p>
+											<p>Vista previa no disponible</p>
 											<p class="filename">{file.originalFilename}</p>
 										</div>
 									{/if}
+								</div>
 
-									<!-- Mostrar SIEMPRE qué se detectó y qué no -->
-									<div class="detected-overlay">
-										<h4>🔍 Detección automática</h4>
+								<!-- DATOS COMPARATIVOS -->
+								<div class="file-data">
+									{@const excelData = matchesData[file.id]?.exactMatch || null}
+
+									<!-- Tabla de comparación -->
+									<div class="comparison-section">
+										<h4>Comparación de datos</h4>
 
 										{#if file.extractionConfidence !== null}
-											<div class="confidence-display" class:low={file.extractionConfidence < 50} class:medium={file.extractionConfidence >= 50 && file.extractionConfidence < 80} class:high={file.extractionConfidence >= 80}>
-												Confianza: {file.extractionConfidence}%
+											<div class="confidence-bar" class:low={file.extractionConfidence < 50} class:medium={file.extractionConfidence >= 50 && file.extractionConfidence < 80} class:high={file.extractionConfidence >= 80}>
+												Confianza OCR: {file.extractionConfidence}%
 											</div>
 										{/if}
 
-										<div class="detected-list">
-											<div class="detected-item" class:missing={!file.extractedCuit}>
-												{file.extractedCuit ? '✓' : '❌'} CUIT: {file.extractedCuit || 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={!file.extractedDate}>
-												{file.extractedDate ? '✓' : '❌'} Fecha: {file.extractedDate || 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={!file.extractedType}>
-												{file.extractedType ? '✓' : '❌'} Tipo: {file.extractedType || 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={file.extractedPointOfSale !== null && file.extractedPointOfSale !== undefined}>
-												{file.extractedPointOfSale !== null && file.extractedPointOfSale !== undefined ? '✓' : '❌'} P.Venta: {file.extractedPointOfSale ?? 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={file.extractedInvoiceNumber !== null && file.extractedInvoiceNumber !== undefined}>
-												{file.extractedInvoiceNumber !== null && file.extractedInvoiceNumber !== undefined ? '✓' : '❌'} Número: {file.extractedInvoiceNumber ?? 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={!file.extractedTotal}>
-												{file.extractedTotal ? '✓' : '❌'} Total: {file.extractedTotal ? `$${file.extractedTotal.toLocaleString('es-AR')}` : 'No detectado'}
-											</div>
+										<table class="comparison-table">
+											<thead>
+												<tr>
+													<th>Campo</th>
+													<th>Detectado (PDF)</th>
+													<th>Excel AFIP</th>
+													<th></th>
+												</tr>
+											</thead>
+											<tbody>
+												<!-- CUIT -->
+												{@const cuitMatch = file.extractedCuit && excelData?.cuit && file.extractedCuit === excelData.cuit}
+												<tr class:match={cuitMatch} class:no-match={file.extractedCuit && excelData?.cuit && !cuitMatch} class:missing={!file.extractedCuit}>
+													<td class="field-name">CUIT</td>
+													<td class="detected-value">{file.extractedCuit || '—'}</td>
+													<td class="excel-value">{excelData?.cuit || '—'}</td>
+													<td class="status-cell">
+														{#if !file.extractedCuit}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if !excelData?.cuit}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if cuitMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedCuit}, Excel={excelData.cuit}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Fecha -->
+												{@const dateMatch = file.extractedDate && excelData?.issueDate && file.extractedDate === excelData.issueDate}
+												<tr class:match={dateMatch} class:no-match={file.extractedDate && excelData?.issueDate && !dateMatch} class:missing={!file.extractedDate}>
+													<td class="field-name">Fecha</td>
+													<td class="detected-value">{file.extractedDate || '—'}</td>
+													<td class="excel-value">{excelData?.issueDate || '—'}</td>
+													<td class="status-cell">
+														{#if !file.extractedDate}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if !excelData?.issueDate}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if dateMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedDate}, Excel={excelData.issueDate}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Tipo -->
+												{@const typeMatch = file.extractedType && excelData?.invoiceType && file.extractedType === excelData.invoiceType}
+												<tr class:match={typeMatch} class:no-match={file.extractedType && excelData?.invoiceType && !typeMatch} class:missing={!file.extractedType}>
+													<td class="field-name">Tipo</td>
+													<td class="detected-value">{file.extractedType || '—'}</td>
+													<td class="excel-value">{excelData?.invoiceType || '—'}</td>
+													<td class="status-cell">
+														{#if !file.extractedType}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if !excelData?.invoiceType}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if typeMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedType}, Excel={excelData.invoiceType}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Punto de Venta -->
+												{@const posMatch = file.extractedPointOfSale != null && excelData?.pointOfSale != null && file.extractedPointOfSale === excelData.pointOfSale}
+												<tr class:match={posMatch} class:no-match={file.extractedPointOfSale != null && excelData?.pointOfSale != null && !posMatch} class:missing={file.extractedPointOfSale == null}>
+													<td class="field-name">P. Venta</td>
+													<td class="detected-value">{file.extractedPointOfSale ?? '—'}</td>
+													<td class="excel-value">{excelData?.pointOfSale ?? '—'}</td>
+													<td class="status-cell">
+														{#if file.extractedPointOfSale == null}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if excelData?.pointOfSale == null}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if posMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedPointOfSale}, Excel={excelData.pointOfSale}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Número -->
+												{@const numMatch = file.extractedInvoiceNumber != null && excelData?.invoiceNumber != null && file.extractedInvoiceNumber === excelData.invoiceNumber}
+												<tr class:match={numMatch} class:no-match={file.extractedInvoiceNumber != null && excelData?.invoiceNumber != null && !numMatch} class:missing={file.extractedInvoiceNumber == null}>
+													<td class="field-name">Número</td>
+													<td class="detected-value">{file.extractedInvoiceNumber ?? '—'}</td>
+													<td class="excel-value">{excelData?.invoiceNumber ?? '—'}</td>
+													<td class="status-cell">
+														{#if file.extractedInvoiceNumber == null}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if excelData?.invoiceNumber == null}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if numMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedInvoiceNumber}, Excel={excelData.invoiceNumber}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Total -->
+												{@const totalMatch = file.extractedTotal != null && excelData?.total != null && Math.abs(file.extractedTotal - excelData.total) < 0.01}
+												<tr class:match={totalMatch} class:no-match={file.extractedTotal != null && excelData?.total != null && !totalMatch} class:missing={file.extractedTotal == null}>
+													<td class="field-name">Total</td>
+													<td class="detected-value">{file.extractedTotal != null ? `$${file.extractedTotal.toLocaleString('es-AR')}` : '—'}</td>
+													<td class="excel-value">{excelData?.total != null ? `$${excelData.total.toLocaleString('es-AR')}` : '—'}</td>
+													<td class="status-cell">
+														{#if file.extractedTotal == null}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if excelData?.total == null}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if totalMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="Diferencia: PDF=${file.extractedTotal}, Excel=${excelData.total}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+											</tbody>
+										</table>
+
+										<!-- Leyenda -->
+										<div class="comparison-legend">
+											<span><span class="status-icon ok">✓</span> Coincide</span>
+											<span><span class="status-icon error">⚠</span> Difiere</span>
+											<span><span class="status-icon missing">❌</span> No detectado</span>
+											<span><span class="status-icon no-excel">⚪</span> Sin Excel</span>
 										</div>
 
 										{#if file.extractionErrors}
-											<div class="extraction-errors-overlay">
+											<div class="extraction-errors-compact">
 												⚠️ {file.extractionErrors}
 											</div>
 										{/if}
 									</div>
-								</div>
 
-								<!-- DATOS / FORMULARIO -->
-								<div class="file-data">
-									<!-- MATCH INFORMATION FROM EXCEL -->
-									{#if matchesData[file.id]}
-										{@const matchData = matchesData[file.id]}
-										{#if matchData.hasExactMatch && matchData.exactMatch}
-											<div class="excel-match-card exact-match">
-												<h4>✅ Match exacto encontrado en Excel AFIP</h4>
-												<div class="excel-match-data">
-													<div class="match-item">
-														<span class="match-label">CUIT:</span>
-														<span class="match-value">{matchData.exactMatch.cuit}</span>
-													</div>
-													{#if matchData.exactMatch.emitterName}
-														<div class="match-item">
-															<span class="match-label">Razón Social:</span>
-															<span class="match-value">{matchData.exactMatch.emitterName}</span>
-														</div>
-													{/if}
-													<div class="match-item">
-														<span class="match-label">Fecha:</span>
-														<span class="match-value">{matchData.exactMatch.issueDate}</span>
-													</div>
-													<div class="match-item">
-														<span class="match-label">Tipo:</span>
-														<span class="match-value">{matchData.exactMatch.invoiceType}</span>
-													</div>
-													<div class="match-item">
-														<span class="match-label">Punto Venta:</span>
-														<span class="match-value">{matchData.exactMatch.pointOfSale}</span>
-													</div>
-													<div class="match-item">
-														<span class="match-label">Número:</span>
-														<span class="match-value">{matchData.exactMatch.invoiceNumber}</span>
-													</div>
-													{#if matchData.exactMatch.total}
-														<div class="match-item">
-															<span class="match-label">Total:</span>
-															<span class="match-value">
-																${matchData.exactMatch.total.toLocaleString('es-AR')}
-															</span>
-														</div>
-													{/if}
-													{#if matchData.exactMatch.cae}
-														<div class="match-item">
-															<span class="match-label">CAE:</span>
-															<span class="match-value">{matchData.exactMatch.cae}</span>
-														</div>
-													{/if}
-												</div>
-												<p class="match-hint">
-													💡 Los datos del Excel se usarán automáticamente al procesar este archivo
-												</p>
-											</div>
-										{:else if matchData.candidates && matchData.candidates.length > 0}
-											<div class="excel-match-card candidates-match">
-												<h4>🔍 {matchData.candidates.length} posibles matches en Excel AFIP</h4>
-												<p class="match-hint">
-													No hay match exacto, pero encontramos facturas similares por CUIT y fecha/monto:
-												</p>
-												<div class="candidates-list">
-													{#each matchData.candidates as candidate}
-														<div class="candidate-item">
-															<div class="candidate-header">
-																<strong>
-																	{candidate.invoiceType}-{candidate.pointOfSale
-																		.toString()
-																		.padStart(4, '0')}-{candidate.invoiceNumber
-																		.toString()
-																		.padStart(8, '0')}
-																</strong>
-																{#if candidate.matchConfidence}
-																	<span class="confidence-mini">{candidate.matchConfidence}% confianza</span
-																	>
-																{/if}
-															</div>
-															<div class="candidate-details">
-																<span>{candidate.emitterName || candidate.cuit}</span>
-																<span>Fecha: {candidate.issueDate}</span>
-																{#if candidate.total}
-																	<span>Total: ${candidate.total.toLocaleString('es-AR')}</span>
-																{/if}
-															</div>
-														</div>
-													{/each}
-												</div>
-												<p class="match-hint">
-													⚠️ Revisá manualmente cuál es la factura correcta antes de procesar
-												</p>
-											</div>
-										{:else}
-											<div class="excel-match-card no-match">
-												<h4>ℹ️ Sin match en Excel AFIP</h4>
-												<p class="match-hint">
-													No se encontró esta factura en el Excel importado. Verificá los datos extraídos
-													del PDF.
-												</p>
-											</div>
-										{/if}
-									{/if}
+									<!-- Acciones -->
+									<div class="review-actions">
+										<button class="btn btn-primary" onclick={() => startEditing(file.id)}>
+											✏️ Editar datos
+										</button>
+										<button class="btn btn-success" onclick={() => saveAndFinalize(file.id)}
+											disabled={!file.extractedCuit || !file.extractedType || file.extractedPointOfSale == null || file.extractedInvoiceNumber == null || !file.extractedDate}>
+											✅ Confirmar y procesar
+										</button>
+										<button class="btn btn-sm btn-danger" onclick={() => deletePendingFile(file.id)}>
+											🗑️
+										</button>
+									</div>
 
+									<!-- Modal de edición (solo si está editando) -->
 									{#if editingFile === file.id}
-										<!-- MODO EDICIÓN -->
-										<div class="edit-form">
-											<div class="form-grid">
-												<div class="form-field">
-													<label for="cuit-{file.id}">CUIT *</label>
-													<input
-														id="cuit-{file.id}"
-														type="text"
-														bind:value={editFormData[file.id].extractedCuit}
-														placeholder="XX-XXXXXXXX-X"
-													/>
-													<span class="hint-text">Formato: 20-12345678-9</span>
+										<div class="edit-modal">
+											<h4>Editar datos</h4>
+											<div class="edit-form-compact">
+												<div class="form-row">
+													<label>
+														CUIT
+														<input type="text" bind:value={editFormData[file.id].extractedCuit} placeholder="XX-XXXXXXXX-X" />
+													</label>
+													<label>
+														Fecha
+														<input type="date" bind:value={editFormData[file.id].extractedDate} />
+													</label>
 												</div>
-
-												<div class="form-field">
-													<label for="date-{file.id}">Fecha emisión *</label>
-													<input
-														id="date-{file.id}"
-														type="date"
-														bind:value={editFormData[file.id].extractedDate}
-													/>
+												<div class="form-row">
+													<label>
+														Tipo
+														<select bind:value={editFormData[file.id].extractedType}>
+															<option value="">-</option>
+															<option value="A">A</option>
+															<option value="B">B</option>
+															<option value="C">C</option>
+															<option value="E">E</option>
+															<option value="M">M</option>
+														</select>
+													</label>
+													<label>
+														P. Venta
+														<input type="number" bind:value={editFormData[file.id].extractedPointOfSale} />
+													</label>
+													<label>
+														Número
+														<input type="number" bind:value={editFormData[file.id].extractedInvoiceNumber} />
+													</label>
+													<label>
+														Total
+														<input type="number" step="0.01" bind:value={editFormData[file.id].extractedTotal} />
+													</label>
 												</div>
-
-												<div class="form-field">
-													<label for="type-{file.id}">Tipo *</label>
-													<select id="type-{file.id}" bind:value={editFormData[file.id].extractedType}>
-														<option value="">Seleccionar...</option>
-														<option value="A">A</option>
-														<option value="B">B</option>
-														<option value="C">C</option>
-														<option value="E">E</option>
-														<option value="M">M</option>
-													</select>
+												<div class="edit-actions">
+													<button class="btn btn-primary btn-sm" onclick={() => saveAndFinalize(file.id)}>
+														Guardar
+													</button>
+													<button class="btn btn-secondary btn-sm" onclick={cancelEditing}>
+														Cancelar
+													</button>
 												</div>
-
-												<div class="form-field">
-													<label for="pos-{file.id}">Punto de venta *</label>
-													<input
-														id="pos-{file.id}"
-														type="number"
-														bind:value={editFormData[file.id].extractedPointOfSale}
-														placeholder="0001"
-													/>
-												</div>
-
-												<div class="form-field">
-													<label for="num-{file.id}">Número *</label>
-													<input
-														id="num-{file.id}"
-														type="number"
-														bind:value={editFormData[file.id].extractedInvoiceNumber}
-														placeholder="00000001"
-													/>
-												</div>
-
-												<div class="form-field">
-													<label for="total-{file.id}">Total</label>
-													<input
-														id="total-{file.id}"
-														type="number"
-														step="0.01"
-														bind:value={editFormData[file.id].extractedTotal}
-														placeholder="0.00"
-													/>
-												</div>
-											</div>
-
-											<div class="form-actions">
-												<button class="btn btn-primary" onclick={() => saveAndFinalize(file.id)}>
-													✅ Confirmar y Procesar
-												</button>
-												<button class="btn btn-secondary" onclick={cancelEditing}>
-													❌ Cancelar
-												</button>
-												<button class="btn btn-sm btn-danger" onclick={() => deletePendingFile(file.id)}>
-													🗑️ Eliminar
-												</button>
-											</div>
-										</div>
-									{:else}
-										<!-- MODO VISTA -->
-										<div class="data-display">
-											<div class="data-grid-compact">
-												<div class="data-item">
-													<span class="label">CUIT:</span>
-													<span class="value" class:missing={!file.extractedCuit}>
-														{file.extractedCuit || '❌ No detectado'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">Fecha:</span>
-													<span class="value" class:missing={!file.extractedDate}>
-														{file.extractedDate || '❌ No detectado'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">Tipo:</span>
-													<span class="value" class:missing={!file.extractedType}>
-														{file.extractedType || '❌'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">P.Venta:</span>
-													<span class="value" class:missing={file.extractedPointOfSale === null}>
-														{file.extractedPointOfSale ?? '❌'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">Número:</span>
-													<span class="value" class:missing={file.extractedInvoiceNumber === null}>
-														{file.extractedInvoiceNumber ?? '❌'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">Total:</span>
-													<span class="value" class:missing={!file.extractedTotal}>
-														{file.extractedTotal ? `$${file.extractedTotal.toLocaleString('es-AR')}` : '❌'}
-													</span>
-												</div>
-											</div>
-
-											{#if file.extractionErrors}
-												<div class="extraction-errors-compact">
-													⚠️ {file.extractionErrors}
-												</div>
-											{/if}
-
-											<div class="view-actions">
-												<button class="btn btn-primary" onclick={() => startEditing(file.id)}>
-													✏️ Editar
-												</button>
-												<button class="btn btn-sm btn-secondary" onclick={() => deletePendingFile(file.id)}>
-													🗑️ Eliminar
-												</button>
 											</div>
 										</div>
 									{/if}
@@ -2082,220 +2025,219 @@
 		word-break: break-all;
 	}
 
-	/* DETECTED OVERLAY */
-	.detected-overlay {
-		position: absolute;
-		top: 1rem;
-		right: 1rem;
-		background: rgba(255, 255, 255, 0.97);
-		border: 2px solid #3b82f6;
-		border-radius: 8px;
-		padding: 1rem;
-		max-width: 280px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-		z-index: 10;
-	}
-
-	.detected-overlay h4 {
-		margin: 0 0 0.5rem 0;
-		font-size: 0.9rem;
-		color: #1e293b;
-		font-weight: 600;
-	}
-
-	.confidence-display {
-		font-size: 0.85rem;
-		font-weight: 600;
-		padding: 0.5rem;
-		border-radius: 4px;
-		margin-bottom: 0.75rem;
-		text-align: center;
-	}
-
-	.confidence-display.low {
-		background: #fef2f2;
-		color: #dc2626;
-		border: 1px solid #fecaca;
-	}
-
-	.confidence-display.medium {
-		background: #fef3c7;
-		color: #ca8a04;
-		border: 1px solid #fde68a;
-	}
-
-	.confidence-display.high {
-		background: #dcfce7;
-		color: #16a34a;
-		border: 1px solid #bbf7d0;
-	}
-
-	.detected-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
-	}
-
-	.detected-item {
-		font-size: 0.8rem;
-		font-weight: 500;
-		padding: 0.35rem 0.5rem;
-		border-radius: 4px;
-		background: #f0fdf4;
-		color: #059669;
-	}
-
-	.detected-item.missing {
-		background: #fef2f2;
-		color: #dc2626;
-	}
-
-	.extraction-errors-overlay {
-		margin-top: 0.75rem;
-		padding: 0.5rem;
-		background: #fef2f2;
-		border-left: 3px solid #ef4444;
-		border-radius: 4px;
-		color: #991b1b;
-		font-size: 0.75rem;
-		line-height: 1.3;
-	}
-
 	/* FILE DATA COLUMN */
 	.file-data {
 		display: flex;
 		flex-direction: column;
+		gap: 1rem;
 	}
 
-	/* EXCEL MATCH CARDS */
-	.excel-match-card {
-		margin-bottom: 1.5rem;
-		padding: 1.25rem;
-		border-radius: 10px;
-		border: 2px solid;
+	/* COMPARISON SECTION */
+	.comparison-section {
+		background: white;
+		border-radius: 8px;
+		padding: 1rem;
 	}
 
-	.excel-match-card h4 {
-		margin: 0 0 1rem 0;
-		font-size: 1.05rem;
+	.comparison-section h4 {
+		margin: 0 0 0.75rem 0;
+		font-size: 1rem;
+		color: #374151;
 		font-weight: 600;
 	}
 
-	.excel-match-card.exact-match {
-		background: #f0fdf4;
-		border-color: #22c55e;
+	.confidence-bar {
+		padding: 0.5rem 0.75rem;
+		border-radius: 6px;
+		font-size: 0.85rem;
+		font-weight: 600;
+		margin-bottom: 0.75rem;
+		text-align: center;
 	}
 
-	.excel-match-card.exact-match h4 {
-		color: #15803d;
+	.confidence-bar.low {
+		background: #fef2f2;
+		color: #dc2626;
 	}
 
-	.excel-match-card.candidates-match {
-		background: #fffbeb;
-		border-color: #f59e0b;
-	}
-
-	.excel-match-card.candidates-match h4 {
+	.confidence-bar.medium {
+		background: #fef3c7;
 		color: #b45309;
 	}
 
-	.excel-match-card.no-match {
-		background: #eff6ff;
-		border-color: #3b82f6;
+	.confidence-bar.high {
+		background: #dcfce7;
+		color: #16a34a;
 	}
 
-	.excel-match-card.no-match h4 {
-		color: #1e40af;
+	/* COMPARISON TABLE */
+	.comparison-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.9rem;
 	}
 
-	.excel-match-data {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-		gap: 0.75rem;
-		margin-bottom: 1rem;
+	.comparison-table th {
+		text-align: left;
+		padding: 0.5rem;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: #6b7280;
+		text-transform: uppercase;
+		border-bottom: 2px solid #e5e7eb;
 	}
 
-	.match-item {
+	.comparison-table td {
+		padding: 0.5rem;
+		border-bottom: 1px solid #f3f4f6;
+	}
+
+	.comparison-table tr:last-child td {
+		border-bottom: none;
+	}
+
+	.comparison-table tr.match {
+		background: #f0fdf4;
+	}
+
+	.comparison-table tr.no-match {
+		background: #fef2f2;
+	}
+
+	.comparison-table tr.missing {
+		background: #fefce8;
+	}
+
+	.comparison-table .field-name {
+		font-weight: 600;
+		color: #374151;
+		width: 80px;
+	}
+
+	.comparison-table .detected-value {
+		font-family: monospace;
+		color: #1e293b;
+	}
+
+	.comparison-table .excel-value {
+		font-family: monospace;
+		color: #6366f1;
+	}
+
+	.comparison-table .status-cell {
+		width: 30px;
+		text-align: center;
+	}
+
+	.status-icon {
+		font-size: 1rem;
+		cursor: help;
+	}
+
+	.status-icon.ok {
+		color: #16a34a;
+	}
+
+	.status-icon.error {
+		color: #dc2626;
+	}
+
+	.status-icon.missing {
+		color: #f59e0b;
+	}
+
+	.status-icon.no-excel {
+		color: #9ca3af;
+	}
+
+	/* COMPARISON LEGEND */
+	.comparison-legend {
 		display: flex;
-		flex-direction: column;
+		gap: 1rem;
+		justify-content: center;
+		margin-top: 0.75rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid #e5e7eb;
+		font-size: 0.75rem;
+		color: #6b7280;
+	}
+
+	.comparison-legend span {
+		display: flex;
+		align-items: center;
 		gap: 0.25rem;
 	}
 
-	.match-label {
-		font-size: 0.8rem;
-		font-weight: 500;
-		color: #64748b;
-		text-transform: uppercase;
-		letter-spacing: 0.5px;
-	}
-
-	.match-value {
-		font-size: 0.95rem;
-		font-weight: 600;
-		color: #1e293b;
-	}
-
-	.match-hint {
-		margin: 0.75rem 0 0 0;
-		padding: 0.75rem;
-		background: rgba(255, 255, 255, 0.7);
-		border-radius: 6px;
-		font-size: 0.9rem;
-		color: #475569;
-		line-height: 1.5;
-	}
-
-	.candidates-list {
+	/* REVIEW ACTIONS */
+	.review-actions {
 		display: flex;
-		flex-direction: column;
+		gap: 0.5rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid #e5e7eb;
+	}
+
+	.btn-success {
+		background: #16a34a;
+		color: white;
+	}
+
+	.btn-success:hover:not(:disabled) {
+		background: #15803d;
+	}
+
+	.btn-success:disabled {
+		background: #86efac;
+		cursor: not-allowed;
+	}
+
+	/* EDIT MODAL */
+	.edit-modal {
+		background: #f8fafc;
+		border: 2px solid #2563eb;
+		border-radius: 8px;
+		padding: 1rem;
+	}
+
+	.edit-modal h4 {
+		margin: 0 0 0.75rem 0;
+		color: #2563eb;
+		font-size: 0.95rem;
+	}
+
+	.edit-form-compact .form-row {
+		display: flex;
 		gap: 0.75rem;
 		margin-bottom: 0.75rem;
-	}
-
-	.candidate-item {
-		padding: 0.75rem;
-		background: white;
-		border: 1px solid #e5e7eb;
-		border-radius: 6px;
-		transition: all 0.2s;
-	}
-
-	.candidate-item:hover {
-		border-color: #f59e0b;
-		box-shadow: 0 2px 4px rgba(245, 158, 11, 0.1);
-	}
-
-	.candidate-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: 0.5rem;
-	}
-
-	.candidate-header strong {
-		font-family: monospace;
-		font-size: 0.95rem;
-		color: #1e293b;
-	}
-
-	.confidence-mini {
-		font-size: 0.75rem;
-		padding: 0.25rem 0.5rem;
-		background: #fef3c7;
-		color: #b45309;
-		border-radius: 4px;
-		font-weight: 600;
-	}
-
-	.candidate-details {
-		display: flex;
-		gap: 1rem;
 		flex-wrap: wrap;
-		font-size: 0.85rem;
-		color: #64748b;
 	}
 
-	.candidate-details span {
-		display: inline-block;
+	.edit-form-compact label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		font-size: 0.8rem;
+		font-weight: 500;
+		color: #374151;
+		flex: 1;
+		min-width: 100px;
+	}
+
+	.edit-form-compact input,
+	.edit-form-compact select {
+		padding: 0.5rem;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		font-size: 0.9rem;
+	}
+
+	.edit-actions {
+		display: flex;
+		gap: 0.5rem;
+		justify-content: flex-end;
+	}
+
+	/* FILE PREVIEW CLEAN (without overlay) */
+	.file-preview.clean {
+		position: relative;
 	}
 </style>
