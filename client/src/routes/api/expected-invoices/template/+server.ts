@@ -26,7 +26,7 @@ export const GET: RequestHandler = async ({ url }) => {
       console.info('   📊 Generando template Excel...');
       const buffer = await service.generateExcelTemplate();
 
-      return new Response(buffer, {
+      return new Response(new Uint8Array(buffer), {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'Content-Disposition': 'attachment; filename="template-facturas-afip.xlsx"',

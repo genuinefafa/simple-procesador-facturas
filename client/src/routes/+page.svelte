@@ -684,6 +684,13 @@
 			{:else}
 				<div class="review-list">
 					{#each pendingFilesToReview as file (file.id)}
+						{@const excelData = matchesData[file.id]?.exactMatch || null}
+						{@const cuitMatch = file.extractedCuit && excelData?.cuit && file.extractedCuit === excelData.cuit}
+						{@const dateMatch = file.extractedDate && excelData?.issueDate && file.extractedDate === excelData.issueDate}
+						{@const typeMatch = file.extractedType && excelData?.invoiceType && file.extractedType === excelData.invoiceType}
+						{@const posMatch = file.extractedPointOfSale != null && excelData?.pointOfSale != null && file.extractedPointOfSale === excelData.pointOfSale}
+						{@const numMatch = file.extractedInvoiceNumber != null && excelData?.invoiceNumber != null && file.extractedInvoiceNumber === excelData.invoiceNumber}
+						{@const totalMatch = file.extractedTotal != null && excelData?.total != null && Math.abs(file.extractedTotal - excelData.total) < 0.01}
 						<div class="review-card" class:editing={editingFile === file.id}>
 							<div class="review-card-header">
 								<div>
@@ -727,8 +734,6 @@
 
 								<!-- DATOS COMPARATIVOS -->
 								<div class="file-data">
-									{@const excelData = matchesData[file.id]?.exactMatch || null}
-
 									<!-- Tabla de comparación -->
 									<div class="comparison-section">
 										<h4>Comparación de datos</h4>
@@ -750,7 +755,6 @@
 											</thead>
 											<tbody>
 												<!-- CUIT -->
-												{@const cuitMatch = file.extractedCuit && excelData?.cuit && file.extractedCuit === excelData.cuit}
 												<tr class:match={cuitMatch} class:no-match={file.extractedCuit && excelData?.cuit && !cuitMatch} class:missing={!file.extractedCuit}>
 													<td class="field-name">CUIT</td>
 													<td class="detected-value">{file.extractedCuit || '—'}</td>
@@ -769,7 +773,6 @@
 												</tr>
 
 												<!-- Fecha -->
-												{@const dateMatch = file.extractedDate && excelData?.issueDate && file.extractedDate === excelData.issueDate}
 												<tr class:match={dateMatch} class:no-match={file.extractedDate && excelData?.issueDate && !dateMatch} class:missing={!file.extractedDate}>
 													<td class="field-name">Fecha</td>
 													<td class="detected-value">{file.extractedDate || '—'}</td>
@@ -788,7 +791,6 @@
 												</tr>
 
 												<!-- Tipo -->
-												{@const typeMatch = file.extractedType && excelData?.invoiceType && file.extractedType === excelData.invoiceType}
 												<tr class:match={typeMatch} class:no-match={file.extractedType && excelData?.invoiceType && !typeMatch} class:missing={!file.extractedType}>
 													<td class="field-name">Tipo</td>
 													<td class="detected-value">{file.extractedType || '—'}</td>
@@ -807,7 +809,6 @@
 												</tr>
 
 												<!-- Punto de Venta -->
-												{@const posMatch = file.extractedPointOfSale != null && excelData?.pointOfSale != null && file.extractedPointOfSale === excelData.pointOfSale}
 												<tr class:match={posMatch} class:no-match={file.extractedPointOfSale != null && excelData?.pointOfSale != null && !posMatch} class:missing={file.extractedPointOfSale == null}>
 													<td class="field-name">P. Venta</td>
 													<td class="detected-value">{file.extractedPointOfSale ?? '—'}</td>
@@ -826,7 +827,6 @@
 												</tr>
 
 												<!-- Número -->
-												{@const numMatch = file.extractedInvoiceNumber != null && excelData?.invoiceNumber != null && file.extractedInvoiceNumber === excelData.invoiceNumber}
 												<tr class:match={numMatch} class:no-match={file.extractedInvoiceNumber != null && excelData?.invoiceNumber != null && !numMatch} class:missing={file.extractedInvoiceNumber == null}>
 													<td class="field-name">Número</td>
 													<td class="detected-value">{file.extractedInvoiceNumber ?? '—'}</td>
@@ -845,7 +845,6 @@
 												</tr>
 
 												<!-- Total -->
-												{@const totalMatch = file.extractedTotal != null && excelData?.total != null && Math.abs(file.extractedTotal - excelData.total) < 0.01}
 												<tr class:match={totalMatch} class:no-match={file.extractedTotal != null && excelData?.total != null && !totalMatch} class:missing={file.extractedTotal == null}>
 													<td class="field-name">Total</td>
 													<td class="detected-value">{file.extractedTotal != null ? `$${file.extractedTotal.toLocaleString('es-AR')}` : '—'}</td>
@@ -1787,28 +1786,6 @@
 		gap: 0.5rem;
 	}
 
-	.form-field label {
-		font-weight: 600;
-		color: #374151;
-		font-size: 0.9rem;
-	}
-
-	.form-field input,
-	.form-field select {
-		padding: 0.75rem;
-		border: 2px solid #e5e7eb;
-		border-radius: 8px;
-		font-size: 1rem;
-		transition: all 0.2s;
-	}
-
-	.form-field input:focus,
-	.form-field select:focus {
-		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-	}
-
 	.hint-text {
 		font-size: 0.85rem;
 		color: #64748b;
@@ -1925,23 +1902,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
-	}
-
-	.data-item .label {
-		font-size: 0.85rem;
-		color: #64748b;
-		font-weight: 500;
-	}
-
-	.data-item .value {
-		font-size: 1rem;
-		color: #1e293b;
-		font-weight: 500;
-	}
-
-	.data-item .value.missing {
-		color: #ef4444;
-		font-weight: 400;
 	}
 
 	.confidence-info,

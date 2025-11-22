@@ -9,6 +9,21 @@ import { ExpectedInvoiceRepository } from '@server/database/repositories/expecte
 import { normalizeCUIT } from '@server/validators/cuit.js';
 
 /**
+ * Calcula un rango de fechas alrededor de una fecha dada
+ */
+function calculateDateRange(dateStr: string, days: number): [string, string] {
+  const date = new Date(dateStr);
+  const before = new Date(date);
+  before.setDate(before.getDate() - days);
+  const after = new Date(date);
+  after.setDate(after.getDate() + days);
+  return [
+    before.toISOString().split('T')[0],
+    after.toISOString().split('T')[0],
+  ];
+}
+
+/**
  * GET /api/pending-files/:id/matches
  * Buscar expected_invoices que matcheen con el archivo pendiente
  */
@@ -49,12 +64,12 @@ export const GET: RequestHandler = async ({ params }) => {
     const normalizedCuit = normalizeCUIT(pendingFile.extractedCuit);
 
     // 1. Buscar match exacto
-    const exactMatch = expectedInvoiceRepo.findExactMatch({
-      cuit: normalizedCuit,
-      invoiceType: pendingFile.extractedType,
-      pointOfSale: pendingFile.extractedPointOfSale,
-      invoiceNumber: pendingFile.extractedInvoiceNumber,
-    });
+    const exactMatch = expectedInvoiceRepo.findExactMatch(
+      normalizedCuit,
+      pendingFile.extractedType,
+      pendingFile.extractedPointOfSale,
+      pendingFile.extractedInvoiceNumber
+    );
 
     if (exactMatch) {
       console.info('✅ [MATCHES] Match exacto encontrado:', exactMatch.id);
@@ -66,12 +81,19 @@ export const GET: RequestHandler = async ({ params }) => {
       });
     }
 
-    // 2. Si no hay match exacto, buscar candidatos por CUIT + fecha/monto
+    // 2. Si no hay match exacto, buscar candidatos por CUIT
+    // Construir rangos si hay datos extraídos
+    const dateRange = pendingFile.extractedDate
+      ? calculateDateRange(pendingFile.extractedDate, 7)
+      : undefined;
+    const totalRange = pendingFile.extractedTotal
+      ? [pendingFile.extractedTotal * 0.9, pendingFile.extractedTotal * 1.1] as [number, number]
+      : undefined;
+
     const candidates = expectedInvoiceRepo.findCandidates({
       cuit: normalizedCuit,
-      issueDate: pendingFile.extractedDate,
-      total: pendingFile.extractedTotal,
-      invoiceType: pendingFile.extractedType,
+      dateRange,
+      totalRange,
     });
 
     console.info(`🔍 [MATCHES] ${candidates.length} candidatos encontrados`);

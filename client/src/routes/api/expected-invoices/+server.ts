@@ -58,7 +58,7 @@ export const GET: RequestHandler = async ({ url }) => {
     // Obtener estadísticas
     const stats = repo.countByStatus(filters.batchId);
 
-    const total = Object.values(stats).reduce((sum, count) => sum + count, 0);
+    const total = Object.values(stats).reduce((sum: number, count: number) => sum + count, 0);
 
     console.info(`   ✅ Facturas encontradas: ${invoices.length}`);
     console.info(`   📊 Estadísticas:`);

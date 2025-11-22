@@ -9,6 +9,7 @@ import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
 import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
 import { getPersonType, normalizeCUIT } from '@server/validators/cuit.js';
+import type { InvoiceType, Currency } from '@server/utils/types.js';
 
 export const POST: RequestHandler = async ({ params, request }) => {
   const { id } = params;
@@ -83,18 +84,17 @@ export const POST: RequestHandler = async ({ params, request }) => {
         cuitNumeric: cuitNumeric,
         name: expected.emitterName || `Emisor ${expected.cuit}`,
         aliases: [],
-        personType: personType,
+        personType: personType || undefined,
       });
     }
 
     // Crear la factura con los datos del Excel
     const invoiceRepo = new InvoiceRepository();
-    const fullInvoiceNumber = `${expected.invoiceType}-${String(expected.pointOfSale).padStart(5, '0')}-${String(expected.invoiceNumber).padStart(8, '0')}`;
 
     // Verificar que no exista ya
     const existing = invoiceRepo.findByEmitterAndNumber(
       expected.cuit,
-      expected.invoiceType,
+      expected.invoiceType as InvoiceType,
       expected.pointOfSale,
       expected.invoiceNumber
     );
@@ -113,12 +113,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const invoice = invoiceRepo.create({
       emitterCuit: expected.cuit,
       issueDate: expected.issueDate,
-      invoiceType: expected.invoiceType,
+      invoiceType: expected.invoiceType as InvoiceType,
       pointOfSale: expected.pointOfSale,
       invoiceNumber: expected.invoiceNumber,
-      fullInvoiceNumber,
       total: expected.total || undefined,
-      currency: expected.currency || 'ARS',
+      currency: (expected.currency || 'ARS') as Currency,
       originalFile: pendingFile.originalFilename,
       processedFile: pendingFile.originalFilename, // Se renombrará después si es necesario
       fileType: 'PDF_DIGITAL',

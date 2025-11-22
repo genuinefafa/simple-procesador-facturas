@@ -186,7 +186,7 @@ export class InvoiceProcessingService {
           cuitNumeric: cuitNumeric,
           name: `Emisor ${normalizedCuit}`,
           aliases: [],
-          personType: personType,
+          personType: personType || undefined,
         });
         console.info(`   ✅ Emisor creado: ${emitter.name}`);
       } else {
@@ -264,7 +264,6 @@ export class InvoiceProcessingService {
         invoiceType: data.invoiceType,
         pointOfSale: data.pointOfSale,
         invoiceNumber: data.invoiceNumber,
-        fullInvoiceNumber,
         total: data.total,
         currency: 'ARS',
         originalFile: fileName,
