@@ -11,7 +11,7 @@ import {
   ExpectedInvoiceRepository,
   type ExpectedInvoice,
 } from '../database/repositories/expected-invoice.js';
-import { format, parse, subDays, addDays } from 'date-fns';
+import { format, subDays, addDays } from 'date-fns';
 import type { Invoice } from '../utils/types.js';
 
 export interface ProcessingResult {
@@ -104,12 +104,12 @@ export class InvoiceProcessingService {
         const normalizedCuit = normalizeCUIT(data.cuit);
         console.info(`   🔍 Buscando matches en Excel AFIP para CUIT: ${normalizedCuit}`);
 
-        const matchResult = await this.findExcelMatch(normalizedCuit, data);
+        const matchResult = this.findExcelMatch(normalizedCuit, data);
 
         // MATCH ÚNICO - Auto-completar desde Excel
         if (matchResult.type === 'UNIQUE') {
           console.info(`   ✅ Match único encontrado en Excel AFIP - Auto-completando datos`);
-          const expected = matchResult.match!;
+          const expected = matchResult.match;
 
           return {
             success: false, // Aún requiere revisión del usuario
@@ -131,7 +131,7 @@ export class InvoiceProcessingService {
         // MÚLTIPLES MATCHES - Mostrar al usuario para elegir
         if (matchResult.type === 'AMBIGUOUS') {
           console.info(
-            `   ⚠️  ${matchResult.candidates!.length} posibles matches encontrados - Requiere selección manual`
+            `   ⚠️  ${matchResult.candidates.length} posibles matches encontrados - Requiere selección manual`
           );
           return {
             success: false,
@@ -319,7 +319,7 @@ export class InvoiceProcessingService {
   /**
    * Busca matches de una factura en el Excel AFIP
    */
-  private async findExcelMatch(
+  private findExcelMatch(
     cuit: string,
     extractedData: {
       date?: string;
@@ -328,11 +328,10 @@ export class InvoiceProcessingService {
       pointOfSale?: number;
       invoiceNumber?: number;
     }
-  ): Promise<
+  ):
     | { type: 'NONE' }
     | { type: 'UNIQUE'; match: ExpectedInvoice }
-    | { type: 'AMBIGUOUS'; candidates: ExpectedInvoice[] }
-  > {
+    | { type: 'AMBIGUOUS'; candidates: ExpectedInvoice[] } {
     // Estrategia de matching progresiva:
 
     // 1. Si tenemos TODOS los datos, buscar match exacto
@@ -354,7 +353,12 @@ export class InvoiceProcessingService {
     }
 
     // 2. Buscar por CUIT + fecha + total
-    const criteria: any = { cuit, status: ['pending'] };
+    const criteria: {
+      cuit: string;
+      dateRange?: [string, string];
+      totalRange?: [number, number];
+      status?: import('../database/repositories/expected-invoice.js').ExpectedInvoiceStatus[];
+    } = { cuit, status: ['pending'] };
 
     // Agregar rango de fechas (±7 días)
     if (extractedData.date) {
@@ -371,7 +375,7 @@ export class InvoiceProcessingService {
         const dateFrom = format(subDays(date, 7), 'yyyy-MM-dd');
         const dateTo = format(addDays(date, 7), 'yyyy-MM-dd');
         criteria.dateRange = [dateFrom, dateTo];
-      } catch (error) {
+      } catch {
         // Si falla el parseo de fecha, no usar criterio de fecha
         console.warn(`   ⚠️  No se pudo parsear fecha para matching: ${extractedData.date}`);
       }

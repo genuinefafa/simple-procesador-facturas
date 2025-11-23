@@ -266,36 +266,51 @@ export class ExpectedInvoiceRepository {
     const created: ExpectedInvoice[] = [];
 
     // Usar transacción para insertar todos los registros
-    const insertMany = this.db.transaction((invoicesToInsert) => {
-      for (const invoice of invoicesToInsert) {
-        try {
-          const result = stmt.run(
-            batchId,
-            invoice.cuit,
-            invoice.emitterName || null,
-            invoice.issueDate,
-            invoice.invoiceType,
-            invoice.pointOfSale,
-            invoice.invoiceNumber,
-            invoice.total || null,
-            invoice.cae || null,
-            invoice.caeExpiration || null,
-            invoice.currency || 'ARS'
-          );
+    const insertMany = this.db.transaction(
+      (
+        invoicesToInsert: Array<{
+          cuit: string;
+          emitterName?: string;
+          issueDate: string;
+          invoiceType: string;
+          pointOfSale: number;
+          invoiceNumber: number;
+          total?: number;
+          cae?: string;
+          caeExpiration?: string;
+          currency?: string;
+        }>
+      ) => {
+        for (const invoice of invoicesToInsert) {
+          try {
+            const result = stmt.run(
+              batchId,
+              invoice.cuit,
+              invoice.emitterName || null,
+              invoice.issueDate,
+              invoice.invoiceType,
+              invoice.pointOfSale,
+              invoice.invoiceNumber,
+              invoice.total || null,
+              invoice.cae || null,
+              invoice.caeExpiration || null,
+              invoice.currency || 'ARS'
+            );
 
-          const newInvoice = this.findById(Number(result.lastInsertRowid));
-          if (newInvoice) {
-            created.push(newInvoice);
+            const newInvoice = this.findById(Number(result.lastInsertRowid));
+            if (newInvoice) {
+              created.push(newInvoice);
+            }
+          } catch (error) {
+            // Si falla por duplicado, continuar con el siguiente
+            console.warn(
+              `Factura duplicada: ${invoice.invoiceType}-${invoice.pointOfSale}-${invoice.invoiceNumber}`,
+              error
+            );
           }
-        } catch (error) {
-          // Si falla por duplicado, continuar con el siguiente
-          console.warn(
-            `Factura duplicada: ${invoice.invoiceType}-${invoice.pointOfSale}-${invoice.invoiceNumber}`,
-            error
-          );
         }
       }
-    });
+    );
 
     insertMany(invoices);
 

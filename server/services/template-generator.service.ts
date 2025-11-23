@@ -11,6 +11,19 @@ import { dirname } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+interface TemplateMetadata {
+  sampleData: Array<{
+    CUIT: string;
+    'Razon Social': string;
+    Fecha: string;
+    Tipo: string;
+    'Punto de Venta': number;
+    Numero: number;
+    Total: number;
+    CAE: string;
+  }>;
+}
+
 export class TemplateGeneratorService {
   /**
    * Genera un archivo Excel template con el formato esperado de AFIP
@@ -18,7 +31,7 @@ export class TemplateGeneratorService {
   async generateExcelTemplate(): Promise<Buffer> {
     // Leer metadata del template
     const templatePath = path.join(__dirname, '..', 'templates', 'excel-afip-template.json');
-    const templateMetadata = JSON.parse(await readFile(templatePath, 'utf-8'));
+    const templateMetadata = JSON.parse(await readFile(templatePath, 'utf-8')) as TemplateMetadata;
 
     // Crear workbook
     const workbook = new ExcelJS.Workbook();
@@ -59,7 +72,7 @@ export class TemplateGeneratorService {
     // Agregar datos de ejemplo
     const sampleData = templateMetadata.sampleData;
 
-    sampleData.forEach((row: any, index: number) => {
+    sampleData.forEach((row, index) => {
       const excelRow = dataSheet.addRow({
         cuit: row.CUIT,
         razonSocial: row['Razon Social'],
@@ -179,7 +192,7 @@ export class TemplateGeneratorService {
       },
     ];
 
-    instructions.forEach((instruction, index) => {
+    instructions.forEach((instruction) => {
       const row = instructionsSheet.addRow([instruction.text]);
 
       switch (instruction.style) {
@@ -254,7 +267,7 @@ export class TemplateGeneratorService {
   /**
    * Genera un archivo CSV template con el formato esperado
    */
-  async generateCSVTemplate(): Promise<string> {
+  generateCSVTemplate(): string {
     const headers = [
       'CUIT',
       'Razon Social',

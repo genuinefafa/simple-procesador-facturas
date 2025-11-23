@@ -7,6 +7,42 @@ import { normalizeCUIT, validateCUIT } from '../validators/cuit.js';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice.js';
 import path from 'path';
 
+/**
+ * Extrae el valor primitivo de una celda de ExcelJS
+ */
+function getCellStringValue(value: ExcelJS.CellValue): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  // Handle rich text
+  if (typeof value === 'object' && 'richText' in value) {
+    return value.richText.map((rt) => rt.text).join('');
+  }
+  // Handle formula results
+  if (typeof value === 'object' && 'result' in value) {
+    return getCellStringValue(value.result as ExcelJS.CellValue);
+  }
+  // Handle hyperlinks
+  if (typeof value === 'object' && 'text' in value) {
+    return String(value.text);
+  }
+  // Handle error values
+  if (typeof value === 'object' && 'error' in value) {
+    return '';
+  }
+  // Fallback - should not reach here in normal cases
+  return '';
+}
+
 export interface ImportResult {
   success: boolean;
   batchId: number;
@@ -116,19 +152,19 @@ export class ExcelImportService {
   /**
    * Procesa una hoja de Excel/CSV
    */
-  private async processWorksheet(
+  private processWorksheet(
     worksheet: ExcelJS.Worksheet,
     filename: string,
     columnMapping?: ColumnMapping
-  ): Promise<ImportResult> {
-    const rows: any[] = [];
+  ): ImportResult {
+    const rows: ParsedInvoice[] = [];
     const errors: Array<{ row: number; error: string }> = [];
 
     // Obtener headers (primera fila)
     const headerRow = worksheet.getRow(1);
     const headers: string[] = [];
     headerRow.eachCell((cell, colNumber) => {
-      headers[colNumber - 1] = String(cell.value).trim();
+      headers[colNumber - 1] = getCellStringValue(cell.value).trim();
     });
 
     console.info(`   📌 Headers encontrados: ${headers.join(', ')}`);
@@ -164,7 +200,7 @@ export class ExcelImportService {
       if (rowNumber === 1) return;
 
       try {
-        const rowData: any = {};
+        const rowData: Record<string, ExcelJS.CellValue> = {};
         row.eachCell((cell, colNumber) => {
           const header = headers[colNumber - 1];
           rowData[header] = cell.value;
@@ -250,12 +286,12 @@ export class ExcelImportService {
   /**
    * Parsea una fila del Excel/CSV a un objeto ParsedInvoice
    */
-  private parseRow(row: any, mapping: ColumnMapping): ParsedInvoice {
+  private parseRow(row: Record<string, ExcelJS.CellValue>, mapping: ColumnMapping): ParsedInvoice {
     // Extraer CUIT y validar
-    let cuit = String(row[mapping.cuit] || '').trim();
+    let cuit = getCellStringValue(row[mapping.cuit]).trim();
 
     // Limpiar CUIT (remover espacios, guiones, puntos, comillas, etc.)
-    cuit = cuit.replace(/[\s\-\.'"]/g, '');
+    cuit = cuit.replace(/[\s\-.'"]/g, '');
 
     // Extraer solo los dígitos si hay texto adicional
     const digitsOnly = cuit.replace(/\D/g, '');
@@ -281,27 +317,27 @@ export class ExcelImportService {
     const normalizedCuit = normalizeCUIT(cuit);
 
     // Extraer fecha
-    let issueDate = String(row[mapping.issueDate] || '').trim();
+    const rawDate = row[mapping.issueDate];
+    let issueDate: string;
 
     // Si es un objeto Date de Excel
-    if (row[mapping.issueDate] instanceof Date) {
-      const date = row[mapping.issueDate] as Date;
-      issueDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
-    }
-    // Si es formato DD/MM/YYYY o DD-MM-YYYY
-    else if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(issueDate)) {
-      const [day, month, year] = issueDate.split(/[/-]/);
-      issueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    }
-    // Si es formato YYYY-MM-DD (ya válido)
-    else if (!/^\d{4}-\d{2}-\d{2}$/.test(issueDate)) {
-      throw new Error(`Formato de fecha inválido: ${issueDate}`);
+    if (rawDate instanceof Date) {
+      issueDate = rawDate.toISOString().split('T')[0]; // YYYY-MM-DD
+    } else {
+      issueDate = getCellStringValue(rawDate).trim();
+      // Si es formato DD/MM/YYYY o DD-MM-YYYY
+      if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(issueDate)) {
+        const [day, month, year] = issueDate.split(/[/-]/);
+        issueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+      }
+      // Si es formato YYYY-MM-DD (ya válido)
+      else if (!/^\d{4}-\d{2}-\d{2}$/.test(issueDate)) {
+        throw new Error(`Formato de fecha inválido: ${issueDate}`);
+      }
     }
 
     // Extraer tipo de factura
-    let invoiceType = String(row[mapping.invoiceType] || '')
-      .trim()
-      .toUpperCase();
+    let invoiceType = getCellStringValue(row[mapping.invoiceType]).trim().toUpperCase();
 
     // Manejar formatos comunes:
     // - "11 - Factura C" o "1 - Factura A" (formato AFIP)
@@ -319,31 +355,33 @@ export class ExcelImportService {
     }
 
     // Extraer punto de venta
-    const pointOfSale = parseInt(String(row[mapping.pointOfSale] || '0'));
+    const rawPointOfSaleStr = getCellStringValue(row[mapping.pointOfSale]) || '0';
+    const pointOfSale = parseInt(rawPointOfSaleStr);
     if (isNaN(pointOfSale) || pointOfSale < 0) {
-      throw new Error(`Punto de venta inválido: ${row[mapping.pointOfSale]}`);
+      throw new Error(`Punto de venta inválido: ${rawPointOfSaleStr}`);
     }
 
     // Extraer número de factura
-    const invoiceNumber = parseInt(String(row[mapping.invoiceNumber] || '0'));
+    const rawInvoiceNumberStr = getCellStringValue(row[mapping.invoiceNumber]) || '0';
+    const invoiceNumber = parseInt(rawInvoiceNumberStr);
     if (isNaN(invoiceNumber) || invoiceNumber < 0) {
-      throw new Error(`Número de factura inválido: ${row[mapping.invoiceNumber]}`);
+      throw new Error(`Número de factura inválido: ${rawInvoiceNumberStr}`);
     }
 
     // Campos opcionales
     const emitterName = mapping.emitterName
-      ? String(row[mapping.emitterName] || '').trim() || undefined
+      ? getCellStringValue(row[mapping.emitterName]).trim() || undefined
       : undefined;
 
-    const totalRaw = mapping.total ? String(row[mapping.total] || '').trim() : '';
+    const totalRaw = mapping.total ? getCellStringValue(row[mapping.total]).trim() : '';
     const total =
       totalRaw && totalRaw !== '0' && totalRaw !== '' ? parseFloat(totalRaw) : undefined;
 
-    const caeRaw = mapping.cae ? String(row[mapping.cae] || '').trim() : '';
+    const caeRaw = mapping.cae ? getCellStringValue(row[mapping.cae]).trim() : '';
     const cae = caeRaw && caeRaw !== '0' && caeRaw !== '' ? caeRaw : undefined;
 
     const caeExpiration = mapping.caeExpiration
-      ? String(row[mapping.caeExpiration] || '').trim() || undefined
+      ? getCellStringValue(row[mapping.caeExpiration]).trim() || undefined
       : undefined;
 
     return {
@@ -363,7 +401,7 @@ export class ExcelImportService {
   /**
    * Obtiene estadísticas de un lote
    */
-  getBatchStats(batchId: number) {
+  getBatchStats(batchId: number): { batch: import('../database/repositories/expected-invoice.js').ImportBatch; statusCounts: Record<import('../database/repositories/expected-invoice.js').ExpectedInvoiceStatus, number> } {
     const batch = this.repo.findBatchById(batchId);
     if (!batch) {
       throw new Error(`Lote de importación no encontrado: ${batchId}`);
@@ -380,7 +418,7 @@ export class ExcelImportService {
   /**
    * Lista todos los lotes de importación
    */
-  listBatches(limit?: number) {
+  listBatches(limit?: number): import('../database/repositories/expected-invoice.js').ImportBatch[] {
     return this.repo.listBatches(limit);
   }
 }
