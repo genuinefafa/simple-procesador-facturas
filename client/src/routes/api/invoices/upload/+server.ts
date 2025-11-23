@@ -38,13 +38,15 @@ export const POST: RequestHandler = async ({ request }) => {
       console.info(`📄 [UPLOAD] Procesando: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);
 
       // Validar extensión
+      // Soportamos: PDF, imágenes comunes (JPG, PNG), y formatos adicionales para OCR (TIF, WEBP, HEIC)
       const ext = file.name.split('.').pop()?.toLowerCase();
-      if (!ext || !['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
+      const SUPPORTED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'webp', 'heic', 'heif'];
+      if (!ext || !SUPPORTED_EXTENSIONS.includes(ext)) {
         console.warn(`⚠️  [UPLOAD] Tipo no soportado: ${file.name}`);
         return json(
           {
             success: false,
-            error: `Tipo de archivo no soportado: ${file.name}. Solo se aceptan PDF, JPG y PNG`,
+            error: `Tipo de archivo no soportado: ${file.name}. Formatos aceptados: PDF, JPG, PNG, TIF, WEBP, HEIC`,
           },
           { status: 400 }
         );
