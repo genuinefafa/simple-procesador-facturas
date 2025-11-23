@@ -401,7 +401,13 @@ export class ExcelImportService {
   /**
    * Obtiene estadísticas de un lote
    */
-  getBatchStats(batchId: number): { batch: import('../database/repositories/expected-invoice.js').ImportBatch; statusCounts: Record<import('../database/repositories/expected-invoice.js').ExpectedInvoiceStatus, number> } {
+  getBatchStats(batchId: number): {
+    batch: import('../database/repositories/expected-invoice.js').ImportBatch;
+    statusCounts: Record<
+      import('../database/repositories/expected-invoice.js').ExpectedInvoiceStatus,
+      number
+    >;
+  } {
     const batch = this.repo.findBatchById(batchId);
     if (!batch) {
       throw new Error(`Lote de importación no encontrado: ${batchId}`);
@@ -418,7 +424,9 @@ export class ExcelImportService {
   /**
    * Lista todos los lotes de importación
    */
-  listBatches(limit?: number): import('../database/repositories/expected-invoice.js').ImportBatch[] {
+  listBatches(
+    limit?: number
+  ): import('../database/repositories/expected-invoice.js').ImportBatch[] {
     return this.repo.listBatches(limit);
   }
 }
