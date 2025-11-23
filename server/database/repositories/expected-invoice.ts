@@ -384,10 +384,16 @@ export class ExpectedInvoiceRepository {
     issueDate?: string;
     total?: number;
     limit?: number;
-  }): Array<ExpectedInvoice & { matchScore: number; matchedFields: string[]; totalFieldsCompared: number }> {
+  }): Array<
+    ExpectedInvoice & { matchScore: number; matchedFields: string[]; totalFieldsCompared: number }
+  > {
     // Necesitamos al menos un campo para buscar
-    if (!criteria.cuit && !criteria.invoiceType && criteria.pointOfSale === undefined &&
-        criteria.invoiceNumber === undefined) {
+    if (
+      !criteria.cuit &&
+      !criteria.invoiceType &&
+      criteria.pointOfSale === undefined &&
+      criteria.invoiceNumber === undefined
+    ) {
       return [];
     }
 
@@ -426,67 +432,68 @@ export class ExpectedInvoiceRepository {
     const rows = stmt.all(...params) as ExpectedInvoiceRow[];
 
     // Calcular score de coincidencia para cada resultado
-    return rows.map((row) => {
-      const invoice = this.rowToObject(row);
-      const matchedFields: string[] = [];
-      let fieldsCompared = 0;
+    return rows
+      .map((row) => {
+        const invoice = this.rowToObject(row);
+        const matchedFields: string[] = [];
+        let fieldsCompared = 0;
 
-      // Comparar cada campo disponible
-      if (criteria.cuit !== undefined) {
-        fieldsCompared++;
-        if (invoice.cuit === criteria.cuit) {
-          matchedFields.push('cuit');
+        // Comparar cada campo disponible
+        if (criteria.cuit !== undefined) {
+          fieldsCompared++;
+          if (invoice.cuit === criteria.cuit) {
+            matchedFields.push('cuit');
+          }
         }
-      }
 
-      if (criteria.invoiceType !== undefined) {
-        fieldsCompared++;
-        if (invoice.invoiceType === criteria.invoiceType) {
-          matchedFields.push('invoiceType');
+        if (criteria.invoiceType !== undefined) {
+          fieldsCompared++;
+          if (invoice.invoiceType === criteria.invoiceType) {
+            matchedFields.push('invoiceType');
+          }
         }
-      }
 
-      if (criteria.pointOfSale !== undefined) {
-        fieldsCompared++;
-        if (invoice.pointOfSale === criteria.pointOfSale) {
-          matchedFields.push('pointOfSale');
+        if (criteria.pointOfSale !== undefined) {
+          fieldsCompared++;
+          if (invoice.pointOfSale === criteria.pointOfSale) {
+            matchedFields.push('pointOfSale');
+          }
         }
-      }
 
-      if (criteria.invoiceNumber !== undefined) {
-        fieldsCompared++;
-        if (invoice.invoiceNumber === criteria.invoiceNumber) {
-          matchedFields.push('invoiceNumber');
+        if (criteria.invoiceNumber !== undefined) {
+          fieldsCompared++;
+          if (invoice.invoiceNumber === criteria.invoiceNumber) {
+            matchedFields.push('invoiceNumber');
+          }
         }
-      }
 
-      if (criteria.issueDate !== undefined) {
-        fieldsCompared++;
-        if (invoice.issueDate === criteria.issueDate) {
-          matchedFields.push('issueDate');
+        if (criteria.issueDate !== undefined) {
+          fieldsCompared++;
+          if (invoice.issueDate === criteria.issueDate) {
+            matchedFields.push('issueDate');
+          }
         }
-      }
 
-      if (criteria.total !== undefined && invoice.total !== null) {
-        fieldsCompared++;
-        // Tolerancia del 1% para totales
-        const tolerance = criteria.total * 0.01;
-        if (Math.abs(invoice.total - criteria.total) <= tolerance) {
-          matchedFields.push('total');
+        if (criteria.total !== undefined && invoice.total !== null) {
+          fieldsCompared++;
+          // Tolerancia del 1% para totales
+          const tolerance = criteria.total * 0.01;
+          if (Math.abs(invoice.total - criteria.total) <= tolerance) {
+            matchedFields.push('total');
+          }
         }
-      }
 
-      const matchScore = fieldsCompared > 0
-        ? Math.round((matchedFields.length / fieldsCompared) * 100)
-        : 0;
+        const matchScore =
+          fieldsCompared > 0 ? Math.round((matchedFields.length / fieldsCompared) * 100) : 0;
 
-      return {
-        ...invoice,
-        matchScore,
-        matchedFields,
-        totalFieldsCompared: fieldsCompared,
-      };
-    }).sort((a, b) => b.matchScore - a.matchScore); // Ordenar por score descendente
+        return {
+          ...invoice,
+          matchScore,
+          matchedFields,
+          totalFieldsCompared: fieldsCompared,
+        };
+      })
+      .sort((a, b) => b.matchScore - a.matchScore); // Ordenar por score descendente
   }
 
   /**

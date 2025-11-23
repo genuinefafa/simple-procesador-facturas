@@ -145,7 +145,10 @@ export class TemplateGeneratorService {
         text: '   💡 Eliminá la primera fila si tiene títulos o metadatos no relacionados',
         style: 'normal',
       },
-      { text: '   💡 Asegurate de que la primera fila contenga los nombres de columnas', style: 'normal' },
+      {
+        text: '   💡 Asegurate de que la primera fila contenga los nombres de columnas',
+        style: 'normal',
+      },
       { text: '   💡 Podés tener más columnas de las listadas, serán ignoradas', style: 'normal' },
       {
         text: '   💡 Si hay errores en algunas filas, el sistema las reportará pero importará el resto',
@@ -235,8 +238,7 @@ export class TemplateGeneratorService {
       },
       {
         term: 'Matching',
-        description:
-          'Proceso de asociar un PDF escaneado con una factura esperada del Excel AFIP.',
+        description: 'Proceso de asociar un PDF escaneado con una factura esperada del Excel AFIP.',
       },
     ];
 
@@ -285,16 +287,7 @@ export class TemplateGeneratorService {
         '8920.00',
         '98765432109876',
       ],
-      [
-        '33-55555555-9',
-        'Servicios ABC SRL',
-        '20/11/2025',
-        'C',
-        '2',
-        '9876',
-        '4500.75',
-        '',
-      ],
+      ['33-55555555-9', 'Servicios ABC SRL', '20/11/2025', 'C', '2', '9876', '4500.75', ''],
     ];
 
     const csvLines = [headers.join(','), ...sampleRows.map((row) => row.join(','))];

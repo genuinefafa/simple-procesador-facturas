@@ -55,10 +55,7 @@ export class ExcelImportService {
   /**
    * Importa facturas desde un archivo Excel o CSV
    */
-  async importFromFile(
-    filePath: string,
-    columnMapping?: ColumnMapping
-  ): Promise<ImportResult> {
+  async importFromFile(filePath: string, columnMapping?: ColumnMapping): Promise<ImportResult> {
     console.info(`\n📥 [EXCEL-IMPORT] Iniciando importación desde: ${path.basename(filePath)}`);
 
     const ext = path.extname(filePath).toLowerCase();
@@ -240,17 +237,10 @@ export class ExcelImportService {
 
     return {
       cuit: findColumn(['cuit', 'nro. cuit', 'numero de cuit']),
-      emitterName: headers.find((h) =>
-        /nombre|razon social|emisor|proveedor/i.test(h)
-      ),
+      emitterName: headers.find((h) => /nombre|razon social|emisor|proveedor/i.test(h)),
       issueDate: findColumn(['fecha', 'fecha emision', 'fecha de emision']),
       invoiceType: findColumn(['tipo', 'tipo comprobante', 'comprobante']),
-      pointOfSale: findColumn([
-        'punto de venta',
-        'pto venta',
-        'punto venta',
-        'pto. vta',
-      ]),
+      pointOfSale: findColumn(['punto de venta', 'pto venta', 'punto venta', 'pto. vta']),
       invoiceNumber: findColumn(['numero', 'nro comprobante', 'numero comprobante']),
       total: headers.find((h) => /total|importe|monto/i.test(h)),
       cae: headers.find((h) => /cae|codigo autorizacion/i.test(h)),
@@ -279,7 +269,9 @@ export class ExcelImportService {
       cuit = `${truncated.substring(0, 2)}-${truncated.substring(2, 10)}-${truncated.substring(10)}`;
       console.warn(`   ⚠️  CUIT con más de 11 dígitos, truncado: ${digitsOnly} → ${cuit}`);
     } else {
-      throw new Error(`CUIT con cantidad incorrecta de dígitos (esperado: 11, recibido: ${digitsOnly.length}): ${cuit}`);
+      throw new Error(
+        `CUIT con cantidad incorrecta de dígitos (esperado: 11, recibido: ${digitsOnly.length}): ${cuit}`
+      );
     }
 
     if (!validateCUIT(cuit)) {
@@ -307,7 +299,9 @@ export class ExcelImportService {
     }
 
     // Extraer tipo de factura
-    let invoiceType = String(row[mapping.invoiceType] || '').trim().toUpperCase();
+    let invoiceType = String(row[mapping.invoiceType] || '')
+      .trim()
+      .toUpperCase();
 
     // Manejar formatos comunes:
     // - "11 - Factura C" o "1 - Factura A" (formato AFIP)
@@ -342,7 +336,8 @@ export class ExcelImportService {
       : undefined;
 
     const totalRaw = mapping.total ? String(row[mapping.total] || '').trim() : '';
-    const total = totalRaw && totalRaw !== '0' && totalRaw !== '' ? parseFloat(totalRaw) : undefined;
+    const total =
+      totalRaw && totalRaw !== '0' && totalRaw !== '' ? parseFloat(totalRaw) : undefined;
 
     const caeRaw = mapping.cae ? String(row[mapping.cae] || '').trim() : '';
     const cae = caeRaw && caeRaw !== '0' && caeRaw !== '' ? caeRaw : undefined;

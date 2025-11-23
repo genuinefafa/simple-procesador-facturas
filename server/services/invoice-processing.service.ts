@@ -7,7 +7,10 @@ import { PDFExtractor } from '../extractors/pdf-extractor.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '../validators/cuit.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import { InvoiceRepository } from '../database/repositories/invoice.js';
-import { ExpectedInvoiceRepository, type ExpectedInvoice } from '../database/repositories/expected-invoice.js';
+import {
+  ExpectedInvoiceRepository,
+  type ExpectedInvoice,
+} from '../database/repositories/expected-invoice.js';
 import { format, parse, subDays, addDays } from 'date-fns';
 import type { Invoice } from '../utils/types.js';
 
@@ -127,7 +130,9 @@ export class InvoiceProcessingService {
 
         // MÚLTIPLES MATCHES - Mostrar al usuario para elegir
         if (matchResult.type === 'AMBIGUOUS') {
-          console.info(`   ⚠️  ${matchResult.candidates!.length} posibles matches encontrados - Requiere selección manual`);
+          console.info(
+            `   ⚠️  ${matchResult.candidates!.length} posibles matches encontrados - Requiere selección manual`
+          );
           return {
             success: false,
             requiresReview: true,
@@ -395,7 +400,9 @@ export class InvoiceProcessingService {
 
     // Si hay más de 5, intentar refinar con más criterios
     // Por ahora, devolver sin match para evitar ambigüedad
-    console.warn(`   ⚠️  Demasiados candidatos (${candidates.length}) - Se necesitan más datos para matching`);
+    console.warn(
+      `   ⚠️  Demasiados candidatos (${candidates.length}) - Se necesitan más datos para matching`
+    );
     return { type: 'NONE' };
   }
 
