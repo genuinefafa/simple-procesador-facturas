@@ -1,3 +1,7 @@
+<svelte:head>
+	<title>Procesador de Facturas</title>
+</svelte:head>
+
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { toast, Toaster } from 'svelte-sonner';
@@ -39,7 +43,6 @@
 
 	let invoices: PendingInvoice[] = $state([]);
 	let pendingFilesToReview: PendingFileItem[] = $state([]);
-	let pendingFiles: PendingFileItem[] = $state([]); // TODOS los archivos pendientes
 	let pendingFilesStats = $state({ total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 });
 	let loading = $state(false);
 	let uploading = $state(false);
@@ -47,16 +50,24 @@
 	let uploadedFiles: File[] = $state([]);
 	let selectedInvoices = $state<Set<number>>(new Set());
 	let selectedPendingFiles = $state<Set<number>>(new Set());
-	let activeTab = $state<'upload' | 'pending' | 'review' | 'invoices'>('upload');
+	let activeTab = $state<'upload' | 'review' | 'invoices' | 'excel'>('upload');
+	let reviewFilter = $state<'pending' | 'all'>('pending'); // Filtro para tab Revisar
 
 	// Estado para edición inline
 	let editingFile = $state<number | null>(null);
 	let editFormData = $state<Record<number, Partial<PendingFileItem>>>({});
 
+	// Estado para importación de Excel
+	let excelImportResult = $state<any>(null);
+	let importBatches = $state<any[]>([]);
+
+	// Estado para matches de expected invoices
+	let matchesData = $state<Record<number, any>>({});
+
 	onMount(async () => {
 		await loadInvoices();
 		await loadPendingFilesToReview();
-		await loadPendingFiles();
+		await loadImportBatches();
 	});
 
 	// Manejar errores de carga de archivos con información detallada
@@ -101,13 +112,17 @@
 	async function loadPendingFilesToReview() {
 		loading = true;
 		try {
-			const response = await fetch('/api/pending-files?status=pending,failed');
+			// Cargar según el filtro activo
+			const statusFilter = reviewFilter === 'pending' ? 'status=pending,failed' : 'limit=100';
+			const response = await fetch(`/api/pending-files?${statusFilter}`);
 			const data = await response.json();
 
 			if (data.success) {
-				pendingFilesToReview = data.pendingFiles;
+				pendingFilesToReview = data.pendingFiles || [];
+				pendingFilesStats = data.stats || { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
+
 				// Inicializar editFormData para cada archivo
-				data.pendingFiles.forEach((pf: PendingFileItem) => {
+				pendingFilesToReview.forEach((pf: PendingFileItem) => {
 					if (!editFormData[pf.id]) {
 						editFormData[pf.id] = {
 							extractedCuit: pf.extractedCuit,
@@ -119,6 +134,9 @@
 						};
 					}
 				});
+
+				// Cargar matches de expected invoices para cada archivo
+				await loadMatchesForPendingFiles(pendingFilesToReview);
 			} else {
 				toast.error('Error al cargar archivos pendientes');
 			}
@@ -129,28 +147,76 @@
 		}
 	}
 
-	async function loadPendingFiles() {
-		loading = true;
+	async function loadMatchesForPendingFiles(files: PendingFileItem[]) {
+		// Cargar matches para cada archivo en paralelo
+		const matchPromises = files.map(async (pf) => {
+			try {
+				const response = await fetch(`/api/pending-files/${pf.id}/matches`);
+				const data = await response.json();
+				if (data.success) {
+					matchesData[pf.id] = data;
+				}
+			} catch (err) {
+				console.error(`Error cargando matches para archivo ${pf.id}:`, err);
+			}
+		});
+
+		await Promise.all(matchPromises);
+		// Trigger reactivity
+		matchesData = matchesData;
+	}
+
+	async function changeReviewFilter(newFilter: 'pending' | 'all') {
+		reviewFilter = newFilter;
+		await loadPendingFilesToReview();
+	}
+
+	async function loadImportBatches() {
 		try {
-			const response = await fetch('/api/pending-files?limit=100');
+			const response = await fetch('/api/expected-invoices', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ action: 'listBatches' })
+			});
 			const data = await response.json();
 
 			if (data.success) {
-				pendingFiles = data.pendingFiles || [];
-				pendingFilesStats = data.stats || { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
-			} else {
-				toast.error('Error al cargar archivos pendientes');
-				// Mantener valores por defecto
-				pendingFiles = [];
-				pendingFilesStats = { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
+				importBatches = data.batches || [];
 			}
 		} catch (err) {
-			toast.error('Error de conexión al cargar archivos pendientes');
-			// Mantener valores por defecto
-			pendingFiles = [];
-			pendingFilesStats = { total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 };
-		} finally {
-			loading = false;
+			console.error('Error cargando lotes de importación:', err);
+		}
+	}
+
+	async function handleExcelUpload(file: File) {
+		toast.loading('Importando Excel...', { id: 'excel-upload' });
+
+		try {
+			const formData = new FormData();
+			formData.append('file', file);
+
+			const response = await fetch('/api/expected-invoices/import', {
+				method: 'POST',
+				body: formData
+			});
+
+			const result = await response.json();
+			excelImportResult = result;
+
+			if (result.success) {
+				toast.success(`Importación exitosa: ${result.imported} facturas`, {
+					id: 'excel-upload'
+				});
+				await loadImportBatches();
+			} else {
+				toast.error(`Error: ${result.error}`, { id: 'excel-upload' });
+			}
+		} catch (err) {
+			toast.error('Error al importar Excel', { id: 'excel-upload' });
+			excelImportResult = {
+				success: false,
+				error: 'Error de conexión'
+			};
 		}
 	}
 
@@ -166,7 +232,6 @@
 
 			if (data.success) {
 				await loadPendingFilesToReview();
-				await loadPendingFiles();
 				toast.success('Archivo eliminado correctamente');
 			} else {
 				toast.error(data.error || 'Error al eliminar');
@@ -182,6 +247,65 @@
 
 	function cancelEditing() {
 		editingFile = null;
+	}
+
+	/**
+	 * Selecciona un candidato del Excel y auto-completa los datos del formulario
+	 */
+	function selectCandidate(fileId: number, candidateIndex: number) {
+		const matchInfo = matchesData[fileId];
+		if (!matchInfo?.candidates?.[candidateIndex]) return;
+
+		const candidate = matchInfo.candidates[candidateIndex];
+
+		// Actualizar el formulario de edición con los datos del candidato
+		editFormData[fileId] = {
+			...editFormData[fileId],
+			extractedCuit: candidate.cuit,
+			extractedDate: candidate.issueDate,
+			extractedType: candidate.invoiceType,
+			extractedPointOfSale: candidate.pointOfSale,
+			extractedInvoiceNumber: candidate.invoiceNumber,
+			extractedTotal: candidate.total,
+		};
+
+		// Actualizar también matchesData para reflejar el candidato seleccionado
+		matchesData[fileId] = {
+			...matchInfo,
+			bestMatch: candidate,
+			selectedCandidateIndex: candidateIndex,
+		};
+
+		// Trigger reactivity
+		matchesData = matchesData;
+		editFormData = editFormData;
+
+		toast.success(`Candidato seleccionado: ${candidate.invoiceType}-${candidate.pointOfSale}-${candidate.invoiceNumber}`);
+	}
+
+	/**
+	 * Aplica los datos del mejor match del Excel al formulario
+	 */
+	function applyExcelData(fileId: number) {
+		const matchInfo = matchesData[fileId];
+		const excelData = matchInfo?.exactMatch || matchInfo?.bestMatch || matchInfo?.candidates?.[0];
+		if (!excelData) {
+			toast.error('No hay datos del Excel para aplicar');
+			return;
+		}
+
+		editFormData[fileId] = {
+			...editFormData[fileId],
+			extractedCuit: excelData.cuit,
+			extractedDate: excelData.issueDate,
+			extractedType: excelData.invoiceType,
+			extractedPointOfSale: excelData.pointOfSale,
+			extractedInvoiceNumber: excelData.invoiceNumber,
+			extractedTotal: excelData.total,
+		};
+
+		editFormData = editFormData;
+		toast.success('Datos del Excel aplicados');
 	}
 
 	async function saveAndFinalize(id: number) {
@@ -307,7 +431,6 @@
 			uploadedFiles = [];
 			await loadInvoices();
 			await loadPendingFilesToReview();
-			await loadPendingFiles();
 
 			// Navegar automáticamente a revisar
 			activeTab = 'review';
@@ -382,7 +505,7 @@
 	}
 
 	function selectAllPendingFiles() {
-		selectedPendingFiles = new Set(pendingFiles.map((pf) => pf.id));
+		selectedPendingFiles = new Set(pendingFilesToReview.map((pf) => pf.id));
 	}
 
 	function clearPendingFileSelection() {
@@ -419,7 +542,6 @@
 				}
 
 				clearPendingFileSelection();
-				await loadPendingFiles();
 				await loadPendingFilesToReview();
 				await loadInvoices();
 			} else {
@@ -472,17 +594,17 @@
 	</header>
 
 	<nav class="tabs">
-		<button class="tab" class:active={activeTab === 'upload'} onclick={() => (activeTab = 'upload')}>
-			📤 Subir
+		<button class="tab" class:active={activeTab === 'excel'} onclick={() => (activeTab = 'excel')}>
+			📥 Importar Excel
 		</button>
-		<button class="tab" class:active={activeTab === 'pending'} onclick={() => (activeTab = 'pending')}>
-			📂 Archivos Pendientes
-			{#if (pendingFilesStats?.pending || 0) + (pendingFilesStats?.reviewing || 0) > 0}
-				<span class="badge">{(pendingFilesStats?.pending || 0) + (pendingFilesStats?.reviewing || 0)}</span>
-			{/if}
+		<button class="tab" class:active={activeTab === 'upload'} onclick={() => (activeTab = 'upload')}>
+			📤 Subir PDFs
 		</button>
 		<button class="tab" class:active={activeTab === 'review'} onclick={() => (activeTab = 'review')}>
-			✏️ Revisar {pendingFilesToReview.length > 0 ? `(${pendingFilesToReview.length})` : ''}
+			✏️ Revisar Archivos
+			{#if (pendingFilesStats?.pending || 0) + (pendingFilesStats?.failed || 0) > 0}
+				<span class="badge">{(pendingFilesStats?.pending || 0) + (pendingFilesStats?.failed || 0)}</span>
+			{/if}
 		</button>
 		<button class="tab" class:active={activeTab === 'invoices'} onclick={() => (activeTab = 'invoices')}>
 			📋 Facturas
@@ -548,8 +670,10 @@
 					</div>
 				{/if}
 			</section>
-		{:else if activeTab === 'pending'}
-			<!-- PENDING FILES SECTION - Todos los archivos pendientes con selección múltiple -->
+		{:else if activeTab === 'review'}
+			<!-- REVIEW SECTION - Revisar archivos subidos con edición inline y matches de Excel -->
+
+			<!-- Estadísticas -->
 			<div class="stats-bar">
 				<div class="stat">
 					<span class="stat-value">{pendingFilesStats?.total || 0}</span>
@@ -573,126 +697,36 @@
 				</div>
 			</div>
 
-			{#if pendingFiles.length > 0}
-				<div class="bulk-actions">
-					<button class="btn btn-secondary" onclick={selectAllPendingFiles}>
-						✓ Seleccionar todos
+			<!-- Filtros -->
+			<div class="filter-bar">
+				<div class="filter-buttons">
+					<button
+						class="filter-btn"
+						class:active={reviewFilter === 'pending'}
+						onclick={() => changeReviewFilter('pending')}
+					>
+						🔍 Solo para revisar ({(pendingFilesStats?.pending || 0) + (pendingFilesStats?.failed || 0)})
 					</button>
-					<button class="btn btn-secondary" onclick={clearPendingFileSelection}>
-						✕ Limpiar selección
-					</button>
-					{#if selectedPendingFiles.size > 0}
-						<button class="btn btn-primary" onclick={processPendingFiles} disabled={processing}>
-							{processing ? '⏳ Procesando...' : `🔄 Procesar ${selectedPendingFiles.size} seleccionado(s)`}
-						</button>
-					{/if}
-				</div>
-			{/if}
-
-			{#if loading}
-				<div class="loading">
-					<p>⏳ Cargando archivos pendientes...</p>
-				</div>
-			{:else if pendingFiles.length === 0}
-				<div class="empty">
-					<p>📭 No hay archivos pendientes</p>
-					<button class="btn btn-primary" onclick={() => (activeTab = 'upload')}>
-						📤 Subir archivos
+					<button
+						class="filter-btn"
+						class:active={reviewFilter === 'all'}
+						onclick={() => changeReviewFilter('all')}
+					>
+						📋 Todos los archivos ({pendingFilesStats?.total || 0})
 					</button>
 				</div>
-			{:else}
-				<div class="invoice-list">
-					{#each pendingFiles as pf (pf.id)}
-						<div class="invoice-card pending-file-card" class:selected={selectedPendingFiles.has(pf.id)}>
-							<label class="checkbox-label">
-								<input
-									type="checkbox"
-									checked={selectedPendingFiles.has(pf.id)}
-									onchange={() => togglePendingFileSelection(pf.id)}
-								/>
-							</label>
+			</div>
 
-							<div class="invoice-header">
-								<div>
-									<h3>{pf.originalFilename}</h3>
-									<span class="status-badge {getStatusBadgeClass(pf.status)}">
-										{getStatusText(pf.status)}
-									</span>
-									<p class="upload-date">Subido: {new Date(pf.uploadDate).toLocaleString('es-AR')}</p>
-								</div>
-								<div class="invoice-actions">
-									{#if pf.status === 'processed' && pf.invoiceId}
-										<a href="/annotate/{pf.invoiceId}" class="btn btn-secondary btn-sm">
-											📝 Ver Factura
-										</a>
-									{:else}
-										<a href="/pending-files/{pf.id}/edit" class="btn btn-primary btn-sm">
-											✏️ Editar
-										</a>
-										<button
-											class="btn btn-danger btn-sm"
-											onclick={() => deletePendingFile(pf.id)}
-										>
-											🗑️ Eliminar
-										</button>
-									{/if}
-								</div>
-							</div>
-
-							<div class="invoice-details pending-file-details">
-								<div class="detail-item">
-									<span class="label">CUIT</span>
-									<span class="value">{pf.extractedCuit || '❌ No detectado'}</span>
-								</div>
-								<div class="detail-item">
-									<span class="label">Fecha</span>
-									<span class="value">{pf.extractedDate || '❌ No detectado'}</span>
-								</div>
-								<div class="detail-item">
-									<span class="label">Tipo</span>
-									<span class="value">{pf.extractedType || '❌'}</span>
-								</div>
-								<div class="detail-item">
-									<span class="label">Punto Venta</span>
-									<span class="value">{pf.extractedPointOfSale || '❌'}</span>
-								</div>
-								<div class="detail-item">
-									<span class="label">Número</span>
-									<span class="value">{pf.extractedInvoiceNumber || '❌'}</span>
-								</div>
-								<div class="detail-item">
-									<span class="label">Total</span>
-									<span class="value">
-										{pf.extractedTotal ? `$${pf.extractedTotal.toLocaleString('es-AR')}` : '❌ No detectado'}
-									</span>
-								</div>
-							</div>
-
-							{#if pf.extractionConfidence !== null}
-								<div class="confidence-info">
-									<span class="label">Confianza de extracción:</span>
-									<span class="value {getConfidenceColor(pf.extractionConfidence)}">
-										{pf.extractionConfidence.toFixed(0)}%
-									</span>
-								</div>
-							{/if}
-
-							{#if pf.extractionErrors}
-								{@const errors = JSON.parse(pf.extractionErrors)}
-								<div class="extraction-errors">
-									<span class="label">Errores:</span>
-									<span class="value">{errors.join(', ')}</span>
-								</div>
-							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
-		{:else if activeTab === 'review'}
-			<!-- REVIEW SECTION - Revisar archivos subidos con edición inline -->
 			<div class="review-header">
 				<h2>Revisá y corregí los datos detectados</h2>
-				<p class="hint">Editá los campos que no se detectaron correctamente y confirmá para procesar</p>
+				<p class="hint">
+					Editá los campos que no se detectaron correctamente.
+					{#if reviewFilter === 'pending'}
+						Mostrando solo archivos pendientes y con errores.
+					{:else}
+						Mostrando todos los archivos (pendientes, procesados y en revisión).
+					{/if}
+				</p>
 			</div>
 
 			{#if loading}
@@ -709,6 +743,17 @@
 			{:else}
 				<div class="review-list">
 					{#each pendingFilesToReview as file (file.id)}
+						{@const matchInfo = matchesData[file.id]}
+						{@const excelData = matchInfo?.exactMatch || matchInfo?.bestMatch || matchInfo?.candidates?.[0] || null}
+						{@const matchScore = excelData?.matchScore ?? (matchInfo?.hasExactMatch ? 100 : 0)}
+						{@const hasPartialMatches = (matchInfo?.candidates?.length || 0) > 0}
+						{@const ocrConfidence = matchInfo?.ocrConfidence ?? file.extractionConfidence ?? 0}
+						{@const cuitMatch = file.extractedCuit && excelData?.cuit && file.extractedCuit === excelData.cuit}
+						{@const dateMatch = file.extractedDate && excelData?.issueDate && file.extractedDate === excelData.issueDate}
+						{@const typeMatch = file.extractedType && excelData?.invoiceType && file.extractedType === excelData.invoiceType}
+						{@const posMatch = file.extractedPointOfSale != null && excelData?.pointOfSale != null && file.extractedPointOfSale === excelData.pointOfSale}
+						{@const numMatch = file.extractedInvoiceNumber != null && excelData?.invoiceNumber != null && file.extractedInvoiceNumber === excelData.invoiceNumber}
+						{@const totalMatch = file.extractedTotal != null && excelData?.total != null && Math.abs(file.extractedTotal - excelData.total) < 0.01}
 						<div class="review-card" class:editing={editingFile === file.id}>
 							<div class="review-card-header">
 								<div>
@@ -726,8 +771,8 @@
 							</div>
 
 							<div class="review-card-content">
-								<!-- PREVIEW DEL ARCHIVO -->
-								<div class="file-preview">
+								<!-- PREVIEW DEL ARCHIVO (sin overlay) -->
+								<div class="file-preview clean">
 									{#if file.originalFilename.toLowerCase().endsWith('.pdf')}
 										<iframe
 											src="/api/pending-files/{file.id}/file"
@@ -744,187 +789,262 @@
 										/>
 									{:else}
 										<div class="preview-error">
-											<p>⚠️ Vista previa no disponible</p>
+											<p>Vista previa no disponible</p>
 											<p class="filename">{file.originalFilename}</p>
 										</div>
 									{/if}
+								</div>
 
-									<!-- Mostrar SIEMPRE qué se detectó y qué no -->
-									<div class="detected-overlay">
-										<h4>🔍 Detección automática</h4>
+								<!-- DATOS COMPARATIVOS -->
+								<div class="file-data">
+									<!-- Tabla de comparación -->
+									<div class="comparison-section">
+										<h4>Comparación de datos</h4>
 
-										{#if file.extractionConfidence !== null}
-											<div class="confidence-display" class:low={file.extractionConfidence < 50} class:medium={file.extractionConfidence >= 50 && file.extractionConfidence < 80} class:high={file.extractionConfidence >= 80}>
-												Confianza: {file.extractionConfidence}%
+										<!-- Métricas de confianza -->
+										<div class="confidence-metrics">
+											<div class="confidence-bar" class:low={ocrConfidence < 50} class:medium={ocrConfidence >= 50 && ocrConfidence < 80} class:high={ocrConfidence >= 80}>
+												<span class="metric-label">Detección PDF:</span>
+												<span class="metric-value">{ocrConfidence}%</span>
+											</div>
+											{#if excelData}
+												<div class="confidence-bar fisco" class:low={matchScore < 50} class:medium={matchScore >= 50 && matchScore < 80} class:high={matchScore >= 80}>
+													<span class="metric-label">Coincidencia Fisco:</span>
+													<span class="metric-value">{matchScore}%</span>
+													{#if matchInfo?.hasExactMatch}
+														<span class="match-badge exact">Exacto</span>
+													{:else if matchScore >= 75}
+														<span class="match-badge good">Parcial</span>
+													{:else}
+														<span class="match-badge low">Bajo</span>
+													{/if}
+												</div>
+											{:else}
+												<div class="confidence-bar fisco none">
+													<span class="metric-label">Coincidencia Fisco:</span>
+													<span class="metric-value">Sin match</span>
+												</div>
+											{/if}
+										</div>
+
+										<!-- Selector de candidatos si hay múltiples -->
+										{#if hasPartialMatches && matchInfo.candidates.length > 1}
+											<div class="candidates-selector">
+												<label>
+													<span class="selector-label">{matchInfo.candidates.length} candidatos encontrados:</span>
+													<select onchange={(e) => selectCandidate(file.id, parseInt(e.currentTarget.value))}>
+														{#each matchInfo.candidates as candidate, idx}
+															<option value={idx}>
+																{candidate.invoiceType}-{String(candidate.pointOfSale).padStart(4, '0')}-{String(candidate.invoiceNumber).padStart(8, '0')} ({candidate.matchScore}% match)
+															</option>
+														{/each}
+													</select>
+												</label>
 											</div>
 										{/if}
 
-										<div class="detected-list">
-											<div class="detected-item" class:missing={!file.extractedCuit}>
-												{file.extractedCuit ? '✓' : '❌'} CUIT: {file.extractedCuit || 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={!file.extractedDate}>
-												{file.extractedDate ? '✓' : '❌'} Fecha: {file.extractedDate || 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={!file.extractedType}>
-												{file.extractedType ? '✓' : '❌'} Tipo: {file.extractedType || 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={file.extractedPointOfSale !== null && file.extractedPointOfSale !== undefined}>
-												{file.extractedPointOfSale !== null && file.extractedPointOfSale !== undefined ? '✓' : '❌'} P.Venta: {file.extractedPointOfSale ?? 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={file.extractedInvoiceNumber !== null && file.extractedInvoiceNumber !== undefined}>
-												{file.extractedInvoiceNumber !== null && file.extractedInvoiceNumber !== undefined ? '✓' : '❌'} Número: {file.extractedInvoiceNumber ?? 'No detectado'}
-											</div>
-											<div class="detected-item" class:missing={!file.extractedTotal}>
-												{file.extractedTotal ? '✓' : '❌'} Total: {file.extractedTotal ? `$${file.extractedTotal.toLocaleString('es-AR')}` : 'No detectado'}
-											</div>
+										<table class="comparison-table">
+											<thead>
+												<tr>
+													<th>Campo</th>
+													<th>Detectado (PDF)</th>
+													<th>Excel AFIP</th>
+													<th></th>
+												</tr>
+											</thead>
+											<tbody>
+												<!-- CUIT -->
+												<tr class:match={cuitMatch} class:no-match={file.extractedCuit && excelData?.cuit && !cuitMatch} class:missing={!file.extractedCuit}>
+													<td class="field-name">CUIT</td>
+													<td class="detected-value">{file.extractedCuit || '—'}</td>
+													<td class="excel-value">{excelData?.cuit || '—'}</td>
+													<td class="status-cell">
+														{#if !file.extractedCuit}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if !excelData?.cuit}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if cuitMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedCuit}, Excel={excelData.cuit}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Fecha -->
+												<tr class:match={dateMatch} class:no-match={file.extractedDate && excelData?.issueDate && !dateMatch} class:missing={!file.extractedDate}>
+													<td class="field-name">Fecha</td>
+													<td class="detected-value">{file.extractedDate || '—'}</td>
+													<td class="excel-value">{excelData?.issueDate || '—'}</td>
+													<td class="status-cell">
+														{#if !file.extractedDate}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if !excelData?.issueDate}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if dateMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedDate}, Excel={excelData.issueDate}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Tipo -->
+												<tr class:match={typeMatch} class:no-match={file.extractedType && excelData?.invoiceType && !typeMatch} class:missing={!file.extractedType}>
+													<td class="field-name">Tipo</td>
+													<td class="detected-value">{file.extractedType || '—'}</td>
+													<td class="excel-value">{excelData?.invoiceType || '—'}</td>
+													<td class="status-cell">
+														{#if !file.extractedType}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if !excelData?.invoiceType}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if typeMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedType}, Excel={excelData.invoiceType}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Punto de Venta -->
+												<tr class:match={posMatch} class:no-match={file.extractedPointOfSale != null && excelData?.pointOfSale != null && !posMatch} class:missing={file.extractedPointOfSale == null}>
+													<td class="field-name">P. Venta</td>
+													<td class="detected-value">{file.extractedPointOfSale ?? '—'}</td>
+													<td class="excel-value">{excelData?.pointOfSale ?? '—'}</td>
+													<td class="status-cell">
+														{#if file.extractedPointOfSale == null}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if excelData?.pointOfSale == null}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if posMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedPointOfSale}, Excel={excelData.pointOfSale}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Número -->
+												<tr class:match={numMatch} class:no-match={file.extractedInvoiceNumber != null && excelData?.invoiceNumber != null && !numMatch} class:missing={file.extractedInvoiceNumber == null}>
+													<td class="field-name">Número</td>
+													<td class="detected-value">{file.extractedInvoiceNumber ?? '—'}</td>
+													<td class="excel-value">{excelData?.invoiceNumber ?? '—'}</td>
+													<td class="status-cell">
+														{#if file.extractedInvoiceNumber == null}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if excelData?.invoiceNumber == null}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if numMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="No coincide: PDF={file.extractedInvoiceNumber}, Excel={excelData.invoiceNumber}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+
+												<!-- Total -->
+												<tr class:match={totalMatch} class:no-match={file.extractedTotal != null && excelData?.total != null && !totalMatch} class:missing={file.extractedTotal == null}>
+													<td class="field-name">Total</td>
+													<td class="detected-value">{file.extractedTotal != null ? `$${file.extractedTotal.toLocaleString('es-AR')}` : '—'}</td>
+													<td class="excel-value">{excelData?.total != null ? `$${excelData.total.toLocaleString('es-AR')}` : '—'}</td>
+													<td class="status-cell">
+														{#if file.extractedTotal == null}
+															<span class="status-icon missing" title="No detectado en PDF">❌</span>
+														{:else if excelData?.total == null}
+															<span class="status-icon no-excel" title="Sin datos de Excel">⚪</span>
+														{:else if totalMatch}
+															<span class="status-icon ok" title="Coincide">✓</span>
+														{:else}
+															<span class="status-icon error" title="Diferencia: PDF=${file.extractedTotal}, Excel=${excelData.total}">⚠</span>
+														{/if}
+													</td>
+												</tr>
+											</tbody>
+										</table>
+
+										<!-- Leyenda -->
+										<div class="comparison-legend">
+											<span><span class="status-icon ok">✓</span> Coincide</span>
+											<span><span class="status-icon error">⚠</span> Difiere</span>
+											<span><span class="status-icon missing">❌</span> No detectado</span>
+											<span><span class="status-icon no-excel">⚪</span> Sin Excel</span>
 										</div>
 
 										{#if file.extractionErrors}
-											<div class="extraction-errors-overlay">
+											<div class="extraction-errors-compact">
 												⚠️ {file.extractionErrors}
 											</div>
 										{/if}
 									</div>
-								</div>
 
-								<!-- DATOS / FORMULARIO -->
-								<div class="file-data">
+									<!-- Acciones -->
+									<div class="review-actions">
+										{#if excelData}
+											<button class="btn btn-secondary" onclick={() => applyExcelData(file.id)} title="Usar datos del Excel">
+												📋 Aplicar Excel
+											</button>
+										{/if}
+										<button class="btn btn-primary" onclick={() => startEditing(file.id)}>
+											✏️ Editar datos
+										</button>
+										<button class="btn btn-success" onclick={() => saveAndFinalize(file.id)}
+											disabled={!file.extractedCuit || !file.extractedType || file.extractedPointOfSale == null || file.extractedInvoiceNumber == null || !file.extractedDate}>
+											✅ Confirmar y procesar
+										</button>
+										<button class="btn btn-sm btn-danger" onclick={() => deletePendingFile(file.id)}>
+											🗑️
+										</button>
+									</div>
+
+									<!-- Modal de edición (solo si está editando) -->
 									{#if editingFile === file.id}
-										<!-- MODO EDICIÓN -->
-										<div class="edit-form">
-											<div class="form-grid">
-												<div class="form-field">
-													<label for="cuit-{file.id}">CUIT *</label>
-													<input
-														id="cuit-{file.id}"
-														type="text"
-														bind:value={editFormData[file.id].extractedCuit}
-														placeholder="XX-XXXXXXXX-X"
-													/>
-													<span class="hint-text">Formato: 20-12345678-9</span>
+										<div class="edit-modal">
+											<h4>Editar datos</h4>
+											<div class="edit-form-compact">
+												<div class="form-row">
+													<label>
+														CUIT
+														<input type="text" bind:value={editFormData[file.id].extractedCuit} placeholder="XX-XXXXXXXX-X" />
+													</label>
+													<label>
+														Fecha
+														<input type="date" bind:value={editFormData[file.id].extractedDate} />
+													</label>
 												</div>
-
-												<div class="form-field">
-													<label for="date-{file.id}">Fecha emisión *</label>
-													<input
-														id="date-{file.id}"
-														type="date"
-														bind:value={editFormData[file.id].extractedDate}
-													/>
+												<div class="form-row">
+													<label>
+														Tipo
+														<select bind:value={editFormData[file.id].extractedType}>
+															<option value="">-</option>
+															<option value="A">A</option>
+															<option value="B">B</option>
+															<option value="C">C</option>
+															<option value="E">E</option>
+															<option value="M">M</option>
+														</select>
+													</label>
+													<label>
+														P. Venta
+														<input type="number" bind:value={editFormData[file.id].extractedPointOfSale} />
+													</label>
+													<label>
+														Número
+														<input type="number" bind:value={editFormData[file.id].extractedInvoiceNumber} />
+													</label>
+													<label>
+														Total
+														<input type="number" step="0.01" bind:value={editFormData[file.id].extractedTotal} />
+													</label>
 												</div>
-
-												<div class="form-field">
-													<label for="type-{file.id}">Tipo *</label>
-													<select id="type-{file.id}" bind:value={editFormData[file.id].extractedType}>
-														<option value="">Seleccionar...</option>
-														<option value="A">A</option>
-														<option value="B">B</option>
-														<option value="C">C</option>
-														<option value="E">E</option>
-														<option value="M">M</option>
-													</select>
+												<div class="edit-actions">
+													<button class="btn btn-primary btn-sm" onclick={() => saveAndFinalize(file.id)}>
+														Guardar
+													</button>
+													<button class="btn btn-secondary btn-sm" onclick={cancelEditing}>
+														Cancelar
+													</button>
 												</div>
-
-												<div class="form-field">
-													<label for="pos-{file.id}">Punto de venta *</label>
-													<input
-														id="pos-{file.id}"
-														type="number"
-														bind:value={editFormData[file.id].extractedPointOfSale}
-														placeholder="0001"
-													/>
-												</div>
-
-												<div class="form-field">
-													<label for="num-{file.id}">Número *</label>
-													<input
-														id="num-{file.id}"
-														type="number"
-														bind:value={editFormData[file.id].extractedInvoiceNumber}
-														placeholder="00000001"
-													/>
-												</div>
-
-												<div class="form-field">
-													<label for="total-{file.id}">Total</label>
-													<input
-														id="total-{file.id}"
-														type="number"
-														step="0.01"
-														bind:value={editFormData[file.id].extractedTotal}
-														placeholder="0.00"
-													/>
-												</div>
-											</div>
-
-											<div class="form-actions">
-												<button class="btn btn-primary" onclick={() => saveAndFinalize(file.id)}>
-													✅ Confirmar y Procesar
-												</button>
-												<button class="btn btn-secondary" onclick={cancelEditing}>
-													❌ Cancelar
-												</button>
-												<button class="btn btn-sm btn-danger" onclick={() => deletePendingFile(file.id)}>
-													🗑️ Eliminar
-												</button>
-											</div>
-										</div>
-									{:else}
-										<!-- MODO VISTA -->
-										<div class="data-display">
-											<div class="data-grid-compact">
-												<div class="data-item">
-													<span class="label">CUIT:</span>
-													<span class="value" class:missing={!file.extractedCuit}>
-														{file.extractedCuit || '❌ No detectado'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">Fecha:</span>
-													<span class="value" class:missing={!file.extractedDate}>
-														{file.extractedDate || '❌ No detectado'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">Tipo:</span>
-													<span class="value" class:missing={!file.extractedType}>
-														{file.extractedType || '❌'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">P.Venta:</span>
-													<span class="value" class:missing={file.extractedPointOfSale === null}>
-														{file.extractedPointOfSale ?? '❌'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">Número:</span>
-													<span class="value" class:missing={file.extractedInvoiceNumber === null}>
-														{file.extractedInvoiceNumber ?? '❌'}
-													</span>
-												</div>
-												<div class="data-item">
-													<span class="label">Total:</span>
-													<span class="value" class:missing={!file.extractedTotal}>
-														{file.extractedTotal ? `$${file.extractedTotal.toLocaleString('es-AR')}` : '❌'}
-													</span>
-												</div>
-											</div>
-
-											{#if file.extractionErrors}
-												<div class="extraction-errors-compact">
-													⚠️ {file.extractionErrors}
-												</div>
-											{/if}
-
-											<div class="view-actions">
-												<button class="btn btn-primary" onclick={() => startEditing(file.id)}>
-													✏️ Editar
-												</button>
-												<button class="btn btn-sm btn-secondary" onclick={() => deletePendingFile(file.id)}>
-													🗑️ Eliminar
-												</button>
 											</div>
 										</div>
 									{/if}
@@ -934,6 +1054,140 @@
 					{/each}
 				</div>
 			{/if}
+		{:else if activeTab === 'excel'}
+			<!-- EXCEL IMPORT SECTION - Importar Excel de AFIP -->
+			<section class="excel-import-section">
+				<div class="section-header">
+					<h2>📥 Importar Excel AFIP</h2>
+					<p class="help-text">
+						Importá el Excel o CSV de AFIP con las facturas esperadas. El sistema las usará para
+						validar y auto-completar los datos de los PDFs.
+					</p>
+				</div>
+
+				<div class="template-download-section">
+					<div class="template-info">
+						<strong>¿Primera vez?</strong> Descargá el template de ejemplo para ver el formato
+						esperado
+					</div>
+					<div class="template-buttons">
+						<a
+							href="/api/expected-invoices/template?format=xlsx"
+							download="template-facturas-afip.xlsx"
+							class="btn btn-secondary"
+						>
+							📊 Descargar Template Excel
+						</a>
+						<a
+							href="/api/expected-invoices/template?format=csv"
+							download="template-facturas-afip.csv"
+							class="btn btn-secondary"
+						>
+							📄 Descargar Template CSV
+						</a>
+					</div>
+				</div>
+
+				<button
+					type="button"
+					class="dropzone excel-dropzone"
+					ondragover={(e) => {
+						e.preventDefault();
+						e.currentTarget.classList.add('dragover');
+					}}
+					ondragleave={(e) => {
+						e.currentTarget.classList.remove('dragover');
+					}}
+					ondrop={async (e) => {
+						e.preventDefault();
+						e.currentTarget.classList.remove('dragover');
+						const files = Array.from(e.dataTransfer?.files || []);
+						if (files.length > 0) {
+							await handleExcelUpload(files[0]);
+						}
+					}}
+					onclick={() => {
+						const input = document.createElement('input');
+						input.type = 'file';
+						input.accept = '.xlsx,.xls,.csv';
+						input.onchange = async (e) => {
+							const file = (e.target as HTMLInputElement).files?.[0];
+							if (file) {
+								await handleExcelUpload(file);
+							}
+						};
+						input.click();
+					}}
+				>
+					<p class="dropzone-icon">📊</p>
+					<p class="dropzone-text">Click o arrastrá un archivo Excel/CSV</p>
+					<p class="dropzone-hint">Formatos: .xlsx, .xls, .csv</p>
+				</button>
+
+				{#if excelImportResult}
+					<div class="import-result">
+						{#if excelImportResult.success}
+							<div class="alert alert-success">
+								<h3>✅ Importación exitosa</h3>
+								<p>
+									<strong>{excelImportResult.imported}</strong> facturas importadas
+									{#if excelImportResult.skipped > 0}
+										<br /><em>{excelImportResult.skipped} saltadas (duplicadas)</em>
+									{/if}
+									{#if excelImportResult.errors.length > 0}
+										<br /><strong class="text-error"
+											>{excelImportResult.errors.length} errores</strong
+										>
+									{/if}
+								</p>
+							</div>
+
+							{#if excelImportResult.errors.length > 0}
+								<details class="error-details">
+									<summary>Ver errores ({excelImportResult.errors.length})</summary>
+									<ul>
+										{#each excelImportResult.errors as error}
+											<li>Fila {error.row}: {error.error}</li>
+										{/each}
+									</ul>
+								</details>
+							{/if}
+						{:else}
+							<div class="alert alert-error">
+								<p>❌ Error al importar: {excelImportResult.error}</p>
+							</div>
+						{/if}
+					</div>
+				{/if}
+
+				{#if importBatches.length > 0}
+					<div class="import-history">
+						<h3>📚 Últimas importaciones</h3>
+						<div class="batches-list">
+							{#each importBatches as batch}
+								<div class="batch-card">
+									<div class="batch-header">
+										<strong>📄 {batch.filename}</strong>
+										<span class="batch-date"
+											>{new Date(batch.importDate).toLocaleString('es-AR')}</span
+										>
+									</div>
+									<div class="batch-stats">
+										<span class="stat-badge">Total: {batch.totalRows}</span>
+										<span class="stat-badge success">Importadas: {batch.importedRows}</span>
+										{#if batch.skippedRows > 0}
+											<span class="stat-badge warning">Saltadas: {batch.skippedRows}</span>
+										{/if}
+										{#if batch.errorRows > 0}
+											<span class="stat-badge error">Errores: {batch.errorRows}</span>
+										{/if}
+									</div>
+								</div>
+							{/each}
+						</div>
+					</div>
+				{/if}
+			</section>
 		{:else if activeTab === 'invoices'}
 			<!-- INVOICES SECTION - Listado de facturas finales -->
 			<div class="stats-bar">
@@ -1113,6 +1367,49 @@
 		margin: 0 auto;
 	}
 
+	/* TEMPLATE DOWNLOAD SECTION */
+	.template-download-section {
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		border-radius: 12px;
+		padding: 1.5rem;
+		margin-bottom: 2rem;
+		color: white;
+	}
+
+	.template-info {
+		margin-bottom: 1rem;
+		font-size: 1rem;
+		text-align: center;
+	}
+
+	.template-info strong {
+		font-weight: 600;
+		font-size: 1.1rem;
+	}
+
+	.template-buttons {
+		display: flex;
+		justify-content: center;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.template-buttons .btn {
+		background: white;
+		color: #667eea;
+		text-decoration: none;
+		padding: 0.75rem 1.5rem;
+		border-radius: 8px;
+		font-weight: 600;
+		transition: all 0.2s;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+	}
+
+	.template-buttons .btn:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+	}
+
 	.dropzone {
 		position: relative;
 		border: 3px dashed #cbd5e1;
@@ -1238,7 +1535,7 @@
 		display: flex;
 		gap: 1.5rem;
 		justify-content: center;
-		margin-bottom: 2rem;
+		margin-bottom: 1.5rem;
 	}
 
 	.stat {
@@ -1262,6 +1559,47 @@
 		font-size: 0.9rem;
 		color: #666;
 		margin-top: 0.5rem;
+	}
+
+	/* FILTER BAR */
+	.filter-bar {
+		display: flex;
+		justify-content: center;
+		margin-bottom: 1.5rem;
+	}
+
+	.filter-buttons {
+		display: flex;
+		gap: 1rem;
+		background: white;
+		padding: 0.5rem;
+		border-radius: 12px;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+	}
+
+	.filter-btn {
+		padding: 0.75rem 1.5rem;
+		border: 2px solid #e5e7eb;
+		border-radius: 8px;
+		background: white;
+		color: #64748b;
+		font-size: 0.95rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: all 0.2s;
+	}
+
+	.filter-btn:hover {
+		border-color: #2563eb;
+		color: #2563eb;
+		background: #f8fafc;
+	}
+
+	.filter-btn.active {
+		border-color: #2563eb;
+		background: #2563eb;
+		color: white;
+		font-weight: 600;
 	}
 
 	/* BULK ACTIONS */
@@ -1552,28 +1890,6 @@
 		gap: 0.5rem;
 	}
 
-	.form-field label {
-		font-weight: 600;
-		color: #374151;
-		font-size: 0.9rem;
-	}
-
-	.form-field input,
-	.form-field select {
-		padding: 0.75rem;
-		border: 2px solid #e5e7eb;
-		border-radius: 8px;
-		font-size: 1rem;
-		transition: all 0.2s;
-	}
-
-	.form-field input:focus,
-	.form-field select:focus {
-		outline: none;
-		border-color: #2563eb;
-		box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-	}
-
 	.hint-text {
 		font-size: 0.85rem;
 		color: #64748b;
@@ -1645,12 +1961,6 @@
 		border-bottom: 1px solid #e5e7eb;
 	}
 
-	.pending-file-header h3 {
-		margin: 0 0 0.5rem 0;
-		font-size: 1.2rem;
-		color: #1e293b;
-	}
-
 	.upload-date,
 	.file-size {
 		font-size: 0.9rem;
@@ -1685,16 +1995,6 @@
 		color: #065f46;
 	}
 
-	.extracted-data {
-		margin-bottom: 1rem;
-	}
-
-	.extracted-data h4 {
-		font-size: 1rem;
-		color: #64748b;
-		margin: 0 0 1rem 0;
-	}
-
 	.data-grid {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1706,23 +2006,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 0.25rem;
-	}
-
-	.data-item .label {
-		font-size: 0.85rem;
-		color: #64748b;
-		font-weight: 500;
-	}
-
-	.data-item .value {
-		font-size: 1rem;
-		color: #1e293b;
-		font-weight: 500;
-	}
-
-	.data-item .value.missing {
-		color: #ef4444;
-		font-weight: 400;
 	}
 
 	.confidence-info,
@@ -1738,16 +2021,6 @@
 		background: #fef2f2;
 		border-radius: 6px;
 		border-left: 3px solid #ef4444;
-	}
-
-	.extraction-errors .label {
-		font-weight: 600;
-		color: #991b1b;
-	}
-
-	.extraction-errors .value {
-		color: #7f1d1d;
-		font-size: 0.9rem;
 	}
 
 	.pending-file-actions {
@@ -1816,88 +2089,309 @@
 		word-break: break-all;
 	}
 
-	/* DETECTED OVERLAY */
-	.detected-overlay {
-		position: absolute;
-		top: 1rem;
-		right: 1rem;
-		background: rgba(255, 255, 255, 0.97);
-		border: 2px solid #3b82f6;
-		border-radius: 8px;
-		padding: 1rem;
-		max-width: 280px;
-		box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-		z-index: 10;
-	}
-
-	.detected-overlay h4 {
-		margin: 0 0 0.5rem 0;
-		font-size: 0.9rem;
-		color: #1e293b;
-		font-weight: 600;
-	}
-
-	.confidence-display {
-		font-size: 0.85rem;
-		font-weight: 600;
-		padding: 0.5rem;
-		border-radius: 4px;
-		margin-bottom: 0.75rem;
-		text-align: center;
-	}
-
-	.confidence-display.low {
-		background: #fef2f2;
-		color: #dc2626;
-		border: 1px solid #fecaca;
-	}
-
-	.confidence-display.medium {
-		background: #fef3c7;
-		color: #ca8a04;
-		border: 1px solid #fde68a;
-	}
-
-	.confidence-display.high {
-		background: #dcfce7;
-		color: #16a34a;
-		border: 1px solid #bbf7d0;
-	}
-
-	.detected-list {
-		display: flex;
-		flex-direction: column;
-		gap: 0.4rem;
-	}
-
-	.detected-item {
-		font-size: 0.8rem;
-		font-weight: 500;
-		padding: 0.35rem 0.5rem;
-		border-radius: 4px;
-		background: #f0fdf4;
-		color: #059669;
-	}
-
-	.detected-item.missing {
-		background: #fef2f2;
-		color: #dc2626;
-	}
-
-	.extraction-errors-overlay {
-		margin-top: 0.75rem;
-		padding: 0.5rem;
-		background: #fef2f2;
-		border-left: 3px solid #ef4444;
-		border-radius: 4px;
-		color: #991b1b;
-		font-size: 0.75rem;
-		line-height: 1.3;
-	}
-
 	/* FILE DATA COLUMN */
 	.file-data {
 		display: flex;
 		flex-direction: column;
+		gap: 1rem;
+	}
+
+	/* COMPARISON SECTION */
+	.comparison-section {
+		background: white;
+		border-radius: 8px;
+		padding: 1rem;
+	}
+
+	.comparison-section h4 {
+		margin: 0 0 0.75rem 0;
+		font-size: 1rem;
+		color: #374151;
+		font-weight: 600;
+	}
+
+	.confidence-bar {
+		padding: 0.5rem 0.75rem;
+		border-radius: 6px;
+		font-size: 0.85rem;
+		font-weight: 600;
+		margin-bottom: 0.75rem;
+		text-align: center;
+	}
+
+	.confidence-bar.low {
+		background: #fef2f2;
+		color: #dc2626;
+	}
+
+	.confidence-bar.medium {
+		background: #fef3c7;
+		color: #b45309;
+	}
+
+	.confidence-bar.high {
+		background: #dcfce7;
+		color: #16a34a;
+	}
+
+	.confidence-bar.fisco.none {
+		background: #f3f4f6;
+		color: #6b7280;
+	}
+
+	/* CONFIDENCE METRICS */
+	.confidence-metrics {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+		margin-bottom: 1rem;
+	}
+
+	.confidence-metrics .confidence-bar {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		margin-bottom: 0;
+		padding: 0.4rem 0.75rem;
+	}
+
+	.confidence-metrics .metric-label {
+		font-weight: 500;
+	}
+
+	.confidence-metrics .metric-value {
+		font-weight: 700;
+	}
+
+	.match-badge {
+		font-size: 0.7rem;
+		padding: 0.15rem 0.4rem;
+		border-radius: 4px;
+		margin-left: 0.5rem;
+		text-transform: uppercase;
+	}
+
+	.match-badge.exact {
+		background: #16a34a;
+		color: white;
+	}
+
+	.match-badge.good {
+		background: #2563eb;
+		color: white;
+	}
+
+	.match-badge.low {
+		background: #dc2626;
+		color: white;
+	}
+
+	/* CANDIDATES SELECTOR */
+	.candidates-selector {
+		margin-bottom: 1rem;
+		padding: 0.75rem;
+		background: #eff6ff;
+		border-radius: 6px;
+		border: 1px solid #bfdbfe;
+	}
+
+	.candidates-selector label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	.candidates-selector .selector-label {
+		font-size: 0.85rem;
+		font-weight: 600;
+		color: #1e40af;
+	}
+
+	.candidates-selector select {
+		padding: 0.5rem;
+		border: 1px solid #93c5fd;
+		border-radius: 4px;
+		font-size: 0.85rem;
+		background: white;
+	}
+
+	.btn-secondary {
+		background: #6b7280;
+		color: white;
+	}
+
+	.btn-secondary:hover {
+		background: #4b5563;
+	}
+
+	/* COMPARISON TABLE */
+	.comparison-table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 0.9rem;
+	}
+
+	.comparison-table th {
+		text-align: left;
+		padding: 0.5rem;
+		font-size: 0.75rem;
+		font-weight: 600;
+		color: #6b7280;
+		text-transform: uppercase;
+		border-bottom: 2px solid #e5e7eb;
+	}
+
+	.comparison-table td {
+		padding: 0.5rem;
+		border-bottom: 1px solid #f3f4f6;
+	}
+
+	.comparison-table tr:last-child td {
+		border-bottom: none;
+	}
+
+	.comparison-table tr.match {
+		background: #f0fdf4;
+	}
+
+	.comparison-table tr.no-match {
+		background: #fef2f2;
+	}
+
+	.comparison-table tr.missing {
+		background: #fefce8;
+	}
+
+	.comparison-table .field-name {
+		font-weight: 600;
+		color: #374151;
+		width: 80px;
+	}
+
+	.comparison-table .detected-value {
+		font-family: monospace;
+		color: #1e293b;
+	}
+
+	.comparison-table .excel-value {
+		font-family: monospace;
+		color: #6366f1;
+	}
+
+	.comparison-table .status-cell {
+		width: 30px;
+		text-align: center;
+	}
+
+	.status-icon {
+		font-size: 1rem;
+		cursor: help;
+	}
+
+	.status-icon.ok {
+		color: #16a34a;
+	}
+
+	.status-icon.error {
+		color: #dc2626;
+	}
+
+	.status-icon.missing {
+		color: #f59e0b;
+	}
+
+	.status-icon.no-excel {
+		color: #9ca3af;
+	}
+
+	/* COMPARISON LEGEND */
+	.comparison-legend {
+		display: flex;
+		gap: 1rem;
+		justify-content: center;
+		margin-top: 0.75rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid #e5e7eb;
+		font-size: 0.75rem;
+		color: #6b7280;
+	}
+
+	.comparison-legend span {
+		display: flex;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	/* REVIEW ACTIONS */
+	.review-actions {
+		display: flex;
+		gap: 0.5rem;
+		padding-top: 0.75rem;
+		border-top: 1px solid #e5e7eb;
+	}
+
+	.btn-success {
+		background: #16a34a;
+		color: white;
+	}
+
+	.btn-success:hover:not(:disabled) {
+		background: #15803d;
+	}
+
+	.btn-success:disabled {
+		background: #86efac;
+		cursor: not-allowed;
+	}
+
+	/* EDIT MODAL */
+	.edit-modal {
+		background: #f8fafc;
+		border: 2px solid #2563eb;
+		border-radius: 8px;
+		padding: 1rem;
+	}
+
+	.edit-modal h4 {
+		margin: 0 0 0.75rem 0;
+		color: #2563eb;
+		font-size: 0.95rem;
+	}
+
+	.edit-form-compact .form-row {
+		display: flex;
+		gap: 0.75rem;
+		margin-bottom: 0.75rem;
+		flex-wrap: wrap;
+	}
+
+	.edit-form-compact label {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		font-size: 0.8rem;
+		font-weight: 500;
+		color: #374151;
+		flex: 1;
+		min-width: 100px;
+	}
+
+	.edit-form-compact input,
+	.edit-form-compact select {
+		padding: 0.5rem;
+		border: 1px solid #d1d5db;
+		border-radius: 4px;
+		font-size: 0.9rem;
+	}
+
+	.edit-actions {
+		display: flex;
+		gap: 0.5rem;
+		justify-content: flex-end;
+	}
+
+	/* FILE PREVIEW CLEAN (without overlay) */
+	.file-preview.clean {
+		position: relative;
 	}
 </style>

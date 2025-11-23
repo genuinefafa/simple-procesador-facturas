@@ -75,8 +75,8 @@ export const GET: RequestHandler = async () => {
 					emitterName: invoice.emitterCuit, // TODO: lookup emitter name
 					fullInvoiceNumber: invoice.fullInvoiceNumber,
 					total: invoice.total,
-					issueDate: invoice.issueDate,
-					extractionConfidence: invoice.extractionConfidence,
+					issueDate: invoice.issueDate instanceof Date ? invoice.issueDate.toISOString().split('T')[0] : invoice.issueDate,
+					extractionConfidence: invoice.extractionConfidence ?? null,
 					requiresReview: invoice.requiresReview,
 				},
 			});

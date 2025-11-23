@@ -86,7 +86,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         cuitNumeric: cuitNumeric,
         name: `Emisor ${normalizedCuit}`,
         aliases: [],
-        personType: personType,
+        personType: personType || undefined,
       });
     }
 

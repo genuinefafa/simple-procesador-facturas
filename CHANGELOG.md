@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+### ✨ Added (2025-11-22)
+
+#### Sistema de Matching Excel AFIP (FASE 1.5)
+- **Backend completo**: Tablas `expected_invoices` e `import_batches`
+- **Repository**: `ExpectedInvoiceRepository` con métodos `findExactMatch`, `findCandidates`, `createBatch`
+- **Service**: `ExcelImportService` para parsing de Excel/CSV AFIP
+- **Endpoints API**:
+  - `POST /api/expected-invoices/import` - Importar Excel
+  - `GET /api/expected-invoices` - Listar facturas esperadas
+  - `POST /api/expected-invoices/[id]/match` - Confirmar match
+  - `GET /api/expected-invoices/template` - Descargar template
+  - `GET /api/pending-files/[id]/matches` - Matches de un archivo
+
+#### UI de Comparación
+- **Tabla comparativa**: Datos Detectados (PDF) vs Excel AFIP lado a lado
+- **Indicadores visuales**: ✓ (coincide), ⚠ (difiere), ❌ (no detectado), ⚪ (sin datos)
+- **Tooltips informativos**: Muestran diferencias específicas al hover
+- **Leyenda de estados**: Ayuda visual para interpretar iconos
+
+### ♻️ Refactored (2025-11-22)
+
+#### Rediseño de Tab "Revisar"
+- **Eliminado overlay**: El overlay "Detección automática" tapaba el PDF
+- **Nueva tabla comparativa**: Layout dos columnas (PDF vs datos)
+- **Tabs unificados**: Reducido de 4 a 3 tabs principales
+
+### 🔧 Fixed (2025-11-22)
+
+- **{@const} placement**: Corregido para ser hijo directo de {#each} (Svelte 5)
+- **Import error**: `@server/utils/validation.js` → `@server/validators/cuit.js`
+- **TypeScript errors**: personType null→undefined, InvoiceType casts
+- **OCR Confidence**: Ahora considera 5 campos requeridos (era 4)
+- **findExactMatch/findCandidates**: Arregladas firmas de funciones
+- **Warnings de a11y**: Dropzone convertido de div a button
+- **CSS no usado eliminado**: .form-field, .data-item .label/.value
+
+---
+
 ### 🔧 Fixed (2024-11-18)
 
 #### Vulnerabilidades

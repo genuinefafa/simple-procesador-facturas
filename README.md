@@ -147,6 +147,24 @@ La aplicación estará disponible en `http://localhost:3000`
 4. **Anotación**: Corrige datos manualmente si es necesario
 5. **Export**: Descarga archivos renombrados o genera Excel
 
+### Matching con Excel AFIP (Nuevo)
+
+El sistema permite importar el Excel de AFIP con facturas recibidas para validación cruzada:
+
+1. **Importar Excel**: Tab "Importar Excel" → Drag & drop del archivo AFIP
+2. **Matching automático**: Al procesar PDFs, el sistema busca coincidencias por CUIT
+3. **Comparación visual**: Tab "Revisar" muestra tabla comparativa PDF vs Excel
+4. **Indicadores**:
+   - ✓ (verde): Dato coincide con Excel
+   - ⚠ (rojo): Dato difiere del Excel
+   - ❌ (amarillo): No detectado en PDF
+   - ⚪ (gris): Sin datos de Excel
+
+**Beneficios:**
+- Auto-completado de campos desde Excel (datos validados por AFIP)
+- Detecta discrepancias entre PDF y registros oficiales
+- Reduce trabajo manual de transcripción
+
 ### Comandos NPM
 
 **Desde la raíz del proyecto** (usa npm workspaces):

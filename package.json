@@ -10,6 +10,7 @@
     "build": "npm run build -w client",
     "preview": "npm run preview -w client",
     "test": "npm run test -w server",
+    "test:coverage": "npm run test:coverage -w server",
     "lint": "npm run lint --workspaces --if-present",
     "format:check": "npm run format:check --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w server",

@@ -300,3 +300,81 @@ export const pendingFiles = sqliteTable(
 
 export type PendingFile = typeof pendingFiles.$inferSelect;
 export type NewPendingFile = typeof pendingFiles.$inferInsert;
+
+// =============================================================================
+// IMPORTACIÓN DE EXCEL AFIP - LOTES
+// =============================================================================
+
+export const importBatches = sqliteTable('import_batches', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  filename: text('filename').notNull(),
+  totalRows: integer('total_rows').notNull(),
+  importedRows: integer('imported_rows').notNull(),
+  skippedRows: integer('skipped_rows').default(0),
+  errorRows: integer('error_rows').default(0),
+  importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
+  notes: text('notes'),
+});
+
+export type ImportBatch = typeof importBatches.$inferSelect;
+export type NewImportBatch = typeof importBatches.$inferInsert;
+
+// =============================================================================
+// FACTURAS ESPERADAS (DESDE EXCEL AFIP)
+// =============================================================================
+
+export const expectedInvoices = sqliteTable(
+  'expected_invoices',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    importBatchId: integer('import_batch_id').references(() => importBatches.id, {
+      onDelete: 'cascade',
+    }),
+
+    // Datos desde Excel AFIP (columnas típicas)
+    cuit: text('cuit').notNull(),
+    emitterName: text('emitter_name'),
+    issueDate: text('issue_date').notNull(), // Fecha de emisión
+    invoiceType: text('invoice_type').notNull(), // A, B, C, E, M
+    pointOfSale: integer('point_of_sale').notNull(), // Punto de venta
+    invoiceNumber: integer('invoice_number').notNull(), // Número
+    total: real('total'), // Importe total
+
+    // Datos adicionales opcionales
+    cae: text('cae'), // Código Autorización Electrónica
+    caeExpiration: text('cae_expiration'), // Vencimiento CAE
+    currency: text('currency').default('ARS'),
+
+    // Estado del matching
+    status: text('status', {
+      enum: ['pending', 'matched', 'discrepancy', 'manual', 'ignored'],
+    }).default('pending'),
+    matchedPendingFileId: integer('matched_pending_file_id').references(() => pendingFiles.id, {
+      onDelete: 'set null',
+    }),
+    matchedInvoiceId: integer('matched_invoice_id').references(() => facturas.id, {
+      onDelete: 'set null',
+    }),
+    matchConfidence: real('match_confidence'), // Confianza del match (0-100)
+
+    // Metadata
+    importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
+    notes: text('notes'),
+  },
+  (table) => ({
+    cuitIdx: index('idx_expected_invoices_cuit').on(table.cuit),
+    statusIdx: index('idx_expected_invoices_status').on(table.status),
+    batchIdx: index('idx_expected_invoices_batch').on(table.importBatchId),
+    issueDateIdx: index('idx_expected_invoices_date').on(table.issueDate),
+    // UNIQUE constraint: no duplicar facturas
+    uniqueInvoice: index('unique_expected_invoice').on(
+      table.cuit,
+      table.invoiceType,
+      table.pointOfSale,
+      table.invoiceNumber
+    ),
+  })
+);
+
+export type ExpectedInvoice = typeof expectedInvoices.$inferSelect;
+export type NewExpectedInvoice = typeof expectedInvoices.$inferInsert;
