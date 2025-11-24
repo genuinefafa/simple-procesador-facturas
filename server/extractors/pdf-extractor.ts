@@ -32,9 +32,23 @@ export class PDFExtractor {
   async extract(filePath: string): Promise<ExtractionResult> {
     const text = await this.extractText(filePath);
 
+    // Debug: mostrar primeros caracteres del texto extraído
+    console.info(`   📝 Texto extraído (${text.length} chars)`);
+    if (text.length < 500) {
+      console.info(`   📝 Contenido: ${text.substring(0, 500)}`);
+    }
+
     // Extraer CUIT
     const cuits = extractCUITFromText(text);
     const cuit = cuits[0] || undefined;
+
+    // Debug: si no hay CUIT, buscar patrones similares
+    if (!cuit) {
+      const possibleCuits = text.match(/\b\d{2}[-\s]?\d{8}[-\s]?\d\b/g);
+      if (possibleCuits && possibleCuits.length > 0) {
+        console.info(`   🔍 Posibles CUITs encontrados (sin validar): ${possibleCuits.slice(0, 3).join(', ')}`);
+      }
+    }
 
     // Extraer fecha (patrones comunes argentinos)
     const datePatterns = [
@@ -88,13 +102,15 @@ export class PDFExtractor {
     }
 
     // Extraer tipo de comprobante (A, B, C)
+    // IMPORTANTE: Solo extraer tipo cuando hay contexto claro (evitar confusión con "11 - Factura C")
     let invoiceType: 'A' | 'B' | 'C' | undefined;
     const typePatterns = [
       /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*([A-C])\s*[\r\n]/i, // CODIGO: seguido de letra en otra línea
-      /Factura\s+([A-C])\s/i,
-      /Tipo\s+([A-C])\s/i,
-      /\b([A-C])\s+-?\s+\d{4,5}\s*-?\s*\d{8}/, // Letra seguida de números
+      /(?:^|\s)Factura\s+([A-C])(?:\s|$|[^a-z])/im, // "Factura A/B/C" al inicio o con espacio antes
+      /Tipo\s+(?:de\s+)?[Cc]omprobante[:\s]+([A-C])(?:\s|$)/i, // "Tipo de comprobante: A"
+      /Comprobante\s+([A-C])(?:\s|$|-)/i, // "Comprobante A" o "Comprobante A-"
     ];
+    // NOTA: Removido patrón genérico /\b([A-C])\s+-?\s+\d{4,5}/ porque causa falsos positivos
 
     for (const pattern of typePatterns) {
       const match = text.match(pattern);
@@ -179,7 +195,7 @@ export class PDFExtractor {
         pointOfSale,
         invoiceNumber,
       },
-      method: 'GENERICO',
+      method: 'PDF_TEXT',
     };
   }
 }

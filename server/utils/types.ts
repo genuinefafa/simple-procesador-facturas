@@ -21,7 +21,7 @@ export type InvoiceType = 'A' | 'B' | 'C' | 'E' | 'M' | 'X';
 export type Currency = 'ARS' | 'USD' | 'EUR';
 
 // Método de extracción usado
-export type ExtractionMethod = 'TEMPLATE' | 'GENERICO' | 'MANUAL';
+export type ExtractionMethod = 'TEMPLATE' | 'GENERICO' | 'MANUAL' | 'PDF_TEXT' | 'OCR';
 
 /**
  * Emisor de facturas

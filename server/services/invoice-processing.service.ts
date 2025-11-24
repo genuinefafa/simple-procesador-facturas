@@ -144,13 +144,14 @@ export class InvoiceProcessingService {
       }
 
       console.info(
-        `   📊 Extracción completada - Éxito: ${extraction.success}, Confianza: ${extraction.confidence}%`
+        `   📊 Extracción completada - Éxito: ${extraction.success}, Confianza: ${extraction.confidence}%, Método: ${extraction.method}`
       );
 
       const data = extraction.data;
       const confidence = extraction.confidence || 0;
+      const extractionMethod = extraction.method; // PDF_TEXT, OCR, TEMPLATE, etc.
 
-      console.info(`   📋 Datos extraídos (RAW):`);
+      console.info(`   📋 Datos extraídos (RAW) [${extractionMethod}]:`);
       console.info(`      CUIT: ${data.cuit || '❌ NO DETECTADO'}`);
       console.info(`      Fecha: ${data.date || '❌ NO DETECTADO'}`);
       console.info(`      Total: ${data.total !== undefined ? data.total : '❌ NO DETECTADO'}`);
@@ -357,7 +358,7 @@ export class InvoiceProcessingService {
         originalFile: fileName,
         processedFile: fileName, // Se actualizará cuando se renombre
         fileType: documentType,
-        extractionMethod: 'GENERICO',
+        extractionMethod: extractionMethod,
         extractionConfidence: confidence,
         requiresReview: confidence < 80,
       });

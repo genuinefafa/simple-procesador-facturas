@@ -182,7 +182,7 @@ export class OCRExtractor {
           confidence: 0,
           data: {},
           errors: ['OCR no pudo extraer texto suficiente de la imagen'],
-          method: 'GENERICO',
+          method: 'OCR',
         };
       }
 
@@ -347,7 +347,7 @@ export class OCRExtractor {
           invoiceNumber,
         },
         errors: errors.length > 0 ? errors : undefined,
-        method: 'GENERICO',
+        method: 'OCR',
       };
     } catch (error) {
       console.error(`   ❌ Error en extracción OCR:`, error);
@@ -356,7 +356,7 @@ export class OCRExtractor {
         confidence: 0,
         data: {},
         errors: [error instanceof Error ? error.message : 'Error desconocido en OCR'],
-        method: 'GENERICO',
+        method: 'OCR',
       };
     }
   }
