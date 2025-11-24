@@ -4,8 +4,9 @@
 
 import pdf from 'pdf-parse';
 import { readFileSync } from 'fs';
-import type { ExtractionResult } from '../utils/types';
+import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
 import { extractCUITFromText } from '../validators/cuit';
+import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 
 export class PDFExtractor {
   /**
@@ -101,23 +102,18 @@ export class PDFExtractor {
       }
     }
 
-    // Extraer tipo de comprobante (A, B, C)
-    // IMPORTANTE: Solo extraer tipo cuando hay contexto claro (evitar confusión con "11 - Factura C")
-    let invoiceType: 'A' | 'B' | 'C' | undefined;
-    const typePatterns = [
-      /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*([A-C])\s*[\r\n]/i, // CODIGO: seguido de letra en otra línea
-      /(?:^|\s)Factura\s+([A-C])(?:\s|$|[^a-z])/im, // "Factura A/B/C" al inicio o con espacio antes
-      /Tipo\s+(?:de\s+)?[Cc]omprobante[:\s]+([A-C])(?:\s|$)/i, // "Tipo de comprobante: A"
-      /Comprobante\s+([A-C])(?:\s|$|-)/i, // "Comprobante A" o "Comprobante A-"
-    ];
-    // NOTA: Removido patrón genérico /\b([A-C])\s+-?\s+\d{4,5}/ porque causa falsos positivos
+    // Extraer tipo de comprobante (A, B, C, E, M, X) y tipo de documento (FAC, NCR, NDB)
+    // Usa el mapeo de códigos AFIP para mayor precisión (ej: "11 - Factura C" → código 11 = FAC C)
+    let invoiceType: InvoiceType | undefined;
+    let documentKind: DocumentKind = 'FAC'; // Por defecto es factura
 
-    for (const pattern of typePatterns) {
-      const match = text.match(pattern);
-      if (match) {
-        invoiceType = match[1] as 'A' | 'B' | 'C';
-        break;
-      }
+    const afipResult = extractInvoiceTypeWithAFIP(text);
+    if (afipResult) {
+      invoiceType = afipResult.invoiceType;
+      documentKind = afipResult.documentKind;
+      console.info(
+        `   📋 Tipo detectado: ${documentKind} ${invoiceType} (método: ${afipResult.method})`
+      );
     }
 
     // Extraer número de comprobante (soporta múltiples formatos)
@@ -192,6 +188,7 @@ export class PDFExtractor {
         date,
         total: parsedTotal,
         invoiceType,
+        documentKind,
         pointOfSale,
         invoiceNumber,
       },

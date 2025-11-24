@@ -11,8 +11,9 @@ import Tesseract from 'tesseract.js';
 import sharp from 'sharp';
 import { existsSync } from 'fs';
 import { extname } from 'path';
-import type { ExtractionResult, InvoiceType } from '../utils/types';
+import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
 import { extractCUITFromText } from '../validators/cuit';
+import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 
 // Configuración de OCR
 const OCR_CONFIG = {
@@ -247,24 +248,18 @@ export class OCRExtractor {
         }
       }
 
-      // Extraer tipo de comprobante (A, B, C)
+      // Extraer tipo de comprobante (A, B, C, E, M) y tipo de documento (FAC, NCR, NDB)
+      // Usa el mapeo de códigos AFIP para mayor precisión
       let invoiceType: InvoiceType | undefined;
-      const typePatterns = [
-        /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*([A-C])\s*[\r\n]/i,
-        /Factura\s+([A-C])\s/i,
-        /FACTURA\s+([A-C])\s/i, // OCR mayúsculas
-        /Tipo\s+([A-C])\s/i,
-        /TIPO\s+([A-C])\s/i,
-        /\b([A-C])\s+-?\s+\d{4,5}\s*-?\s*\d{8}/,
-        /Comprobante\s+([A-C])\s/i,
-      ];
+      let documentKind: DocumentKind = 'FAC'; // Por defecto es factura
 
-      for (const pattern of typePatterns) {
-        const match = text.match(pattern);
-        if (match) {
-          invoiceType = match[1] as InvoiceType;
-          break;
-        }
+      const afipResult = extractInvoiceTypeWithAFIP(text);
+      if (afipResult) {
+        invoiceType = afipResult.invoiceType;
+        documentKind = afipResult.documentKind;
+        console.info(
+          `   📋 Tipo detectado (OCR): ${documentKind} ${invoiceType} (método: ${afipResult.method})`
+        );
       }
 
       // Extraer número de comprobante
@@ -343,6 +338,7 @@ export class OCRExtractor {
           date,
           total: parsedTotal,
           invoiceType,
+          documentKind,
           pointOfSale,
           invoiceNumber,
         },
