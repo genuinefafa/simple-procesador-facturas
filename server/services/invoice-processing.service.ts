@@ -80,6 +80,10 @@ export class InvoiceProcessingService {
       try {
         const text = await this.pdfExtractor.extractText(filePath);
 
+        // Mostrar una muestra del texto extraído
+        const preview = text.trim().substring(0, 300);
+        console.info(`   📝 Texto en PDF (primeros 300 chars): "${preview}${text.length > 300 ? '...' : ''}"`);
+
         // Si el texto extraído es muy corto, probablemente sea un escaneo
         if (text.trim().length < MIN_PDF_TEXT_LENGTH) {
           console.info(`   📷 Tipo detectado: PDF_IMAGEN (texto insuficiente: ${text.trim().length} chars)`);
@@ -121,6 +125,32 @@ export class InvoiceProcessingService {
       if (documentType === 'PDF_DIGITAL') {
         console.info(`   📄 Extrayendo datos del PDF digital...`);
         extraction = await this.pdfExtractor.extract(filePath);
+
+        // FALLBACK INTELIGENTE: Si PDF_TEXT no encuentra datos útiles, intentar OCR
+        // Esto pasa cuando el PDF tiene texto (metadatos, marcas de agua) pero no datos reales
+        const hasValidCuit = extraction.data.cuit && extraction.data.cuit.length >= 11;
+        const hasLowConfidence = extraction.confidence < 30;
+
+        if (hasLowConfidence && !hasValidCuit) {
+          console.warn(`   ⚠️  PDF_TEXT extrajo texto pero sin datos útiles (conf: ${extraction.confidence}%)`);
+          console.info(`   🔄 Intentando OCR como fallback para verificar si es PDF escaneado...`);
+
+          try {
+            const ocrExtraction = await this.ocrExtractor.extract(filePath);
+
+            // Si OCR encuentra más datos, usar esos
+            if (ocrExtraction.confidence > extraction.confidence || ocrExtraction.data.cuit) {
+              console.info(
+                `   ✅ OCR encontró mejores datos (conf: ${ocrExtraction.confidence}% vs ${extraction.confidence}%)`
+              );
+              extraction = ocrExtraction;
+            } else {
+              console.info(`   ℹ️  OCR no mejoró los resultados, usando PDF_TEXT original`);
+            }
+          } catch (ocrError) {
+            console.warn(`   ⚠️  OCR falló, usando PDF_TEXT original:`, ocrError);
+          }
+        }
       } else if (documentType === 'IMAGEN') {
         console.info(`   📷 Extrayendo datos de imagen con OCR...`);
         extraction = await this.ocrExtractor.extract(filePath);

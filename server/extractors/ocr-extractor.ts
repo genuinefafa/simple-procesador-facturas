@@ -202,6 +202,10 @@ export class OCRExtractor {
       // 1. Extraer texto con OCR
       const text = await this.extractText(filePath);
 
+      // Mostrar preview del texto extraído
+      const preview = text.trim().substring(0, 300);
+      console.info(`   📝 Texto OCR (primeros 300 chars): "${preview}${text.length > 300 ? '...' : ''}"`);
+
       if (!text || text.trim().length < 50) {
         return {
           success: false,
