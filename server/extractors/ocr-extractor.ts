@@ -15,6 +15,7 @@ import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types
 import { extractCUITFromText } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 import { pdf } from 'pdf-to-img';
+import convert from 'heic-convert';
 
 // Configuración de OCR
 const OCR_CONFIG = {
@@ -38,6 +39,30 @@ export class OCRExtractor {
   }
 
   /**
+   * Convierte HEIC/HEIF a JPEG
+   * Sharp necesita libheif instalado para leer HEIC, que no siempre está disponible.
+   * Esta función convierte HEIC a JPEG primero usando heic-convert.
+   */
+  private async convertHeicToJpeg(filePath: string): Promise<Buffer> {
+    try {
+      console.info(`   🔄 Convirtiendo HEIC a JPEG...`);
+      const inputBuffer = readFileSync(filePath);
+
+      const outputBuffer = await convert({
+        buffer: inputBuffer,
+        format: 'JPEG',
+        quality: 1, // Máxima calidad para OCR
+      });
+
+      console.info(`   ✅ HEIC convertido a JPEG (${outputBuffer.length} bytes)`);
+      return Buffer.from(outputBuffer);
+    } catch (error) {
+      console.error(`   ❌ Error convirtiendo HEIC:`, error);
+      throw new Error(`No se pudo convertir HEIC a JPEG: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    }
+  }
+
+  /**
    * Preprocesa una imagen para mejorar el OCR
    * - Convierte a escala de grises
    * - Normaliza contraste
@@ -47,8 +72,14 @@ export class OCRExtractor {
   private async preprocessImage(filePath: string): Promise<Buffer> {
     const ext = extname(filePath).toLowerCase();
 
+    // Si es HEIC/HEIF, convertir a JPEG primero
+    let imageSource: string | Buffer = filePath;
+    if (ext === '.heic' || ext === '.heif') {
+      imageSource = await this.convertHeicToJpeg(filePath);
+    }
+
     // Leer imagen con Sharp
-    let image = sharp(filePath);
+    let image = sharp(imageSource);
 
     // Obtener metadata para verificar tamaño
     const metadata = await image.metadata();
