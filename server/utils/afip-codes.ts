@@ -112,7 +112,7 @@ export function extractAFIPCodeFromText(text: string): AFIPDocumentType | undefi
     /\b(\d{1,3})\s*[-–]\s*(?:Factura|Nota\s+de\s+(?:Cr[eé]dito|D[eé]bito))\s+[A-CEM]/i,
 
     // En tablas: "Tipo | 11" o similar
-    /\bTipo\s*[:\|]?\s*(\d{1,3})\b/i,
+    /\bTipo\s*[:|]?\s*(\d{1,3})\b/i,
 
     // "Comprobante: 11" o "Comp.: 11"
     /\bComp(?:robante)?\.?\s*:?\s*(\d{1,3})\b/i,

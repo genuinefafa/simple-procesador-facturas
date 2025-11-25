@@ -57,13 +57,15 @@ export class OCRExtractor {
       console.info(`   🔄 Convirtiendo HEIC a JPEG...`);
       const inputBuffer = readFileSync(filePath);
 
-      const outputBuffer = await convert({
+      // heic-convert no tiene tipos TypeScript, usamos type assertion
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+      const outputBuffer = (await convert({
         buffer: inputBuffer,
         format: 'JPEG',
         quality: 1, // Máxima calidad para OCR
-      });
+      })) as ArrayBuffer;
 
-      console.info(`   ✅ HEIC convertido a JPEG (${outputBuffer.length} bytes)`);
+      console.info(`   ✅ HEIC convertido a JPEG (${outputBuffer.byteLength} bytes)`);
       return Buffer.from(outputBuffer);
     } catch (error) {
       console.error(`   ❌ Error convirtiendo HEIC:`, error);

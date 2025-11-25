@@ -174,7 +174,7 @@ describe('AFIP Codes', () => {
     it('NO debe confundir "11" aislado con código AFIP', () => {
       // Solo números sueltos no deben ser reconocidos
       const text = 'Punto de venta 11 número 00000123';
-      const result = extractAFIPCodeFromText(text);
+      extractAFIPCodeFromText(text);
       // No debería encontrar código porque no tiene formato "11 - Factura"
       // ni "Cod. 11" ni similar
       // El patrón actual lo detectaría incorrectamente, pero la función
