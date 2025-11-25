@@ -218,9 +218,46 @@ export class OCRExtractor {
 
       // 2. Aplicar patrones regex (mismos que PDFExtractor)
 
-      // Extraer CUIT
-      const cuits = extractCUITFromText(text);
-      const cuit = cuits[0] || undefined;
+      // Extraer CUIT del EMISOR (no del receptor)
+      // Buscar CUITs con contexto para identificar al emisor
+      let cuit: string | undefined;
+
+      // Patrones específicos para CUIT del emisor (buscar antes que "DESTINATARIO" o "RECEPTOR")
+      const emitterPatterns = [
+        /CUIT\s*(?:EMISOR|Emisor)?[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/i,
+        /(?:^|[\r\n])CUIT[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/im, // CUIT al inicio o después de línea
+      ];
+
+      for (const pattern of emitterPatterns) {
+        const match = text.match(pattern);
+        if (match && match[1]) {
+          // Intentar validar, pero ser más tolerante con OCR
+          const cuits = extractCUITFromText(match[1]);
+          if (cuits.length > 0) {
+            cuit = cuits[0];
+            console.info(`   💼 CUIT emisor encontrado con contexto: ${cuit}`);
+            break;
+          } else {
+            // OCR pudo leer mal el dígito verificador
+            console.warn(`   ⚠️  CUIT emisor candidato pero DV inválido: ${match[1]}`);
+          }
+        }
+      }
+
+      // Fallback: tomar el primer CUIT válido antes de "DESTINATARIO" o "RECEPTOR"
+      if (!cuit) {
+        const allCuits = extractCUITFromText(text);
+        if (allCuits.length > 0) {
+          cuit = allCuits[0];
+          if (allCuits.length > 1) {
+            console.warn(
+              `   ⚠️  Múltiples CUITs encontrados (${allCuits.length}), usando el primero: ${cuit}`
+            );
+          } else {
+            console.info(`   💼 CUIT encontrado: ${cuit}`);
+          }
+        }
+      }
 
       // Extraer fecha (patrones comunes argentinos)
       const datePatterns = [
@@ -296,18 +333,25 @@ export class OCRExtractor {
       let invoiceNumber: number | undefined;
 
       const invoicePatterns = [
+        // Específicos para facturas argentinas (más restrictivos primero)
+        // "NRO. COMPROBANTE:", "NRO.I,:", etc. seguido de 4-8 dígitos
+        /NRO[.\s]*(?:COMPROBANTE|I|COMP)?[:\s,]*(\d{4,5})\s*[-–]\s*(\d{6,8})/i,
+        /N[uúÚ]mero[:\s]*(?:de\s+)?(?:Comprobante)?[:\s]*(\d{4,5})\s*[-–]\s*(\d{6,8})/i,
+
         // Con letra y guión: A-00001-00000001
         /([A-C])\s*-\s*(\d{4,5})\s*-\s*(\d{8})/,
         // Con letra sin guión: A0000100000001
         /([A-C])(\d{4,5})(\d{8})/,
         // OCR puede insertar espacios: A - 00001 - 00000001
         /([A-C])\s*[-–]\s*(\d{4,5})\s*[-–]\s*(\d{6,8})/,
+
         // Sin letra después de "NUMERO:"
         /NUMERO:\s*[\r\n]+.*?(\d{5})(\d{8})/is,
         /NUMERO:\s*[\r\n]+.*?(\d{4})(\d{8})/is,
         /N[uú]mero[:\s]+(\d{4,5})[-–\s]+(\d{6,8})/i,
-        // Formato con guión sin letra
-        /\b(\d{4,5})\s*[-–]\s*(\d{8})\b/,
+
+        // Formato con guión sin letra (más tolerante, sin word boundary estricto)
+        /(\d{4,5})\s*[-–]\s*(\d{8})/,
         // Dígitos juntos
         /\b(\d{5})(\d{8})\b/,
         /\b(\d{4})(\d{8})\b/,

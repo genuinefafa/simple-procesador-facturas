@@ -39,9 +39,40 @@ export class PDFExtractor {
       console.info(`   📝 Contenido: ${text.substring(0, 500)}`);
     }
 
-    // Extraer CUIT
-    const cuits = extractCUITFromText(text);
-    const cuit = cuits[0] || undefined;
+    // Extraer CUIT del EMISOR (no del receptor)
+    // Buscar CUITs con contexto para identificar al emisor
+    let cuit: string | undefined;
+
+    // Patrones específicos para CUIT del emisor
+    const emitterPatterns = [
+      /CUIT\s*(?:EMISOR|Emisor)?[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/i,
+      /(?:^|[\r\n])CUIT[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/im, // CUIT al inicio o después de línea
+    ];
+
+    for (const pattern of emitterPatterns) {
+      const match = text.match(pattern);
+      if (match && match[1]) {
+        const cuits = extractCUITFromText(match[1]);
+        if (cuits.length > 0) {
+          cuit = cuits[0];
+          console.info(`   💼 CUIT emisor encontrado con contexto: ${cuit}`);
+          break;
+        }
+      }
+    }
+
+    // Fallback: tomar el primer CUIT válido
+    if (!cuit) {
+      const allCuits = extractCUITFromText(text);
+      if (allCuits.length > 0) {
+        cuit = allCuits[0];
+        if (allCuits.length > 1) {
+          console.warn(
+            `   ⚠️  Múltiples CUITs encontrados (${allCuits.length}), usando el primero: ${cuit}`
+          );
+        }
+      }
+    }
 
     // Debug: si no hay CUIT, buscar patrones similares
     if (!cuit) {
