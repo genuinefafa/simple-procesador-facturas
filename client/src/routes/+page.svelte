@@ -34,6 +34,7 @@
 		extractedPointOfSale: number | null;
 		extractedInvoiceNumber: number | null;
 		extractionConfidence: number | null;
+		extractionMethod: string | null; // PDF_TEXT, OCR, TEMPLATE, MANUAL
 		extractionErrors: string | null;
 		status: 'pending' | 'reviewing' | 'processed' | 'failed';
 		invoiceId: number | null;
@@ -494,6 +495,21 @@
 		return 'text-red-600';
 	}
 
+	function getExtractionMethodLabel(method: string | null): string {
+		switch (method) {
+			case 'PDF_TEXT':
+				return '📄 PDF (texto)';
+			case 'OCR':
+				return '🔍 OCR (imagen)';
+			case 'TEMPLATE':
+				return '📋 Template';
+			case 'MANUAL':
+				return '✏️ Manual';
+			default:
+				return '❓ Desconocido';
+		}
+	}
+
 	// Funciones para pending files (selección múltiple)
 	function togglePendingFileSelection(id: number) {
 		if (selectedPendingFiles.has(id)) {
@@ -804,7 +820,7 @@
 										<!-- Métricas de confianza -->
 										<div class="confidence-metrics">
 											<div class="confidence-bar" class:low={ocrConfidence < 50} class:medium={ocrConfidence >= 50 && ocrConfidence < 80} class:high={ocrConfidence >= 80}>
-												<span class="metric-label">Detección PDF:</span>
+												<span class="metric-label">{getExtractionMethodLabel(file.extractionMethod)}:</span>
 												<span class="metric-value">{ocrConfidence}%</span>
 											</div>
 											{#if excelData}
