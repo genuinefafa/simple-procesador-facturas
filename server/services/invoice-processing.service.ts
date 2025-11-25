@@ -135,31 +135,8 @@ export class InvoiceProcessingService {
             extraction = await this.pdfExtractor.extract(filePath);
           }
         } catch (ocrError) {
-          const errorMsg = ocrError instanceof Error ? ocrError.message : 'Error desconocido';
-
-          // Si el error es por falta de conversión PDF→imagen, dar mensaje específico
-          if (errorMsg.includes('No se pudo convertir PDF a imagen')) {
-            console.error(`   ❌ No se puede procesar PDF escaneado sin dependencias de canvas`);
-            console.error(`   💡 Recomendación: Convertir el PDF a imagen (JPG/PNG) antes de subir`);
-            console.error(`   💡 O instalar dependencias del sistema para canvas (ver logs arriba)`);
-
-            // Crear resultado con error claro
-            extraction = {
-              success: false,
-              confidence: 0,
-              data: {},
-              errors: [
-                'PDF escaneado requiere conversión a imagen',
-                'Alternativas:',
-                '1. Convertir PDF a JPG/PNG antes de subir',
-                '2. Instalar dependencias: sudo apt-get install libcairo2-dev libpango1.0-dev && npm install canvas',
-              ],
-              method: 'OCR',
-            };
-          } else {
-            console.warn(`   ⚠️  OCR falló, usando pdf-parse como fallback:`, ocrError);
-            extraction = await this.pdfExtractor.extract(filePath);
-          }
+          console.warn(`   ⚠️  OCR falló, usando pdf-parse como fallback:`, ocrError);
+          extraction = await this.pdfExtractor.extract(filePath);
         }
       } else {
         console.info(`   📄 Extrayendo datos del PDF...`);

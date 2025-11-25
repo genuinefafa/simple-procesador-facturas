@@ -9,11 +9,12 @@
 
 import Tesseract from 'tesseract.js';
 import sharp from 'sharp';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { extname } from 'path';
 import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
 import { extractCUITFromText } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
+import { pdf } from 'pdf-to-img';
 
 // Configuración de OCR
 const OCR_CONFIG = {
@@ -94,44 +95,40 @@ export class OCRExtractor {
   /**
    * Convierte PDF a imagen para OCR (primera página)
    *
-   * IMPORTANTE: Requiere dependencias del sistema para funcionar.
+   * Usa pdf-to-img que no requiere dependencias del sistema.
+   * Funciona en cualquier plataforma (Linux, macOS, Windows).
    *
-   * Instalación por plataforma:
-   *
-   * **Linux (Ubuntu/Debian):**
-   * ```bash
-   * sudo apt-get install build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
-   * npm install canvas
-   * ```
-   *
-   * **macOS:**
-   * ```bash
-   * brew install pkg-config cairo pango libpng jpeg giflib librsvg pixman
-   * npm install canvas
-   * ```
-   *
-   * **Windows:**
-   * - Descargar GTK+ desde: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer
-   * - Instalar y luego: `npm install canvas`
-   *
-   * Sin estas dependencias, el OCR solo funcionará con imágenes (JPG, PNG, etc.),
-   * NO con PDFs escaneados.
+   * @param filePath - Ruta al archivo PDF
+   * @returns Buffer de la primera página como PNG, o null si falla
    */
-  private async pdfToImage(_filePath: string): Promise<Buffer | null> {
-    // TODO: Implementar conversión de PDF a imagen usando pdfjs-dist + canvas
-    // Por ahora, retornar null para indicar que no está disponible
-    console.warn('\n⚠️  ═══════════════════════════════════════════════════════════════');
-    console.warn('⚠️  CONVERSIÓN PDF→IMAGEN NO DISPONIBLE');
-    console.warn('⚠️  ═══════════════════════════════════════════════════════════════');
-    console.warn('⚠️  Para procesar PDFs escaneados con OCR, necesitás instalar:');
-    console.warn('⚠️  ');
-    console.warn('⚠️  Linux: sudo apt-get install libcairo2-dev libpango1.0-dev');
-    console.warn('⚠️  macOS: brew install cairo pango');
-    console.warn('⚠️  Luego: npm install canvas');
-    console.warn('⚠️  ');
-    console.warn('⚠️  Sin esto, solo se puede usar OCR con imágenes directas (JPG, PNG)');
-    console.warn('⚠️  ═══════════════════════════════════════════════════════════════\n');
-    return null;
+  private async pdfToImage(filePath: string): Promise<Buffer | null> {
+    try {
+      console.info(`   🔄 Convirtiendo PDF a imagen...`);
+
+      // Leer el PDF como buffer
+      const pdfBuffer = readFileSync(filePath);
+
+      // Convertir PDF a imágenes (array de páginas)
+      const document = await pdf(pdfBuffer, { scale: 2.0 }); // scale 2.0 = mejor resolución para OCR
+
+      // Obtener solo la primera página
+      let pageCount = 0;
+      for await (const page of document) {
+        pageCount++;
+        console.info(`   📄 Página 1 convertida (${page.length} bytes)`);
+        return page; // Retornar solo la primera página
+      }
+
+      if (pageCount === 0) {
+        console.warn(`   ⚠️  PDF vacío o sin páginas`);
+        return null;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`   ❌ Error convirtiendo PDF a imagen:`, error);
+      return null;
+    }
   }
 
   /**
