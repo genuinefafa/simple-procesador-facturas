@@ -78,7 +78,9 @@ export class PDFExtractor {
     if (!cuit) {
       const possibleCuits = text.match(/\b\d{2}[-\s]?\d{8}[-\s]?\d\b/g);
       if (possibleCuits && possibleCuits.length > 0) {
-        console.info(`   🔍 Posibles CUITs encontrados (sin validar): ${possibleCuits.slice(0, 3).join(', ')}`);
+        console.info(
+          `   🔍 Posibles CUITs encontrados (sin validar): ${possibleCuits.slice(0, 3).join(', ')}`
+        );
       }
     }
 

@@ -139,11 +139,13 @@ export function extractAFIPCodeFromText(text: string): AFIPDocumentType | undefi
  * @param text - Texto extraído de la factura
  * @returns Tipo de comprobante (A, B, C, E, M) o undefined
  */
-export function extractInvoiceTypeWithAFIP(text: string): {
-  invoiceType: InvoiceType;
-  documentKind: DocumentKind;
-  method: 'AFIP_CODE' | 'TEXT_PATTERN';
-} | undefined {
+export function extractInvoiceTypeWithAFIP(text: string):
+  | {
+      invoiceType: InvoiceType;
+      documentKind: DocumentKind;
+      method: 'AFIP_CODE' | 'TEXT_PATTERN';
+    }
+  | undefined {
   // Primero intentar con código AFIP (más confiable)
   const afipType = extractAFIPCodeFromText(text);
   if (afipType) {

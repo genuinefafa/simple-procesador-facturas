@@ -25,7 +25,16 @@ const OCR_CONFIG = {
 };
 
 // Extensiones de imagen soportadas
-const SUPPORTED_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp', '.heic', '.heif'];
+const SUPPORTED_IMAGE_EXTENSIONS = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.tif',
+  '.tiff',
+  '.webp',
+  '.heic',
+  '.heif',
+];
 
 export class OCRExtractor {
   private worker: Tesseract.Worker | null = null;
@@ -58,7 +67,9 @@ export class OCRExtractor {
       return Buffer.from(outputBuffer);
     } catch (error) {
       console.error(`   ❌ Error convirtiendo HEIC:`, error);
-      throw new Error(`No se pudo convertir HEIC a JPEG: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      throw new Error(
+        `No se pudo convertir HEIC a JPEG: ${error instanceof Error ? error.message : 'Error desconocido'}`
+      );
     }
   }
 
@@ -218,7 +229,9 @@ export class OCRExtractor {
       return text;
     } catch (error) {
       console.error(`   ❌ Error en OCR:`, error);
-      throw new Error(`Error ejecutando OCR: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+      throw new Error(
+        `Error ejecutando OCR: ${error instanceof Error ? error.message : 'Error desconocido'}`
+      );
     }
   }
 
@@ -235,7 +248,9 @@ export class OCRExtractor {
 
       // Mostrar preview del texto extraído
       const preview = text.trim().substring(0, 300);
-      console.info(`   📝 Texto OCR (primeros 300 chars): "${preview}${text.length > 300 ? '...' : ''}"`);
+      console.info(
+        `   📝 Texto OCR (primeros 300 chars): "${preview}${text.length > 300 ? '...' : ''}"`
+      );
 
       if (!text || text.trim().length < 50) {
         return {

@@ -82,11 +82,15 @@ export class InvoiceProcessingService {
 
         // Mostrar una muestra del texto extraído
         const preview = text.trim().substring(0, 300);
-        console.info(`   📝 Texto en PDF (primeros 300 chars): "${preview}${text.length > 300 ? '...' : ''}"`);
+        console.info(
+          `   📝 Texto en PDF (primeros 300 chars): "${preview}${text.length > 300 ? '...' : ''}"`
+        );
 
         // Si el texto extraído es muy corto, probablemente sea un escaneo
         if (text.trim().length < MIN_PDF_TEXT_LENGTH) {
-          console.info(`   📷 Tipo detectado: PDF_IMAGEN (texto insuficiente: ${text.trim().length} chars)`);
+          console.info(
+            `   📷 Tipo detectado: PDF_IMAGEN (texto insuficiente: ${text.trim().length} chars)`
+          );
           return 'PDF_IMAGEN';
         }
 
@@ -132,7 +136,9 @@ export class InvoiceProcessingService {
         const hasLowConfidence = extraction.confidence < 30;
 
         if (hasLowConfidence && !hasValidCuit) {
-          console.warn(`   ⚠️  PDF_TEXT extrajo texto pero sin datos útiles (conf: ${extraction.confidence}%)`);
+          console.warn(
+            `   ⚠️  PDF_TEXT extrajo texto pero sin datos útiles (conf: ${extraction.confidence}%)`
+          );
           console.info(`   🔄 Intentando OCR como fallback para verificar si es PDF escaneado...`);
 
           try {

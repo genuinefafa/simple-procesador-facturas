@@ -292,7 +292,9 @@ describe('file-naming utils', () => {
         'doc.pdf'
       );
 
-      expect(fullPath).toBe('/data/processed/2024-01/2024-01-15 Empresa 20-12345678-9 FACA 00001 00000100.pdf');
+      expect(fullPath).toBe(
+        '/data/processed/2024-01/2024-01-15 Empresa 20-12345678-9 FACA 00001 00000100.pdf'
+      );
     });
   });
 });
