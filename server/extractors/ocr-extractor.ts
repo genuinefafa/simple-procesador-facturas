@@ -272,6 +272,8 @@ export class OCRExtractor {
 
       // Patrones específicos para CUIT del emisor (buscar antes que "DESTINATARIO" o "RECEPTOR")
       const emitterPatterns = [
+        // Patrón para texto pegado: "33-67913936-9C.U.I.T.:" (CUIT antes de la palabra)
+        /(\d{2}[-\s]?\d{7,8}[-\s]?\d)C\.?U\.?I\.?T\.?/i,
         /CUIT\s*(?:EMISOR|Emisor)?[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/i,
         /(?:^|[\r\n])CUIT[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/im, // CUIT al inicio o después de línea
       ];
@@ -311,9 +313,12 @@ export class OCRExtractor {
       const datePatterns = [
         /FECHA:\s*[\r\n]+[^\d]*(\d{2}[/-]\d{2}[/-]\d{4})/i,
         /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/,
-        /Fecha[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
+        // Fecha después de "Fecha Vto" (vencimiento CAE) - ignorar esta
+        /(?!Fecha\s+Vto)Fecha[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
         /Emisión[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
         /Emisi[oó]n[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i, // OCR puede confundir acentos
+        // Buscar fecha cerca de localidad/ciudad (suele ser fecha de emisión)
+        /(?:Buenos\s+Aires|Capital\s+Federal|Argentina|CABA)[^\d]{0,50}?(\d{2}[/-]\d{2}[/-]\d{4})/i,
         /(\d{2}[/-]\d{2}[/-]\d{4})/g, // Fallback: cualquier fecha
       ];
 
@@ -342,7 +347,8 @@ export class OCRExtractor {
       const totalPatterns = [
         /([\d.]+,\d{2})\s*[\d,.]+\s*[\d.]+,\d{2}\s*[\r\n]+\s*PERCEPCIONES/i,
         /Observaciones:\s*[\r\n]+\s*([\d.]+,\d{2})/i,
-        /TOTAL\s+([\d.]+,\d{2})\s*[\r\n]/i,
+        // Texto pegado: "TOTAL1.965.244,64" (sin espacio)
+        /TOTAL\s*([\d.]+,\d{2})/i,
         /Total[:\s]+\$?\s*([\d.]+,\d{2})/i,
         /Importe Total[:\s]+\$?\s*([\d.]+,\d{2})/i,
         /IMPORTE\s+TOTAL[:\s]*\$?\s*([\d.]+,\d{2})/i, // OCR mayúsculas

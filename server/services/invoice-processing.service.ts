@@ -133,11 +133,23 @@ export class InvoiceProcessingService {
         // FALLBACK INTELIGENTE: Si PDF_TEXT no encuentra datos útiles, intentar OCR
         // Esto pasa cuando el PDF tiene texto (metadatos, marcas de agua) pero no datos reales
         const hasValidCuit = extraction.data.cuit && extraction.data.cuit.length >= 11;
-        const hasLowConfidence = extraction.confidence < 30;
+        const hasValidDate = !!extraction.data.date;
+        const hasValidTotal = !!extraction.data.total;
+        const hasValidType = !!extraction.data.invoiceType;
 
-        if (hasLowConfidence && !hasValidCuit) {
+        // Contar campos críticos detectados
+        const criticalFieldsDetected = [
+          hasValidCuit,
+          hasValidDate,
+          hasValidTotal,
+          hasValidType,
+        ].filter(Boolean).length;
+        const hasLowConfidence = extraction.confidence < 50; // Subido de 30% a 50%
+        const missingCriticalFields = criticalFieldsDetected < 2; // Si faltan 3 o más de 4 campos
+
+        if (hasLowConfidence || missingCriticalFields) {
           console.warn(
-            `   ⚠️  PDF_TEXT extrajo texto pero sin datos útiles (conf: ${extraction.confidence}%)`
+            `   ⚠️  PDF_TEXT extrajo texto pero datos insuficientes (conf: ${extraction.confidence}%, campos: ${criticalFieldsDetected}/4)`
           );
           console.info(`   🔄 Intentando OCR como fallback para verificar si es PDF escaneado...`);
 

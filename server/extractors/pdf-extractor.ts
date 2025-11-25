@@ -45,6 +45,8 @@ export class PDFExtractor {
 
     // Patrones específicos para CUIT del emisor
     const emitterPatterns = [
+      // Patrón para texto pegado: "33-67913936-9C.U.I.T.:" (CUIT antes de la palabra)
+      /(\d{2}[-\s]?\d{7,8}[-\s]?\d)C\.?U\.?I\.?T\.?/i,
       /CUIT\s*(?:EMISOR|Emisor)?[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/i,
       /(?:^|[\r\n])CUIT[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/im, // CUIT al inicio o después de línea
     ];
@@ -88,8 +90,11 @@ export class PDFExtractor {
     const datePatterns = [
       /FECHA:\s*[\r\n]+[^\d]*(\d{2}[/-]\d{2}[/-]\d{4})/i, // FECHA: seguida de fecha
       /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/, // Fecha justo antes del número de 12-13 dígitos
-      /Fecha[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
+      // Fecha después de "Fecha Vto" (vencimiento CAE) - ignorar esta
+      /(?!Fecha\s+Vto)Fecha[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
       /Emisión[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
+      // Buscar fecha cerca de localidad/ciudad (suele ser fecha de emisión)
+      /(?:Buenos\s+Aires|Capital\s+Federal|Argentina|CABA)[^\d]{0,50}?(\d{2}[/-]\d{2}[/-]\d{4})/i,
     ];
 
     let date: string | undefined;
@@ -117,7 +122,8 @@ export class PDFExtractor {
     const totalPatterns = [
       /([\d.]+,\d{2})\s*[\d,.]+\s*[\d.]+,\d{2}\s*[\r\n]+\s*PERCEPCIONES/i, // Total antes de PERCEPCIONES (primero de 3 números)
       /Observaciones:\s*[\r\n]+\s*([\d.]+,\d{2})/i, // Total después de Observaciones
-      /TOTAL\s+([\d.]+,\d{2})\s*[\r\n]/i, // TOTAL seguido directamente del total
+      // Texto pegado: "TOTAL1.965.244,64"
+      /TOTAL\s*([\d.]+,\d{2})/i,
       /Total[:\s]+\$?\s*([\d.]+,\d{2})/i,
       /Importe Total[:\s]+\$?\s*([\d.]+,\d{2})/i,
     ];

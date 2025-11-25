@@ -102,6 +102,9 @@ export function getDocumentTypeFromAFIPCode(code: string): AFIPDocumentType | un
 export function extractAFIPCodeFromText(text: string): AFIPDocumentType | undefined {
   // Patrones donde puede aparecer el código AFIP
   const patterns = [
+    // Texto pegado: "01Código" (código antes de la palabra)
+    /(\d{1,3})C[oóÓ]d(?:igo)?/i,
+
     // "Cod. 11" o "Cod: 11" o "Cod 11"
     /\bCod(?:igo)?\.?\s*:?\s*(\d{1,3})\b/i,
 
