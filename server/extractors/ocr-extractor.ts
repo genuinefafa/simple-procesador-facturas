@@ -93,16 +93,44 @@ export class OCRExtractor {
 
   /**
    * Convierte PDF a imagen para OCR (primera página)
-   * Requiere: pdf2pic o similar
-   * Por ahora, retorna null si es PDF (se manejará en el servicio)
+   *
+   * IMPORTANTE: Requiere dependencias del sistema para funcionar.
+   *
+   * Instalación por plataforma:
+   *
+   * **Linux (Ubuntu/Debian):**
+   * ```bash
+   * sudo apt-get install build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
+   * npm install canvas
+   * ```
+   *
+   * **macOS:**
+   * ```bash
+   * brew install pkg-config cairo pango libpng jpeg giflib librsvg pixman
+   * npm install canvas
+   * ```
+   *
+   * **Windows:**
+   * - Descargar GTK+ desde: https://github.com/tschoonj/GTK-for-Windows-Runtime-Environment-Installer
+   * - Instalar y luego: `npm install canvas`
+   *
+   * Sin estas dependencias, el OCR solo funcionará con imágenes (JPG, PNG, etc.),
+   * NO con PDFs escaneados.
    */
   private async pdfToImage(_filePath: string): Promise<Buffer | null> {
-    // TODO: Implementar conversión de PDF a imagen
-    // Opciones:
-    // 1. pdf2pic (requiere graphicsmagick)
-    // 2. pdf-poppler
-    // 3. pdfjs-dist con canvas
-    console.warn('   ⚠️  Conversión PDF a imagen no implementada aún');
+    // TODO: Implementar conversión de PDF a imagen usando pdfjs-dist + canvas
+    // Por ahora, retornar null para indicar que no está disponible
+    console.warn('\n⚠️  ═══════════════════════════════════════════════════════════════');
+    console.warn('⚠️  CONVERSIÓN PDF→IMAGEN NO DISPONIBLE');
+    console.warn('⚠️  ═══════════════════════════════════════════════════════════════');
+    console.warn('⚠️  Para procesar PDFs escaneados con OCR, necesitás instalar:');
+    console.warn('⚠️  ');
+    console.warn('⚠️  Linux: sudo apt-get install libcairo2-dev libpango1.0-dev');
+    console.warn('⚠️  macOS: brew install cairo pango');
+    console.warn('⚠️  Luego: npm install canvas');
+    console.warn('⚠️  ');
+    console.warn('⚠️  Sin esto, solo se puede usar OCR con imágenes directas (JPG, PNG)');
+    console.warn('⚠️  ═══════════════════════════════════════════════════════════════\n');
     return null;
   }
 
