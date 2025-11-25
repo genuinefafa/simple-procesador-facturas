@@ -641,11 +641,11 @@
 					<p class="dropzone-icon">📁</p>
 					<p class="dropzone-text">Arrastrá archivos aquí</p>
 					<p class="dropzone-hint">o hacé click para seleccionar</p>
-					<p class="dropzone-formats">Formatos: PDF, JPG, PNG (máx 10MB c/u)</p>
+					<p class="dropzone-formats">Formatos: PDF, JPG, PNG, TIFF, WEBP, HEIC (máx 10MB c/u)</p>
 					<input
 						type="file"
 						multiple
-						accept=".pdf,.jpg,.jpeg,.png"
+						accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.webp,.heic,.heif"
 						onchange={handleFileInput}
 						class="file-input"
 					/>
@@ -796,7 +796,7 @@
 											class="pdf-iframe"
 											onerror={() => handleFileLoadError(file.id, file.originalFilename)}
 										></iframe>
-									{:else if file.originalFilename.toLowerCase().match(/\.(jpg|jpeg|png)$/)}
+									{:else if file.originalFilename.toLowerCase().match(/\.(jpg|jpeg|png|tif|tiff|webp|heic|heif)$/)}
 										<img
 											src="/api/pending-files/{file.id}/file"
 											alt="Preview de {file.originalFilename}"

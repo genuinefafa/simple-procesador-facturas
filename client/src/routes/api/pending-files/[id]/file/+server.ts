@@ -67,6 +67,12 @@ export const GET: RequestHandler = async ({ params }) => {
       contentType = 'image/jpeg';
     } else if (ext === 'png') {
       contentType = 'image/png';
+    } else if (ext === 'tif' || ext === 'tiff') {
+      contentType = 'image/tiff';
+    } else if (ext === 'webp') {
+      contentType = 'image/webp';
+    } else if (ext === 'heic' || ext === 'heif') {
+      contentType = 'image/heic';
     }
 
     // Encodear filename para soportar caracteres UTF-8 (ñ, tildes, etc)
