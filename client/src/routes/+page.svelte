@@ -355,8 +355,20 @@
 	function handleDrop(event: DragEvent) {
 		event.preventDefault();
 		if (event.dataTransfer?.files) {
-			const newFiles = Array.from(event.dataTransfer.files).filter((file) =>
-				['application/pdf', 'image/jpeg', 'image/png'].includes(file.type)
+			const allowedTypes = [
+				'application/pdf',
+				'image/jpeg',
+				'image/png',
+				'image/tiff',
+				'image/webp',
+				'image/heic',
+				'image/heif'
+			];
+			const newFiles = Array.from(event.dataTransfer.files).filter(
+				(file) =>
+					allowedTypes.includes(file.type) ||
+					// Fallback a extensión si el navegador no reconoce el MIME type
+					/\.(pdf|jpe?g|png|tiff?|webp|heic|heif)$/i.test(file.name)
 			);
 			uploadedFiles = [...uploadedFiles, ...newFiles];
 		}

@@ -362,6 +362,78 @@ export class OCRExtractor {
         }
       }
 
+      // Heurística inteligente: buscar último valor decimal grande cerca de palabra "total"
+      if (!total) {
+        console.info(`   🔍 Aplicando heurística para detectar total...`);
+
+        // Buscar todas las líneas con valores decimales (formato argentino)
+        const lines = text.split(/[\r\n]+/);
+        const decimalValues: Array<{
+          value: string;
+          numValue: number;
+          lineIndex: number;
+          line: string;
+        }> = [];
+
+        lines.forEach((line, index) => {
+          // Buscar valores con formato argentino: 1.234,56 o 234,56
+          const matches = line.matchAll(/(?:^|[^\d])(\d{1,3}(?:\.\d{3})*,\d{2})(?:[^\d]|$)/g);
+          for (const match of matches) {
+            const value = match[1];
+            const numValue = parseFloat(value.replace(/\./g, '').replace(/,/, '.'));
+
+            // Solo considerar valores mayores a 100 (filtrar decimales pequeños)
+            if (numValue > 100) {
+              decimalValues.push({ value, numValue, lineIndex: index, line });
+            }
+          }
+        });
+
+        if (decimalValues.length > 0) {
+          console.info(`   📊 Encontrados ${decimalValues.length} valores candidatos > 100`);
+
+          // Buscar el mejor candidato usando heurísticas
+          let bestCandidate = decimalValues[0];
+          let bestScore = 0;
+
+          for (const candidate of decimalValues) {
+            let score = 0;
+
+            // +50 puntos: aparece en el último 30% del documento
+            const relativePosition = candidate.lineIndex / lines.length;
+            if (relativePosition > 0.7) {
+              score += 50;
+            }
+
+            // +40 puntos: la línea contiene palabra similar a "total" (tolerante a OCR)
+            const lineLower = candidate.line.toLowerCase();
+            if (/tot[ao0]?l|t[o0]t[ao]l|imp[o0]rte/i.test(lineLower)) {
+              score += 40;
+              console.info(
+                `   💰 "${candidate.value}" tiene palabra similar a TOTAL: "${candidate.line.trim()}"`
+              );
+            }
+
+            // +30 puntos: es el valor más grande
+            if (candidate.numValue === Math.max(...decimalValues.map((v) => v.numValue))) {
+              score += 30;
+            }
+
+            // +10 puntos por cada 1000 pesos (valores grandes son más probables de ser total)
+            score += Math.floor(candidate.numValue / 1000) * 10;
+
+            if (score > bestScore) {
+              bestScore = score;
+              bestCandidate = candidate;
+            }
+          }
+
+          total = bestCandidate.value;
+          console.info(`   ✅ Total detectado con heurística (score: ${bestScore}): ${total}`);
+          console.info(`      Línea: "${bestCandidate.line.trim()}"`);
+        }
+      }
+
       // Extraer tipo de comprobante (A, B, C, E, M) y tipo de documento (FAC, NCR, NDB)
       // Usa el mapeo de códigos AFIP para mayor precisión
       let invoiceType: InvoiceType | undefined;
