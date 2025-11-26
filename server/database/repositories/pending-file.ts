@@ -202,6 +202,7 @@ export class PendingFileRepository {
       extractedPointOfSale?: number;
       extractedInvoiceNumber?: number;
       extractionConfidence?: number;
+      extractionMethod?: string;
       extractionErrors?: string | string[];
     }
   ): PendingFile {
@@ -235,6 +236,10 @@ export class PendingFileRepository {
     if (data.extractionConfidence !== undefined) {
       updates.push('extraction_confidence = ?');
       params.push(data.extractionConfidence);
+    }
+    if (data.extractionMethod !== undefined) {
+      updates.push('extraction_method = ?');
+      params.push(data.extractionMethod);
     }
     if (data.extractionErrors !== undefined) {
       const errorsJson = Array.isArray(data.extractionErrors)

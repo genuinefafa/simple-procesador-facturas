@@ -221,6 +221,30 @@
 		}
 	}
 
+	async function reprocessPendingFile(id: number) {
+		const file = pendingFilesToReview.find(f => f.id === id);
+		if (!file) return;
+
+		const toastId = toast.loading(`🔄 Reprocesando ${file.originalFilename}...`);
+
+		try {
+			const response = await fetch(`/api/pending-files/${id}/reprocess`, {
+				method: 'POST'
+			});
+			const data = await response.json();
+
+			if (data.success) {
+				toast.success(`✅ Reprocesado: ${data.extraction.confidence}% confianza`, { id: toastId });
+				// Recargar archivos para ver los nuevos datos
+				await loadPendingFilesToReview();
+			} else {
+				toast.error(data.error || 'Error al reprocesar', { id: toastId });
+			}
+		} catch (err) {
+			toast.error(err instanceof Error ? err.message : 'Error al reprocesar', { id: toastId });
+		}
+	}
+
 	async function deletePendingFile(id: number) {
 		// Usar toast para confirmar (esto es temporal, idealmente usar un modal)
 		toast.warning('Hacé click en "Eliminar" de nuevo para confirmar');
@@ -1013,6 +1037,9 @@
 												📋 Aplicar Excel
 											</button>
 										{/if}
+										<button class="btn btn-secondary" onclick={() => reprocessPendingFile(file.id)} title="Volver a procesar con el algoritmo actual">
+											🔄 Reprocesar
+										</button>
 										<button class="btn btn-primary" onclick={() => startEditing(file.id)}>
 											✏️ Editar datos
 										</button>
