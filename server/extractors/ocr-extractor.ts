@@ -309,38 +309,140 @@ export class OCRExtractor {
         }
       }
 
+      /**
+       * Convierte fechas en formato español a DD/MM/YYYY
+       * Ej: "24 de Octubre de 2025" -> "24/10/2025"
+       */
+      const parseSpanishDate = (dateText: string): string | null => {
+        const months: Record<string, string> = {
+          enero: '01',
+          febrero: '02',
+          marzo: '03',
+          abril: '04',
+          mayo: '05',
+          junio: '06',
+          julio: '07',
+          agosto: '08',
+          septiembre: '09',
+          octubre: '10',
+          noviembre: '11',
+          diciembre: '12',
+        };
+
+        // "24 de Octubre de 2025" o "24 Octubre 2025"
+        const match = dateText.match(/(\d{1,2})\s+(?:de\s+)?([a-záéíóú]+)\s+(?:de\s+)?(\d{4})/i);
+        if (match) {
+          const day = match[1].padStart(2, '0');
+          const monthName = match[2].toLowerCase();
+          const year = match[3];
+          const month = months[monthName];
+
+          if (month) {
+            return `${day}/${month}/${year}`;
+          }
+        }
+        return null;
+      };
+
+      /**
+       * Parsea una fecha DD/MM/YYYY a Date para comparación
+       */
+      const parseDateToObject = (dateStr: string): Date | null => {
+        const parts = dateStr.split(/[/-]/);
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
+          const year = parseInt(parts[2], 10);
+          return new Date(year, month, day);
+        }
+        return null;
+      };
+
       // Extraer fecha (patrones comunes argentinos)
+      // Estrategia: buscar TODAS las fechas y elegir la más reciente que no sea "inicio actividades" o "fecha vto"
+
+      // 1. Buscar fechas en formato español
+      const spanishDatePattern = /(\d{1,2})\s+(?:de\s+)?([a-záéíóú]+)\s+(?:de\s+)?(\d{4})/gi;
+      const spanishMatches = Array.from(text.matchAll(spanishDatePattern));
+
+      const allDates: Array<{ date: string; source: string; timestamp: number }> = [];
+
+      for (const match of spanishMatches) {
+        const parsed = parseSpanishDate(match[0]);
+        if (parsed) {
+          const dateObj = parseDateToObject(parsed);
+          if (dateObj) {
+            allDates.push({
+              date: parsed,
+              source: match[0],
+              timestamp: dateObj.getTime(),
+            });
+          }
+        }
+      }
+
+      // 2. Buscar fechas numéricas DD/MM/YYYY
       const datePatterns = [
         /FECHA:\s*[\r\n]+[^\d]*(\d{2}[/-]\d{2}[/-]\d{4})/i,
         /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/,
-        // Fecha después de "Fecha Vto" (vencimiento CAE) - ignorar esta
         /(?!Fecha\s+Vto)Fecha[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
         /Emisión[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
         /Emisi[oó]n[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i, // OCR puede confundir acentos
-        // Buscar fecha cerca de localidad/ciudad (suele ser fecha de emisión)
-        /(?:Buenos\s+Aires|Capital\s+Federal|Argentina|CABA)[^\d]{0,50}?(\d{2}[/-]\d{2}[/-]\d{4})/i,
-        /(\d{2}[/-]\d{2}[/-]\d{4})/g, // Fallback: cualquier fecha
+        /(\d{2}[/-]\d{2}[/-]\d{4})/g, // Todas las fechas
       ];
 
-      let date: string | undefined;
       for (const pattern of datePatterns) {
         const matches = Array.from(text.matchAll(new RegExp(pattern, 'gi')));
         for (const match of matches) {
           const extractedDate = match[1] || match[0];
-          // Evitar fechas de "Inicio de Actividades"
+          const normalizedDate = extractedDate.replace(/-/g, '/');
+
+          // Obtener contexto
           const context = text.substring(
             Math.max(0, (match.index || 0) - 50),
             (match.index || 0) + 80
           );
+
+          // Filtrar fechas de "Inicio Actividades" y "Fecha Vto"
           if (
             !context.toLowerCase().includes('inicio') &&
-            !context.toLowerCase().includes('actividad')
+            !context.toLowerCase().includes('actividad') &&
+            !context.toLowerCase().includes('vto') &&
+            !context.toLowerCase().includes('vencimiento')
           ) {
-            date = extractedDate;
-            break;
+            const dateObj = parseDateToObject(normalizedDate);
+            if (dateObj) {
+              // Evitar fechas duplicadas
+              if (!allDates.some((d) => d.date === normalizedDate)) {
+                allDates.push({
+                  date: normalizedDate,
+                  source: extractedDate,
+                  timestamp: dateObj.getTime(),
+                });
+              }
+            }
           }
         }
-        if (date) break;
+      }
+
+      // 3. Elegir la fecha más reciente (suele ser la fecha de emisión)
+      let date: string | undefined;
+      if (allDates.length > 0) {
+        // Ordenar por timestamp descendente (más reciente primero)
+        allDates.sort((a, b) => b.timestamp - a.timestamp);
+        date = allDates[0].date;
+
+        if (allDates.length > 1) {
+          console.info(
+            `   📅 Múltiples fechas encontradas (${allDates.length}), usando la más reciente: ${date}`
+          );
+          console.info(
+            `      Otras: ${allDates
+              .slice(1, 3)
+              .map((d) => d.date)
+              .join(', ')}`
+          );
+        }
       }
 
       // Extraer total (patrones argentinos con punto para miles y coma para decimales)
