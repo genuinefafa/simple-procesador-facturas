@@ -19,7 +19,7 @@ import {
 } from '../database/repositories/expected-invoice.js';
 import { format, subDays, addDays } from 'date-fns';
 import { extname } from 'path';
-import type { Invoice, DocumentType } from '../utils/types.js';
+import type { Invoice, DocumentType, ExtractionMethod } from '../utils/types.js';
 
 // Extensiones de imagen soportadas para OCR
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp', '.heic', '.heif'];
@@ -34,6 +34,7 @@ export interface ProcessingResult {
   requiresReview: boolean;
   confidence: number;
   source?: 'PDF_EXTRACTION' | 'EXCEL_MATCH_UNIQUE' | 'EXCEL_MATCH_AMBIGUOUS' | 'NO_MATCH';
+  method?: ExtractionMethod; // Método de extracción específico
   matchedExpectedInvoiceId?: number;
   matchCandidates?: ExpectedInvoice[];
   extractedData?: {
@@ -125,6 +126,7 @@ export class InvoiceProcessingService {
 
       // 1. Extraer información según el tipo de documento
       let extraction;
+      let usedFallback = false; // Track si se usó fallback PDF_TEXT → OCR
 
       if (documentType === 'PDF_DIGITAL') {
         console.info(`   📄 Extrayendo datos del PDF digital...`);
@@ -162,6 +164,7 @@ export class InvoiceProcessingService {
                 `   ✅ OCR encontró mejores datos (conf: ${ocrExtraction.confidence}% vs ${extraction.confidence}%)`
               );
               extraction = ocrExtraction;
+              usedFallback = true; // Marcar que se usó fallback
             } else {
               console.info(`   ℹ️  OCR no mejoró los resultados, usando PDF_TEXT original`);
             }
@@ -197,7 +200,8 @@ export class InvoiceProcessingService {
 
       const data = extraction.data;
       const confidence = extraction.confidence || 0;
-      const extractionMethod = extraction.method; // PDF_TEXT, OCR, TEMPLATE, etc.
+      // Si se usó fallback, indicar que se usó ambos métodos
+      const extractionMethod = usedFallback ? 'PDF_TEXT+OCR' : extraction.method;
 
       console.info(`   📋 Datos extraídos (RAW) [${extractionMethod}]:`);
       console.info(`      CUIT: ${data.cuit || '❌ NO DETECTADO'}`);
@@ -220,6 +224,7 @@ export class InvoiceProcessingService {
           requiresReview: true,
           confidence,
           source: 'PDF_EXTRACTION',
+          method: extractionMethod, // Incluir método específico
           extractedData: {
             cuit: data.cuit,
             date: data.date,

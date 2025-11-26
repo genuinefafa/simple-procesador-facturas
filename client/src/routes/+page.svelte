@@ -537,6 +537,8 @@
 				return '📄 PDF (texto)';
 			case 'OCR':
 				return '🔍 OCR (imagen)';
+			case 'PDF_TEXT+OCR':
+				return '📄🔍 PDF+OCR (fallback)';
 			case 'TEMPLATE':
 				return '📋 Template';
 			case 'MANUAL':

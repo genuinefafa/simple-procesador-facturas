@@ -136,34 +136,79 @@ export class PDFExtractor {
     };
 
     // Extraer fecha (patrones comunes argentinos)
-    // Estrategia: buscar TODAS las fechas y elegir la más reciente que no sea "inicio actividades" o "fecha vto"
+    // Estrategia: buscar TODAS las fechas y elegir con sistema de scoring (priorizar "emisión")
 
-    // 1. Buscar fechas en formato español
+    // 1. Patrón específico para "Fecha de Emisión:" (puede estar en línea separada)
+    const emissionDatePattern =
+      /Fecha\s+de\s+Emisi[oó]n:\s*[\r\n]+[^\d]*(\d{2}[/-]\d{2}[/-]\d{4})/gi;
+    const emissionMatches = Array.from(text.matchAll(emissionDatePattern));
+
+    const allDates: Array<{
+      date: string;
+      source: string;
+      timestamp: number;
+      context: string;
+      score: number;
+    }> = [];
+
+    // Procesar fechas de emisión con mayor prioridad
+    for (const match of emissionMatches) {
+      const dateStr = match[1].replace(/-/g, '/');
+      const dateObj = parseDateToObject(dateStr);
+      if (dateObj) {
+        allDates.push({
+          date: dateStr,
+          source: match[0],
+          timestamp: dateObj.getTime(),
+          context: 'Fecha de Emisión',
+          score: 100, // Máxima prioridad
+        });
+      }
+    }
+
+    // 2. Buscar fechas en formato español
     const spanishDatePattern = /(\d{1,2})\s+(?:de\s+)?([a-záéíóú]+)\s+(?:de\s+)?(\d{4})/gi;
     const spanishMatches = Array.from(text.matchAll(spanishDatePattern));
-
-    const allDates: Array<{ date: string; source: string; timestamp: number }> = [];
 
     for (const match of spanishMatches) {
       const parsed = parseSpanishDate(match[0]);
       if (parsed) {
         const dateObj = parseDateToObject(parsed);
-        if (dateObj) {
+        if (dateObj && !allDates.some((d) => d.date === parsed)) {
+          // Obtener contexto para scoring
+          const context = text.substring(
+            Math.max(0, (match.index || 0) - 70),
+            (match.index || 0) + 100
+          );
+
+          // Filtrar fechas no deseadas
+          const contextLower = context.toLowerCase();
+          if (
+            contextLower.includes('inicio') ||
+            contextLower.includes('actividad') ||
+            contextLower.includes('vto') ||
+            contextLower.includes('vencimiento') ||
+            contextLower.includes('cae') ||
+            contextLower.includes('período')
+          ) {
+            continue; // Skip this date
+          }
+
           allDates.push({
             date: parsed,
             source: match[0],
             timestamp: dateObj.getTime(),
+            context,
+            score: 50, // Prioridad media para fechas en español
           });
         }
       }
     }
 
-    // 2. Buscar fechas numéricas DD/MM/YYYY
+    // 3. Buscar fechas numéricas DD/MM/YYYY
     const datePatterns = [
-      /FECHA:\s*[\r\n]+[^\d]*(\d{2}[/-]\d{2}[/-]\d{4})/i,
-      /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/,
-      /(?!Fecha\s+Vto)Fecha[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
-      /Emisión[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i,
+      /Emisi[oó]n[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i, // Emisión (alta prioridad)
+      /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/, // Fecha antes de número largo
       /(\d{2}[/-]\d{2}[/-]\d{4})/g, // Todas las fechas
     ];
 
@@ -173,49 +218,69 @@ export class PDFExtractor {
         const extractedDate = match[1] || match[0];
         const normalizedDate = extractedDate.replace(/-/g, '/');
 
-        // Obtener contexto
-        const context = text.substring(
-          Math.max(0, (match.index || 0) - 50),
-          (match.index || 0) + 80
-        );
-
-        // Filtrar fechas de "Inicio Actividades" y "Fecha Vto"
-        if (
-          !context.toLowerCase().includes('inicio') &&
-          !context.toLowerCase().includes('actividad') &&
-          !context.toLowerCase().includes('vto') &&
-          !context.toLowerCase().includes('vencimiento')
-        ) {
-          const dateObj = parseDateToObject(normalizedDate);
-          if (dateObj) {
-            // Evitar fechas duplicadas
-            if (!allDates.some((d) => d.date === normalizedDate)) {
-              allDates.push({
-                date: normalizedDate,
-                source: extractedDate,
-                timestamp: dateObj.getTime(),
-              });
-            }
-          }
+        const dateObj = parseDateToObject(normalizedDate);
+        if (!dateObj || allDates.some((d) => d.date === normalizedDate)) {
+          continue;
         }
+
+        // Obtener contexto para scoring y filtrado
+        const context = text.substring(
+          Math.max(0, (match.index || 0) - 70),
+          (match.index || 0) + 100
+        );
+        const contextLower = context.toLowerCase();
+
+        // Filtrar fechas no deseadas
+        if (
+          contextLower.includes('inicio') ||
+          contextLower.includes('actividad') ||
+          contextLower.includes('vto') ||
+          contextLower.includes('vencimiento') ||
+          contextLower.includes('cae') ||
+          contextLower.includes('período') ||
+          contextLower.includes('desde') ||
+          contextLower.includes('hasta')
+        ) {
+          continue;
+        }
+
+        // Calcular score basado en contexto
+        let score = 30; // Score base
+        if (contextLower.includes('emisi')) {
+          score += 50; // +50 si contiene "emisión"
+        }
+
+        allDates.push({
+          date: normalizedDate,
+          source: extractedDate,
+          timestamp: dateObj.getTime(),
+          context,
+          score,
+        });
       }
     }
 
-    // 3. Elegir la fecha más reciente (suele ser la fecha de emisión)
+    // 4. Elegir fecha con mejor score (priorizar emisión sobre más reciente)
     let date: string | undefined;
     if (allDates.length > 0) {
-      // Ordenar por timestamp descendente (más reciente primero)
-      allDates.sort((a, b) => b.timestamp - a.timestamp);
+      // Ordenar por score (mayor primero), luego por timestamp (más reciente)
+      allDates.sort((a, b) => {
+        if (b.score !== a.score) {
+          return b.score - a.score;
+        }
+        return b.timestamp - a.timestamp;
+      });
+
       date = allDates[0].date;
 
       if (allDates.length > 1) {
         console.info(
-          `   📅 Múltiples fechas encontradas (${allDates.length}), usando la más reciente: ${date}`
+          `   📅 Múltiples fechas encontradas (${allDates.length}), usando mejor match (score: ${allDates[0].score}): ${date}`
         );
         console.info(
           `      Otras: ${allDates
             .slice(1, 3)
-            .map((d) => d.date)
+            .map((d) => `${d.date} (score: ${d.score})`)
             .join(', ')}`
         );
       }

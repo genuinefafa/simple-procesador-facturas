@@ -33,17 +33,6 @@ export const POST: RequestHandler = async ({ params }) => {
       pendingFile.originalFilename,
     );
 
-    // Mapear source a method (temporal hasta que ProcessingResult incluya method directamente)
-    let extractionMethod: string | undefined = undefined;
-    if (result.source === "PDF_EXTRACTION") {
-      extractionMethod = "PDF_TEXT"; // Asumimos PDF_TEXT si viene de PDF extraction
-    } else if (
-      result.source === "EXCEL_MATCH_UNIQUE" ||
-      result.source === "EXCEL_MATCH_AMBIGUOUS"
-    ) {
-      extractionMethod = "EXCEL_MATCH";
-    }
-
     // Actualizar datos extraídos en la BD
     const updated = pendingFileRepo.updateExtractedData(id, {
       extractedCuit: result.extractedData?.cuit,
@@ -53,7 +42,7 @@ export const POST: RequestHandler = async ({ params }) => {
       extractedPointOfSale: result.extractedData?.pointOfSale,
       extractedInvoiceNumber: result.extractedData?.invoiceNumber,
       extractionConfidence: result.confidence,
-      extractionMethod: extractionMethod,
+      extractionMethod: result.method, // Usar method directamente de ProcessingResult
       extractionErrors: result.error ? [result.error] : undefined,
     });
 
