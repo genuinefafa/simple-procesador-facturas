@@ -38,16 +38,25 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Si ya está procesado, retornar error
     if (pendingFile.status === 'processed') {
-      return json(
-        { success: false, error: 'Este archivo ya fue procesado' },
-        { status: 400 }
-      );
+      return json({ success: false, error: 'Este archivo ya fue procesado' }, { status: 400 });
     }
 
     // Validar datos requeridos
-    const { extractedCuit, extractedDate, extractedType, extractedPointOfSale, extractedInvoiceNumber } = pendingFile;
+    const {
+      extractedCuit,
+      extractedDate,
+      extractedType,
+      extractedPointOfSale,
+      extractedInvoiceNumber,
+    } = pendingFile;
 
-    if (!extractedCuit || !extractedDate || !extractedType || extractedPointOfSale === null || extractedInvoiceNumber === null) {
+    if (
+      !extractedCuit ||
+      !extractedDate ||
+      !extractedType ||
+      extractedPointOfSale === null ||
+      extractedInvoiceNumber === null
+    ) {
       return json(
         {
           success: false,

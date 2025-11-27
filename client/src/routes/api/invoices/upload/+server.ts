@@ -40,7 +40,17 @@ export const POST: RequestHandler = async ({ request }) => {
       // Validar extensión
       // Soportamos: PDF, imágenes comunes (JPG, PNG), y formatos adicionales para OCR (TIF, WEBP, HEIC)
       const ext = file.name.split('.').pop()?.toLowerCase();
-      const SUPPORTED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'tif', 'tiff', 'webp', 'heic', 'heif'];
+      const SUPPORTED_EXTENSIONS = [
+        'pdf',
+        'jpg',
+        'jpeg',
+        'png',
+        'tif',
+        'tiff',
+        'webp',
+        'heic',
+        'heif',
+      ];
       if (!ext || !SUPPORTED_EXTENSIONS.includes(ext)) {
         console.warn(`⚠️  [UPLOAD] Tipo no soportado: ${file.name}`);
         return json(
