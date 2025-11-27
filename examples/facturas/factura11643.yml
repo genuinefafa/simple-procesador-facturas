@@ -1,0 +1,17 @@
+# Anotación de factura procesada automáticamente
+# Confianza de extracción: 100.0%
+
+emisor:
+  cuit: "30-50001770-4"
+  nombre: "Emisor 30-50001770-4"
+
+factura:
+  tipo: "A"
+  punto_venta: 5
+  numero: 11643
+  fecha: "2023-02-14"
+  total: 77.30
+
+# Campos opcionales para templates futuros:
+# sugerencia_template: "estandar_horizontal"
+# notas: "Agregar observaciones manuales aquí"
