@@ -82,9 +82,10 @@ export class InvoiceProcessingService {
         const text = await this.pdfExtractor.extractText(filePath);
 
         // Mostrar una muestra del texto extraído
-        const preview = text.trim().substring(0, 300);
+        const lenTrimLog = 3000;
+        const preview = text.trim().substring(0, lenTrimLog);
         console.info(
-          `   📝 Texto en PDF (primeros 300 chars): "${preview}${text.length > 300 ? '...' : ''}"`
+          `   📝 Texto en PDF (primeros ${lenTrimLog} chars): "${preview}${text.length > lenTrimLog ? '...' : ''}"`
         );
 
         // Si el texto extraído es muy corto, probablemente sea un escaneo
