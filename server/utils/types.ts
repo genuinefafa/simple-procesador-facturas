@@ -21,7 +21,16 @@ export type InvoiceType = 'A' | 'B' | 'C' | 'E' | 'M' | 'X';
 export type Currency = 'ARS' | 'USD' | 'EUR';
 
 // Método de extracción usado
-export type ExtractionMethod = 'TEMPLATE' | 'GENERICO' | 'MANUAL';
+export type ExtractionMethod =
+  | 'TEMPLATE'
+  | 'GENERICO'
+  | 'MANUAL'
+  | 'PDF_TEXT'
+  | 'OCR'
+  | 'PDF_TEXT+OCR';
+
+// Tipo de documento (Factura, Nota de Crédito, Nota de Débito)
+export type DocumentKind = 'FAC' | 'NCR' | 'NDB';
 
 /**
  * Emisor de facturas
@@ -115,6 +124,7 @@ export interface ExtractionResult {
     emitterName?: string;
     date?: string;
     invoiceType?: InvoiceType;
+    documentKind?: DocumentKind;
     pointOfSale?: number;
     invoiceNumber?: number;
     total?: number;

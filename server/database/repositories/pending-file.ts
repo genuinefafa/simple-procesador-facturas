@@ -20,6 +20,7 @@ export interface PendingFile {
   extractedPointOfSale: number | null;
   extractedInvoiceNumber: number | null;
   extractionConfidence: number | null;
+  extractionMethod: string | null; // PDF_TEXT, OCR, TEMPLATE, MANUAL
   extractionErrors: string | null;
   status: PendingFileStatus;
   invoiceId: number | null;
@@ -40,6 +41,7 @@ interface PendingFileRow {
   extracted_point_of_sale: number | null;
   extracted_invoice_number: number | null;
   extraction_confidence: number | null;
+  extraction_method: string | null;
   extraction_errors: string | null;
   status: PendingFileStatus;
   invoice_id: number | null;
@@ -71,6 +73,7 @@ export class PendingFileRepository {
       extractedPointOfSale: row.extracted_point_of_sale,
       extractedInvoiceNumber: row.extracted_invoice_number,
       extractionConfidence: row.extraction_confidence,
+      extractionMethod: row.extraction_method,
       extractionErrors: row.extraction_errors,
       status: row.status,
       invoiceId: row.invoice_id,
@@ -93,6 +96,7 @@ export class PendingFileRepository {
     extractedPointOfSale?: number;
     extractedInvoiceNumber?: number;
     extractionConfidence?: number;
+    extractionMethod?: string; // PDF_TEXT, OCR, TEMPLATE, MANUAL
     extractionErrors?: string | string[];
     status?: PendingFileStatus;
   }): PendingFile {
@@ -107,8 +111,8 @@ export class PendingFileRepository {
         original_filename, file_path, file_size,
         extracted_cuit, extracted_date, extracted_total,
         extracted_type, extracted_point_of_sale, extracted_invoice_number,
-        extraction_confidence, extraction_errors, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        extraction_confidence, extraction_method, extraction_errors, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const result = stmt.run(
@@ -122,6 +126,7 @@ export class PendingFileRepository {
       data.extractedPointOfSale || null,
       data.extractedInvoiceNumber || null,
       data.extractionConfidence || null,
+      data.extractionMethod || null,
       errorsJson,
       data.status || 'pending'
     );
@@ -197,6 +202,7 @@ export class PendingFileRepository {
       extractedPointOfSale?: number;
       extractedInvoiceNumber?: number;
       extractionConfidence?: number;
+      extractionMethod?: string;
       extractionErrors?: string | string[];
     }
   ): PendingFile {
@@ -230,6 +236,10 @@ export class PendingFileRepository {
     if (data.extractionConfidence !== undefined) {
       updates.push('extraction_confidence = ?');
       params.push(data.extractionConfidence);
+    }
+    if (data.extractionMethod !== undefined) {
+      updates.push('extraction_method = ?');
+      params.push(data.extractionMethod);
     }
     if (data.extractionErrors !== undefined) {
       const errorsJson = Array.isArray(data.extractionErrors)

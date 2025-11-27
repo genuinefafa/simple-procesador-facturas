@@ -1,9 +1,15 @@
 /**
  * Servicio de procesamiento de facturas
  * Encapsula toda la lógica de extracción y guardado
+ *
+ * Soporta:
+ * - PDFs digitales (texto embebido)
+ * - PDFs escaneados (via OCR)
+ * - Imágenes: JPG, PNG, TIFF, WEBP, HEIC
  */
 
 import { PDFExtractor } from '../extractors/pdf-extractor.js';
+import { OCRExtractor } from '../extractors/ocr-extractor.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '../validators/cuit.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import { InvoiceRepository } from '../database/repositories/invoice.js';
@@ -12,7 +18,14 @@ import {
   type ExpectedInvoice,
 } from '../database/repositories/expected-invoice.js';
 import { format, subDays, addDays } from 'date-fns';
-import type { Invoice } from '../utils/types.js';
+import { extname } from 'path';
+import type { Invoice, DocumentType, ExtractionMethod } from '../utils/types.js';
+
+// Extensiones de imagen soportadas para OCR
+const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp', '.heic', '.heif'];
+
+// Umbral mínimo de caracteres para considerar un PDF como "digital"
+const MIN_PDF_TEXT_LENGTH = 100;
 
 export interface ProcessingResult {
   success: boolean;
@@ -21,6 +34,7 @@ export interface ProcessingResult {
   requiresReview: boolean;
   confidence: number;
   source?: 'PDF_EXTRACTION' | 'EXCEL_MATCH_UNIQUE' | 'EXCEL_MATCH_AMBIGUOUS' | 'NO_MATCH';
+  method?: ExtractionMethod; // Método de extracción específico
   matchedExpectedInvoiceId?: number;
   matchCandidates?: ExpectedInvoice[];
   extractedData?: {
@@ -35,15 +49,65 @@ export interface ProcessingResult {
 
 export class InvoiceProcessingService {
   private pdfExtractor: PDFExtractor;
+  private ocrExtractor: OCRExtractor;
   private emitterRepo: EmitterRepository;
   private invoiceRepo: InvoiceRepository;
   private expectedInvoiceRepo: ExpectedInvoiceRepository;
 
   constructor() {
     this.pdfExtractor = new PDFExtractor();
+    this.ocrExtractor = new OCRExtractor();
     this.emitterRepo = new EmitterRepository();
     this.invoiceRepo = new InvoiceRepository();
     this.expectedInvoiceRepo = new ExpectedInvoiceRepository();
+  }
+
+  /**
+   * Detecta el tipo de documento basado en la extensión y contenido
+   * @param filePath - Ruta al archivo
+   * @returns Tipo de documento detectado
+   */
+  private async detectDocumentType(filePath: string): Promise<DocumentType> {
+    const ext = extname(filePath).toLowerCase();
+
+    // Si es una imagen, retornar IMAGEN
+    if (IMAGE_EXTENSIONS.includes(ext)) {
+      console.info(`   📷 Tipo detectado: IMAGEN (${ext})`);
+      return 'IMAGEN';
+    }
+
+    // Si es PDF, verificar si tiene texto embebido
+    if (ext === '.pdf') {
+      try {
+        const text = await this.pdfExtractor.extractText(filePath);
+
+        // Mostrar una muestra del texto extraído
+        const lenTrimLog = 3000;
+        const preview = text.trim().substring(0, lenTrimLog);
+        console.info(
+          `   📝 Texto en PDF (primeros ${lenTrimLog} chars): "${preview}${text.length > lenTrimLog ? '...' : ''}"`
+        );
+
+        // Si el texto extraído es muy corto, probablemente sea un escaneo
+        if (text.trim().length < MIN_PDF_TEXT_LENGTH) {
+          console.info(
+            `   📷 Tipo detectado: PDF_IMAGEN (texto insuficiente: ${text.trim().length} chars)`
+          );
+          return 'PDF_IMAGEN';
+        }
+
+        console.info(`   📄 Tipo detectado: PDF_DIGITAL (${text.trim().length} chars de texto)`);
+        return 'PDF_DIGITAL';
+      } catch {
+        // Si falla la extracción de texto, asumir que es PDF escaneado
+        console.info(`   📷 Tipo detectado: PDF_IMAGEN (error al extraer texto)`);
+        return 'PDF_IMAGEN';
+      }
+    }
+
+    // Default: asumir PDF digital
+    console.warn(`   ⚠️  Extensión no reconocida (${ext}), asumiendo PDF_DIGITAL`);
+    return 'PDF_DIGITAL';
   }
 
   /**
@@ -57,17 +121,90 @@ export class InvoiceProcessingService {
     console.info(`   📂 Ruta: ${filePath}`);
 
     try {
-      // 1. Extraer información del PDF
-      console.info(`   📄 Extrayendo datos del PDF...`);
-      const extraction = await this.pdfExtractor.extract(filePath);
+      // 0. Detectar tipo de documento
+      console.info(`   🔍 Detectando tipo de documento...`);
+      const documentType = await this.detectDocumentType(filePath);
+
+      // 1. Extraer información según el tipo de documento
+      let extraction;
+      let usedFallback = false; // Track si se usó fallback PDF_TEXT → OCR
+
+      if (documentType === 'PDF_DIGITAL') {
+        console.info(`   📄 Extrayendo datos del PDF digital...`);
+        extraction = await this.pdfExtractor.extract(filePath);
+
+        // FALLBACK INTELIGENTE: Si PDF_TEXT no encuentra datos útiles, intentar OCR
+        // Esto pasa cuando el PDF tiene texto (metadatos, marcas de agua) pero no datos reales
+        const hasValidCuit = extraction.data.cuit && extraction.data.cuit.length >= 11;
+        const hasValidDate = !!extraction.data.date;
+        const hasValidTotal = !!extraction.data.total;
+        const hasValidType = !!extraction.data.invoiceType;
+
+        // Contar campos críticos detectados
+        const criticalFieldsDetected = [
+          hasValidCuit,
+          hasValidDate,
+          hasValidTotal,
+          hasValidType,
+        ].filter(Boolean).length;
+        const hasLowConfidence = extraction.confidence < 50; // Subido de 30% a 50%
+        const missingCriticalFields = criticalFieldsDetected < 2; // Si faltan 3 o más de 4 campos
+
+        if (hasLowConfidence || missingCriticalFields) {
+          console.warn(
+            `   ⚠️  PDF_TEXT extrajo texto pero datos insuficientes (conf: ${extraction.confidence}%, campos: ${criticalFieldsDetected}/4)`
+          );
+          console.info(`   🔄 Intentando OCR como fallback para verificar si es PDF escaneado...`);
+
+          try {
+            const ocrExtraction = await this.ocrExtractor.extract(filePath);
+
+            // Si OCR encuentra más datos, usar esos
+            if (ocrExtraction.confidence > extraction.confidence || ocrExtraction.data.cuit) {
+              console.info(
+                `   ✅ OCR encontró mejores datos (conf: ${ocrExtraction.confidence}% vs ${extraction.confidence}%)`
+              );
+              extraction = ocrExtraction;
+              usedFallback = true; // Marcar que se usó fallback
+            } else {
+              console.info(`   ℹ️  OCR no mejoró los resultados, usando PDF_TEXT original`);
+            }
+          } catch (ocrError) {
+            console.warn(`   ⚠️  OCR falló, usando PDF_TEXT original:`, ocrError);
+          }
+        }
+      } else if (documentType === 'IMAGEN') {
+        console.info(`   📷 Extrayendo datos de imagen con OCR...`);
+        extraction = await this.ocrExtractor.extract(filePath);
+      } else if (documentType === 'PDF_IMAGEN') {
+        // PDF escaneado: intentar OCR si está disponible, sino fallback a pdf-parse
+        console.info(`   📷 PDF escaneado detectado - Intentando OCR...`);
+        try {
+          extraction = await this.ocrExtractor.extract(filePath);
+          // Si OCR no extrae suficiente, intentar con pdf-parse como fallback
+          if (!extraction.success && extraction.confidence < 30) {
+            console.info(`   ⚠️  OCR insuficiente, intentando pdf-parse como fallback...`);
+            extraction = await this.pdfExtractor.extract(filePath);
+          }
+        } catch (ocrError) {
+          console.warn(`   ⚠️  OCR falló, usando pdf-parse como fallback:`, ocrError);
+          extraction = await this.pdfExtractor.extract(filePath);
+        }
+      } else {
+        console.info(`   📄 Extrayendo datos del PDF...`);
+        extraction = await this.pdfExtractor.extract(filePath);
+      }
+
       console.info(
-        `   📊 Extracción completada - Éxito: ${extraction.success}, Confianza: ${extraction.confidence}%`
+        `   📊 Extracción completada - Éxito: ${extraction.success}, Confianza: ${extraction.confidence}%, Método: ${extraction.method}`
       );
 
       const data = extraction.data;
       const confidence = extraction.confidence || 0;
+      // Si se usó fallback, indicar que se usó ambos métodos
+      const extractionMethod = usedFallback ? 'PDF_TEXT+OCR' : extraction.method;
 
-      console.info(`   📋 Datos extraídos (RAW):`);
+      console.info(`   📋 Datos extraídos (RAW) [${extractionMethod}]:`);
       console.info(`      CUIT: ${data.cuit || '❌ NO DETECTADO'}`);
       console.info(`      Fecha: ${data.date || '❌ NO DETECTADO'}`);
       console.info(`      Total: ${data.total !== undefined ? data.total : '❌ NO DETECTADO'}`);
@@ -88,6 +225,7 @@ export class InvoiceProcessingService {
           requiresReview: true,
           confidence,
           source: 'PDF_EXTRACTION',
+          method: extractionMethod, // Incluir método específico
           extractedData: {
             cuit: data.cuit,
             date: data.date,
@@ -273,8 +411,8 @@ export class InvoiceProcessingService {
         currency: 'ARS',
         originalFile: fileName,
         processedFile: fileName, // Se actualizará cuando se renombre
-        fileType: 'PDF_DIGITAL',
-        extractionMethod: 'GENERICO',
+        fileType: documentType,
+        extractionMethod: extractionMethod,
         extractionConfidence: confidence,
         requiresReview: confidence < 80,
       });

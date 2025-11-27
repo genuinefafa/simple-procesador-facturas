@@ -12,6 +12,7 @@
     "test": "npm run test -w server",
     "test:coverage": "npm run test:coverage -w server",
     "lint": "npm run lint --workspaces --if-present",
+    "format": "npm run format --workspaces --if-present",
     "format:check": "npm run format:check --workspaces --if-present",
     "db:migrate": "npm run db:migrate -w server",
     "db:seed": "npm run db:seed -w server",

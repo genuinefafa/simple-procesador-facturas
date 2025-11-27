@@ -1,20 +1,28 @@
 /**
  * Tests para utilidades de nombres de archivo
+ *
+ * Nuevo formato:
+ * - Directorio: yyyy-mm
+ * - Nombre: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV NUM.ext
  */
 
 import { describe, it, expect } from 'vitest';
 import {
   getShortestName,
   sanitizeFilename,
+  sanitizeFilenameReadable,
   getComprobanteCode,
+  getDocumentTypeCode,
   padNumber,
   formatDateForFilename,
   generateProcessedFilename,
+  generateSubdirectory,
+  generateProcessedPath,
 } from '../../../utils/file-naming';
 import type { Emitter } from '../../../utils/types';
 
 describe('file-naming utils', () => {
-  describe('sanitizeFilename', () => {
+  describe('sanitizeFilename (legacy)', () => {
     it('debe convertir a minúsculas', () => {
       expect(sanitizeFilename('ANDEREGGEN')).toBe('andereggen');
     });
@@ -26,13 +34,28 @@ describe('file-naming utils', () => {
     it('debe eliminar acentos', () => {
       expect(sanitizeFilename('José María')).toBe('jose_maria');
     });
+  });
+
+  describe('sanitizeFilenameReadable', () => {
+    it('debe mantener mayúsculas/minúsculas', () => {
+      expect(sanitizeFilenameReadable('ANDEREGGEN')).toBe('ANDEREGGEN');
+      expect(sanitizeFilenameReadable('Seguros')).toBe('Seguros');
+    });
+
+    it('debe reemplazar espacios por guión bajo', () => {
+      expect(sanitizeFilenameReadable('Seguros La Segunda')).toBe('Seguros_La_Segunda');
+    });
+
+    it('debe eliminar acentos', () => {
+      expect(sanitizeFilenameReadable('José María')).toBe('Jose_Maria');
+    });
 
     it('debe eliminar caracteres especiales', () => {
-      expect(sanitizeFilename('ABC & Co. S.A.')).toBe('abc_co_sa');
+      expect(sanitizeFilenameReadable('ABC & Co. S.A.')).toBe('ABC_Co_SA');
     });
 
     it('debe normalizar múltiples espacios', () => {
-      expect(sanitizeFilename('ABC   XYZ')).toBe('abc_xyz');
+      expect(sanitizeFilenameReadable('ABC   XYZ')).toBe('ABC_XYZ');
     });
   });
 
@@ -49,7 +72,7 @@ describe('file-naming utils', () => {
         updatedAt: new Date(),
       };
 
-      expect(getShortestName(emitter)).toBe('juan_perez');
+      expect(getShortestName(emitter)).toBe('Juan_Perez');
     });
 
     it('debe retornar el alias más corto', () => {
@@ -79,25 +102,31 @@ describe('file-naming utils', () => {
         updatedAt: new Date(),
       };
 
-      expect(getShortestName(emitter)).toBe('seguros');
+      expect(getShortestName(emitter)).toBe('Seguros');
     });
   });
 
-  describe('getComprobanteCode', () => {
-    it('debe mapear tipo A a faca', () => {
-      expect(getComprobanteCode('A')).toBe('faca');
+  describe('getComprobanteCode (legacy)', () => {
+    it('debe mapear tipo A a FACA', () => {
+      expect(getComprobanteCode('A')).toBe('FACA');
     });
 
-    it('debe mapear tipo B a facb', () => {
-      expect(getComprobanteCode('B')).toBe('facb');
-    });
-
-    it('debe mapear tipo C a facc', () => {
-      expect(getComprobanteCode('C')).toBe('facc');
+    it('debe mapear tipo B a FACB', () => {
+      expect(getComprobanteCode('B')).toBe('FACB');
     });
 
     it('debe generar código genérico para tipos no mapeados', () => {
-      expect(getComprobanteCode('X')).toBe('facx');
+      expect(getComprobanteCode('X')).toBe('FACX');
+    });
+  });
+
+  describe('getDocumentTypeCode', () => {
+    it('debe combinar tipo de documento con letra', () => {
+      expect(getDocumentTypeCode('FAC', 'A')).toBe('FACA');
+      expect(getDocumentTypeCode('FAC', 'B')).toBe('FACB');
+      expect(getDocumentTypeCode('NCR', 'A')).toBe('NCRA');
+      expect(getDocumentTypeCode('NCR', 'B')).toBe('NCRB');
+      expect(getDocumentTypeCode('NDB', 'A')).toBe('NDBA');
     });
   });
 
@@ -124,8 +153,25 @@ describe('file-naming utils', () => {
     });
   });
 
+  describe('generateSubdirectory', () => {
+    it('debe generar subdirectorio yyyy-mm', () => {
+      const date = new Date(2024, 0, 15); // Enero 2024
+      expect(generateSubdirectory(date)).toBe('2024-01');
+    });
+
+    it('debe agregar cero al mes', () => {
+      const date = new Date(2024, 8, 1); // Septiembre 2024
+      expect(generateSubdirectory(date)).toBe('2024-09');
+    });
+
+    it('debe manejar diciembre correctamente', () => {
+      const date = new Date(2024, 11, 31); // Diciembre 2024
+      expect(generateSubdirectory(date)).toBe('2024-12');
+    });
+  });
+
   describe('generateProcessedFilename', () => {
-    it('debe generar nombre correcto con todos los componentes', () => {
+    it('debe generar nombre correcto con formato nuevo', () => {
       const issueDate = new Date(2023, 1, 14); // Mes 1 = Febrero
       const emitter: Emitter = {
         cuit: '20-13046568-5',
@@ -140,7 +186,8 @@ describe('file-naming utils', () => {
 
       const filename = generateProcessedFilename(issueDate, emitter, 'A', 3, 3668, 'factura.pdf');
 
-      expect(filename).toBe('2023-02-14_20-13046568-5_oscar_faca_00003_00003668.pdf');
+      // Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV NUM.ext
+      expect(filename).toBe('2023-02-14 oscar 20-13046568-5 FACA 00003 00003668.pdf');
     });
 
     it('debe preservar la extensión del archivo original', () => {
@@ -149,7 +196,7 @@ describe('file-naming utils', () => {
         cuit: '30-50001770-4',
         cuitNumeric: '30500017704',
         name: 'Seguros La Segunda',
-        aliases: ['seguros'],
+        aliases: ['Seguros'],
         active: true,
         totalInvoices: 0,
         createdAt: new Date(),
@@ -165,15 +212,15 @@ describe('file-naming utils', () => {
         'original.tif'
       );
 
-      expect(filename).toBe('2023-05-20_30-50001770-4_seguros_facb_00124_00017649.tif');
+      expect(filename).toBe('2023-05-20 Seguros 30-50001770-4 FACB 00124 00017649.tif');
     });
 
-    it('debe manejar punto de venta de 5 dígitos', () => {
-      const issueDate = new Date(2024, 11, 31); // Mes 11 = Diciembre
+    it('debe manejar Nota de Crédito', () => {
+      const issueDate = new Date(2024, 11, 31); // Diciembre 2024
       const emitter: Emitter = {
         cuit: '20-12345678-9',
         cuitNumeric: '20123456789',
-        name: 'Test',
+        name: 'Test Empresa',
         aliases: [],
         active: true,
         totalInvoices: 0,
@@ -181,9 +228,73 @@ describe('file-naming utils', () => {
         updatedAt: new Date(),
       };
 
-      const filename = generateProcessedFilename(issueDate, emitter, 'C', 99999, 1, 'test.pdf');
+      const filename = generateProcessedFilename(
+        issueDate,
+        emitter,
+        'A',
+        99999,
+        1,
+        'test.pdf',
+        'NCR'
+      );
 
-      expect(filename).toBe('2024-12-31_20-12345678-9_test_facc_99999_00000001.pdf');
+      expect(filename).toBe('2024-12-31 Test_Empresa 20-12345678-9 NCRA 99999 00000001.pdf');
+    });
+
+    it('debe manejar Nota de Débito', () => {
+      const issueDate = new Date(2024, 5, 15); // Junio 2024
+      const emitter: Emitter = {
+        cuit: '30-99999999-9',
+        cuitNumeric: '30999999999',
+        name: 'Proveedor',
+        aliases: [],
+        active: true,
+        totalInvoices: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const filename = generateProcessedFilename(
+        issueDate,
+        emitter,
+        'B',
+        1,
+        12345678,
+        'nota.pdf',
+        'NDB'
+      );
+
+      expect(filename).toBe('2024-06-15 Proveedor 30-99999999-9 NDBB 00001 12345678.pdf');
+    });
+  });
+
+  describe('generateProcessedPath', () => {
+    it('debe generar ruta completa con subdirectorio', () => {
+      const issueDate = new Date(2024, 0, 15); // Enero 2024
+      const emitter: Emitter = {
+        cuit: '20-12345678-9',
+        cuitNumeric: '20123456789',
+        name: 'Empresa',
+        aliases: [],
+        active: true,
+        totalInvoices: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const fullPath = generateProcessedPath(
+        '/data/processed',
+        issueDate,
+        emitter,
+        'A',
+        1,
+        100,
+        'doc.pdf'
+      );
+
+      expect(fullPath).toBe(
+        '/data/processed/2024-01/2024-01-15 Empresa 20-12345678-9 FACA 00001 00000100.pdf'
+      );
     });
   });
 });

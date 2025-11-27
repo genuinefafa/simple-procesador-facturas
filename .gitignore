@@ -16,7 +16,7 @@ web/build/
 web/.vercel/
 
 # Datos del proyecto
-data/*
+data/
 !data/README.md
 !data/.gitkeep
 exports/*
@@ -117,3 +117,4 @@ docker-compose.override.yml
 
 # Archivos de sistema
 .fuse_hidden*
+

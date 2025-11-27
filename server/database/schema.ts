@@ -278,6 +278,7 @@ export const pendingFiles = sqliteTable(
     extractedInvoiceNumber: integer('extracted_invoice_number'),
 
     extractionConfidence: integer('extraction_confidence'),
+    extractionMethod: text('extraction_method'), // PDF_TEXT, OCR, TEMPLATE, MANUAL
     extractionErrors: text('extraction_errors'), // JSON con array de errores
 
     // Estados: pending, reviewing, processed, failed

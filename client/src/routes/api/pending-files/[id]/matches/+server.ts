@@ -80,11 +80,16 @@ export const GET: RequestHandler = async ({ params }) => {
 
     const ocrConfidence = Math.round((detectedFields.length / 6) * 100);
 
-    console.info(`📊 [MATCHES] Campos detectados: ${detectedFields.join(', ')} (${ocrConfidence}%)`);
+    console.info(
+      `📊 [MATCHES] Campos detectados: ${detectedFields.join(', ')} (${ocrConfidence}%)`
+    );
 
     // Si no hay ningún campo útil para buscar, retornar vacío
-    if (!normalizedCuit && pendingFile.extractedPointOfSale === null &&
-        pendingFile.extractedInvoiceNumber === null) {
+    if (
+      !normalizedCuit &&
+      pendingFile.extractedPointOfSale === null &&
+      pendingFile.extractedInvoiceNumber === null
+    ) {
       console.info('⚠️  [MATCHES] Sin campos suficientes para buscar matches');
       return json({
         success: true,
@@ -100,10 +105,12 @@ export const GET: RequestHandler = async ({ params }) => {
 
     // 1. Buscar match exacto (si tenemos los 4 campos clave)
     let exactMatch = null;
-    if (normalizedCuit && pendingFile.extractedType &&
-        pendingFile.extractedPointOfSale !== null &&
-        pendingFile.extractedInvoiceNumber !== null) {
-
+    if (
+      normalizedCuit &&
+      pendingFile.extractedType &&
+      pendingFile.extractedPointOfSale !== null &&
+      pendingFile.extractedInvoiceNumber !== null
+    ) {
       exactMatch = expectedInvoiceRepo.findExactMatch(
         normalizedCuit,
         pendingFile.extractedType,
@@ -144,9 +151,8 @@ export const GET: RequestHandler = async ({ params }) => {
     console.info(`🔍 [MATCHES] ${partialMatches.length} matches parciales encontrados`);
 
     // El mejor match parcial (si tiene score >= 75%) se considera como "mejor candidato"
-    const bestMatch = partialMatches.length > 0 && partialMatches[0].matchScore >= 75
-      ? partialMatches[0]
-      : null;
+    const bestMatch =
+      partialMatches.length > 0 && partialMatches[0].matchScore >= 75 ? partialMatches[0] : null;
 
     return json({
       success: true,

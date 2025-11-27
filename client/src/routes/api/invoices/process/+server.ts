@@ -35,7 +35,10 @@ export const POST: RequestHandler = async ({ request }) => {
       .filter((pf) => pf !== null);
 
     if (pendingFiles.length === 0) {
-      return json({ success: false, error: 'No se encontraron archivos pendientes' }, { status: 404 });
+      return json(
+        { success: false, error: 'No se encontraron archivos pendientes' },
+        { status: 404 }
+      );
     }
 
     console.info('⚙️  [PROCESS] Service inicializado, procesando...');
@@ -46,7 +49,9 @@ export const POST: RequestHandler = async ({ request }) => {
     let failedCount = 0;
 
     for (const pendingFile of pendingFiles) {
-      console.info(`📝 Procesando pending file ID ${pendingFile.id}: ${pendingFile.originalFilename}`);
+      console.info(
+        `📝 Procesando pending file ID ${pendingFile.id}: ${pendingFile.originalFilename}`
+      );
 
       // Intentar procesar
       const result = await processingService.processInvoice(
@@ -119,7 +124,9 @@ export const POST: RequestHandler = async ({ request }) => {
       failed: failedCount,
     };
 
-    console.info(`✅ [PROCESS] Completado: ${stats.processed} procesadas, ${stats.pending} pendientes, ${stats.failed} fallidas`);
+    console.info(
+      `✅ [PROCESS] Completado: ${stats.processed} procesadas, ${stats.pending} pendientes, ${stats.failed} fallidas`
+    );
 
     return json({
       success: true,
