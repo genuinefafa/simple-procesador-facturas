@@ -88,6 +88,47 @@ En `invoice-processing.service.ts` ya existe la lógica de matching, pero falta:
 
 ## ⏳ Próximos Pasos Sugeridos
 
+### 🎯 Prioridades Inmediatas (2025-11-27)
+
+#### 1. Testing y Prevención de Regresiones (Alta Prioridad)
+**Motivación:** Evitar que cambios futuros rompan funcionalidades que ya funcionan.
+
+- [ ] **Crear suite de tests automatizados para reconocimiento de archivos**
+  - Usar datos de prueba existentes para crear casos de test
+  - Tests para extracción de CUIT, fecha, tipo de factura, total, etc.
+  - Tests para diferentes formatos: PDF digital, PDF escaneado, imágenes
+  - Tests para detección de códigos AFIP
+  - Tests para el sistema de scoring de fechas
+  - Validar que no haya regresiones en funcionalidades existentes
+
+#### 2. Mejoras de UX/UI (Alta Prioridad)
+**Motivación:** La interfaz actual no es intuitiva para el usuario.
+
+- [ ] **Rediseño de interfaz para mejorar usabilidad**
+  - Revisar flujo completo de procesamiento de facturas
+  - Mejorar visualización de datos extraídos
+  - Facilitar corrección manual de campos detectados incorrectamente
+  - Mejorar feedback visual durante procesamiento (loading states)
+  - Revisar layout y organización de información
+  - Simplificar acciones comunes
+
+#### 3. Validación de Salidas (Media Prioridad)
+**Motivación:** Verificar que los archivos generados sean correctos.
+
+- [ ] **Verificar formato de archivos generados**
+  - Validar estructura de archivos exportados
+  - Revisar formato de nombres de archivo
+  - Verificar integridad de datos en exports
+  - Documentar formato esperado
+  - Tests de integridad
+
+- [ ] **Revisar sistema de alias de emisor**
+  - Verificar que aliases se muestren correctamente
+  - Mejorar detección y deduplicación de nombres de emisores
+  - Validar que el sistema de aliases funcione como esperado
+
+---
+
 ### Opción A: Completar FASE 1.5 (2-3 horas)
 
 **Tareas concretas:**
@@ -226,6 +267,14 @@ git log --oneline -10          # Últimos commits
 
 ## 📝 Sesiones Anteriores
 
+### 2025-11-27: Mejoras de Detección y Herramientas de Desarrollo
+- Mejorado sistema de detección de tipo de factura con códigos AFIP
+- Agregado patrón específico para "A\nCódigo: 01" (letra separada del código)
+- Agregados logs de debug para troubleshooting de detección
+- Agregado script `npm run format` para formateo automático con Prettier
+- Prettier instalado en client workspace
+- Actualización del ROADMAP con prioridades 2025-11-27
+
 ### 2025-11-22: UI Review + TypeScript Fixes
 - Rediseño de sección "Revisar" con tabla comparativa
 - Eliminado overlay que tapaba el PDF
@@ -245,4 +294,4 @@ git log --oneline -10          # Últimos commits
 
 ---
 
-Última actualización: 2025-11-22
+Última actualización: 2025-11-27

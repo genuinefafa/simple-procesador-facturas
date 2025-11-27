@@ -102,11 +102,15 @@ export function getDocumentTypeFromAFIPCode(code: string): AFIPDocumentType | un
 export function extractAFIPCodeFromText(text: string): AFIPDocumentType | undefined {
   // Patrones donde puede aparecer el código AFIP
   const patterns = [
+    // Patrón más específico primero: letra del comprobante seguida de "Código:"
+    // Ejemplo: "A\nCódigo: 01" o "B Código: 06"
+    /(?:^|\s)([A-CEM])\s*[\r\n]+\s*C[oóÓ]d(?:igo)?\.?\s*:?\s*(\d{1,3})\b/im,
+
     // Texto pegado: "01Código" (código antes de la palabra)
     /(\d{1,3})C[oóÓ]d(?:igo)?/i,
 
-    // "Cod. 11" o "Cod: 11" o "Cod 11"
-    /\bCod(?:igo)?\.?\s*:?\s*(\d{1,3})\b/i,
+    // "Cod. 11" o "Cod: 11" o "Cod 11" (incluyendo "Código:" con acento)
+    /\bC[oóÓ]d(?:igo)?\.?\s*:?\s*(\d{1,3})\b/i,
 
     // "CODIGO: 011" (puede estar en líneas separadas)
     /\bCODIGO\s*:?\s*[\r\n]*\s*(\d{1,3})\b/i,
@@ -121,17 +125,48 @@ export function extractAFIPCodeFromText(text: string): AFIPDocumentType | undefi
     /\bComp(?:robante)?\.?\s*:?\s*(\d{1,3})\b/i,
   ];
 
-  for (const pattern of patterns) {
+  for (let i = 0; i < patterns.length; i++) {
+    const pattern = patterns[i];
     const match = text.match(pattern);
-    if (match && match[1]) {
-      const docType = getDocumentTypeFromAFIPCode(match[1]);
-      if (docType) {
-        console.info(`   🏛️ Código AFIP detectado: ${match[1]} → ${docType.description}`);
-        return docType;
+    if (match) {
+      // El primer patrón captura la letra del comprobante Y el código
+      if (i === 0 && match[1] && match[2]) {
+        // match[1] = letra (A, B, C, etc), match[2] = código AFIP
+        const docType = getDocumentTypeFromAFIPCode(match[2]);
+        if (docType) {
+          // Verificar que la letra detectada coincida con el código AFIP
+          const detectedLetter = match[1].toUpperCase();
+          if (docType.invoiceType === detectedLetter) {
+            console.info(
+              `   🏛️ Código AFIP detectado: ${detectedLetter} + código ${match[2]} → ${docType.description}`
+            );
+            return docType;
+          } else {
+            console.warn(
+              `   ⚠️ Inconsistencia: letra ${detectedLetter} no coincide con código ${match[2]} (${docType.invoiceType})`
+            );
+            // Confiar en el código AFIP de todos modos
+            console.info(`   🏛️ Usando código AFIP: ${match[2]} → ${docType.description}`);
+            return docType;
+          }
+        }
+      }
+      // Para el resto de los patrones, el código está en match[1]
+      else if (match[1]) {
+        const docType = getDocumentTypeFromAFIPCode(match[1]);
+        if (docType) {
+          console.info(`   🏛️ Código AFIP detectado: ${match[1]} → ${docType.description}`);
+          return docType;
+        } else {
+          console.debug(
+            `   ⚠️ Código encontrado (${match[1]}) pero no coincide con códigos AFIP conocidos`
+          );
+        }
       }
     }
   }
 
+  console.debug('   ℹ️ No se encontró código AFIP en el texto');
   return undefined;
 }
 
