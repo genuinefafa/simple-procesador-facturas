@@ -7,9 +7,9 @@ import { extractCUITsWithContext } from '../validators/cuit.js';
 
 const problemFiles = [
   'factura11643.pdf', // Debe detectar 30-51758323-1 pero detecta 30-50001770-4
-  'factura128.pdf',   // Debe detectar 23-10058899-4
-  'factura3435.pdf',  // Debe detectar 23-18140463-9
-  'factura5.pdf',     // Debe detectar 20-10200053-7
+  'factura128.pdf', // Debe detectar 23-10058899-4
+  'factura3435.pdf', // Debe detectar 23-18140463-9
+  'factura5.pdf', // Debe detectar 20-10200053-7
 ];
 
 const extractor = new PDFExtractor();
@@ -36,7 +36,6 @@ for (const file of problemFiles) {
     const start = Math.max(0, firstCuit.position - 200);
     const end = Math.min(text.length, firstCuit.position + 200);
     console.log(text.slice(start, end).replace(/\s+/g, ' '));
-
   } catch (error) {
     console.error(`❌ Error: ${error}`);
   }

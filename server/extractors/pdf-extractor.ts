@@ -56,8 +56,11 @@ export class PDFExtractor {
       if (cuitsWithContext.length > 1) {
         console.info(`   📊 Top ${Math.min(3, cuitsWithContext.length)} candidatos:`);
         cuitsWithContext.slice(0, 3).forEach((c, i) => {
-          const preview = c.contextBefore.slice(-30) + '►' + c.cuit + '◄' + c.contextAfter.slice(0, 30);
-          console.info(`      ${i + 1}. ${c.cuit} (score: ${c.score}) - "${preview.replace(/\s+/g, ' ')}"`);
+          const preview =
+            c.contextBefore.slice(-30) + '►' + c.cuit + '◄' + c.contextAfter.slice(0, 30);
+          console.info(
+            `      ${i + 1}. ${c.cuit} (score: ${c.score}) - "${preview.replace(/\s+/g, ' ')}"`
+          );
         });
       }
     }
@@ -245,6 +248,31 @@ export class PDFExtractor {
         if (contextLower.includes('período') || contextLower.includes('periodo')) score -= 70;
         if (contextLower.includes('desde') || contextLower.includes('hasta')) score -= 60;
         if (contextLower.includes('inicio actividad')) score -= 100;
+
+        // NUEVAS HEURÍSTICAS MEJORADAS:
+
+        // Penalizar fechas muy antiguas (probablemente inicio de actividades)
+        const now = new Date();
+        const yearsDiff = (now.getTime() - dateObj.getTime()) / (1000 * 60 * 60 * 24 * 365);
+        if (yearsDiff > 3)
+          score -= 100; // Más de 3 años atrás
+        else if (yearsDiff > 2) score -= 50; // Más de 2 años atrás
+
+        // Detectar patrón típico de inicio de actividades: IIBB + Fecha + CUIT
+        // Buscar números de 10-13 dígitos antes de la fecha (IIBB)
+        if (/\d{10,13}\s*[\r\n]+\s*$/.test(context.slice(0, 150))) {
+          score -= 80; // Probablemente es inicio de actividades
+        }
+
+        // Bonus si aparece cerca de número de factura (ej: "Nº 00128")
+        if (/n[°ºo]?\s*\d{4,8}/i.test(contextLower)) {
+          score += 40;
+        }
+
+        // Bonus si la fecha se repite en el texto (señal de importancia)
+        const datePattern = normalizedDate.replace(/\//g, '\\/');
+        const occurrences = (text.match(new RegExp(datePattern, 'g')) || []).length;
+        if (occurrences > 1) score += (occurrences - 1) * 20; // +20 por cada repetición adicional
 
         // Solo agregar si el score no es demasiado negativo
         if (score < -50) {

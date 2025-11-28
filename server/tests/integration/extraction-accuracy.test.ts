@@ -136,9 +136,10 @@ describe('Precisión de Extracción de Datos', () => {
 
     const failedFiles = results.filter((r) => !r.cuitMatch).map((r) => r.file);
 
-    expect(accuracy, `CUIT: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.CUIT}%. Fallos en: ${failedFiles.join(', ')}`).toBeGreaterThanOrEqual(
-      ACCURACY_THRESHOLDS.CUIT
-    );
+    expect(
+      accuracy,
+      `CUIT: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.CUIT}%. Fallos en: ${failedFiles.join(', ')}`
+    ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.CUIT);
   });
 
   it('debe mantener precisión de Fecha >= 60% (objetivo: 90%)', () => {
@@ -147,9 +148,10 @@ describe('Precisión de Extracción de Datos', () => {
 
     const failedFiles = results.filter((r) => !r.fechaMatch).map((r) => r.file);
 
-    expect(accuracy, `Fecha: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Fecha}%. Fallos en: ${failedFiles.join(', ')}`).toBeGreaterThanOrEqual(
-      ACCURACY_THRESHOLDS.Fecha
-    );
+    expect(
+      accuracy,
+      `Fecha: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Fecha}%. Fallos en: ${failedFiles.join(', ')}`
+    ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.Fecha);
   });
 
   it('debe mantener precisión de Tipo >= 70% (objetivo: 90%)', () => {
@@ -158,9 +160,10 @@ describe('Precisión de Extracción de Datos', () => {
 
     const failedFiles = results.filter((r) => !r.tipoMatch).map((r) => r.file);
 
-    expect(accuracy, `Tipo: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Tipo}%. Fallos en: ${failedFiles.join(', ')}`).toBeGreaterThanOrEqual(
-      ACCURACY_THRESHOLDS.Tipo
-    );
+    expect(
+      accuracy,
+      `Tipo: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Tipo}%. Fallos en: ${failedFiles.join(', ')}`
+    ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.Tipo);
   });
 
   it('debe mantener precisión de Punto de Venta >= 80%', () => {
@@ -169,9 +172,10 @@ describe('Precisión de Extracción de Datos', () => {
 
     const failedFiles = results.filter((r) => !r.pvMatch).map((r) => r.file);
 
-    expect(accuracy, `PV: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.PuntoVenta}%. Fallos en: ${failedFiles.join(', ')}`).toBeGreaterThanOrEqual(
-      ACCURACY_THRESHOLDS.PuntoVenta
-    );
+    expect(
+      accuracy,
+      `PV: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.PuntoVenta}%. Fallos en: ${failedFiles.join(', ')}`
+    ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.PuntoVenta);
   });
 
   it('debe mantener precisión de Número >= 80%', () => {
@@ -180,9 +184,10 @@ describe('Precisión de Extracción de Datos', () => {
 
     const failedFiles = results.filter((r) => !r.numeroMatch).map((r) => r.file);
 
-    expect(accuracy, `Número: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Numero}%. Fallos en: ${failedFiles.join(', ')}`).toBeGreaterThanOrEqual(
-      ACCURACY_THRESHOLDS.Numero
-    );
+    expect(
+      accuracy,
+      `Número: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Numero}%. Fallos en: ${failedFiles.join(', ')}`
+    ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.Numero);
   });
 
   it('debe mantener precisión de Total >= 50% (objetivo: 90%)', () => {
@@ -191,22 +196,37 @@ describe('Precisión de Extracción de Datos', () => {
 
     const failedFiles = results.filter((r) => !r.totalMatch).map((r) => r.file);
 
-    expect(accuracy, `Total: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Total}%. Fallos en: ${failedFiles.join(', ')}`).toBeGreaterThanOrEqual(
-      ACCURACY_THRESHOLDS.Total
-    );
+    expect(
+      accuracy,
+      `Total: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Total}%. Fallos en: ${failedFiles.join(', ')}`
+    ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.Total);
   });
 
   it('debe mantener al menos 10% de extractiones perfectas (objetivo: 60%)', () => {
     const perfectMatches = results.filter(
-      (r) => r.cuitMatch && r.fechaMatch && r.tipoMatch && r.pvMatch && r.numeroMatch && r.totalMatch
+      (r) =>
+        r.cuitMatch && r.fechaMatch && r.tipoMatch && r.pvMatch && r.numeroMatch && r.totalMatch
     ).length;
     const accuracy = (perfectMatches / results.length) * 100;
 
     const failedFiles = results
-      .filter((r) => !(r.cuitMatch && r.fechaMatch && r.tipoMatch && r.pvMatch && r.numeroMatch && r.totalMatch))
+      .filter(
+        (r) =>
+          !(
+            r.cuitMatch &&
+            r.fechaMatch &&
+            r.tipoMatch &&
+            r.pvMatch &&
+            r.numeroMatch &&
+            r.totalMatch
+          )
+      )
       .map((r) => r.file);
 
-    expect(accuracy, `Global: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Global}%. Fallos en: ${failedFiles.join(', ')}`).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.Global);
+    expect(
+      accuracy,
+      `Global: ${accuracy.toFixed(1)}% < ${ACCURACY_THRESHOLDS.Global}%. Fallos en: ${failedFiles.join(', ')}`
+    ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.Global);
   });
 
   it('debe reportar estadísticas completas', () => {
@@ -218,7 +238,8 @@ describe('Precisión de Extracción de Datos', () => {
     const numeroAccuracy = (results.filter((r) => r.numeroMatch).length / totalFiles) * 100;
     const totalAccuracy = (results.filter((r) => r.totalMatch).length / totalFiles) * 100;
     const perfectMatches = results.filter(
-      (r) => r.cuitMatch && r.fechaMatch && r.tipoMatch && r.pvMatch && r.numeroMatch && r.totalMatch
+      (r) =>
+        r.cuitMatch && r.fechaMatch && r.tipoMatch && r.pvMatch && r.numeroMatch && r.totalMatch
     ).length;
 
     console.log('\n📊 ESTADÍSTICAS DE PRECISIÓN:');
@@ -226,9 +247,13 @@ describe('Precisión de Extracción de Datos', () => {
     console.log(`   Fecha: ${fechaAccuracy.toFixed(1)}% (umbral: ${ACCURACY_THRESHOLDS.Fecha}%)`);
     console.log(`   Tipo: ${tipoAccuracy.toFixed(1)}% (umbral: ${ACCURACY_THRESHOLDS.Tipo}%)`);
     console.log(`   PV: ${pvAccuracy.toFixed(1)}% (umbral: ${ACCURACY_THRESHOLDS.PuntoVenta}%)`);
-    console.log(`   Número: ${numeroAccuracy.toFixed(1)}% (umbral: ${ACCURACY_THRESHOLDS.Numero}%)`);
+    console.log(
+      `   Número: ${numeroAccuracy.toFixed(1)}% (umbral: ${ACCURACY_THRESHOLDS.Numero}%)`
+    );
     console.log(`   Total: ${totalAccuracy.toFixed(1)}% (umbral: ${ACCURACY_THRESHOLDS.Total}%)`);
-    console.log(`   Perfectas: ${perfectMatches}/${totalFiles} (${((perfectMatches / totalFiles) * 100).toFixed(1)}%)`);
+    console.log(
+      `   Perfectas: ${perfectMatches}/${totalFiles} (${((perfectMatches / totalFiles) * 100).toFixed(1)}%)`
+    );
 
     // Este test siempre pasa, solo reporta
     expect(true).toBe(true);

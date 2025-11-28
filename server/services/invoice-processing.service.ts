@@ -143,7 +143,10 @@ export class InvoiceProcessingService {
         // Detectar si el CUIT encontrado es de receptores conocidos (no emisores)
         const knownReceiverCuits = ['30-50001770-4', '3050001770-4', '30500017704']; // LA SEGUNDA
         const detectedKnownReceiver =
-          extraction.data.cuit && knownReceiverCuits.some((rc) => extraction.data.cuit?.replace(/[-\s]/g, '') === rc.replace(/[-\s]/g, ''));
+          extraction.data.cuit &&
+          knownReceiverCuits.some(
+            (rc) => extraction.data.cuit?.replace(/[-\s]/g, '') === rc.replace(/[-\s]/g, '')
+          );
 
         // Contar campos críticos detectados
         const criticalFieldsDetected = [

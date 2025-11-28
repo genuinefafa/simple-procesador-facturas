@@ -128,7 +128,9 @@ async function analyzeFile(fileName: string): Promise<FileDiff | null> {
   }
 
   // Extraer confianza del comentario en baseline
-  const confidence = parseFloat(baseline.toString().match(/Confianza de extracción: ([\d.]+)%/)?.[1] || '0');
+  const confidence = parseFloat(
+    baseline.toString().match(/Confianza de extracción: ([\d.]+)%/)?.[1] || '0'
+  );
 
   const fields: FieldDiff[] = [
     {
@@ -207,14 +209,17 @@ async function generateReport() {
   for (const result of results) {
     console.log(`\n${'─'.repeat(100)}`);
     console.log(`📋 ${result.fileName}`);
-    console.log(`   Confianza sistema: ${result.confidence}% | Precisión real: ${result.accuracy.toFixed(1)}%`);
+    console.log(
+      `   Confianza sistema: ${result.confidence}% | Precisión real: ${result.accuracy.toFixed(1)}%`
+    );
     console.log(`   Campos correctos: ${result.correctFields}/${result.totalFields}`);
 
     const errors = result.fields.filter((f) => !f.match);
     if (errors.length > 0) {
       console.log(`\n   ❌ Errores detectados:`);
       errors.forEach((err) => {
-        const severity = err.severity === 'critical' ? '🔴' : err.severity === 'major' ? '🟡' : '🟢';
+        const severity =
+          err.severity === 'critical' ? '🔴' : err.severity === 'major' ? '🟡' : '🟢';
         console.log(`      ${severity} ${err.field}:`);
         console.log(`         Detectado: ${JSON.stringify(err.baseline)}`);
         console.log(`         Correcto:  ${JSON.stringify(err.corrected)}`);
@@ -314,8 +319,12 @@ async function generateReport() {
 
   // Analizar patrones de error
   const cuitErrors = results.filter((r) => !r.fields.find((f) => f.field === 'CUIT')?.match).length;
-  const totalErrors = results.filter((r) => !r.fields.find((f) => f.field === 'Total')?.match).length;
-  const fechaErrors = results.filter((r) => !r.fields.find((f) => f.field === 'Fecha')?.match).length;
+  const totalErrors = results.filter(
+    (r) => !r.fields.find((f) => f.field === 'Total')?.match
+  ).length;
+  const fechaErrors = results.filter(
+    (r) => !r.fields.find((f) => f.field === 'Fecha')?.match
+  ).length;
 
   if (cuitErrors > 0) {
     recommendations.push({

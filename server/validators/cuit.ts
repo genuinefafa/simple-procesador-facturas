@@ -244,7 +244,10 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
       let hasStrongEmitterIndicator = false;
       if (strongEmitterKeywords.some((keyword) => contextBeforeClose.includes(keyword))) {
         hasStrongEmitterIndicator = true;
-      } else if (strongEmitterKeywords.some((keyword) => contextAfterClose.includes(keyword)) && !hasSectionSeparator) {
+      } else if (
+        strongEmitterKeywords.some((keyword) => contextAfterClose.includes(keyword)) &&
+        !hasSectionSeparator
+      ) {
         hasStrongEmitterIndicator = true;
       }
       const hasStrongReceiverIndicator = strongReceiverKeywords.some((keyword) =>

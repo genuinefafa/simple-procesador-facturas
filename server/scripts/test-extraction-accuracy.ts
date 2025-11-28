@@ -145,7 +145,9 @@ async function testExtractionAccuracy() {
       numeroMatch,
       totalMatch,
     ].filter(Boolean).length;
-    console.log(`\n   📈 Precisión: ${correctCount}/6 campos correctos (${((correctCount / 6) * 100).toFixed(1)}%)`);
+    console.log(
+      `\n   📈 Precisión: ${correctCount}/6 campos correctos (${((correctCount / 6) * 100).toFixed(1)}%)`
+    );
   }
 
   // Estadísticas generales

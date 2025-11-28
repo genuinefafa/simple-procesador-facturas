@@ -284,8 +284,11 @@ export class OCRExtractor {
         if (cuitsWithContext.length > 1) {
           console.info(`   📊 Top ${Math.min(3, cuitsWithContext.length)} candidatos:`);
           cuitsWithContext.slice(0, 3).forEach((c, i) => {
-            const preview = c.contextBefore.slice(-30) + '►' + c.cuit + '◄' + c.contextAfter.slice(0, 30);
-            console.info(`      ${i + 1}. ${c.cuit} (score: ${c.score}) - "${preview.replace(/\s+/g, ' ')}"`);
+            const preview =
+              c.contextBefore.slice(-30) + '►' + c.cuit + '◄' + c.contextAfter.slice(0, 30);
+            console.info(
+              `      ${i + 1}. ${c.cuit} (score: ${c.score}) - "${preview.replace(/\s+/g, ' ')}"`
+            );
           });
         }
       }
