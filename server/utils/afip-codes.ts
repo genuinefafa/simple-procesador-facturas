@@ -228,10 +228,17 @@ export function extractInvoiceTypeWithAFIP(text: string):
     type: InvoiceType;
     kind: DocumentKind;
   }[] = [
+    // TEXTO PEGADO SIN ESPACIOS (alta prioridad) - formato común en PDFs mal parseados
+    // Ejemplos: "AFACTURA", "BFACTURA", "CFACTURA", "A001", "C001", "B006"
+    { pattern: /\b([A-CEM])(FACTURA|001|011|006|019|201|206|211)\b/i, type: 'A', kind: 'FAC' },
+
     // CODIGO: seguido de letra en otra línea (formato AFIP electrónico)
     { pattern: /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*([A-CEM])\s*[\r\n]/i, type: 'A', kind: 'FAC' },
 
-    // Facturas
+    // Letra seguida de número de código pegado: "C001NRO" (sin espacios)
+    { pattern: /\b([A-CEM])(001|011|006|019|201|206|211)(?:NRO|N°|Nº)?/i, type: 'A', kind: 'FAC' },
+
+    // Facturas con espacios normales
     { pattern: /(?:^|\s)Factura\s+([A-CEM])(?:\s|$|[^a-z])/im, type: 'A', kind: 'FAC' },
     { pattern: /\bFACTURA\s+([A-CEM])\b/i, type: 'A', kind: 'FAC' },
     { pattern: /\bComprobante\s+([A-CEM])(?:\s|$|-)/i, type: 'A', kind: 'FAC' },

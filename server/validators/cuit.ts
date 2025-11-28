@@ -202,6 +202,14 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
     'cond. venta',
     'condiciones de venta',
     'cuenta corriente',
+    'responsable inscripto', // Suele aparecer junto al CUIT del cliente
+  ];
+
+  // CUITs conocidos de receptores/clientes (no emisores)
+  const knownReceiverCUITs = [
+    '30-50001770-4',
+    '3050001770-4',
+    '30500017704', // LA SEGUNDA COOP LTDA DE SEGURO
   ];
 
   for (const pattern of patterns) {
@@ -227,8 +235,6 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
       let score = 0;
 
       const contextLower = (contextBefore + contextAfter).toLowerCase();
-      const contextAfterLower = contextAfter.toLowerCase();
-      const contextBeforeLower = contextBefore.toLowerCase();
 
       // Detectar indicadores fuertes - SOLO si aparecen CERCA del CUIT
       // Buscar en los últimos 50 chars ANTES (labels que preceden al valor)
@@ -253,6 +259,14 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
       const hasStrongReceiverIndicator = strongReceiverKeywords.some((keyword) =>
         contextLower.includes(keyword)
       );
+
+      // PENALIZACIÓN MÁXIMA: Si es un CUIT conocido de receptor, penalizar FUERTEMENTE
+      const isKnownReceiver = knownReceiverCUITs.some(
+        (rc) => normalizedCuit.replace(/[-\s]/g, '') === rc.replace(/[-\s]/g, '')
+      );
+      if (isKnownReceiver) {
+        score -= 300; // Penalización MUY FUERTE - casi imposible que sea emisor
+      }
 
       // +150 puntos si está cerca de indicadores FUERTES de emisor (peso aumentado)
       if (hasStrongEmitterIndicator) {

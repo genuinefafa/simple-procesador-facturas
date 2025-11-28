@@ -12,7 +12,7 @@ import sharp from 'sharp';
 import { existsSync, readFileSync } from 'fs';
 import { extname } from 'path';
 import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
-import { extractCUITFromText, extractCUITsWithContext } from '../validators/cuit';
+import { extractCUITsWithContext } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 import { pdf } from 'pdf-to-img';
 import convert from 'heic-convert';

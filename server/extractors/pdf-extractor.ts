@@ -5,7 +5,7 @@
 import pdf from 'pdf-parse';
 import { readFileSync } from 'fs';
 import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
-import { extractCUITFromText, extractCUITsWithContext } from '../validators/cuit';
+import { extractCUITsWithContext } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 
 export class PDFExtractor {
@@ -233,37 +233,62 @@ export class PDFExtractor {
         // Calcular score basado en contexto
         let score = 30; // Score base
 
-        // Palabras clave que aumentan score
-        if (contextLower.includes('emisi')) score += 70; // Emisión es clave
+        // Contexto cercano (70 chars antes) para detección precisa
+        const contextBefore = context.slice(0, Math.min(150, context.length / 2)).toLowerCase();
+        const contextBeforeClose = contextBefore.slice(-70); // Últimos 70 chars antes de la fecha
 
-        // "Fecha:" es muy relevante - verificar si está DIRECTAMENTE antes
-        const contextBeforeClose = context
-          .slice(0, Math.min(150, context.length / 2))
-          .toLowerCase();
-        if (contextLower.includes('fecha')) {
-          // Si "vencimiento" o "vto" están directamente antes de la fecha (últimos 50 chars)
-          if (
-            contextBeforeClose.slice(-50).includes('vencimiento') ||
-            contextBeforeClose.slice(-50).includes('vto')
-          ) {
-            score += 0; // No dar bonus
-          } else {
-            score += 100; // Bonus MUY alto para "Fecha:" sin vencimiento inmediato
+        // PATRONES ESPECÍFICOS DE ALTA PRIORIDAD (±200 puntos)
+
+        // Detectar "Fecha Vencimiento CAE" o "Fecha de Vencimiento" antes de la fecha
+        if (
+          /fecha\s*(de\s*)?(vencimiento|vto)/i.test(contextBeforeClose) ||
+          /vencimiento\s*cae/i.test(contextBeforeClose) ||
+          /fecha\s*vto/i.test(contextBeforeClose)
+        ) {
+          score -= 200; // Penalización FUERTE para fechas de vencimiento
+        }
+
+        // Detectar "Fecha de Emisión" o "Fecha Emisión" antes de la fecha
+        if (/fecha\s*(de\s*)?emisi[oó]n/i.test(contextBeforeClose)) {
+          score += 200; // Bonus DEFINITIVO para fecha de emisión explícita
+        }
+
+        // Detectar solo "Emisión:" antes de la fecha
+        if (/emisi[oó]n\s*:/i.test(contextBeforeClose)) {
+          score += 150; // Muy probable fecha de emisión
+        }
+
+        // Detectar "Fecha:" (sin vencimiento) antes de la fecha
+        if (/(?:^|[^a-z])fecha\s*:/i.test(contextBeforeClose)) {
+          // Verificar que NO tenga "vencimiento" o "vto" cerca
+          if (!/vencimiento|vto/i.test(contextBeforeClose)) {
+            score += 120; // Bonus alto para "Fecha:" genérica
           }
         }
 
+        // BONIFICACIONES MODERADAS (10-50 puntos)
+
+        if (contextLower.includes('emisi')) score += 60; // "Emisión" en el contexto general
         if (contextLower.includes('razon social') || contextLower.includes('razón social'))
           score += 40;
         if (contextLower.includes('factura')) score += 30;
         if (contextLower.includes('comprobante')) score += 25;
 
-        // Palabras clave que reducen score (pero no eliminan)
-        if (contextLower.includes('vto')) score -= 80;
-        if (contextLower.includes('vencimiento')) score -= 80;
-        if (contextLower.includes('cae')) score -= 80;
-        if (contextLower.includes('período') || contextLower.includes('periodo')) score -= 70;
-        if (contextLower.includes('desde') || contextLower.includes('hasta')) score -= 60;
-        if (contextLower.includes('inicio actividad')) score -= 100;
+        // PENALIZACIONES MODERADAS (-50 a -100 puntos)
+        // IMPORTANTE: No penalizar demasiado para evitar que TODAS las fechas sean filtradas
+
+        // CAE + fecha = probable vencimiento CAE
+        if (contextLower.includes('cae') && !contextLower.includes('emisi')) {
+          score -= 80; // Reducido de -120 para evitar sobre-filtrado
+        }
+
+        // Otras palabras clave que indican NO es fecha de emisión
+        if (contextLower.includes('vencimiento') && !contextLower.includes('fecha de emisi'))
+          score -= 70; // Reducido de -100
+        if (contextLower.includes('vto') && !contextLower.includes('fecha de emisi')) score -= 70; // Reducido de -100
+        if (contextLower.includes('período') || contextLower.includes('periodo')) score -= 60; // Reducido de -80
+        if (contextLower.includes('desde') || contextLower.includes('hasta')) score -= 50; // Reducido de -70
+        if (contextLower.includes('inicio actividad')) score -= 100; // Reducido de -150
 
         // NUEVAS HEURÍSTICAS MEJORADAS:
 
@@ -291,8 +316,9 @@ export class PDFExtractor {
         if (occurrences > 1) score += (occurrences - 1) * 20; // +20 por cada repetición adicional
 
         // Solo agregar si el score no es extremadamente negativo
-        if (score < -100) {
-          continue; // Skip this date (umbral más permisivo)
+        // Umbral reducido para evitar filtrar todas las fechas
+        if (score < -150) {
+          continue; // Skip this date solo si es MUY negativo
         }
 
         allDates.push({

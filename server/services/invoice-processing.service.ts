@@ -126,7 +126,7 @@ export class InvoiceProcessingService {
       const documentType = await this.detectDocumentType(filePath);
 
       // 1. Extraer información según el tipo de documento
-      let extraction;
+      let extraction: Awaited<ReturnType<typeof this.pdfExtractor.extract>>;
       let usedFallback = false; // Track si se usó fallback PDF_TEXT → OCR
 
       if (documentType === 'PDF_DIGITAL') {
@@ -137,50 +137,140 @@ export class InvoiceProcessingService {
         // Esto pasa cuando el PDF tiene texto (metadatos, marcas de agua) pero no datos reales
         const hasValidCuit = extraction.data.cuit && extraction.data.cuit.length >= 11;
         const hasValidDate = !!extraction.data.date;
-        const hasValidTotal = !!extraction.data.total;
         const hasValidType = !!extraction.data.invoiceType;
+        const hasValidPointOfSale = extraction.data.pointOfSale !== undefined;
+        const hasValidInvoiceNumber = extraction.data.invoiceNumber !== undefined;
+
+        // ⚠️ SUPER RED FLAG: CUIT es FUNDAMENTAL - sin CUIT válido la factura no sirve
+        const noCuitFound = !hasValidCuit;
 
         // Detectar si el CUIT encontrado es de receptores conocidos (no emisores)
         const knownReceiverCuits = ['30-50001770-4', '3050001770-4', '30500017704']; // LA SEGUNDA
-        const detectedKnownReceiver =
-          extraction.data.cuit &&
-          knownReceiverCuits.some(
-            (rc) => extraction.data.cuit?.replace(/[-\s]/g, '') === rc.replace(/[-\s]/g, '')
-          );
+        const detectedKnownReceiver = hasValidCuit
+          ? knownReceiverCuits.some((rc) => {
+              const extractedCuit = extraction.data.cuit || '';
+              return extractedCuit.replace(/[-\s]/g, '') === rc.replace(/[-\s]/g, '');
+            })
+          : false;
 
-        // Contar campos críticos detectados
-        const criticalFieldsDetected = [
+        // Verificar si el CUIT tiene score negativo (probablemente es receptor, no emisor)
+        // El scoring de CUIT está en el extractor, necesitamos verificar la confianza
+        const cuitHasLowConfidence = hasValidCuit && extraction.confidence < 40; // Score negativo típicamente da < 40% confianza
+
+        // Contar campos CRÍTICOS detectados (CUIT, Fecha, Tipo son los más importantes)
+        const criticalFieldsDetected = [hasValidCuit, hasValidDate, hasValidType].filter(
+          Boolean
+        ).length;
+        const allFieldsDetected = [
           hasValidCuit,
           hasValidDate,
-          hasValidTotal,
           hasValidType,
+          hasValidPointOfSale,
+          hasValidInvoiceNumber,
         ].filter(Boolean).length;
-        const hasLowConfidence = extraction.confidence < 50; // Subido de 30% a 50%
-        const missingCriticalFields = criticalFieldsDetected < 2; // Si faltan 3 o más de 4 campos
 
-        if (hasLowConfidence || missingCriticalFields || detectedKnownReceiver) {
-          const reason = detectedKnownReceiver
-            ? 'CUIT de receptor conocido detectado'
-            : `conf: ${extraction.confidence}%, campos: ${criticalFieldsDetected}/4`;
-          console.warn(`   ⚠️  PDF_TEXT extrajo texto pero datos insuficientes (${reason})`);
-          console.info(`   🔄 Intentando OCR como fallback para verificar si es PDF escaneado...`);
+        const hasLowConfidence = extraction.confidence < 60; // Aumentado de 50% a 60%
+        const missingCriticalFields = criticalFieldsDetected < 3; // Si falta CUALQUIER campo crítico
+        const missingMostFields = allFieldsDetected < 3; // Si faltan 3 o más de 5 campos totales
+
+        // CONDICIÓN MÁS AGRESIVA: Activar OCR SIEMPRE si:
+        // 1. No hay CUIT (super red flag)
+        // 2. CUIT es de receptor conocido
+        // 3. CUIT tiene confianza muy baja (score negativo)
+        // 4. Falta cualquier campo crítico
+        // 5. Confianza general baja
+        if (
+          noCuitFound ||
+          detectedKnownReceiver ||
+          cuitHasLowConfidence ||
+          hasLowConfidence ||
+          missingCriticalFields ||
+          missingMostFields
+        ) {
+          const reasons = [];
+          if (noCuitFound) reasons.push('⚠️ SUPER RED FLAG: CUIT NO DETECTADO');
+          if (detectedKnownReceiver) reasons.push('CUIT de receptor conocido detectado');
+          if (cuitHasLowConfidence)
+            reasons.push(`CUIT con confianza muy baja (${extraction.confidence}%)`);
+          if (hasLowConfidence) reasons.push(`confianza ${extraction.confidence}% < 60%`);
+          if (missingCriticalFields)
+            reasons.push(`campos críticos: ${criticalFieldsDetected}/3 (CUIT/Fecha/Tipo)`);
+          if (missingMostFields) reasons.push(`campos totales: ${allFieldsDetected}/5`);
+
+          console.warn(
+            `   ⚠️  PDF_TEXT extrajo texto pero datos insuficientes: ${reasons.join(', ')}`
+          );
+          console.info(`   🔄 Activando OCR como fallback...`);
 
           try {
             const ocrExtraction = await this.ocrExtractor.extract(filePath);
 
-            // Si OCR encuentra más datos, usar esos
-            if (ocrExtraction.confidence > extraction.confidence || ocrExtraction.data.cuit) {
-              console.info(
-                `   ✅ OCR encontró mejores datos (conf: ${ocrExtraction.confidence}% vs ${extraction.confidence}%)`
-              );
+            // CRITERIO DE SELECCIÓN: Usar OCR si encuentra MÁS campos críticos, o mismos campos con mayor confianza
+            const ocrHasCuit = ocrExtraction.data.cuit && ocrExtraction.data.cuit.length >= 11;
+            const ocrCriticalFields = [
+              ocrHasCuit,
+              !!ocrExtraction.data.date,
+              !!ocrExtraction.data.invoiceType,
+            ].filter(Boolean).length;
+
+            // PRIORIDAD ABSOLUTA AL CUIT:
+            // Si PDF_TEXT no tenía CUIT y OCR lo encontró → usar OCR siempre
+            const ocrFoundMissingCuit = noCuitFound && ocrHasCuit;
+
+            // Si PDF_TEXT tenía CUIT de receptor y OCR encontró uno diferente → usar OCR
+            const ocrFoundDifferentCuit =
+              detectedKnownReceiver &&
+              ocrHasCuit &&
+              ocrExtraction.data.cuit !== extraction.data.cuit;
+
+            // Si PDF_TEXT tenía CUIT con baja confianza y OCR encontró uno → preferir OCR
+            const ocrFoundBetterCuit = cuitHasLowConfidence && ocrHasCuit;
+
+            const shouldUseOCR =
+              ocrFoundMissingCuit || // ⚠️ PRIORIDAD 1: OCR encontró CUIT que faltaba
+              ocrFoundDifferentCuit || // ⚠️ PRIORIDAD 2: OCR encontró CUIT diferente al receptor
+              ocrFoundBetterCuit || // ⚠️ PRIORIDAD 3: OCR encontró CUIT cuando el de PDF tenía baja confianza
+              ocrCriticalFields > criticalFieldsDetected || // OCR encontró MÁS campos críticos
+              (ocrCriticalFields === criticalFieldsDetected &&
+                ocrExtraction.confidence > extraction.confidence); // Mismos campos pero mejor confianza
+
+            if (shouldUseOCR) {
+              const ocrReasons = [];
+              if (ocrFoundMissingCuit) ocrReasons.push('encontró CUIT que faltaba');
+              if (ocrFoundDifferentCuit) ocrReasons.push('encontró CUIT diferente al receptor');
+              if (ocrFoundBetterCuit) ocrReasons.push('encontró CUIT con mejor confianza');
+              if (ocrCriticalFields > criticalFieldsDetected)
+                ocrReasons.push(
+                  `más campos críticos (${ocrCriticalFields} vs ${criticalFieldsDetected})`
+                );
+              if (
+                ocrCriticalFields === criticalFieldsDetected &&
+                ocrExtraction.confidence > extraction.confidence
+              )
+                ocrReasons.push(
+                  `mejor confianza (${ocrExtraction.confidence}% vs ${extraction.confidence}%)`
+                );
+
+              console.info(`   ✅ Usando OCR: ${ocrReasons.join(', ')}`);
+              if (ocrHasCuit && extraction.data.cuit !== ocrExtraction.data.cuit) {
+                console.info(
+                  `   🔄 CUIT cambió: ${extraction.data.cuit || 'NO DETECTADO'} → ${ocrExtraction.data.cuit}`
+                );
+              }
               extraction = ocrExtraction;
               usedFallback = true; // Marcar que se usó fallback
             } else {
-              console.info(`   ℹ️  OCR no mejoró los resultados, usando PDF_TEXT original`);
+              console.info(
+                `   ℹ️  OCR no mejoró resultados (campos críticos: ${ocrCriticalFields} vs ${criticalFieldsDetected}), usando PDF_TEXT original`
+              );
             }
           } catch (ocrError) {
             console.warn(`   ⚠️  OCR falló, usando PDF_TEXT original:`, ocrError);
           }
+        } else {
+          console.info(
+            `   ✅ PDF_TEXT extrajo datos suficientes (${allFieldsDetected}/5 campos, conf: ${extraction.confidence}%), sin necesidad de OCR`
+          );
         }
       } else if (documentType === 'IMAGEN') {
         console.info(`   📷 Extrayendo datos de imagen con OCR...`);
