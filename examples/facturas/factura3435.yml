@@ -2,16 +2,21 @@
 # Confianza de extracción: 72.0%
 
 emisor:
-  cuit: "30-50001770-4"
-  nombre: "Emisor 30-50001770-4"
+  cuit: "23-18140463-9"
+  nombre: "Del Barco Gabriel Dante"
 
 factura:
   tipo: "A"
   punto_venta: 3
   numero: 3435
-  fecha: "2025-11-28"
-  # total: [no detectado]
+  fecha: "2023-02-10"
+  total: 106000.00
 
 # Campos opcionales para templates futuros:
 # sugerencia_template: "estandar_horizontal"
 # notas: "Agregar observaciones manuales aquí"
+notas:
+  - "pv, número comprobante, fecha, cuit emisor - en ese orden"
+  - "el total está abajo a la derecha, salvo el 'tipo de cambio' es el número con dos decimales al final de la primera hoja"
+  - "hay un título 'total' está en una tabla al final de la primera página - arriba del vencimiento del CAE, hay un QR en esa página"
+  - "la página de 'orden de trabajo' no suma"
