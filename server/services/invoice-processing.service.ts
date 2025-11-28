@@ -140,6 +140,11 @@ export class InvoiceProcessingService {
         const hasValidTotal = !!extraction.data.total;
         const hasValidType = !!extraction.data.invoiceType;
 
+        // Detectar si el CUIT encontrado es de receptores conocidos (no emisores)
+        const knownReceiverCuits = ['30-50001770-4', '3050001770-4', '30500017704']; // LA SEGUNDA
+        const detectedKnownReceiver =
+          extraction.data.cuit && knownReceiverCuits.some((rc) => extraction.data.cuit?.replace(/[-\s]/g, '') === rc.replace(/[-\s]/g, ''));
+
         // Contar campos críticos detectados
         const criticalFieldsDetected = [
           hasValidCuit,
@@ -150,10 +155,11 @@ export class InvoiceProcessingService {
         const hasLowConfidence = extraction.confidence < 50; // Subido de 30% a 50%
         const missingCriticalFields = criticalFieldsDetected < 2; // Si faltan 3 o más de 4 campos
 
-        if (hasLowConfidence || missingCriticalFields) {
-          console.warn(
-            `   ⚠️  PDF_TEXT extrajo texto pero datos insuficientes (conf: ${extraction.confidence}%, campos: ${criticalFieldsDetected}/4)`
-          );
+        if (hasLowConfidence || missingCriticalFields || detectedKnownReceiver) {
+          const reason = detectedKnownReceiver
+            ? 'CUIT de receptor conocido detectado'
+            : `conf: ${extraction.confidence}%, campos: ${criticalFieldsDetected}/4`;
+          console.warn(`   ⚠️  PDF_TEXT extrajo texto pero datos insuficientes (${reason})`);
           console.info(`   🔄 Intentando OCR como fallback para verificar si es PDF escaneado...`);
 
           try {

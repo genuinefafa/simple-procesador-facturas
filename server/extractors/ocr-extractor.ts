@@ -19,7 +19,7 @@ import convert from 'heic-convert';
 
 // Configuración de OCR
 const OCR_CONFIG = {
-  language: 'spa', // Español
+  language: 'eng', // Inglés (incluido por defecto, no requiere descarga)
   oem: Tesseract.OEM.LSTM_ONLY, // Motor LSTM (más preciso)
   psm: Tesseract.PSM.AUTO, // Detección automática de layout
 };
