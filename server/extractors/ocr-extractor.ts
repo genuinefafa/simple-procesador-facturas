@@ -409,49 +409,64 @@ export class OCRExtractor {
         }
       }
 
-      // 3. Buscar fechas numéricas DD/MM/YYYY
+      // 3. Buscar fechas numéricas DD/MM/YYYY y DD/MM/YY
       const datePatterns = [
-        /Emisi[oó]n[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i, // Emisión (alta prioridad)
-        /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/, // Fecha antes de número largo
-        /(\d{2}[/-]\d{2}[/-]\d{4})/g, // Todas las fechas
+        /Emisi[oó]n[:\s]+(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})/gi, // Emisión (alta prioridad)
+        /FECHA[:\s]+(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})/gi, // FECHA (alta prioridad)
+        /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})\s*[\r\n]+\s*\d{12,13}\b/g, // Fecha antes de número largo
+        /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})/g, // Todas las fechas (con/sin espacios)
       ];
 
       for (const pattern of datePatterns) {
-        const matches = Array.from(text.matchAll(new RegExp(pattern, 'gi')));
+        const matches = Array.from(text.matchAll(pattern));
         for (const match of matches) {
           const extractedDate = match[1] || match[0];
-          const normalizedDate = extractedDate.replace(/-/g, '/');
+          // Normalizar: remover espacios y usar solo /
+          let normalizedDate = extractedDate.replace(/\s+/g, '').replace(/-/g, '/');
+
+          // Convertir año de 2 dígitos a 4 dígitos (YY → YYYY)
+          const parts = normalizedDate.split('/');
+          if (parts.length === 3 && parts[2].length === 2) {
+            const yearShort = parseInt(parts[2], 10);
+            // Asumimos que años 00-49 son 2000-2049, 50-99 son 1950-1999
+            const yearFull = yearShort <= 49 ? 2000 + yearShort : 1900 + yearShort;
+            normalizedDate = `${parts[0]}/${parts[1]}/${yearFull}`;
+          }
 
           const dateObj = parseDateToObject(normalizedDate);
           if (!dateObj || allDates.some((d) => d.date === normalizedDate)) {
             continue;
           }
 
-          // Obtener contexto para scoring y filtrado
+          // Obtener contexto ampliado para scoring (150 chars antes y después)
           const context = text.substring(
-            Math.max(0, (match.index || 0) - 70),
-            (match.index || 0) + 100
+            Math.max(0, (match.index || 0) - 150),
+            Math.min(text.length, (match.index || 0) + 150)
           );
           const contextLower = context.toLowerCase();
 
-          // Filtrar fechas no deseadas
-          if (
-            contextLower.includes('inicio') ||
-            contextLower.includes('actividad') ||
-            contextLower.includes('vto') ||
-            contextLower.includes('vencimiento') ||
-            contextLower.includes('cae') ||
-            contextLower.includes('período') ||
-            contextLower.includes('desde') ||
-            contextLower.includes('hasta')
-          ) {
-            continue;
-          }
-
           // Calcular score basado en contexto
           let score = 30; // Score base
-          if (contextLower.includes('emisi')) {
-            score += 50; // +50 si contiene "emisión"
+
+          // Palabras clave que aumentan score
+          if (contextLower.includes('emisi')) score += 70; // Emisión es clave
+          if (contextLower.includes('fecha')) score += 60; // "Fecha" es muy relevante
+          if (contextLower.includes('razon social') || contextLower.includes('razón social'))
+            score += 40;
+          if (contextLower.includes('factura')) score += 30;
+          if (contextLower.includes('comprobante')) score += 25;
+
+          // Palabras clave que reducen score (pero no eliminan)
+          if (contextLower.includes('vto')) score -= 80;
+          if (contextLower.includes('vencimiento')) score -= 80;
+          if (contextLower.includes('cae')) score -= 80;
+          if (contextLower.includes('período') || contextLower.includes('periodo')) score -= 70;
+          if (contextLower.includes('desde') || contextLower.includes('hasta')) score -= 60;
+          if (contextLower.includes('inicio actividad')) score -= 100;
+
+          // Solo agregar si el score no es demasiado negativo
+          if (score < -50) {
+            continue; // Skip this date
           }
 
           allDates.push({
