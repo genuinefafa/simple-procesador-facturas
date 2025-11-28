@@ -71,8 +71,11 @@ export const AFIP_CODES: Record<string, AFIPDocumentType> = {
 
 /**
  * Obtiene el tipo de documento a partir de un código AFIP
- * @param code - Código AFIP (ej: "011", "11", "1")
+ * @param code - Código AFIP (ej: "011", "11", "1", "201")
  * @returns Información del tipo de documento o undefined si no se encuentra
+ *
+ * Códigos 201-299: Facturas electrónicas AFIP (se restan 200)
+ * Ejemplo: 201 → 1 (Factura A), 206 → 6 (Factura B), 211 → 11 (Factura C)
  */
 export function getDocumentTypeFromAFIPCode(code: string): AFIPDocumentType | undefined {
   // Normalizar: quitar espacios y ceros a la izquierda para búsqueda flexible
@@ -87,6 +90,31 @@ export function getDocumentTypeFromAFIPCode(code: string): AFIPDocumentType | un
   const withoutLeadingZeros = normalizedCode.replace(/^0+/, '') || '0';
   if (AFIP_CODES[withoutLeadingZeros]) {
     return AFIP_CODES[withoutLeadingZeros];
+  }
+
+  // Códigos 201-299: Facturas electrónicas (restar 200)
+  const codeNum = parseInt(normalizedCode, 10);
+  if (codeNum >= 201 && codeNum <= 299) {
+    const baseCode = (codeNum - 200).toString();
+    const basePadded = baseCode.padStart(3, '0');
+
+    // Intentar con el código base (ej: 201 → 001)
+    if (AFIP_CODES[basePadded]) {
+      return {
+        ...AFIP_CODES[basePadded],
+        code: normalizedCode, // Mantener código original
+        description: `${AFIP_CODES[basePadded].description} (Electrónica)`,
+      };
+    }
+
+    // Intentar sin ceros (ej: 201 → 1)
+    if (AFIP_CODES[baseCode]) {
+      return {
+        ...AFIP_CODES[baseCode],
+        code: normalizedCode,
+        description: `${AFIP_CODES[baseCode].description} (Electrónica)`,
+      };
+    }
   }
 
   return undefined;
@@ -200,10 +228,17 @@ export function extractInvoiceTypeWithAFIP(text: string):
     type: InvoiceType;
     kind: DocumentKind;
   }[] = [
+    // TEXTO PEGADO SIN ESPACIOS (alta prioridad) - formato común en PDFs mal parseados
+    // Ejemplos: "AFACTURA", "BFACTURA", "CFACTURA", "A001", "C001", "B006"
+    { pattern: /\b([A-CEM])(FACTURA|001|011|006|019|201|206|211)\b/i, type: 'A', kind: 'FAC' },
+
     // CODIGO: seguido de letra en otra línea (formato AFIP electrónico)
     { pattern: /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*([A-CEM])\s*[\r\n]/i, type: 'A', kind: 'FAC' },
 
-    // Facturas
+    // Letra seguida de número de código pegado: "C001NRO" (sin espacios)
+    { pattern: /\b([A-CEM])(001|011|006|019|201|206|211)(?:NRO|N°|Nº)?/i, type: 'A', kind: 'FAC' },
+
+    // Facturas con espacios normales
     { pattern: /(?:^|\s)Factura\s+([A-CEM])(?:\s|$|[^a-z])/im, type: 'A', kind: 'FAC' },
     { pattern: /\bFACTURA\s+([A-CEM])\b/i, type: 'A', kind: 'FAC' },
     { pattern: /\bComprobante\s+([A-CEM])(?:\s|$|-)/i, type: 'A', kind: 'FAC' },

@@ -5,7 +5,7 @@
 import pdf from 'pdf-parse';
 import { readFileSync } from 'fs';
 import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
-import { extractCUITFromText } from '../validators/cuit';
+import { extractCUITsWithContext } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 
 export class PDFExtractor {
@@ -39,44 +39,33 @@ export class PDFExtractor {
       console.info(`   📝 Contenido: ${text.substring(0, 500)}`);
     }
 
-    // Extraer CUIT del EMISOR (no del receptor)
-    // Buscar CUITs con contexto para identificar al emisor
+    // Extraer CUIT del EMISOR usando scoring inteligente
     let cuit: string | undefined;
 
-    // Patrones específicos para CUIT del emisor
-    const emitterPatterns = [
-      // Patrón para texto pegado: "33-67913936-9C.U.I.T.:" (CUIT antes de la palabra)
-      /(\d{2}[-\s]?\d{7,8}[-\s]?\d)C\.?U\.?I\.?T\.?/i,
-      /CUIT\s*(?:EMISOR|Emisor)?[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/i,
-      /(?:^|[\r\n])CUIT[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/im, // CUIT al inicio o después de línea
-    ];
+    // Usar scoring inteligente basado en contexto
+    const cuitsWithContext = extractCUITsWithContext(text);
 
-    for (const pattern of emitterPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        const cuits = extractCUITFromText(match[1]);
-        if (cuits.length > 0) {
-          cuit = cuits[0];
-          console.info(`   💼 CUIT emisor encontrado con contexto: ${cuit}`);
-          break;
-        }
-      }
-    }
+    if (cuitsWithContext.length > 0) {
+      // Tomar el CUIT con mayor score
+      const bestMatch = cuitsWithContext[0];
+      cuit = bestMatch.cuit;
 
-    // Fallback: tomar el primer CUIT válido
-    if (!cuit) {
-      const allCuits = extractCUITFromText(text);
-      if (allCuits.length > 0) {
-        cuit = allCuits[0];
-        if (allCuits.length > 1) {
-          console.warn(
-            `   ⚠️  Múltiples CUITs encontrados (${allCuits.length}), usando el primero: ${cuit}`
+      console.info(`   💼 CUIT emisor detectado (score: ${bestMatch.score}): ${cuit}`);
+
+      // Mostrar top 3 candidatos si hay múltiples
+      if (cuitsWithContext.length > 1) {
+        console.info(`   📊 Top ${Math.min(3, cuitsWithContext.length)} candidatos:`);
+        cuitsWithContext.slice(0, 3).forEach((c, i) => {
+          const preview =
+            c.contextBefore.slice(-30) + '►' + c.cuit + '◄' + c.contextAfter.slice(0, 30);
+          console.info(
+            `      ${i + 1}. ${c.cuit} (score: ${c.score}) - "${preview.replace(/\s+/g, ' ')}"`
           );
-        }
+        });
       }
     }
 
-    // Debug: si no hay CUIT, buscar patrones similares
+    // Debug: si no hay CUIT, mostrar info útil
     if (!cuit) {
       const possibleCuits = text.match(/\b\d{2}[-\s]?\d{8}[-\s]?\d\b/g);
       if (possibleCuits && possibleCuits.length > 0) {
@@ -205,49 +194,131 @@ export class PDFExtractor {
       }
     }
 
-    // 3. Buscar fechas numéricas DD/MM/YYYY
+    // 3. Buscar fechas numéricas DD/MM/YYYY y DD/MM/YY
     const datePatterns = [
-      /Emisi[oó]n[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i, // Emisión (alta prioridad)
-      /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/, // Fecha antes de número largo
-      /(\d{2}[/-]\d{2}[/-]\d{4})/g, // Todas las fechas
+      /Emisi[oó]n[:\s]+(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})/gi, // Emisión (alta prioridad)
+      /FECHA[:\s]+(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})/gi, // FECHA (alta prioridad)
+      /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})\s*[\r\n]+\s*\d{12,13}\b/g, // Fecha antes de número largo
+      /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})/g, // Todas las fechas (con/sin espacios)
     ];
 
     for (const pattern of datePatterns) {
-      const matches = Array.from(text.matchAll(new RegExp(pattern, 'gi')));
+      const matches = Array.from(text.matchAll(pattern));
       for (const match of matches) {
         const extractedDate = match[1] || match[0];
-        const normalizedDate = extractedDate.replace(/-/g, '/');
+        // Normalizar: remover espacios y usar solo /
+        let normalizedDate = extractedDate.replace(/\s+/g, '').replace(/-/g, '/');
+
+        // Convertir año de 2 dígitos a 4 dígitos (YY → YYYY)
+        const parts = normalizedDate.split('/');
+        if (parts.length === 3 && parts[2].length === 2) {
+          const yearShort = parseInt(parts[2], 10);
+          // Asumimos que años 00-49 son 2000-2049, 50-99 son 1950-1999
+          const yearFull = yearShort <= 49 ? 2000 + yearShort : 1900 + yearShort;
+          normalizedDate = `${parts[0]}/${parts[1]}/${yearFull}`;
+        }
 
         const dateObj = parseDateToObject(normalizedDate);
         if (!dateObj || allDates.some((d) => d.date === normalizedDate)) {
           continue;
         }
 
-        // Obtener contexto para scoring y filtrado
+        // Obtener contexto ampliado para scoring (150 chars antes y después)
         const context = text.substring(
-          Math.max(0, (match.index || 0) - 70),
-          (match.index || 0) + 100
+          Math.max(0, (match.index || 0) - 150),
+          Math.min(text.length, (match.index || 0) + 150)
         );
         const contextLower = context.toLowerCase();
 
-        // Filtrar fechas no deseadas
-        if (
-          contextLower.includes('inicio') ||
-          contextLower.includes('actividad') ||
-          contextLower.includes('vto') ||
-          contextLower.includes('vencimiento') ||
-          contextLower.includes('cae') ||
-          contextLower.includes('período') ||
-          contextLower.includes('desde') ||
-          contextLower.includes('hasta')
-        ) {
-          continue;
-        }
-
         // Calcular score basado en contexto
         let score = 30; // Score base
-        if (contextLower.includes('emisi')) {
-          score += 50; // +50 si contiene "emisión"
+
+        // Contexto cercano (70 chars antes) para detección precisa
+        const contextBefore = context.slice(0, Math.min(150, context.length / 2)).toLowerCase();
+        const contextBeforeClose = contextBefore.slice(-70); // Últimos 70 chars antes de la fecha
+
+        // PATRONES ESPECÍFICOS DE ALTA PRIORIDAD (±200 puntos)
+
+        // Detectar "Fecha Vencimiento CAE" o "Fecha de Vencimiento" antes de la fecha
+        if (
+          /fecha\s*(de\s*)?(vencimiento|vto)/i.test(contextBeforeClose) ||
+          /vencimiento\s*cae/i.test(contextBeforeClose) ||
+          /fecha\s*vto/i.test(contextBeforeClose)
+        ) {
+          score -= 200; // Penalización FUERTE para fechas de vencimiento
+        }
+
+        // Detectar "Fecha de Emisión" o "Fecha Emisión" antes de la fecha
+        if (/fecha\s*(de\s*)?emisi[oó]n/i.test(contextBeforeClose)) {
+          score += 200; // Bonus DEFINITIVO para fecha de emisión explícita
+        }
+
+        // Detectar solo "Emisión:" antes de la fecha
+        if (/emisi[oó]n\s*:/i.test(contextBeforeClose)) {
+          score += 150; // Muy probable fecha de emisión
+        }
+
+        // Detectar "Fecha:" (sin vencimiento) antes de la fecha
+        if (/(?:^|[^a-z])fecha\s*:/i.test(contextBeforeClose)) {
+          // Verificar que NO tenga "vencimiento" o "vto" cerca
+          if (!/vencimiento|vto/i.test(contextBeforeClose)) {
+            score += 120; // Bonus alto para "Fecha:" genérica
+          }
+        }
+
+        // BONIFICACIONES MODERADAS (10-50 puntos)
+
+        if (contextLower.includes('emisi')) score += 60; // "Emisión" en el contexto general
+        if (contextLower.includes('razon social') || contextLower.includes('razón social'))
+          score += 40;
+        if (contextLower.includes('factura')) score += 30;
+        if (contextLower.includes('comprobante')) score += 25;
+
+        // PENALIZACIONES MODERADAS (-50 a -100 puntos)
+        // IMPORTANTE: No penalizar demasiado para evitar que TODAS las fechas sean filtradas
+
+        // CAE + fecha = probable vencimiento CAE
+        if (contextLower.includes('cae') && !contextLower.includes('emisi')) {
+          score -= 80; // Reducido de -120 para evitar sobre-filtrado
+        }
+
+        // Otras palabras clave que indican NO es fecha de emisión
+        if (contextLower.includes('vencimiento') && !contextLower.includes('fecha de emisi'))
+          score -= 70; // Reducido de -100
+        if (contextLower.includes('vto') && !contextLower.includes('fecha de emisi')) score -= 70; // Reducido de -100
+        if (contextLower.includes('período') || contextLower.includes('periodo')) score -= 60; // Reducido de -80
+        if (contextLower.includes('desde') || contextLower.includes('hasta')) score -= 50; // Reducido de -70
+        if (contextLower.includes('inicio actividad')) score -= 100; // Reducido de -150
+
+        // NUEVAS HEURÍSTICAS MEJORADAS:
+
+        // Penalizar fechas muy antiguas (probablemente inicio de actividades)
+        const now = new Date();
+        const yearsDiff = (now.getTime() - dateObj.getTime()) / (1000 * 60 * 60 * 24 * 365);
+        if (yearsDiff > 3)
+          score -= 100; // Más de 3 años atrás
+        else if (yearsDiff > 2) score -= 50; // Más de 2 años atrás
+
+        // Detectar patrón típico de inicio de actividades: IIBB + Fecha + CUIT
+        // Buscar números de 10-13 dígitos antes de la fecha (IIBB)
+        if (/\d{10,13}\s*[\r\n]+\s*$/.test(context.slice(0, 150))) {
+          score -= 80; // Probablemente es inicio de actividades
+        }
+
+        // Bonus si aparece cerca de número de factura (ej: "Nº 00128")
+        if (/n[°ºo]?\s*\d{4,8}/i.test(contextLower)) {
+          score += 40;
+        }
+
+        // Bonus si la fecha se repite en el texto (señal de importancia)
+        const datePattern = normalizedDate.replace(/\//g, '\\/');
+        const occurrences = (text.match(new RegExp(datePattern, 'g')) || []).length;
+        if (occurrences > 1) score += (occurrences - 1) * 20; // +20 por cada repetición adicional
+
+        // Solo agregar si el score no es extremadamente negativo
+        // Umbral reducido para evitar filtrar todas las fechas
+        if (score < -150) {
+          continue; // Skip this date solo si es MUY negativo
         }
 
         allDates.push({

@@ -1,8 +1,30 @@
 #!/bin/bash
-# Pre-commit hook: Validar archivos Svelte antes de commitear
+# Pre-commit hook: Formatear código y validar archivos antes de commitear
 
 set -e
 
+# Auto-formatear archivos TypeScript con Prettier
+echo "🎨 Formateando código con Prettier..."
+
+# Obtener archivos .ts en staging (excluyendo node_modules)
+TS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.ts$' | grep -v 'node_modules' || true)
+
+if [ -n "$TS_FILES" ]; then
+  echo "📝 Formateando archivos TypeScript:"
+  echo "$TS_FILES" | sed 's/^/  - /'
+
+  # Formatear archivos en staging
+  echo "$TS_FILES" | xargs npx prettier --write
+
+  # Re-agregar archivos formateados al staging
+  echo "$TS_FILES" | xargs git add
+
+  echo "✅ Archivos formateados"
+else
+  echo "✅ No hay archivos TypeScript para formatear"
+fi
+
+echo ""
 echo "🔍 Validando archivos Svelte..."
 
 # Obtener archivos .svelte en staging
