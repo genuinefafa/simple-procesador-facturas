@@ -2,17 +2,16 @@
 # Confianza de extracción: 90.0%
 
 emisor:
-  cuit: "23-10058899-4"
-  nombre: "Escobar Luis Ramon"
+  cuit: "30-50001770-4"
+  nombre: "Emisor 30-50001770-4"
 
 factura:
   tipo: "C"
   punto_venta: 3
   numero: 128
-  fecha: "2023-02-18"
-  total: 178000.00
+  fecha: "2023-02-28"
+  # total: [no detectado]
 
 # Campos opcionales para templates futuros:
 # sugerencia_template: "estandar_horizontal"
 # notas: "Agregar observaciones manuales aquí"
-notas: "el total es el último importe (dos decimales a la derecha), esto lo habíamos charlado"

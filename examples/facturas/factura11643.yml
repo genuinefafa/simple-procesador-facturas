@@ -2,18 +2,16 @@
 # Confianza de extracción: 100.0%
 
 emisor:
-  cuit: "30-51758323-1"
-  nombre: "Auto Radio Amenabar"
+  cuit: "30-50001770-4"
+  nombre: "Emisor 30-50001770-4"
 
 factura:
   tipo: "A"
   punto_venta: 5
   numero: 11643
   fecha: "2023-02-14"
-  total: 77300.30
+  total: 77.30
 
 # Campos opcionales para templates futuros:
 # sugerencia_template: "estandar_horizontal"
 # notas: "Agregar observaciones manuales aquí"
-notas:
-  - "atención con los montos, la 'coma' en argentina se usa para separador de miles; lo ideal es considerar que los importes arrancan de derecha a izquierda y su primer punto será el decimal"

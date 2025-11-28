@@ -12,7 +12,7 @@ import sharp from 'sharp';
 import { existsSync, readFileSync } from 'fs';
 import { extname } from 'path';
 import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
-import { extractCUITFromText } from '../validators/cuit';
+import { extractCUITFromText, extractCUITsWithContext } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 import { pdf } from 'pdf-to-img';
 import convert from 'heic-convert';
@@ -267,45 +267,26 @@ export class OCRExtractor {
       // 2. Aplicar patrones regex (mismos que PDFExtractor)
 
       // Extraer CUIT del EMISOR (no del receptor)
-      // Buscar CUITs con contexto para identificar al emisor
+      // Extraer CUIT del EMISOR usando scoring inteligente
       let cuit: string | undefined;
 
-      // Patrones específicos para CUIT del emisor (buscar antes que "DESTINATARIO" o "RECEPTOR")
-      const emitterPatterns = [
-        // Patrón para texto pegado: "33-67913936-9C.U.I.T.:" (CUIT antes de la palabra)
-        /(\d{2}[-\s]?\d{7,8}[-\s]?\d)C\.?U\.?I\.?T\.?/i,
-        /CUIT\s*(?:EMISOR|Emisor)?[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/i,
-        /(?:^|[\r\n])CUIT[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/im, // CUIT al inicio o después de línea
-      ];
+      // Usar scoring inteligente basado en contexto
+      const cuitsWithContext = extractCUITsWithContext(text);
 
-      for (const pattern of emitterPatterns) {
-        const match = text.match(pattern);
-        if (match && match[1]) {
-          // Intentar validar, pero ser más tolerante con OCR
-          const cuits = extractCUITFromText(match[1]);
-          if (cuits.length > 0) {
-            cuit = cuits[0];
-            console.info(`   💼 CUIT emisor encontrado con contexto: ${cuit}`);
-            break;
-          } else {
-            // OCR pudo leer mal el dígito verificador
-            console.warn(`   ⚠️  CUIT emisor candidato pero DV inválido: ${match[1]}`);
-          }
-        }
-      }
+      if (cuitsWithContext.length > 0) {
+        // Tomar el CUIT con mayor score
+        const bestMatch = cuitsWithContext[0];
+        cuit = bestMatch.cuit;
 
-      // Fallback: tomar el primer CUIT válido antes de "DESTINATARIO" o "RECEPTOR"
-      if (!cuit) {
-        const allCuits = extractCUITFromText(text);
-        if (allCuits.length > 0) {
-          cuit = allCuits[0];
-          if (allCuits.length > 1) {
-            console.warn(
-              `   ⚠️  Múltiples CUITs encontrados (${allCuits.length}), usando el primero: ${cuit}`
-            );
-          } else {
-            console.info(`   💼 CUIT encontrado: ${cuit}`);
-          }
+        console.info(`   💼 CUIT emisor detectado (score: ${bestMatch.score}): ${cuit}`);
+
+        // Mostrar top 3 candidatos si hay múltiples
+        if (cuitsWithContext.length > 1) {
+          console.info(`   📊 Top ${Math.min(3, cuitsWithContext.length)} candidatos:`);
+          cuitsWithContext.slice(0, 3).forEach((c, i) => {
+            const preview = c.contextBefore.slice(-30) + '►' + c.cuit + '◄' + c.contextAfter.slice(0, 30);
+            console.info(`      ${i + 1}. ${c.cuit} (score: ${c.score}) - "${preview.replace(/\s+/g, ' ')}"`);
+          });
         }
       }
 

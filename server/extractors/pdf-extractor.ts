@@ -5,7 +5,7 @@
 import pdf from 'pdf-parse';
 import { readFileSync } from 'fs';
 import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
-import { extractCUITFromText } from '../validators/cuit';
+import { extractCUITFromText, extractCUITsWithContext } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 
 export class PDFExtractor {
@@ -39,44 +39,30 @@ export class PDFExtractor {
       console.info(`   📝 Contenido: ${text.substring(0, 500)}`);
     }
 
-    // Extraer CUIT del EMISOR (no del receptor)
-    // Buscar CUITs con contexto para identificar al emisor
+    // Extraer CUIT del EMISOR usando scoring inteligente
     let cuit: string | undefined;
 
-    // Patrones específicos para CUIT del emisor
-    const emitterPatterns = [
-      // Patrón para texto pegado: "33-67913936-9C.U.I.T.:" (CUIT antes de la palabra)
-      /(\d{2}[-\s]?\d{7,8}[-\s]?\d)C\.?U\.?I\.?T\.?/i,
-      /CUIT\s*(?:EMISOR|Emisor)?[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/i,
-      /(?:^|[\r\n])CUIT[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/im, // CUIT al inicio o después de línea
-    ];
+    // Usar scoring inteligente basado en contexto
+    const cuitsWithContext = extractCUITsWithContext(text);
 
-    for (const pattern of emitterPatterns) {
-      const match = text.match(pattern);
-      if (match && match[1]) {
-        const cuits = extractCUITFromText(match[1]);
-        if (cuits.length > 0) {
-          cuit = cuits[0];
-          console.info(`   💼 CUIT emisor encontrado con contexto: ${cuit}`);
-          break;
-        }
+    if (cuitsWithContext.length > 0) {
+      // Tomar el CUIT con mayor score
+      const bestMatch = cuitsWithContext[0];
+      cuit = bestMatch.cuit;
+
+      console.info(`   💼 CUIT emisor detectado (score: ${bestMatch.score}): ${cuit}`);
+
+      // Mostrar top 3 candidatos si hay múltiples
+      if (cuitsWithContext.length > 1) {
+        console.info(`   📊 Top ${Math.min(3, cuitsWithContext.length)} candidatos:`);
+        cuitsWithContext.slice(0, 3).forEach((c, i) => {
+          const preview = c.contextBefore.slice(-30) + '►' + c.cuit + '◄' + c.contextAfter.slice(0, 30);
+          console.info(`      ${i + 1}. ${c.cuit} (score: ${c.score}) - "${preview.replace(/\s+/g, ' ')}"`);
+        });
       }
     }
 
-    // Fallback: tomar el primer CUIT válido
-    if (!cuit) {
-      const allCuits = extractCUITFromText(text);
-      if (allCuits.length > 0) {
-        cuit = allCuits[0];
-        if (allCuits.length > 1) {
-          console.warn(
-            `   ⚠️  Múltiples CUITs encontrados (${allCuits.length}), usando el primero: ${cuit}`
-          );
-        }
-      }
-    }
-
-    // Debug: si no hay CUIT, buscar patrones similares
+    // Debug: si no hay CUIT, mostrar info útil
     if (!cuit) {
       const possibleCuits = text.match(/\b\d{2}[-\s]?\d{8}[-\s]?\d\b/g);
       if (possibleCuits && possibleCuits.length > 0) {

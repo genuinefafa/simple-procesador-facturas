@@ -110,7 +110,8 @@ export function normalizeCUIT(cuit: string): string {
 export function extractCUITFromText(text: string): string[] {
   // Patrones para detectar CUITs en diferentes formatos
   const patterns = [
-    /\b(\d{2})[-\s]?(\d{8})[-\s]?(\d)\b/g, // Formato con/sin guiones
+    /\b(\d{2})[-\s]?(\d{8})[-\s]?(\d)\b/g, // Formato con/sin guiones/espacios
+    /\b(\d{11})\b/g, // Formato sin separadores (ej: 30517583231)
   ];
 
   const found: Set<string> = new Set();
@@ -129,6 +130,130 @@ export function extractCUITFromText(text: string): string[] {
   }
 
   return Array.from(found);
+}
+
+/**
+ * Información de un CUIT encontrado con contexto
+ */
+export interface CUITWithContext {
+  cuit: string;
+  position: number;
+  contextBefore: string;
+  contextAfter: string;
+  score: number;
+}
+
+/**
+ * Extrae CUITs con información de contexto para scoring inteligente
+ * @param text - Texto donde buscar CUITs
+ * @returns Array de CUITs con contexto y score
+ */
+export function extractCUITsWithContext(text: string): CUITWithContext[] {
+  const results: CUITWithContext[] = [];
+
+  // Patrones para detectar CUITs en diferentes formatos
+  const patterns = [
+    /\b(\d{2})[-\s]?(\d{8})[-\s]?(\d)\b/g, // Con separadores
+    /\b(\d{11})\b/g, // Sin separadores
+  ];
+
+  // Palabras clave para scoring
+  const emitterKeywords = [
+    'emisor',
+    'razon social',
+    'razón social',
+    'proveedor',
+    'vendedor',
+    'facturador',
+    'cuit emisor',
+    'cuit:',
+    'c.u.i.t.',
+    'contribuyente',
+  ];
+
+  const receiverKeywords = [
+    'receptor',
+    'cliente',
+    'comprador',
+    'destinatario',
+    'señor',
+    'señores',
+    'sres',
+    'sra',
+  ];
+
+  for (const pattern of patterns) {
+    const matches = text.matchAll(pattern);
+
+    for (const match of matches) {
+      const rawCuit = match[0].replace(/[-\s]/g, '');
+
+      // Validar CUIT
+      if (!validateCUIT(rawCuit)) {
+        continue;
+      }
+
+      const normalizedCuit = normalizeCUIT(rawCuit);
+      const position = match.index || 0;
+
+      // Extraer contexto (100 chars antes y después)
+      const contextSize = 100;
+      const contextBefore = text.slice(Math.max(0, position - contextSize), position);
+      const contextAfter = text.slice(position, Math.min(text.length, position + contextSize));
+
+      // Calcular score
+      let score = 0;
+
+      // +50 puntos si está cerca de palabras clave de emisor
+      const contextLower = (contextBefore + contextAfter).toLowerCase();
+      if (emitterKeywords.some((keyword) => contextLower.includes(keyword))) {
+        score += 50;
+      }
+
+      // -50 puntos si está cerca de palabras clave de receptor
+      if (receiverKeywords.some((keyword) => contextLower.includes(keyword))) {
+        score -= 50;
+      }
+
+      // +30 puntos si es el primero en aparecer
+      if (results.length === 0) {
+        score += 30;
+      }
+
+      // +20 puntos si está en el primer tercio del documento (usualmente es el emisor)
+      if (position < text.length / 3) {
+        score += 20;
+      }
+
+      // +40 puntos si está justo después de "CUIT:" o similar (muy probable que sea emisor)
+      if (/cuit[:\s]*$/i.test(contextBefore.slice(-10))) {
+        score += 40;
+      }
+
+      // Evitar duplicados (mismo CUIT puede aparecer múltiples veces)
+      const existing = results.find((r) => r.cuit === normalizedCuit);
+      if (existing) {
+        // Si encontramos el mismo CUIT de nuevo, tomar el score más alto
+        if (score > existing.score) {
+          existing.score = score;
+          existing.position = position;
+          existing.contextBefore = contextBefore;
+          existing.contextAfter = contextAfter;
+        }
+      } else {
+        results.push({
+          cuit: normalizedCuit,
+          position,
+          contextBefore,
+          contextAfter,
+          score,
+        });
+      }
+    }
+  }
+
+  // Ordenar por score descendente
+  return results.sort((a, b) => b.score - a.score);
 }
 
 /**

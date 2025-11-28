@@ -3,7 +3,7 @@
 
 emisor:
   cuit: "20-13046568-5"
-  nombre: "Oscar Alfredo Andereggen"
+  nombre: "Emisor 20-13046568-5"
 
 factura:
   tipo: "A"
