@@ -2,16 +2,17 @@
 # Confianza de extracción: 54.0%
 
 emisor:
-  cuit: "30-50001770-4"
-  nombre: "Emisor 30-50001770-4"
+  cuit: "20-10200053-7"
+  nombre: "Mandra Vicente Alberto"
 
 factura:
   tipo: "A"
   punto_venta: 4
   numero: 17649
-  fecha: "2025-11-27"
-  # total: [no detectado]
+  fecha: "2023-02-08"
+  total: 17000.00
 
 # Campos opcionales para templates futuros:
 # sugerencia_template: "estandar_horizontal"
-# notas: "Agregar observaciones manuales aquí"
+notas:
+  "la fecha tiene una separación peculiar, está justo justo arriba a la derecha de donde dice 'Razón social' FECHA 08 / 02 / 23"

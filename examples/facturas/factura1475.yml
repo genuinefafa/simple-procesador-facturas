@@ -3,12 +3,12 @@
 
 emisor:
   cuit: "30-71556647-4"
-  nombre: "Emisor 30-71556647-4"
+  nombre: "Marcio Y Agustin Addamo"
 
 factura:
   tipo: "B"
-  punto_venta: 0
-  numero: 0
+  punto_venta: 3
+  numero: 1475
   fecha: "2023-02-11"
   total: 44000.00
 
