@@ -171,6 +171,18 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
     'contribuyente',
   ];
 
+  // Indicadores FUERTES de emisor (mayor peso)
+  const strongEmitterKeywords = [
+    'ingresos brutos',
+    'ing. brutos',
+    'ing.brutos',
+    'iibb',
+    'inicio actividades',
+    'inicio de actividades',
+    'codigo 01', // El emisor suele estar marcado como "Código 01"
+    'código 01',
+  ];
+
   const receiverKeywords = [
     'receptor',
     'cliente',
@@ -180,6 +192,16 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
     'señores',
     'sres',
     'sra',
+  ];
+
+  // Indicadores FUERTES de receptor (mayor peso)
+  const strongReceiverKeywords = [
+    'la segunda',
+    'seguros',
+    'aseguradora',
+    'cond. venta',
+    'condiciones de venta',
+    'cuenta corriente',
   ];
 
   for (const pattern of patterns) {
@@ -196,18 +218,53 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
       const normalizedCuit = normalizeCUIT(rawCuit);
       const position = match.index || 0;
 
-      // Extraer contexto (100 chars antes y después)
-      const contextSize = 100;
+      // Extraer contexto (200 chars antes y después para PDFs complejos)
+      const contextSize = 200;
       const contextBefore = text.slice(Math.max(0, position - contextSize), position);
       const contextAfter = text.slice(position, Math.min(text.length, position + contextSize));
 
       // Calcular score
       let score = 0;
 
-      // +50 puntos si está cerca de palabras clave de emisor
       const contextLower = (contextBefore + contextAfter).toLowerCase();
+      const contextAfterLower = contextAfter.toLowerCase();
+      const contextBeforeLower = contextBefore.toLowerCase();
+
+      // Detectar indicadores fuertes - SOLO si aparecen CERCA del CUIT
+      // Buscar en los últimos 50 chars ANTES (labels que preceden al valor)
+      // O en los primeros 160 chars DESPUÉS (labels/valores que siguen al CUIT)
+      // Esto evita que detectemos indicadores que pertenecen a otro CUIT
+      const contextBeforeClose = contextBefore.slice(-50).toLowerCase();
+      const contextAfterClose = contextAfter.slice(0, 160).toLowerCase();
+
+      // Si hay separadores de sección (Cliente, FACTURA) antes de los indicadores,
+      // probablemente pertenecen a otra sección
+      const hasSectionSeparator = /cliente:|factura\s+n[ºo°]:/i.test(contextAfter.slice(0, 160));
+
+      let hasStrongEmitterIndicator = false;
+      if (strongEmitterKeywords.some((keyword) => contextBeforeClose.includes(keyword))) {
+        hasStrongEmitterIndicator = true;
+      } else if (strongEmitterKeywords.some((keyword) => contextAfterClose.includes(keyword)) && !hasSectionSeparator) {
+        hasStrongEmitterIndicator = true;
+      }
+      const hasStrongReceiverIndicator = strongReceiverKeywords.some((keyword) =>
+        contextLower.includes(keyword)
+      );
+
+      // +150 puntos si está cerca de indicadores FUERTES de emisor (peso aumentado)
+      if (hasStrongEmitterIndicator) {
+        score += 150;
+      }
+
+      // +50 puntos si está cerca de palabras clave de emisor
       if (emitterKeywords.some((keyword) => contextLower.includes(keyword))) {
         score += 50;
+      }
+
+      // -100 puntos si está cerca de indicadores FUERTES de receptor
+      // PERO: NO penalizar si también tiene indicador fuerte de emisor (probablemente es layout complejo)
+      if (hasStrongReceiverIndicator && !hasStrongEmitterIndicator) {
+        score -= 100;
       }
 
       // -50 puntos si está cerca de palabras clave de receptor
@@ -228,6 +285,16 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
       // +40 puntos si está justo después de "CUIT:" o similar (muy probable que sea emisor)
       if (/cuit[:\s]*$/i.test(contextBefore.slice(-10))) {
         score += 40;
+      }
+
+      // -50 puntos si aparece en sección "Apellido y Nombre / Razón Social" (típicamente cliente)
+      if (/apellido.*raz[oó]n\s+social/i.test(contextBefore.slice(-150))) {
+        score -= 50;
+      }
+
+      // +30 puntos si aparece después de "Domicilio Comercial" o similar (sección emisor)
+      if (/domicilio\s+comercial/i.test(contextBefore.slice(-150))) {
+        score += 30;
       }
 
       // Evitar duplicados (mismo CUIT puede aparecer múltiples veces)
