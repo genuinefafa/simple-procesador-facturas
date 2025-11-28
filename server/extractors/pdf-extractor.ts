@@ -235,7 +235,23 @@ export class PDFExtractor {
 
         // Palabras clave que aumentan score
         if (contextLower.includes('emisi')) score += 70; // Emisión es clave
-        if (contextLower.includes('fecha')) score += 60; // "Fecha" es muy relevante
+
+        // "Fecha:" es muy relevante - verificar si está DIRECTAMENTE antes
+        const contextBeforeClose = context
+          .slice(0, Math.min(150, context.length / 2))
+          .toLowerCase();
+        if (contextLower.includes('fecha')) {
+          // Si "vencimiento" o "vto" están directamente antes de la fecha (últimos 50 chars)
+          if (
+            contextBeforeClose.slice(-50).includes('vencimiento') ||
+            contextBeforeClose.slice(-50).includes('vto')
+          ) {
+            score += 0; // No dar bonus
+          } else {
+            score += 100; // Bonus MUY alto para "Fecha:" sin vencimiento inmediato
+          }
+        }
+
         if (contextLower.includes('razon social') || contextLower.includes('razón social'))
           score += 40;
         if (contextLower.includes('factura')) score += 30;
@@ -274,9 +290,9 @@ export class PDFExtractor {
         const occurrences = (text.match(new RegExp(datePattern, 'g')) || []).length;
         if (occurrences > 1) score += (occurrences - 1) * 20; // +20 por cada repetición adicional
 
-        // Solo agregar si el score no es demasiado negativo
-        if (score < -50) {
-          continue; // Skip this date
+        // Solo agregar si el score no es extremadamente negativo
+        if (score < -100) {
+          continue; // Skip this date (umbral más permisivo)
         }
 
         allDates.push({
