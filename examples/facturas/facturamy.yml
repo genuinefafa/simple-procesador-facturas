@@ -1,0 +1,20 @@
+# Anotación de factura procesada automáticamente
+# Confianza de extracción: 80.0%
+
+emisor:
+  cuit: "20-32191184-7"
+  nombre: "Caputto Pablo Roberto"
+
+factura:
+  tipo: "A"
+  punto_venta: 1
+  numero: 125
+  fecha: "2023-02-13"
+  total: 594636.99
+
+# Campos opcionales para templates futuros:
+# sugerencia_template: "estandar_horizontal"
+# notas: "Agregar observaciones manuales aquí"
+notas:
+  - ojo que es una factura A especial código 201
+

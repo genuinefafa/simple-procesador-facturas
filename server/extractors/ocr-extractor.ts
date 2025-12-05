@@ -12,14 +12,14 @@ import sharp from 'sharp';
 import { existsSync, readFileSync } from 'fs';
 import { extname } from 'path';
 import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
-import { extractCUITFromText } from '../validators/cuit';
+import { extractCUITsWithContext } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 import { pdf } from 'pdf-to-img';
 import convert from 'heic-convert';
 
 // Configuración de OCR
 const OCR_CONFIG = {
-  language: 'spa', // Español
+  language: 'eng', // Inglés (incluido por defecto, no requiere descarga)
   oem: Tesseract.OEM.LSTM_ONLY, // Motor LSTM (más preciso)
   psm: Tesseract.PSM.AUTO, // Detección automática de layout
 };
@@ -267,45 +267,29 @@ export class OCRExtractor {
       // 2. Aplicar patrones regex (mismos que PDFExtractor)
 
       // Extraer CUIT del EMISOR (no del receptor)
-      // Buscar CUITs con contexto para identificar al emisor
+      // Extraer CUIT del EMISOR usando scoring inteligente
       let cuit: string | undefined;
 
-      // Patrones específicos para CUIT del emisor (buscar antes que "DESTINATARIO" o "RECEPTOR")
-      const emitterPatterns = [
-        // Patrón para texto pegado: "33-67913936-9C.U.I.T.:" (CUIT antes de la palabra)
-        /(\d{2}[-\s]?\d{7,8}[-\s]?\d)C\.?U\.?I\.?T\.?/i,
-        /CUIT\s*(?:EMISOR|Emisor)?[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/i,
-        /(?:^|[\r\n])CUIT[:\s]*(\d{2}[-\s]?\d{7,8}[-\s]?\d)/im, // CUIT al inicio o después de línea
-      ];
+      // Usar scoring inteligente basado en contexto
+      const cuitsWithContext = extractCUITsWithContext(text);
 
-      for (const pattern of emitterPatterns) {
-        const match = text.match(pattern);
-        if (match && match[1]) {
-          // Intentar validar, pero ser más tolerante con OCR
-          const cuits = extractCUITFromText(match[1]);
-          if (cuits.length > 0) {
-            cuit = cuits[0];
-            console.info(`   💼 CUIT emisor encontrado con contexto: ${cuit}`);
-            break;
-          } else {
-            // OCR pudo leer mal el dígito verificador
-            console.warn(`   ⚠️  CUIT emisor candidato pero DV inválido: ${match[1]}`);
-          }
-        }
-      }
+      if (cuitsWithContext.length > 0) {
+        // Tomar el CUIT con mayor score
+        const bestMatch = cuitsWithContext[0];
+        cuit = bestMatch.cuit;
 
-      // Fallback: tomar el primer CUIT válido antes de "DESTINATARIO" o "RECEPTOR"
-      if (!cuit) {
-        const allCuits = extractCUITFromText(text);
-        if (allCuits.length > 0) {
-          cuit = allCuits[0];
-          if (allCuits.length > 1) {
-            console.warn(
-              `   ⚠️  Múltiples CUITs encontrados (${allCuits.length}), usando el primero: ${cuit}`
+        console.info(`   💼 CUIT emisor detectado (score: ${bestMatch.score}): ${cuit}`);
+
+        // Mostrar top 3 candidatos si hay múltiples
+        if (cuitsWithContext.length > 1) {
+          console.info(`   📊 Top ${Math.min(3, cuitsWithContext.length)} candidatos:`);
+          cuitsWithContext.slice(0, 3).forEach((c, i) => {
+            const preview =
+              c.contextBefore.slice(-30) + '►' + c.cuit + '◄' + c.contextAfter.slice(0, 30);
+            console.info(
+              `      ${i + 1}. ${c.cuit} (score: ${c.score}) - "${preview.replace(/\s+/g, ' ')}"`
             );
-          } else {
-            console.info(`   💼 CUIT encontrado: ${cuit}`);
-          }
+          });
         }
       }
 
@@ -428,49 +412,64 @@ export class OCRExtractor {
         }
       }
 
-      // 3. Buscar fechas numéricas DD/MM/YYYY
+      // 3. Buscar fechas numéricas DD/MM/YYYY y DD/MM/YY
       const datePatterns = [
-        /Emisi[oó]n[:\s]+(\d{2}[/-]\d{2}[/-]\d{4})/i, // Emisión (alta prioridad)
-        /(\d{2}[/-]\d{2}[/-]\d{4})\s*[\r\n]+\s*\d{12,13}\b/, // Fecha antes de número largo
-        /(\d{2}[/-]\d{2}[/-]\d{4})/g, // Todas las fechas
+        /Emisi[oó]n[:\s]+(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})/gi, // Emisión (alta prioridad)
+        /FECHA[:\s]+(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})/gi, // FECHA (alta prioridad)
+        /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})\s*[\r\n]+\s*\d{12,13}\b/g, // Fecha antes de número largo
+        /(\d{2}\s*[/-]\s*\d{2}\s*[/-]\s*\d{2,4})/g, // Todas las fechas (con/sin espacios)
       ];
 
       for (const pattern of datePatterns) {
-        const matches = Array.from(text.matchAll(new RegExp(pattern, 'gi')));
+        const matches = Array.from(text.matchAll(pattern));
         for (const match of matches) {
           const extractedDate = match[1] || match[0];
-          const normalizedDate = extractedDate.replace(/-/g, '/');
+          // Normalizar: remover espacios y usar solo /
+          let normalizedDate = extractedDate.replace(/\s+/g, '').replace(/-/g, '/');
+
+          // Convertir año de 2 dígitos a 4 dígitos (YY → YYYY)
+          const parts = normalizedDate.split('/');
+          if (parts.length === 3 && parts[2].length === 2) {
+            const yearShort = parseInt(parts[2], 10);
+            // Asumimos que años 00-49 son 2000-2049, 50-99 son 1950-1999
+            const yearFull = yearShort <= 49 ? 2000 + yearShort : 1900 + yearShort;
+            normalizedDate = `${parts[0]}/${parts[1]}/${yearFull}`;
+          }
 
           const dateObj = parseDateToObject(normalizedDate);
           if (!dateObj || allDates.some((d) => d.date === normalizedDate)) {
             continue;
           }
 
-          // Obtener contexto para scoring y filtrado
+          // Obtener contexto ampliado para scoring (150 chars antes y después)
           const context = text.substring(
-            Math.max(0, (match.index || 0) - 70),
-            (match.index || 0) + 100
+            Math.max(0, (match.index || 0) - 150),
+            Math.min(text.length, (match.index || 0) + 150)
           );
           const contextLower = context.toLowerCase();
 
-          // Filtrar fechas no deseadas
-          if (
-            contextLower.includes('inicio') ||
-            contextLower.includes('actividad') ||
-            contextLower.includes('vto') ||
-            contextLower.includes('vencimiento') ||
-            contextLower.includes('cae') ||
-            contextLower.includes('período') ||
-            contextLower.includes('desde') ||
-            contextLower.includes('hasta')
-          ) {
-            continue;
-          }
-
           // Calcular score basado en contexto
           let score = 30; // Score base
-          if (contextLower.includes('emisi')) {
-            score += 50; // +50 si contiene "emisión"
+
+          // Palabras clave que aumentan score
+          if (contextLower.includes('emisi')) score += 70; // Emisión es clave
+          if (contextLower.includes('fecha')) score += 60; // "Fecha" es muy relevante
+          if (contextLower.includes('razon social') || contextLower.includes('razón social'))
+            score += 40;
+          if (contextLower.includes('factura')) score += 30;
+          if (contextLower.includes('comprobante')) score += 25;
+
+          // Palabras clave que reducen score (pero no eliminan)
+          if (contextLower.includes('vto')) score -= 80;
+          if (contextLower.includes('vencimiento')) score -= 80;
+          if (contextLower.includes('cae')) score -= 80;
+          if (contextLower.includes('período') || contextLower.includes('periodo')) score -= 70;
+          if (contextLower.includes('desde') || contextLower.includes('hasta')) score -= 60;
+          if (contextLower.includes('inicio actividad')) score -= 100;
+
+          // Solo agregar si el score no es demasiado negativo
+          if (score < -50) {
+            continue; // Skip this date
           }
 
           allDates.push({
