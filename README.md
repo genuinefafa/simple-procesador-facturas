@@ -134,6 +134,36 @@ docker-compose logs -f app
 
 La aplicación estará disponible en `http://localhost:3000`
 
+### Integración con Google Sheets + Drive (Opcional)
+
+El sistema puede usar **Google Sheets** como base de datos y **Google Drive** para almacenar archivos, eliminando la necesidad de una base de datos local y facilitando la colaboración.
+
+**Ventajas:**
+- ✅ Sin infraestructura: No necesitas servidor ni base de datos
+- ✅ Colaboración: Múltiples usuarios pueden ver/editar
+- ✅ Auditoría: Google mantiene historial de cambios automáticamente
+- ✅ Búsqueda: Motor nativo de Google en sheets y archivos
+- ✅ Backup: Versionado automático de Google Drive
+
+**Setup rápido:**
+
+```bash
+# 1. Configurar credenciales de Google Cloud
+# Ver GOOGLE_SETUP.md para instrucciones detalladas
+
+# 2. Activar en config.json
+nano server/config.json
+# Cambiar "enabled": true y agregar spreadsheetId y rootFolderId
+
+# 3. Verificar configuración
+npm run test:google
+
+# 4. ¡Listo! Ahora las facturas se guardan en Google Sheets + Drive
+npm run dev
+```
+
+📚 **Documentación completa:** Ver [GOOGLE_SETUP.md](./GOOGLE_SETUP.md) para instrucciones paso a paso.
+
 ## 📖 Uso
 
 ### Flujo Completo

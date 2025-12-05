@@ -101,6 +101,10 @@ test-results/
 *.cert
 *.crt
 
+# Google Cloud credentials
+google-credentials.json
+.credentials/
+
 # Caché
 .cache/
 .parcel-cache/

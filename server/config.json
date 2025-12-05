@@ -32,5 +32,37 @@
     "moveToProcessed": true,
     "createBackup": false,
     "calculateHash": true
+  },
+  "google": {
+    "enabled": false,
+    "credentialsPath": "./google-credentials.json",
+    "sheets": {
+      "spreadsheetId": "REPLACE_WITH_YOUR_SPREADSHEET_ID",
+      "sheets": {
+        "emisores": {
+          "name": "Emisores",
+          "range": "Emisores!A:J"
+        },
+        "facturas": {
+          "name": "Facturas Procesadas",
+          "range": "Facturas Procesadas!A:R"
+        },
+        "esperadas": {
+          "name": "Facturas Esperadas AFIP",
+          "range": "Facturas Esperadas AFIP!A:N"
+        },
+        "logs": {
+          "name": "Logs de Procesamiento",
+          "range": "Logs de Procesamiento!A:G"
+        }
+      }
+    },
+    "drive": {
+      "rootFolderId": "REPLACE_WITH_YOUR_ROOT_FOLDER_ID",
+      "folderStructure": {
+        "originales": "originales",
+        "procesados": "procesados"
+      }
+    }
   }
 }
