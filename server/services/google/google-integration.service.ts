@@ -11,10 +11,30 @@ import {
   EmisoresSheetRow,
   FacturasEsperadasSheetRow,
   LogsSheetRow,
+  GoogleSheetsConfig,
+  GoogleDriveConfig,
 } from './types';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+
+/**
+ * Configuración completa de Google
+ */
+export interface GoogleConfig {
+  enabled: boolean;
+  credentialsPath: string;
+  sheets: GoogleSheetsConfig;
+  drive: GoogleDriveConfig;
+}
+
+/**
+ * Configuración del proyecto
+ */
+export interface ProjectConfig {
+  google?: GoogleConfig;
+  [key: string]: unknown;
+}
 
 /**
  * Datos normalizados de una factura procesada
@@ -48,7 +68,7 @@ export class GoogleIntegrationService {
   private sheetsService: GoogleSheetsService;
   private driveService: GoogleDriveService;
   private initialized: boolean = false;
-  private config: any = null;
+  private config: GoogleConfig | null = null;
 
   private constructor() {
     this.sheetsService = GoogleSheetsService.getInstance();
@@ -68,9 +88,9 @@ export class GoogleIntegrationService {
   /**
    * Inicializa el servicio con la configuración del config.json
    */
-  public async initialize(config: any): Promise<void> {
+  public async initialize(config: ProjectConfig): Promise<void> {
     if (!config.google || !config.google.enabled) {
-      console.log('ℹ️  Google integration disabled in config');
+      console.info('ℹ️  Google integration disabled in config');
       return;
     }
 
@@ -93,7 +113,7 @@ export class GoogleIntegrationService {
       await this.sheetsService.initializeSheetsWithHeaders();
 
       this.initialized = true;
-      console.log('✅ Google Integration Service initialized successfully');
+      console.info('✅ Google Integration Service initialized successfully');
     } catch (error) {
       console.error('❌ Error initializing Google Integration Service:', error);
       throw error;
@@ -184,7 +204,7 @@ export class GoogleIntegrationService {
         archivo: path.basename(data.archivoOriginal),
         cuit: data.cuit,
         status: 'ERROR',
-        mensaje: `Error: ${error}`,
+        mensaje: `Error: ${String(error)}`,
         usuario: 'system',
       });
 
@@ -253,7 +273,7 @@ export class GoogleIntegrationService {
       };
 
       await this.sheetsService.addEmisor(emisor);
-      console.log(`✅ Emisor creado: ${cuit}`);
+      console.info(`✅ Emisor creado: ${cuit}`);
     }
 
     return emisor;

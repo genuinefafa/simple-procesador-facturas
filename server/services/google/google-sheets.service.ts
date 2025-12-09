@@ -39,7 +39,7 @@ export class GoogleSheetsService {
     this.config = config;
     const auth = await getGoogleAuthClient();
     this.sheets = google.sheets({ version: 'v4', auth });
-    console.log('✅ Google Sheets service initialized');
+    console.info('✅ Google Sheets service initialized');
   }
 
   /**
@@ -97,7 +97,7 @@ export class GoogleSheetsService {
       },
     });
 
-    console.log('✅ Emisor agregado:', emisor.cuit);
+    console.info('✅ Emisor agregado:', emisor.cuit);
   }
 
   /**
@@ -131,7 +131,7 @@ export class GoogleSheetsService {
       },
     });
 
-    console.log('✅ Emisor actualizado:', cuit);
+    console.info('✅ Emisor actualizado:', cuit);
   }
 
   // ========== FACTURAS PROCESADAS ==========
@@ -220,7 +220,7 @@ export class GoogleSheetsService {
       },
     });
 
-    console.log('✅ Factura agregada:', factura.id);
+    console.info('✅ Factura agregada:', factura.id);
   }
 
   /**
@@ -251,7 +251,7 @@ export class GoogleSheetsService {
       },
     });
 
-    console.log('✅ Factura actualizada:', id);
+    console.info('✅ Factura actualizada:', id);
   }
 
   // ========== FACTURAS ESPERADAS AFIP ==========
@@ -358,7 +358,7 @@ export class GoogleSheetsService {
       },
     });
 
-    console.log(`✅ ${esperadas.length} facturas esperadas agregadas`);
+    console.info(`✅ ${esperadas.length} facturas esperadas agregadas`);
   }
 
   /**
@@ -392,7 +392,7 @@ export class GoogleSheetsService {
       },
     });
 
-    console.log('✅ Factura esperada actualizada:', id);
+    console.info('✅ Factura esperada actualizada:', id);
   }
 
   // ========== LOGS ==========
@@ -434,10 +434,10 @@ export class GoogleSheetsService {
       .slice(-limit)
       .map((row) => ({
         timestamp: row[0] || '',
-        tipoEvento: row[1] as any,
+        tipoEvento: row[1],
         archivo: row[2] || '',
         cuit: row[3] || '',
-        status: row[4] as any,
+        status: row[4],
         mensaje: row[5] || '',
         usuario: row[6] || '',
       }));
@@ -477,7 +477,7 @@ export class GoogleSheetsService {
             },
           });
 
-          console.log(`✅ Headers agregados a sheet: ${sheet.name}`);
+          console.info(`✅ Headers agregados a sheet: ${sheet.name}`);
         }
       } catch (error) {
         console.warn(`⚠️  Error inicializando sheet ${sheet.name}:`, error);

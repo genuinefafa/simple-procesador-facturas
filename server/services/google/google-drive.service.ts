@@ -50,7 +50,7 @@ export class GoogleDriveService {
     this.config = config;
     const auth = await getGoogleAuthClient();
     this.drive = google.drive({ version: 'v3', auth });
-    console.log('✅ Google Drive service initialized');
+    console.info('✅ Google Drive service initialized');
   }
 
   /**
@@ -84,14 +84,14 @@ export class GoogleDriveService {
     let cuitFolderId = await this.findFolder(cuitFolderName, this.config!.rootFolderId);
     if (!cuitFolderId) {
       cuitFolderId = await this.createFolder(cuitFolderName, this.config!.rootFolderId);
-      console.log(`✅ Carpeta creada para CUIT ${cuit}: ${cuitFolderId}`);
+      console.info(`✅ Carpeta creada para CUIT ${cuit}: ${cuitFolderId}`);
     }
 
     // 2. Buscar/crear subcarpeta de tipo (originales/procesados)
     let tipoFolderId = await this.findFolder(tipoFolderName, cuitFolderId);
     if (!tipoFolderId) {
       tipoFolderId = await this.createFolder(tipoFolderName, cuitFolderId);
-      console.log(`✅ Subcarpeta ${tipo} creada: ${tipoFolderId}`);
+      console.info(`✅ Subcarpeta ${tipo} creada: ${tipoFolderId}`);
     }
 
     return tipoFolderId;
@@ -172,7 +172,7 @@ export class GoogleDriveService {
       fields: 'id, name, webViewLink, webContentLink',
     });
 
-    console.log(`✅ Archivo subido a Drive: ${options.fileName} (${response.data.id})`);
+    console.info(`✅ Archivo subido a Drive: ${options.fileName} (${response.data.id})`);
 
     return {
       fileId: response.data.id!,
@@ -208,9 +208,10 @@ export class GoogleDriveService {
     const dest = fs.createWriteStream(destinationPath);
 
     return new Promise((resolve, reject) => {
-      (response.data as any)
+      const stream = response.data as unknown as Readable;
+      stream
         .on('end', () => {
-          console.log(`✅ Archivo descargado: ${destinationPath}`);
+          console.info(`✅ Archivo descargado: ${destinationPath}`);
           resolve();
         })
         .on('error', (err: Error) => {
@@ -334,7 +335,7 @@ export class GoogleDriveService {
       fileId: fileId,
     });
 
-    console.log(`✅ Archivo eliminado: ${fileId}`);
+    console.info(`✅ Archivo eliminado: ${fileId}`);
   }
 
   /**
@@ -359,7 +360,7 @@ export class GoogleDriveService {
       fields: 'id, parents',
     });
 
-    console.log(`✅ Archivo movido: ${fileId} → ${newParentId}`);
+    console.info(`✅ Archivo movido: ${fileId} → ${newParentId}`);
   }
 
   /**
@@ -382,7 +383,7 @@ export class GoogleDriveService {
         fileId: this.config!.rootFolderId,
         fields: 'id, name',
       });
-      console.log('✅ Carpeta raíz de Drive verificada');
+      console.info('✅ Carpeta raíz de Drive verificada');
     } catch (error) {
       throw new Error(
         `Carpeta raíz de Drive no encontrada (ID: ${this.config!.rootFolderId}). Verifica la configuración.`

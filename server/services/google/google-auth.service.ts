@@ -9,6 +9,22 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 /**
+ * Interface para credenciales de Google Service Account
+ */
+interface GoogleServiceAccountCredentials {
+  type: string;
+  project_id: string;
+  private_key_id: string;
+  private_key: string;
+  client_email: string;
+  client_id: string;
+  auth_uri: string;
+  token_uri: string;
+  auth_provider_x509_cert_url: string;
+  client_x509_cert_url: string;
+}
+
+/**
  * Scopes necesarios para Sheets y Drive
  */
 const SCOPES = [
@@ -41,7 +57,7 @@ export class GoogleAuthService {
       this.credentialsPath = '';
     } else {
       this.credentialsPath = validPath;
-      console.log('✅ Google credentials found at:', this.credentialsPath);
+      console.info('✅ Google credentials found at:', this.credentialsPath);
     }
   }
 
@@ -73,7 +89,7 @@ export class GoogleAuthService {
     try {
       // Leer el archivo de credenciales
       const credentialsContent = fs.readFileSync(this.credentialsPath, 'utf-8');
-      const credentials = JSON.parse(credentialsContent);
+      const credentials = JSON.parse(credentialsContent) as GoogleServiceAccountCredentials;
 
       // Crear cliente JWT con las credenciales del service account
       this.auth = new google.auth.JWT({
@@ -85,11 +101,11 @@ export class GoogleAuthService {
       // Autorizar
       await this.auth.authorize();
 
-      console.log('✅ Google Auth initialized successfully');
+      console.info('✅ Google Auth initialized successfully');
       return this.auth;
     } catch (error) {
       console.error('❌ Error initializing Google Auth:', error);
-      throw new Error(`Failed to initialize Google Auth: ${error}`);
+      throw new Error(`Failed to initialize Google Auth: ${String(error)}`);
     }
   }
 
@@ -110,7 +126,7 @@ export class GoogleAuthService {
 
     try {
       const credentialsContent = fs.readFileSync(this.credentialsPath, 'utf-8');
-      const credentials = JSON.parse(credentialsContent);
+      const credentials = JSON.parse(credentialsContent) as GoogleServiceAccountCredentials;
 
       return {
         email: credentials.client_email,

@@ -176,7 +176,7 @@ export class SheetConverters {
   /**
    * Convierte una fila de sheet a objeto tipado
    */
-  static rowToEmisores(row: any[]): EmisoresSheetRow {
+  static rowToEmisores(row: unknown[]): EmisoresSheetRow {
     return {
       cuit: row[0] || '',
       cuitNumerico: row[1] || '',
@@ -191,7 +191,7 @@ export class SheetConverters {
     };
   }
 
-  static rowToFacturas(row: any[]): FacturasSheetRow {
+  static rowToFacturas(row: unknown[]): FacturasSheetRow {
     return {
       id: row[0] || '',
       emisorCuit: row[1] || '',
@@ -203,8 +203,8 @@ export class SheetConverters {
       moneda: row[7] || 'ARS',
       archivoDriveId: row[8] || '',
       archivoLink: row[9] || '',
-      tipoArchivo: (row[10] as any) || 'PDF_DIGITAL',
-      metodoExtraccion: (row[11] as any) || 'GENERICO',
+      tipoArchivo: (String(row[10]) || 'PDF_DIGITAL') as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN',
+      metodoExtraccion: (String(row[11]) || 'GENERICO') as 'TEMPLATE' | 'GENERICO' | 'MANUAL',
       confianzaExtraccion: Number(row[12]) || 0,
       validadoManualmente: row[13] === 'TRUE' || row[13] === true,
       requiereRevision: row[14] === 'TRUE' || row[14] === true,
@@ -213,7 +213,7 @@ export class SheetConverters {
     };
   }
 
-  static rowToEsperadas(row: any[]): FacturasEsperadasSheetRow {
+  static rowToEsperadas(row: unknown[]): FacturasEsperadasSheetRow {
     return {
       id: row[0] || '',
       loteImportacion: row[1] || '',
@@ -225,7 +225,12 @@ export class SheetConverters {
       numeroComprobante: Number(row[7]) || 0,
       total: Number(row[8]) || 0,
       cae: row[9] || '',
-      status: (row[10] as any) || 'pending',
+      status: (String(row[10]) || 'pending') as
+        | 'pending'
+        | 'matched'
+        | 'discrepancy'
+        | 'manual'
+        | 'ignored',
       idFacturaMatched: row[11] || '',
       confianzaMatch: Number(row[12]) || 0,
       notas: row[13] || '',

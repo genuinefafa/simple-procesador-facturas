@@ -3,23 +3,30 @@
  * Este archivo muestra cómo integrar los servicios de Google en tu flujo de procesamiento
  */
 
-import { getGoogleIntegrationService, InvoiceData } from './google-integration.service';
-import * as config from '../../config.json';
+import {
+  getGoogleIntegrationService,
+  InvoiceData,
+  GoogleIntegrationService,
+  ProjectConfig,
+} from './google-integration.service';
+import configData from '../../config.json';
+
+const config = configData as ProjectConfig;
 
 /**
  * Ejemplo 1: Inicializar el servicio de Google
  */
-async function initializeGoogleServices() {
+async function initializeGoogleServices(): Promise<GoogleIntegrationService | null> {
   const googleService = getGoogleIntegrationService();
 
   if (!config.google || !config.google.enabled) {
-    console.log('Google integration is disabled in config.json');
+    console.info('Google integration is disabled in config.json');
     return null;
   }
 
   try {
     await googleService.initialize(config);
-    console.log('✅ Google services initialized');
+    console.info('✅ Google services initialized');
     return googleService;
   } catch (error) {
     console.error('❌ Failed to initialize Google services:', error);
@@ -30,9 +37,11 @@ async function initializeGoogleServices() {
 /**
  * Ejemplo 2: Guardar una factura procesada
  */
-async function saveProcessedInvoice(googleService: ReturnType<typeof getGoogleIntegrationService>) {
+async function saveProcessedInvoice(
+  googleService: ReturnType<typeof getGoogleIntegrationService>
+): Promise<void> {
   if (!googleService.isEnabled()) {
-    console.log('Google integration not enabled');
+    console.info('Google integration not enabled');
     return;
   }
 
@@ -57,10 +66,10 @@ async function saveProcessedInvoice(googleService: ReturnType<typeof getGoogleIn
   const result = await googleService.saveInvoice(invoiceData);
 
   if (result.success) {
-    console.log('✅ Factura guardada:');
-    console.log('   Invoice ID:', result.invoiceId);
-    console.log('   Drive File ID:', result.driveFileId);
-    console.log('   Drive Link:', result.driveLink);
+    console.info('✅ Factura guardada:');
+    console.info('   Invoice ID:', result.invoiceId);
+    console.info('   Drive File ID:', result.driveFileId);
+    console.info('   Drive Link:', result.driveLink);
   } else {
     console.error('❌ Error guardando factura:', result.error);
   }
@@ -69,7 +78,9 @@ async function saveProcessedInvoice(googleService: ReturnType<typeof getGoogleIn
 /**
  * Ejemplo 3: Buscar si una factura ya existe
  */
-async function checkIfInvoiceExists(googleService: ReturnType<typeof getGoogleIntegrationService>) {
+async function checkIfInvoiceExists(
+  googleService: ReturnType<typeof getGoogleIntegrationService>
+): Promise<boolean> {
   if (!googleService.isEnabled()) {
     return false;
   }
@@ -77,10 +88,10 @@ async function checkIfInvoiceExists(googleService: ReturnType<typeof getGoogleIn
   const existing = await googleService.findExistingInvoice('20-12345678-9', 'A', 1, 12345);
 
   if (existing) {
-    console.log('⚠️  Factura ya existe:', existing.id);
+    console.info('⚠️  Factura ya existe:', existing.id);
     return true;
   } else {
-    console.log('✅ Factura no existe, se puede procesar');
+    console.info('✅ Factura no existe, se puede procesar');
     return false;
   }
 }
@@ -90,7 +101,7 @@ async function checkIfInvoiceExists(googleService: ReturnType<typeof getGoogleIn
  */
 async function matchWithExpectedInvoices(
   googleService: ReturnType<typeof getGoogleIntegrationService>
-) {
+): Promise<void> {
   if (!googleService.isEnabled()) {
     return;
   }
@@ -99,9 +110,9 @@ async function matchWithExpectedInvoices(
   const exactMatch = await googleService.findExpectedInvoiceMatch('20-12345678-9', 'A', 1, 12345);
 
   if (exactMatch) {
-    console.log('✅ Match exacto encontrado:');
-    console.log('   ID:', exactMatch.id);
-    console.log('   Status:', exactMatch.status);
+    console.info('✅ Match exacto encontrado:');
+    console.info('   ID:', exactMatch.id);
+    console.info('   Status:', exactMatch.status);
 
     // Marcar como matched
     await googleService.markExpectedInvoiceAsMatched(
@@ -110,7 +121,7 @@ async function matchWithExpectedInvoices(
       100
     );
   } else {
-    console.log('❌ No se encontró match exacto');
+    console.info('❌ No se encontró match exacto');
 
     // Buscar candidatos por rango
     const candidates = await googleService.findExpectedInvoiceCandidates(
@@ -120,9 +131,9 @@ async function matchWithExpectedInvoices(
     );
 
     if (candidates.length > 0) {
-      console.log(`⚠️  Se encontraron ${candidates.length} candidatos posibles:`);
+      console.info(`⚠️  Se encontraron ${candidates.length} candidatos posibles:`);
       candidates.forEach((c) => {
-        console.log(
+        console.info(
           `   - ${c.tipoComprobante}-${c.puntoVenta}-${c.numeroComprobante} (${c.fechaEmision}, $${c.total})`
         );
       });
@@ -135,7 +146,7 @@ async function matchWithExpectedInvoices(
  */
 async function importExpectedInvoices(
   googleService: ReturnType<typeof getGoogleIntegrationService>
-) {
+): Promise<void> {
   if (!googleService.isEnabled()) {
     return;
   }
@@ -166,13 +177,15 @@ async function importExpectedInvoices(
   const loteId = `LOTE-${Date.now()}`;
 
   await googleService.importExpectedInvoices(invoices, loteId);
-  console.log(`✅ ${invoices.length} facturas esperadas importadas (Lote: ${loteId})`);
+  console.info(`✅ ${invoices.length} facturas esperadas importadas (Lote: ${loteId})`);
 }
 
 /**
  * Ejemplo 6: Obtener estadísticas
  */
-async function getStats(googleService: ReturnType<typeof getGoogleIntegrationService>) {
+async function getStats(
+  googleService: ReturnType<typeof getGoogleIntegrationService>
+): Promise<void> {
   if (!googleService.isEnabled()) {
     return;
   }
@@ -180,60 +193,60 @@ async function getStats(googleService: ReturnType<typeof getGoogleIntegrationSer
   const stats = await googleService.getStats();
 
   if (stats) {
-    console.log('📊 Estadísticas:');
-    console.log('   Total Emisores:', stats.totalEmisores);
-    console.log('   Total Facturas:', stats.totalFacturas);
-    console.log('   Total Esperadas:', stats.totalEsperadas);
-    console.log('   Esperadas Pendientes:', stats.esperadasPendientes);
-    console.log('   Esperadas Matched:', stats.esperadasMatched);
+    console.info('📊 Estadísticas:');
+    console.info('   Total Emisores:', stats.totalEmisores);
+    console.info('   Total Facturas:', stats.totalFacturas);
+    console.info('   Total Esperadas:', stats.totalEsperadas);
+    console.info('   Esperadas Pendientes:', stats.esperadasPendientes);
+    console.info('   Esperadas Matched:', stats.esperadasMatched);
   }
 }
 
 /**
  * Ejemplo 7: Integración completa en un flujo de procesamiento
  */
-async function completeProcessingFlow() {
-  console.log('=== Flujo completo de procesamiento con Google ===\n');
+async function completeProcessingFlow(): Promise<void> {
+  console.info('=== Flujo completo de procesamiento con Google ===\n');
 
   // 1. Inicializar
   const googleService = await initializeGoogleServices();
   if (!googleService) {
-    console.log('⚠️  Flujo sin Google, usar SQLite local');
+    console.info('⚠️  Flujo sin Google, usar SQLite local');
     return;
   }
 
   // 2. Verificar duplicados
-  console.log('\n--- Paso 1: Verificar duplicados ---');
+  console.info('\n--- Paso 1: Verificar duplicados ---');
   const exists = await checkIfInvoiceExists(googleService);
   if (exists) {
-    console.log('⚠️  Factura duplicada, saltando procesamiento');
+    console.info('⚠️  Factura duplicada, saltando procesamiento');
     return;
   }
 
   // 3. Guardar factura procesada
-  console.log('\n--- Paso 2: Guardar factura ---');
+  console.info('\n--- Paso 2: Guardar factura ---');
   await saveProcessedInvoice(googleService);
 
   // 4. Matching con esperadas
-  console.log('\n--- Paso 3: Matching con esperadas ---');
+  console.info('\n--- Paso 3: Matching con esperadas ---');
   await matchWithExpectedInvoices(googleService);
 
   // 5. Actualizar estadísticas del emisor
-  console.log('\n--- Paso 4: Actualizar emisor ---');
+  console.info('\n--- Paso 4: Actualizar emisor ---');
   await googleService.updateEmisorStats('20-12345678-9');
 
   // 6. Ver estadísticas
-  console.log('\n--- Paso 5: Estadísticas ---');
+  console.info('\n--- Paso 5: Estadísticas ---');
   await getStats(googleService);
 
-  console.log('\n✅ Flujo completo terminado');
+  console.info('\n✅ Flujo completo terminado');
 }
 
 /**
  * Ejemplo 8: Cómo modificar invoice-processing.service.ts
  */
-function howToIntegrateInExistingService() {
-  console.log(`
+function howToIntegrateInExistingService(): void {
+  console.info(`
 === Cómo integrar en servicios existentes ===
 
 En invoice-processing.service.ts:
@@ -269,7 +282,7 @@ class InvoiceProcessingService {
       const result = await this.googleService.saveInvoice(invoiceData);
 
       if (result.success) {
-        console.log('✅ Guardado en Google:', result.invoiceId);
+        console.info('✅ Guardado en Google:', result.invoiceId);
       }
     } else {
       // Flujo existente con SQLite
