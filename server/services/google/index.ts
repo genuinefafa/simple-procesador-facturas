@@ -6,7 +6,10 @@
 export { GoogleAuthService, getGoogleAuthClient, isGoogleConfigured } from './google-auth.service';
 export { GoogleSheetsService, getGoogleSheetsService } from './google-sheets.service';
 export { GoogleDriveService, getGoogleDriveService } from './google-drive.service';
-export { GoogleIntegrationService, getGoogleIntegrationService } from './google-integration.service';
+export {
+  GoogleIntegrationService,
+  getGoogleIntegrationService,
+} from './google-integration.service';
 
 // Tipos y constantes
 export {

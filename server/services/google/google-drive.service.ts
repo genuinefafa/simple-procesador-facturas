@@ -67,12 +67,18 @@ export class GoogleDriveService {
   /**
    * Obtiene o crea una carpeta para un emisor específico
    */
-  public async getOrCreateEmisorFolder(cuit: string, tipo: 'original' | 'procesado'): Promise<string> {
+  public async getOrCreateEmisorFolder(
+    cuit: string,
+    tipo: 'original' | 'procesado'
+  ): Promise<string> {
     this.ensureInitialized();
 
     // Estructura: /Facturas/{CUIT}/originales o /Facturas/{CUIT}/procesados
     const cuitFolderName = cuit;
-    const tipoFolderName = tipo === 'original' ? this.config!.folderStructure.originales : this.config!.folderStructure.procesados;
+    const tipoFolderName =
+      tipo === 'original'
+        ? this.config!.folderStructure.originales
+        : this.config!.folderStructure.procesados;
 
     // 1. Buscar/crear carpeta del CUIT
     let cuitFolderId = await this.findFolder(cuitFolderName, this.config!.rootFolderId);
@@ -218,7 +224,9 @@ export class GoogleDriveService {
   /**
    * Obtiene el link directo de visualización de un archivo
    */
-  public async getFileLink(fileId: string): Promise<{ webViewLink: string; webContentLink: string }> {
+  public async getFileLink(
+    fileId: string
+  ): Promise<{ webViewLink: string; webContentLink: string }> {
     this.ensureInitialized();
 
     const response = await this.drive!.files.get({
@@ -240,7 +248,8 @@ export class GoogleDriveService {
 
     const response = await this.drive!.files.get({
       fileId: fileId,
-      fields: 'id, name, mimeType, size, createdTime, modifiedTime, webViewLink, webContentLink, parents',
+      fields:
+        'id, name, mimeType, size, createdTime, modifiedTime, webViewLink, webContentLink, parents',
     });
 
     return response.data;
@@ -251,7 +260,10 @@ export class GoogleDriveService {
   /**
    * Busca archivos por nombre parcial
    */
-  public async searchFilesByName(name: string, parentFolderId?: string): Promise<drive_v3.Schema$File[]> {
+  public async searchFilesByName(
+    name: string,
+    parentFolderId?: string
+  ): Promise<drive_v3.Schema$File[]> {
     this.ensureInitialized();
 
     let query = `name contains '${name}' and trashed=false`;
@@ -272,7 +284,10 @@ export class GoogleDriveService {
   /**
    * Busca archivos de un emisor específico (por CUIT)
    */
-  public async searchFilesByCuit(cuit: string, tipo?: 'original' | 'procesado'): Promise<drive_v3.Schema$File[]> {
+  public async searchFilesByCuit(
+    cuit: string,
+    tipo?: 'original' | 'procesado'
+  ): Promise<drive_v3.Schema$File[]> {
     this.ensureInitialized();
 
     // Buscar carpeta del CUIT
@@ -285,7 +300,10 @@ export class GoogleDriveService {
 
     // Si se especifica tipo, buscar en la subcarpeta
     if (tipo) {
-      const tipoFolderName = tipo === 'original' ? this.config!.folderStructure.originales : this.config!.folderStructure.procesados;
+      const tipoFolderName =
+        tipo === 'original'
+          ? this.config!.folderStructure.originales
+          : this.config!.folderStructure.procesados;
       const tipoFolderId = await this.findFolder(tipoFolderName, cuitFolderId);
       if (!tipoFolderId) {
         return [];

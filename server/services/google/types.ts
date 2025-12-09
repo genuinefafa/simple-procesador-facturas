@@ -292,6 +292,14 @@ export class SheetConverters {
   }
 
   static logsToRow(log: LogsSheetRow): any[] {
-    return [log.timestamp, log.tipoEvento, log.archivo, log.cuit, log.status, log.mensaje, log.usuario];
+    return [
+      log.timestamp,
+      log.tipoEvento,
+      log.archivo,
+      log.cuit,
+      log.status,
+      log.mensaje,
+      log.usuario,
+    ];
   }
 }

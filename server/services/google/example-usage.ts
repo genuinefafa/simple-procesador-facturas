@@ -88,7 +88,9 @@ async function checkIfInvoiceExists(googleService: ReturnType<typeof getGoogleIn
 /**
  * Ejemplo 4: Matching con facturas esperadas (Excel AFIP)
  */
-async function matchWithExpectedInvoices(googleService: ReturnType<typeof getGoogleIntegrationService>) {
+async function matchWithExpectedInvoices(
+  googleService: ReturnType<typeof getGoogleIntegrationService>
+) {
   if (!googleService.isEnabled()) {
     return;
   }
@@ -102,17 +104,27 @@ async function matchWithExpectedInvoices(googleService: ReturnType<typeof getGoo
     console.log('   Status:', exactMatch.status);
 
     // Marcar como matched
-    await googleService.markExpectedInvoiceAsMatched(exactMatch.id, 'FAC-20-12345678-9-A-0001-00012345', 100);
+    await googleService.markExpectedInvoiceAsMatched(
+      exactMatch.id,
+      'FAC-20-12345678-9-A-0001-00012345',
+      100
+    );
   } else {
     console.log('❌ No se encontró match exacto');
 
     // Buscar candidatos por rango
-    const candidates = await googleService.findExpectedInvoiceCandidates('20-12345678-9', '15/12/2023', 15000.5);
+    const candidates = await googleService.findExpectedInvoiceCandidates(
+      '20-12345678-9',
+      '15/12/2023',
+      15000.5
+    );
 
     if (candidates.length > 0) {
       console.log(`⚠️  Se encontraron ${candidates.length} candidatos posibles:`);
       candidates.forEach((c) => {
-        console.log(`   - ${c.tipoComprobante}-${c.puntoVenta}-${c.numeroComprobante} (${c.fechaEmision}, $${c.total})`);
+        console.log(
+          `   - ${c.tipoComprobante}-${c.puntoVenta}-${c.numeroComprobante} (${c.fechaEmision}, $${c.total})`
+        );
       });
     }
   }
@@ -121,7 +133,9 @@ async function matchWithExpectedInvoices(googleService: ReturnType<typeof getGoo
 /**
  * Ejemplo 5: Importar facturas esperadas desde Excel AFIP
  */
-async function importExpectedInvoices(googleService: ReturnType<typeof getGoogleIntegrationService>) {
+async function importExpectedInvoices(
+  googleService: ReturnType<typeof getGoogleIntegrationService>
+) {
   if (!googleService.isEnabled()) {
     return;
   }

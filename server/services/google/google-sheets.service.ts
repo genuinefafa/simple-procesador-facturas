@@ -75,7 +75,9 @@ export class GoogleSheetsService {
    */
   public async getEmisorByCuit(cuit: string): Promise<EmisoresSheetRow | null> {
     const emisores = await this.getAllEmisores();
-    return emisores.find((e) => e.cuit === cuit || e.cuitNumerico === cuit.replace(/-/g, '')) || null;
+    return (
+      emisores.find((e) => e.cuit === cuit || e.cuitNumerico === cuit.replace(/-/g, '')) || null
+    );
   }
 
   /**
@@ -105,7 +107,9 @@ export class GoogleSheetsService {
     this.ensureInitialized();
 
     const emisores = await this.getAllEmisores();
-    const index = emisores.findIndex((e) => e.cuit === cuit || e.cuitNumerico === cuit.replace(/-/g, ''));
+    const index = emisores.findIndex(
+      (e) => e.cuit === cuit || e.cuitNumerico === cuit.replace(/-/g, '')
+    );
 
     if (index === -1) {
       throw new Error(`Emisor con CUIT ${cuit} no encontrado`);
@@ -299,7 +303,10 @@ export class GoogleSheetsService {
     return (
       esperadas.find(
         (e) =>
-          e.cuit === cuit && e.tipoComprobante === tipo && e.puntoVenta === puntoVenta && e.numeroComprobante === numero
+          e.cuit === cuit &&
+          e.tipoComprobante === tipo &&
+          e.puntoVenta === puntoVenta &&
+          e.numeroComprobante === numero
       ) || null
     );
   }
@@ -357,7 +364,10 @@ export class GoogleSheetsService {
   /**
    * Actualiza una factura esperada por ID
    */
-  public async updateEsperada(id: string, updates: Partial<FacturasEsperadasSheetRow>): Promise<void> {
+  public async updateEsperada(
+    id: string,
+    updates: Partial<FacturasEsperadasSheetRow>
+  ): Promise<void> {
     this.ensureInitialized();
 
     const esperadas = await this.getAllEsperadas();
