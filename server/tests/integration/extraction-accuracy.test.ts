@@ -5,7 +5,7 @@
  * de umbrales mínimos aceptables. Falla si hay regresión.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { PDFExtractor } from '../../extractors/pdf-extractor.js';
 import { OCRExtractor } from '../../extractors/ocr-extractor.js';
 import { readFileSync, readdirSync } from 'fs';

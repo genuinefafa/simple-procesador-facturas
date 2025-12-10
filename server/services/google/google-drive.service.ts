@@ -5,7 +5,7 @@
 
 import { google, drive_v3 } from 'googleapis';
 import { getGoogleAuthClient } from './google-auth.service';
-import { GoogleDriveConfig } from './types';
+import type { GoogleDriveConfig } from './types';
 import * as fs from 'fs';
 import * as path from 'path';
 import { Readable } from 'stream';
@@ -111,7 +111,7 @@ export class GoogleDriveService {
       });
 
       const folders = response.data.files || [];
-      return folders.length > 0 ? folders[0].id! : null;
+      return folders.length > 0 ? folders[0]?.id! : null;
     } catch (error) {
       console.error('Error buscando carpeta:', error);
       return null;

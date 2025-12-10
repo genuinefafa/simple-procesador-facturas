@@ -6,11 +6,11 @@
 import { google, sheets_v4 } from 'googleapis';
 import { getGoogleAuthClient } from './google-auth.service';
 import {
-  EmisoresSheetRow,
-  FacturasSheetRow,
-  FacturasEsperadasSheetRow,
-  LogsSheetRow,
-  GoogleSheetsConfig,
+  type EmisoresSheetRow,
+  type FacturasSheetRow,
+  type FacturasEsperadasSheetRow,
+  type LogsSheetRow,
+  type GoogleSheetsConfig,
   SheetConverters,
   SHEET_HEADERS,
 } from './types';
