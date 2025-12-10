@@ -433,13 +433,13 @@ export class GoogleSheetsService {
       .slice(1)
       .slice(-limit)
       .map((row) => ({
-        timestamp: row[0] || '',
-        tipoEvento: row[1],
-        archivo: row[2] || '',
-        cuit: row[3] || '',
-        status: row[4],
-        mensaje: row[5] || '',
-        usuario: row[6] || '',
+        timestamp: String(row[0] || ''),
+        tipoEvento: String(row[1] || '') as LogsSheetRow['tipoEvento'],
+        archivo: String(row[2] || ''),
+        cuit: String(row[3] || ''),
+        status: String(row[4] || '') as LogsSheetRow['status'],
+        mensaje: String(row[5] || ''),
+        usuario: String(row[6] || ''),
       }));
   }
 

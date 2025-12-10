@@ -111,7 +111,7 @@ export class GoogleDriveService {
       });
 
       const folders = response.data.files || [];
-      return folders.length > 0 ? folders[0]?.id! : null;
+      return folders[0]?.id ?? null;
     } catch (error) {
       console.error('Error buscando carpeta:', error);
       return null;
@@ -384,7 +384,7 @@ export class GoogleDriveService {
         fields: 'id, name',
       });
       console.info('✅ Carpeta raíz de Drive verificada');
-    } catch (error) {
+    } catch {
       throw new Error(
         `Carpeta raíz de Drive no encontrada (ID: ${this.config!.rootFolderId}). Verifica la configuración.`
       );

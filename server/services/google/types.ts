@@ -240,7 +240,7 @@ export class SheetConverters {
   /**
    * Convierte objeto tipado a array para insertar en sheet
    */
-  static emisoresToRow(emisor: EmisoresSheetRow): any[] {
+  static emisoresToRow(emisor: EmisoresSheetRow): (string | number)[] {
     return [
       emisor.cuit,
       emisor.cuitNumerico,
@@ -255,7 +255,7 @@ export class SheetConverters {
     ];
   }
 
-  static facturasToRow(factura: FacturasSheetRow): any[] {
+  static facturasToRow(factura: FacturasSheetRow): (string | number | boolean)[] {
     return [
       factura.id,
       factura.emisorCuit,
@@ -277,7 +277,7 @@ export class SheetConverters {
     ];
   }
 
-  static esperadasToRow(esperada: FacturasEsperadasSheetRow): any[] {
+  static esperadasToRow(esperada: FacturasEsperadasSheetRow): (string | number)[] {
     return [
       esperada.id,
       esperada.loteImportacion,
@@ -296,7 +296,7 @@ export class SheetConverters {
     ];
   }
 
-  static logsToRow(log: LogsSheetRow): any[] {
+  static logsToRow(log: LogsSheetRow): string[] {
     return [
       log.timestamp,
       log.tipoEvento,

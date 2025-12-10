@@ -441,7 +441,13 @@ export class GoogleIntegrationService {
   /**
    * Obtiene estadísticas generales
    */
-  public async getStats() {
+  public async getStats(): Promise<{
+    totalEmisores: number;
+    totalFacturas: number;
+    totalEsperadas: number;
+    esperadasPendientes: number;
+    esperadasMatched: number;
+  } | null> {
     if (!this.initialized) {
       return null;
     }

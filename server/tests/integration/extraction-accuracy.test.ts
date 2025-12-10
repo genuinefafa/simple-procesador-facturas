@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { PDFExtractor } from '../../extractors/pdf-extractor.js';
 import { OCRExtractor } from '../../extractors/ocr-extractor.js';
+import type { ExtractionResult } from '../../utils/types.js';
 import { readFileSync, readdirSync } from 'fs';
 import { join, extname } from 'path';
 import { parse as parseYAML } from 'yaml';
@@ -49,7 +50,7 @@ interface TestResult {
   numeroMatch: boolean;
   totalMatch: boolean;
   expected: YMLData;
-  detected: any;
+  detected: ExtractionResult;
 }
 
 describe('Precisión de Extracción de Datos', () => {
