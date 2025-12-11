@@ -26,6 +26,33 @@ try {
   db.exec('BEGIN TRANSACTION');
 
   // ===========================
+  // CATEGORÍAS DEFAULT
+  // ===========================
+
+  console.info('\n🏷️  Creando categorías por defecto...');
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT NOT NULL UNIQUE,
+      description TEXT NOT NULL,
+      active BOOLEAN DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  const insertCategory = db.prepare(
+    `INSERT OR IGNORE INTO categories (key, description, active) VALUES (?, ?, 1)`
+  );
+  insertCategory.run('SERVICIOS', 'Servicios');
+  insertCategory.run('INSUMOS', 'Insumos');
+  insertCategory.run('IMPUESTOS', 'Impuestos');
+  insertCategory.run('ALQUILERES', 'Alquileres');
+  insertCategory.run('HONORARIOS', 'Honorarios');
+  console.info('✅ Categorías default listas');
+
+  // ===========================
   // TEMPLATES DE EJEMPLO
   // ===========================
 
