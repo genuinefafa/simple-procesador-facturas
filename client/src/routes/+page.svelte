@@ -1618,75 +1618,120 @@
       <section class="known-invoices">
         <div class="section-header">
           <h2>🧮 Revisión de facturas conocidas</h2>
-          <p class="help-text">Cruce entre facturas esperadas (Excel AFIP) y PDFs procesados.</p>
+          <p class="help-text">Cruce entre facturas esperadas (Excel AFIP) y PDFs procesados. Hacé click en una fila para ver detalles.</p>
         </div>
 
-        <div class="known-layout">
-          <div class="table-scroll">
-            <table class="known-table">
-              <thead>
-                <tr>
-                  <th>Origen</th>
-                  <th>CUIT</th>
-                  <th>Fecha</th>
-                  <th>Tipo</th>
-                  <th>PV</th>
-                  <th>Número</th>
-                  <th class="align-right">Total</th>
-                  <th>Archivo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#if knownInvoices.length === 0}
-                  <tr><td colspan="8" class="empty-row">No hay registros</td></tr>
-                {:else}
-                  {#each knownInvoices as item}
-                    <tr class:selected={selectedKnown && selectedKnown.id === item.id && selectedKnown.source === item.source} onclick={() => selectKnown(item)}>
-                      <td>{item.source === 'expected' ? 'Excel AFIP' : 'PDF'}</td>
-                      <td>{formatCuit(item.cuit, item.cuit_guess)}</td>
-                      <td>{formatDateISO(item.issueDate)}</td>
-                      <td>{item.invoiceType ?? '—'}</td>
-                      <td>{item.pointOfSale ?? '—'}</td>
-                      <td>{item.invoiceNumber ?? '—'}</td>
-                      <td class="align-right">{formatNumber(item.total)}</td>
-                      <td class="file-col">{item.file ? item.file.split('/').pop() : '—'}</td>
-                    </tr>
-                  {/each}
-                {/if}
-              </tbody>
-            </table>
+        <div class="known-table-container">
+          <table class="known-table">
+            <thead>
+              <tr>
+                <th style="width: 10%">Origen</th>
+                <th style="width: 12%">CUIT</th>
+                <th style="width: 10%">Fecha</th>
+                <th style="width: 8%">Tipo</th>
+                <th style="width: 6%">PV</th>
+                <th style="width: 8%">Número</th>
+                <th style="width: 12%; text-align: right">Total</th>
+                <th style="width: 34%">Archivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#if knownInvoices.length === 0}
+                <tr><td colspan="8" class="empty-row">No hay registros</td></tr>
+              {:else}
+                {#each knownInvoices as item, idx}
+                  <tr
+                    class="invoice-row"
+                    class:selected={selectedKnown && selectedKnown.id === item.id && selectedKnown.source === item.source}
+                    onclick={() => selectKnown(item)}
+                    role="button"
+                    tabindex={idx}
+                  >
+                    <td>{item.source === 'expected' ? '📊 Excel' : '📄 PDF'}</td>
+                    <td class="monospace">{formatCuit(item.cuit, item.cuit_guess)}</td>
+                    <td>{formatDateISO(item.issueDate)}</td>
+                    <td>{item.invoiceType ?? '—'}</td>
+                    <td class="text-center">{item.pointOfSale ?? '—'}</td>
+                    <td class="text-center">{item.invoiceNumber ?? '—'}</td>
+                    <td class="text-right">{formatNumber(item.total)}</td>
+                    <td class="file-col truncate">{item.file ? item.file.split('/').pop() : '—'}</td>
+                  </tr>
+                {/each}
+              {/if}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Sidebar overlay -->
+      {#if selectedKnown}
+        <div class="sidebar-overlay" onclick={() => (selectedKnown = null)} role="presentation"></div>
+        <aside class="sidebar-panel">
+          <div class="sidebar-header">
+            <h3>Detalle del {selectedKnown.source === 'expected' ? 'AFIP' : 'PDF'}</h3>
+            <button class="close-btn" onclick={() => (selectedKnown = null)} aria-label="Cerrar">&times;</button>
           </div>
 
-          <aside class="known-sidebar">
-            {#if selectedKnown}
-              <h3>Detalle</h3>
-              <p><strong>Origen:</strong> {selectedKnown.source === 'expected' ? 'Excel AFIP' : 'PDF'}</p>
-              <p><strong>CUIT:</strong> {formatCuit(selectedKnown.cuit, selectedKnown.cuit_guess)}</p>
-              <p><strong>Fecha:</strong> {formatDateISO(selectedKnown.issueDate)}</p>
-              <p><strong>Comprobante:</strong> {selectedKnown.invoiceType ?? '—'}-{String(selectedKnown.pointOfSale ?? 0).padStart(4, '0')}-{String(selectedKnown.invoiceNumber ?? 0).padStart(8, '0')}</p>
-              <p><strong>Total:</strong> {formatNumber(selectedKnown.total)}</p>
+          <div class="sidebar-content">
+            <div class="detail-section">
+              <h4>Información</h4>
+              <div class="detail-row">
+                <span class="detail-label">Origen:</span>
+                <span class="detail-value">{selectedKnown.source === 'expected' ? '📊 Excel AFIP' : '📄 PDF'}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">CUIT:</span>
+                <span class="detail-value monospace">{formatCuit(selectedKnown.cuit, selectedKnown.cuit_guess)}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Fecha:</span>
+                <span class="detail-value">{formatDateISO(selectedKnown.issueDate)}</span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Comprobante:</span>
+                <span class="detail-value monospace">
+                  {selectedKnown.invoiceType ?? '—'}-{String(selectedKnown.pointOfSale ?? 0).padStart(4, '0')}-{String(selectedKnown.invoiceNumber ?? 0).padStart(8, '0')}
+                </span>
+              </div>
+              <div class="detail-row">
+                <span class="detail-label">Total:</span>
+                <span class="detail-value">{formatNumber(selectedKnown.total)}</span>
+              </div>
               {#if selectedKnown.file}
-                <p><strong>Archivo:</strong> {selectedKnown.file.split('/').pop()}</p>
+                <div class="detail-row">
+                  <span class="detail-label">Archivo:</span>
+                  <span class="detail-value filename">{selectedKnown.file.split('/').pop()}</span>
+                </div>
               {/if}
+            </div>
 
-              {#if selectedKnown.source === 'expected'}
-                <div class="sidebar-block">
-                  <label for="known-category">Categoría</label>
-                  <select id="known-category" bind:value={selectedKnownCategoryId}>
+            {#if selectedKnown.source === 'expected'}
+              <div class="detail-section">
+                <h4>Categoría</h4>
+                <div class="category-form">
+                  <select
+                    id="known-category"
+                    bind:value={selectedKnownCategoryId}
+                    class="category-select"
+                  >
                     <option value={null}>Sin categoría</option>
                     {#each knownCategories as cat}
                       <option value={cat.id}>{cat.description}</option>
                     {/each}
                   </select>
-                  <button class="btn btn-primary" onclick={saveKnownCategory} disabled={!selectedKnownCategoryId}>Asignar</button>
+                  <button
+                    class="btn btn-primary"
+                    onclick={saveKnownCategory}
+                    disabled={!selectedKnownCategoryId}
+                  >
+                    Asignar categoría
+                  </button>
                 </div>
-              {/if}
-            {:else}
-              <p class="help-text">Seleccioná una fila para ver detalles.</p>
+              </div>
             {/if}
-          </aside>
-        </div>
-      </section>
+          </div>
+        </aside>
+      {/if}
     {/if}
   </main>
 </div>
@@ -2193,27 +2238,6 @@
     padding: 1rem;
   }
 
-  .known-sidebar {
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 1rem;
-    background: #f8fafc;
-  }
-
-  .known-sidebar p {
-    margin: 0.25rem 0;
-  }
-
-  .sidebar-block {
-    margin-top: 1rem;
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-  }
-
-  .sidebar-block select {
-    flex: 1;
-  }
 
   .detail {
     display: flex;
@@ -2877,8 +2901,292 @@
     justify-content: flex-end;
   }
 
-  /* FILE PREVIEW CLEAN (without overlay) */
-  .file-preview.clean {
-    position: relative;
+  /* KNOWN INVOICES SECTION */
+  .known-invoices {
+    margin: 0 auto;
+  }
+
+  .section-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+
+  .section-header h2 {
+    font-size: 1.8rem;
+    margin: 0 0 0.5rem 0;
+    color: #1e293b;
+  }
+
+  .section-header .help-text {
+    color: #64748b;
+    font-size: 1rem;
+  }
+
+  .known-table-container {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+    margin-bottom: 2rem;
+  }
+
+  .known-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+  }
+
+  .known-table thead {
+    background: #f8fafc;
+    border-bottom: 2px solid #e2e8f0;
+  }
+
+  .known-table th {
+    padding: 1rem;
+    text-align: left;
+    font-weight: 600;
+    color: #475569;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .known-table td {
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    color: #334155;
+  }
+
+  .known-table tbody tr {
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .known-table tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .known-table tbody tr.selected {
+    background: #dbeafe;
+  }
+
+  .known-table tbody tr.invoice-row.selected {
+    background: #dbeafe;
+    border-left: 4px solid #2563eb;
+  }
+
+  .known-table .empty-row {
+    text-align: center;
+    color: #94a3b8;
+    padding: 2rem 1rem;
+  }
+
+  .known-table .monospace {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+    color: #475569;
+  }
+
+  .known-table .text-center {
+    text-align: center;
+  }
+
+  .known-table .text-right {
+    text-align: right;
+    font-family: 'Courier New', monospace;
+  }
+
+  .known-table .file-col {
+    max-width: 300px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #64748b;
+    font-size: 0.9rem;
+  }
+
+  .known-table .file-col.truncate {
+    word-break: break-word;
+  }
+
+  /* SIDEBAR OVERLAY AND PANEL */
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  .sidebar-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 400px;
+    background: white;
+    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    animation: slideInRight 0.3s ease-out;
+    overflow-y: auto;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideInRight {
+    from {
+      transform: translateX(100%);
+    }
+    to {
+      transform: translateX(0);
+    }
+  }
+
+  .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+
+  .sidebar-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: #1e293b;
+  }
+
+  .close-btn {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 0;
+    width: 2rem;
+    height: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+  }
+
+  .close-btn:hover {
+    color: #475569;
+  }
+
+  .sidebar-content {
+    padding: 1.5rem;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .detail-section {
+    margin-bottom: 2rem;
+  }
+
+  .detail-section h4 {
+    margin: 0 0 1rem 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .detail-row:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+  }
+
+  .detail-label {
+    font-weight: 600;
+    color: #64748b;
+    min-width: 80px;
+    font-size: 0.9rem;
+  }
+
+  .detail-value {
+    color: #1e293b;
+    text-align: right;
+    flex: 1;
+    word-break: break-word;
+  }
+
+  .detail-value.monospace {
+    font-family: 'Courier New', monospace;
+    font-size: 0.9rem;
+  }
+
+  .detail-value.filename {
+    font-size: 0.85rem;
+    color: #64748b;
+    word-break: break-all;
+  }
+
+  .category-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .category-select {
+    padding: 0.75rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: white;
+    color: #334155;
+  }
+
+  .category-select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  @media (max-width: 768px) {
+    .sidebar-panel {
+      width: 100%;
+      border-radius: 8px 8px 0 0;
+      bottom: 0;
+      right: 0;
+      left: 0;
+      top: auto;
+      max-height: 80vh;
+    }
+
+    @keyframes slideInRight {
+      from {
+        transform: translateY(100%);
+      }
+      to {
+        transform: translateY(0);
+      }
+    }
   }
 </style>
