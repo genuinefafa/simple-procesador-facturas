@@ -42,9 +42,9 @@ export class GoogleAuthService {
     // Buscar credenciales en varios lugares posibles
     const possiblePaths = [
       process.env.GOOGLE_APPLICATION_CREDENTIALS,
-      path.join(process.cwd(), 'google-credentials.json'),
-      path.join(process.cwd(), 'credentials', 'google-service-account.json'),
-      path.join(process.cwd(), '.credentials', 'service-account.json'),
+      path.join(process.cwd(), '../google-credentials.json'),
+      path.join(process.cwd(), '../credentials', 'google-service-account.json'),
+      path.join(process.cwd(), '../.credentials', 'service-account.json'),
     ];
 
     const validPath = possiblePaths.find((p) => p && fs.existsSync(p));
