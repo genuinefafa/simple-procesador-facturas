@@ -1,4 +1,4 @@
-#!/usr/bin/env ts-node
+#!/usr/bin/env tsx
 /**
  * Script para verificar la configuración de Google
  * Uso: npm run test:google
