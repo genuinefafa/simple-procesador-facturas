@@ -361,6 +361,10 @@ export const expectedInvoices = sqliteTable(
     // Metadata
     importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
     notes: text('notes'),
+    // Categoría asignada por el usuario (FK optional)
+    categoryId: integer('category_id').references(() => categories.id, {
+      onDelete: 'set null',
+    }),
   },
   (table) => ({
     cuitIdx: index('idx_expected_invoices_cuit').on(table.cuit),
@@ -379,3 +383,23 @@ export const expectedInvoices = sqliteTable(
 
 export type ExpectedInvoice = typeof expectedInvoices.$inferSelect;
 export type NewExpectedInvoice = typeof expectedInvoices.$inferInsert;
+
+// =============================================================================
+// CATEGORÍAS
+// =============================================================================
+
+export const categories = sqliteTable(
+  'categories',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    key: text('key').notNull().unique(), // identificador estable p.ej. "SERVICIOS"
+    description: text('description').notNull(),
+    active: integer('active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({})
+);
+
+export type Category = typeof categories.$inferSelect;
+export type NewCategory = typeof categories.$inferInsert;

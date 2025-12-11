@@ -1,11 +1,29 @@
 <script lang="ts">
-  export let data: { items: any[] };
+  export let data: { items: any[]; categories: Array<{ id: number; key: string; description: string }> };
   let selected: any | null = null;
   let sidebarOpen = false;
+  let selectedCategoryId: number | null = null;
 
   function openSidebar(item: any) {
     selected = item;
     sidebarOpen = true;
+    selectedCategoryId = item.categoryId ?? null;
+  }
+  async function saveCategory() {
+    if (!selected || selected.source !== 'expected' || !selectedCategoryId) return;
+    const res = await fetch('/api/invoices-known/category', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ expectedId: selected.id, categoryId: selectedCategoryId }),
+    });
+    const out = await res.json();
+    if (out.ok) {
+      // Optimistic update
+      selected.categoryId = selectedCategoryId;
+      alert('Categoría asignada');
+    } else {
+      alert('Error: ' + (out.error || 'unknown'));
+    }
   }
 
   function closeSidebar() {
@@ -75,13 +93,17 @@
 
       <hr />
       <h3>Categoría</h3>
-      <!-- Placeholder select; will be wired to local JSON storage -->
-      <select>
-        <option value="">Sin categoría</option>
-        <option value="SERVICIOS">Servicios</option>
-        <option value="INSUMOS">Insumos</option>
-        <option value="IMPUESTOS">Impuestos</option>
-      </select>
+      {#if selected.source === 'expected'}
+        <select bind:value={selectedCategoryId}>
+          <option value={null}>Sin categoría</option>
+          {#each data.categories as c}
+            <option value={c.id}>{c.description}</option>
+          {/each}
+        </select>
+        <button style="margin-left:8px" on:click={saveCategory}>Asignar</button>
+      {:else}
+        <small>Las categorías se asignan a facturas esperadas.</small>
+      {/if}
 
       <h3 style="margin-top:12px">Vista previa</h3>
       {#if selected.source === 'pdf'}
