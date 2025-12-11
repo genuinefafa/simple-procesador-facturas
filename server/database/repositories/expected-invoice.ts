@@ -26,6 +26,7 @@ export interface ExpectedInvoice {
   matchConfidence: number | null;
   importDate: string;
   notes: string | null;
+  categoryId: number | null;
 }
 
 interface ExpectedInvoiceRow {
@@ -47,6 +48,7 @@ interface ExpectedInvoiceRow {
   match_confidence: number | null;
   import_date: string;
   notes: string | null;
+  category_id: number | null;
 }
 
 export interface ImportBatch {
@@ -101,6 +103,7 @@ export class ExpectedInvoiceRepository {
       matchConfidence: row.match_confidence,
       importDate: row.import_date,
       notes: row.notes,
+      categoryId: row.category_id,
     };
   }
 
@@ -686,5 +689,25 @@ export class ExpectedInvoiceRepository {
    */
   listUnmatched(batchId?: number): ExpectedInvoice[] {
     return this.list({ status: 'pending', batchId });
+  }
+
+  /**
+   * Actualiza la categoría de una factura esperada
+   */
+  updateCategory(id: number, categoryId: number | null): ExpectedInvoice {
+    const stmt = this.db.prepare(`
+      UPDATE expected_invoices
+      SET category_id = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(categoryId, id);
+
+    const updated = this.findById(id);
+    if (!updated) {
+      throw new Error('Expected invoice not found after updating category');
+    }
+
+    return updated;
   }
 }

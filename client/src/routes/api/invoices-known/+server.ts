@@ -1,7 +1,7 @@
 import { json } from '@sveltejs/kit';
 import fs from 'node:fs';
 import path from 'node:path';
-import Database from 'better-sqlite3';
+import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
 
 type ExpectedInvoice = {
   source: 'expected';
@@ -25,44 +25,6 @@ type PdfInvoice = {
 };
 
 type KnownInvoice = ExpectedInvoice | PdfInvoice;
-
-function listExpectedInvoices(dbPath: string): ExpectedInvoice[] {
-  if (!fs.existsSync(dbPath)) return [];
-  const db = new Database(dbPath);
-  const rows = db
-    .prepare(
-      `SELECT id, cuit, emitter_name as emitterName, issue_date as issueDate, invoice_type as invoiceType,
-              point_of_sale as pointOfSale, invoice_number as invoiceNumber, total, status, category_id as categoryId
-       FROM expected_invoices
-       ORDER BY issue_date DESC`
-    )
-    .all() as Array<{
-    id: number;
-    cuit: string;
-    emitterName: string | null;
-    issueDate: string;
-    invoiceType: string;
-    pointOfSale: number;
-    invoiceNumber: number;
-    total: number | null;
-    status: string;
-    categoryId: number | null;
-  }>;
-
-  return rows.map((r) => ({
-    source: 'expected',
-    id: r.id,
-    cuit: r.cuit,
-    emitterName: r.emitterName,
-    issueDate: r.issueDate,
-    invoiceType: r.invoiceType,
-    pointOfSale: r.pointOfSale,
-    invoiceNumber: r.invoiceNumber,
-    total: r.total,
-    status: r.status,
-    categoryId: r.categoryId,
-  }));
-}
 
 function listPdfInvoices(processedDir: string): PdfInvoice[] {
   if (!fs.existsSync(processedDir)) return [];
@@ -97,8 +59,24 @@ export async function GET() {
   // During client dev, CWD is client/, so go up one level to reach project data/
   const rootDir = path.join(process.cwd(), '..');
   const processedDir = path.join(rootDir, 'data', 'processed');
-  const dbPath = path.join(rootDir, 'data', 'database.sqlite');
-  const expected = listExpectedInvoices(dbPath);
+
+  const expectedInvoiceRepo = new ExpectedInvoiceRepository();
+  const expectedInvoices = expectedInvoiceRepo.list();
+
+  const expected: ExpectedInvoice[] = expectedInvoices.map((inv) => ({
+    source: 'expected',
+    id: inv.id,
+    cuit: inv.cuit,
+    emitterName: inv.emitterName,
+    issueDate: inv.issueDate,
+    invoiceType: inv.invoiceType,
+    pointOfSale: inv.pointOfSale,
+    invoiceNumber: inv.invoiceNumber,
+    total: inv.total,
+    status: inv.status,
+    categoryId: inv.categoryId,
+  }));
+
   const pdfs = listPdfInvoices(processedDir);
   const data: KnownInvoice[] = [...expected, ...pdfs];
   return json({ count: data.length, items: data });

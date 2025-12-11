@@ -1,6 +1,6 @@
 import { json } from '@sveltejs/kit';
-import Database from 'better-sqlite3';
-import path from 'node:path';
+import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
+import { CategoryRepository } from '@server/database/repositories/category';
 
 export async function POST({ request }) {
   const body = await request.json().catch(() => ({}));
@@ -9,19 +9,17 @@ export async function POST({ request }) {
     return json({ ok: false, error: 'expectedId and categoryId are required' }, { status: 400 });
   }
 
-  const rootDir = path.join(process.cwd(), '..');
-  const dbPath = path.join(rootDir, 'data', 'database.sqlite');
-  const db = new Database(dbPath);
-
-  const category = db.prepare('SELECT id FROM categories WHERE id = ?').get(categoryId);
+  const categoryRepo = new CategoryRepository();
+  const category = await categoryRepo.findById(categoryId);
   if (!category) {
     return json({ ok: false, error: 'Category not found' }, { status: 404 });
   }
 
-  const stmt = db.prepare('UPDATE expected_invoices SET category_id = ? WHERE id = ?');
-  const res = stmt.run(categoryId, expectedId);
-  if (res.changes === 0) {
+  const expectedInvoiceRepo = new ExpectedInvoiceRepository();
+  try {
+    expectedInvoiceRepo.updateCategory(expectedId, categoryId);
+    return json({ ok: true });
+  } catch (error) {
     return json({ ok: false, error: 'Expected invoice not found' }, { status: 404 });
   }
-  return json({ ok: true });
 }
