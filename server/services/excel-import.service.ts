@@ -6,8 +6,6 @@ import ExcelJS from 'exceljs';
 import { normalizeCUIT, validateCUIT } from '../validators/cuit.js';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice.js';
 import path from 'path';
-import { getGoogleIntegrationService } from './google/google-integration.service.js';
-import { getConfig } from '../utils/config-loader.js';
 
 /**
  * Extrae el valor primitivo de una celda de ExcelJS
@@ -85,29 +83,9 @@ export interface ColumnMapping {
  */
 export class ExcelImportService {
   private repo: ExpectedInvoiceRepository;
-  private googleService = getGoogleIntegrationService();
-  private googleInitialized = false;
 
   constructor() {
     this.repo = new ExpectedInvoiceRepository();
-
-    // Inicializar Google si está configurado
-    void this.initializeGoogle();
-  }
-
-  private async initializeGoogle(): Promise<void> {
-    try {
-      const config = getConfig();
-      if (config.google?.enabled) {
-        await this.googleService.initialize(config);
-        this.googleInitialized = this.googleService.isEnabled();
-        if (this.googleInitialized) {
-          console.info('✅ Google Sheets habilitado para importación de facturas esperadas');
-        }
-      }
-    } catch (error) {
-      console.warn('⚠️  No se pudo inicializar Google integration:', error);
-    }
   }
 
   /**
@@ -257,42 +235,6 @@ export class ExcelImportService {
     const imported = this.repo.createManyInvoices(rows, batch.id);
 
     console.info(`   ✅ Facturas importadas: ${imported.length}`);
-
-    // Sincronizar con Google Sheets si está habilitado
-    if (this.googleInitialized && imported.length > 0) {
-      try {
-        console.info(
-          `   ☁️  Sincronizando ${imported.length} facturas esperadas con Google Sheets...`
-        );
-
-        // Convertir formato de ParsedInvoice al formato esperado por Google
-        const googleInvoices = rows.map((invoice) => {
-          // Convertir fecha de YYYY-MM-DD a DD/MM/YYYY
-          const [year, month, day] = invoice.issueDate.split('-');
-          const fechaEmision = `${day}/${month}/${year}`;
-
-          return {
-            cuit: invoice.cuit,
-            nombreEmisor: invoice.emitterName || '',
-            fechaEmision,
-            tipoComprobante: invoice.invoiceType,
-            puntoVenta: invoice.pointOfSale,
-            numeroComprobante: invoice.invoiceNumber,
-            total: invoice.total || 0,
-            cae: invoice.cae || '',
-          };
-        });
-
-        // Usar batch.id como loteId para identificar el lote en Google
-        const loteId = `BATCH-${batch.id}-${Date.now()}`;
-        await this.googleService.importExpectedInvoices(googleInvoices, loteId);
-
-        console.info(`   ✅ Sincronizado con Google Sheets (Lote: ${loteId})`);
-      } catch (googleError) {
-        console.warn(`   ⚠️  Error en sincronización Google (no crítico):`, googleError);
-        // No falla la importación si Google falla
-      }
-    }
 
     // Actualizar estadísticas del lote
     this.repo.updateBatch(batch.id, {
