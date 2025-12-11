@@ -90,6 +90,7 @@ coverage/
 # Archivos de configuración local
 config.local.json
 config.override.json
+.local-invoice-categories.json
 
 # Archivos de prueba generados
 test-output/
