@@ -5,7 +5,7 @@
 import Database from 'better-sqlite3';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -26,10 +26,10 @@ try {
   db.exec('BEGIN TRANSACTION');
 
   // ===========================
-  // CATEGORÍAS DEFAULT
+  // CATEGORÍAS DESDE categorias.json
   // ===========================
 
-  console.info('\n🏷️  Creando categorías por defecto...');
+  console.info('\n🏷️  Cargando categorías desde categorias.json...');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS categories (
@@ -42,15 +42,27 @@ try {
     );
   `);
 
-  const insertCategory = db.prepare(
-    `INSERT OR IGNORE INTO categories (key, description, active) VALUES (?, ?, 1)`
-  );
-  insertCategory.run('SERVICIOS', 'Servicios');
-  insertCategory.run('INSUMOS', 'Insumos');
-  insertCategory.run('IMPUESTOS', 'Impuestos');
-  insertCategory.run('ALQUILERES', 'Alquileres');
-  insertCategory.run('HONORARIOS', 'Honorarios');
-  console.info('✅ Categorías default listas');
+  const categoriesPath = join(__dirname, '..', '..', 'categorias.json');
+  if (!existsSync(categoriesPath)) {
+    console.warn(
+      '⚠️  No se encontró categorias.json. Creá una copia desde categorias.json.example'
+    );
+  } else {
+    try {
+      const raw = readFileSync(categoriesPath, 'utf-8');
+      const parsed = JSON.parse(raw) as Array<{ key: string; description: string }>;
+      const insertCategory = db.prepare(
+        `INSERT OR IGNORE INTO categories (key, description, active) VALUES (?, ?, 1)`
+      );
+      for (const cat of parsed) {
+        if (!cat.key || !cat.description) continue;
+        insertCategory.run(cat.key, cat.description);
+      }
+      console.info(`✅ Categorías insertadas (${parsed.length})`);
+    } catch (error) {
+      console.error('❌ Error leyendo categorias.json:', error);
+    }
+  }
 
   // ===========================
   // TEMPLATES DE EJEMPLO
