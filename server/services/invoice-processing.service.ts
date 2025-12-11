@@ -20,6 +20,11 @@ import {
 import { format, subDays, addDays } from 'date-fns';
 import { extname } from 'path';
 import type { Invoice, DocumentType, ExtractionMethod } from '../utils/types.js';
+import {
+  getGoogleIntegrationService,
+  type InvoiceData,
+} from './google/google-integration.service.js';
+import { getConfig } from '../utils/config-loader.js';
 
 // Extensiones de imagen soportadas para OCR
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp', '.heic', '.heif'];
@@ -53,6 +58,8 @@ export class InvoiceProcessingService {
   private emitterRepo: EmitterRepository;
   private invoiceRepo: InvoiceRepository;
   private expectedInvoiceRepo: ExpectedInvoiceRepository;
+  private googleService = getGoogleIntegrationService();
+  private googleInitialized = false;
 
   constructor() {
     this.pdfExtractor = new PDFExtractor();
@@ -60,6 +67,24 @@ export class InvoiceProcessingService {
     this.emitterRepo = new EmitterRepository();
     this.invoiceRepo = new InvoiceRepository();
     this.expectedInvoiceRepo = new ExpectedInvoiceRepository();
+
+    // Inicializar Google si está configurado
+    void this.initializeGoogle();
+  }
+
+  private async initializeGoogle(): Promise<void> {
+    try {
+      const config = getConfig();
+      if (config.google?.enabled) {
+        await this.googleService.initialize(config);
+        this.googleInitialized = this.googleService.isEnabled();
+        if (this.googleInitialized) {
+          console.info('✅ Google Sheets + Drive habilitados para procesamiento de facturas');
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️  No se pudo inicializar Google integration:', error);
+    }
   }
 
   /**
@@ -520,6 +545,48 @@ export class InvoiceProcessingService {
       console.info(
         `   📊 Requiere revisión: ${confidence < 80 ? 'SÍ' : 'NO'} (confianza: ${confidence}%)`
       );
+
+      // 8. Sincronizar con Google Sheets + Drive si está habilitado
+      if (this.googleInitialized) {
+        try {
+          console.info(`   ☁️  Sincronizando con Google Sheets + Drive...`);
+
+          // Convertir fecha de YYYY-MM-DD a DD/MM/YYYY para Google Sheets
+          const [year, month, day] = formattedDate.split('-');
+          const googleDate = `${day}/${month}/${year}`;
+
+          const invoiceData: InvoiceData = {
+            cuit: normalizedCuit,
+            fechaEmision: googleDate,
+            tipoComprobante: data.invoiceType,
+            puntoVenta: data.pointOfSale,
+            numeroComprobante: data.invoiceNumber,
+            total: data.total || 0,
+            moneda: 'ARS',
+            tipoArchivo: documentType,
+            metodoExtraccion: extractionMethod,
+            confianzaExtraccion: confidence,
+            validadoManualmente: false,
+            requiereRevision: confidence < 80,
+            archivoOriginal: filePath,
+          };
+
+          const googleResult = await this.googleService.saveInvoice(invoiceData);
+
+          if (googleResult.success) {
+            console.info(`   ✅ Sincronizado con Google - Sheet ID: ${googleResult.invoiceId}`);
+            console.info(`   📁 Archivo en Drive: ${googleResult.driveLink}`);
+
+            // Actualizar estadísticas del emisor en Google
+            await this.googleService.updateEmisorStats(normalizedCuit);
+          } else {
+            console.warn(`   ⚠️  Error sincronizando con Google: ${googleResult.error}`);
+          }
+        } catch (googleError) {
+          console.warn(`   ⚠️  Error en sincronización Google (no crítico):`, googleError);
+          // No falla el procesamiento si Google falla
+        }
+      }
 
       return {
         success: true,
