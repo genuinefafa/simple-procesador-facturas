@@ -47,7 +47,7 @@
   let uploadedFiles: File[] = $state([]);
   let selectedInvoices = $state<Set<number>>(new Set());
   let selectedPendingFiles = $state<Set<number>>(new Set());
-  let activeTab = $state<'upload' | 'review' | 'invoices' | 'excel'>('upload');
+  let activeTab = $state<'upload' | 'review' | 'invoices' | 'excel' | 'google'>('upload');
   let reviewFilter = $state<'pending' | 'all'>('pending'); // Filtro para tab Revisar
 
   // Estado para edición inline
@@ -60,6 +60,68 @@
 
   // Estado para matches de expected invoices
   let matchesData = $state<Record<number, any>>({});
+
+  // Estado para Google Sync
+  type SyncMode = 'sync' | 'push' | 'pull';
+  type SheetType = 'emisores' | 'facturas' | 'esperadas' | 'logs';
+
+  interface SyncState {
+    loading: boolean;
+    lastResult: SyncResult | null;
+  }
+
+  interface SyncResult {
+    success: boolean;
+    sheet: SheetType;
+    mode: SyncMode;
+    stats: {
+      uploaded: number;
+      downloaded: number;
+      conflicts: number;
+      errors: number;
+    };
+    details?: string[];
+    error?: string;
+  }
+
+  let syncStates = $state<Record<SheetType, SyncState>>({
+    emisores: { loading: false, lastResult: null },
+    facturas: { loading: false, lastResult: null },
+    esperadas: { loading: false, lastResult: null },
+    logs: { loading: false, lastResult: null },
+  });
+
+  const sheets: Array<{
+    type: SheetType;
+    name: string;
+    description: string;
+    icon: string;
+  }> = [
+    {
+      type: 'emisores',
+      name: 'Emisores',
+      description: 'Proveedores/Emisores de facturas',
+      icon: '🏢',
+    },
+    {
+      type: 'facturas',
+      name: 'Facturas Procesadas',
+      description: 'Facturas ya procesadas y validadas',
+      icon: '📄',
+    },
+    {
+      type: 'esperadas',
+      name: 'Facturas Esperadas AFIP',
+      description: 'Facturas importadas desde Excel AFIP',
+      icon: '📋',
+    },
+    {
+      type: 'logs',
+      name: 'Logs',
+      description: 'Registro de eventos y actividades',
+      icon: '📝',
+    },
+  ];
 
   onMount(async () => {
     await loadInvoices();
@@ -643,6 +705,65 @@
         return status;
     }
   }
+
+  // Funciones de Google Sync
+  async function syncSheet(sheet: SheetType, mode: SyncMode) {
+    syncStates[sheet].loading = true;
+    syncStates[sheet].lastResult = null;
+
+    try {
+      const response = await fetch('/api/google-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sheet, mode }),
+      });
+
+      const result: SyncResult = await response.json();
+
+      syncStates[sheet].lastResult = result;
+
+      if (result.success) {
+        const modeText =
+          mode === 'sync' ? 'Sincronizado' : mode === 'push' ? 'Subido' : 'Descargado';
+        toast.success(
+          `${modeText} "${sheet}": ⬆️ ${result.stats.uploaded} subidos, ⬇️ ${result.stats.downloaded} descargados`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.error(`Error en "${sheet}": ${result.error}`, { duration: 7000 });
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      toast.error(`Error al sincronizar "${sheet}": ${errorMsg}`, { duration: 7000 });
+      syncStates[sheet].lastResult = {
+        success: false,
+        sheet,
+        mode,
+        stats: { uploaded: 0, downloaded: 0, conflicts: 0, errors: 1 },
+        error: errorMsg,
+      };
+    } finally {
+      syncStates[sheet].loading = false;
+    }
+  }
+
+  function getModeLabel(mode: SyncMode): string {
+    return mode === 'sync' ? 'Sincronizar' : mode === 'push' ? 'Subir' : 'Descargar';
+  }
+
+  function getModeIcon(mode: SyncMode): string {
+    return mode === 'sync' ? '🔄' : mode === 'push' ? '⬆️' : '⬇️';
+  }
+
+  function getModeDescription(mode: SyncMode): string {
+    return mode === 'sync'
+      ? 'Bidireccional: sincroniza datos locales ↔ Google'
+      : mode === 'push'
+        ? 'Solo subida: local → Google'
+        : 'Solo descarga: Google → local';
+  }
 </script>
 
 <svelte:head>
@@ -686,6 +807,13 @@
       onclick={() => (activeTab = 'invoices')}
     >
       📋 Facturas
+    </button>
+    <button
+      class="tab"
+      class:active={activeTab === 'google'}
+      onclick={() => (activeTab = 'google')}
+    >
+      ☁️ Google Sync
     </button>
   </nav>
 
@@ -1518,6 +1646,142 @@
           {/each}
         </div>
       {/if}
+    {:else if activeTab === 'google'}
+      <!-- GOOGLE SYNC SECTION -->
+      <section class="google-sync-section">
+        <div class="section-header">
+          <h2>☁️ Sincronización con Google Sheets + Drive</h2>
+          <p class="subtitle">
+            Sincroniza datos manualmente entre tu base local (SQLite) y Google Sheets + Drive
+          </p>
+        </div>
+
+        <div class="google-sheets-grid">
+          {#each sheets as sheet}
+            {@const state = syncStates[sheet.type]}
+            {@const result = state.lastResult}
+
+            <div class="google-sheet-card">
+              <!-- Header de la sheet -->
+              <div class="sheet-header">
+                <div class="sheet-info">
+                  <span class="sheet-icon">{sheet.icon}</span>
+                  <div>
+                    <h3>{sheet.name}</h3>
+                    <p class="sheet-description">{sheet.description}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Botones de sincronización -->
+              <div class="sync-buttons">
+                {#each ['sync', 'push', 'pull'] as mode}
+                  {@const m = mode as SyncMode}
+                  <button
+                    onclick={() => syncSheet(sheet.type, m)}
+                    disabled={state.loading}
+                    class="sync-btn {state.loading ? 'loading' : ''}"
+                    title={getModeDescription(m)}
+                  >
+                    <span class="sync-icon">{getModeIcon(m)}</span>
+                    <span>{getModeLabel(m)}</span>
+                    {#if state.loading && state.lastResult?.mode === m}
+                      <span class="spinner">⏳</span>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+
+              <!-- Resultado de última sincronización -->
+              {#if result}
+                <div class="sync-result {result.success ? 'success' : 'error'}">
+                  <div class="result-content">
+                    <span class="result-icon">{result.success ? '✅' : '❌'}</span>
+                    <div class="result-details">
+                      <div class="result-title">
+                        {result.success ? 'Sincronización exitosa' : 'Error en sincronización'}
+                        <span class="result-mode">({getModeLabel(result.mode)})</span>
+                      </div>
+
+                      {#if result.success}
+                        <div class="result-stats">
+                          <div class="stat">
+                            <span>⬆️</span>
+                            <span class="stat-value">{result.stats.uploaded}</span>
+                            <span class="stat-label">subidos</span>
+                          </div>
+                          <div class="stat">
+                            <span>⬇️</span>
+                            <span class="stat-value">{result.stats.downloaded}</span>
+                            <span class="stat-label">descargados</span>
+                          </div>
+                          {#if result.stats.errors > 0}
+                            <div class="stat error">
+                              <span>⚠️</span>
+                              <span class="stat-value">{result.stats.errors}</span>
+                              <span class="stat-label">errores</span>
+                            </div>
+                          {/if}
+                        </div>
+                      {:else}
+                        <div class="result-error">{result.error}</div>
+                      {/if}
+
+                      <!-- Detalles expandibles -->
+                      {#if result.details && result.details.length > 0}
+                        <details class="result-details-toggle">
+                          <summary>Ver detalles ({result.details.length} items)</summary>
+                          <div class="details-content">
+                            {#each result.details as detail}
+                              <div class="detail-line">{detail}</div>
+                            {/each}
+                          </div>
+                        </details>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+
+        <!-- Ayuda -->
+        <div class="sync-help">
+          <h3 class="help-title">
+            <span>ℹ️</span>
+            <span>¿Cómo funciona la sincronización?</span>
+          </h3>
+          <div class="help-content">
+            <div class="help-item">
+              <span class="help-label">🔄 Sincronizar:</span>
+              <span
+                >Sube a Google lo que falta allá, baja a local lo que falta acá. Sincronización
+                bidireccional completa.</span
+              >
+            </div>
+            <div class="help-item">
+              <span class="help-label">⬆️ Subir:</span>
+              <span
+                >Solo envía datos locales a Google. No modifica tu base de datos local. Útil para
+                hacer backup.</span
+              >
+            </div>
+            <div class="help-item">
+              <span class="help-label">⬇️ Descargar:</span>
+              <span
+                >Solo trae datos de Google a local. No modifica Google. Útil para importar datos
+                desde otro dispositivo.</span
+              >
+            </div>
+          </div>
+          <div class="help-important">
+            <strong>⚠️ Importante:</strong> La sincronización manual te permite trabajar sin conexión.
+            Usa esta sección cuando quieras sincronizar con Google, pero no es necesario que lo hagas
+            cada vez que procesas facturas.
+          </div>
+        </div>
+      </section>
     {/if}
   </main>
 </div>
@@ -2625,5 +2889,260 @@
   /* FILE PREVIEW CLEAN (without overlay) */
   .file-preview.clean {
     position: relative;
+  }
+
+  /* GOOGLE SYNC SECTION */
+  .google-sync-section {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+
+  .google-sheets-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .google-sheet-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
+
+  .sheet-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .sheet-icon {
+    font-size: 2rem;
+  }
+
+  .sheet-info h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #1f2937;
+  }
+
+  .sheet-description {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.875rem;
+    color: #6b7280;
+  }
+
+  .sync-buttons {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .sync-btn {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+  }
+
+  .sync-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+    transform: scale(0.98);
+  }
+
+  .sync-btn:disabled,
+  .sync-btn.loading {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .sync-icon {
+    font-size: 1.125rem;
+  }
+
+  .spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .sync-result {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 6px;
+  }
+
+  .sync-result.success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+  }
+
+  .sync-result.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+  }
+
+  .result-content {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .result-icon {
+    font-size: 1.25rem;
+  }
+
+  .result-details {
+    flex: 1;
+  }
+
+  .result-title {
+    font-weight: 500;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .result-mode {
+    color: #6b7280;
+    font-weight: 400;
+  }
+
+  .result-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .stat-value {
+    font-weight: 600;
+  }
+
+  .stat-label {
+    color: #6b7280;
+  }
+
+  .result-error {
+    font-size: 0.875rem;
+    color: #991b1b;
+    margin-bottom: 0.5rem;
+  }
+
+  .result-details-toggle {
+    margin-top: 0.5rem;
+  }
+
+  .result-details-toggle summary {
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: #6b7280;
+    user-select: none;
+  }
+
+  .result-details-toggle summary:hover {
+    color: #374151;
+  }
+
+  .details-content {
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    max-height: 240px;
+    overflow-y: auto;
+  }
+
+  .detail-line {
+    font-size: 0.75rem;
+    font-family: monospace;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .detail-line:last-child {
+    border-bottom: none;
+  }
+
+  .sync-help {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+
+  .help-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1rem 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+  }
+
+  .help-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .help-item {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #374151;
+  }
+
+  .help-label {
+    font-weight: 600;
+    min-width: 100px;
+  }
+
+  .help-important {
+    padding: 0.75rem;
+    background: #fefce8;
+    border: 1px solid #fde047;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    color: #713f12;
+  }
+
+  .help-important strong {
+    font-weight: 600;
   }
 </style>
