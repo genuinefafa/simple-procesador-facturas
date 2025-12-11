@@ -47,7 +47,8 @@
   let uploadedFiles: File[] = $state([]);
   let selectedInvoices = $state<Set<number>>(new Set());
   let selectedPendingFiles = $state<Set<number>>(new Set());
-  let activeTab = $state<'upload' | 'review' | 'invoices' | 'excel'>('upload');
+  let activeTab = $state<'upload' | 'review' | 'invoices' | 'excel' | 'revision'>('upload');
+  let knownInvoices = $state<Array<{ source: string; id?: number; cuit?: string; cuit_guess?: string; issueDate?: string; invoiceType?: string; pointOfSale?: number; invoiceNumber?: number; total?: number | null; file?: string; year?: string }>>([]);
   let reviewFilter = $state<'pending' | 'all'>('pending'); // Filtro para tab Revisar
 
   // Estado para edición inline
@@ -65,6 +66,7 @@
     await loadInvoices();
     await loadPendingFilesToReview();
     await loadImportBatches();
+    await loadKnownInvoices();
   });
 
   // Manejar errores de carga de archivos con información detallada
@@ -147,6 +149,39 @@
     } finally {
       loading = false;
     }
+  }
+
+  async function loadKnownInvoices() {
+    try {
+      const response = await fetch('/api/invoices-known');
+      const data = await response.json();
+      knownInvoices = data.items || [];
+    } catch (err) {
+      console.error('Error cargando facturas conocidas', err);
+    }
+  }
+
+  function formatCuit(cuit?: string, fallback?: string) {
+    const value = cuit || fallback || '';
+    const digits = value.replace(/\D/g, '');
+    if (digits.length === 11) {
+      return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
+    }
+    return value || '—';
+  }
+
+  function formatDateISO(dateStr?: string) {
+    if (!dateStr) return '—';
+    const [y, m, d] = dateStr.split('-');
+    if (!y || !m || !d) return dateStr;
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const idx = Number(m) - 1;
+    return `${d}-${months[idx] || m}-${y}`;
+  }
+
+  function formatNumber(value?: number | null) {
+    if (value === null || value === undefined) return '—';
+    return value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   async function loadMatchesForPendingFiles(files: PendingFileItem[]) {
@@ -686,6 +721,13 @@
       onclick={() => (activeTab = 'invoices')}
     >
       📋 Facturas
+    </button>
+    <button
+      class="tab"
+      class:active={activeTab === 'revision'}
+      onclick={() => (activeTab = 'revision')}
+    >
+      🧮 Revisión
     </button>
   </nav>
 
@@ -1518,6 +1560,48 @@
           {/each}
         </div>
       {/if}
+    {:else if activeTab === 'revision'}
+      <section class="known-invoices">
+        <div class="section-header">
+          <h2>🧮 Revisión de facturas conocidas</h2>
+          <p class="help-text">Cruce entre facturas esperadas (Excel AFIP) y PDFs procesados.</p>
+        </div>
+
+        <div class="table-scroll">
+          <table class="known-table">
+            <thead>
+              <tr>
+                <th>Origen</th>
+                <th>CUIT</th>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>PV</th>
+                <th>Número</th>
+                <th class="align-right">Total</th>
+                <th>Archivo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#if knownInvoices.length === 0}
+                <tr><td colspan="8" class="empty-row">No hay registros</td></tr>
+              {:else}
+                {#each knownInvoices as item}
+                  <tr>
+                    <td>{item.source === 'expected' ? 'Excel AFIP' : 'PDF'}</td>
+                    <td>{formatCuit(item.cuit, item.cuit_guess)}</td>
+                    <td>{formatDateISO(item.issueDate)}</td>
+                    <td>{item.invoiceType ?? '—'}</td>
+                    <td>{item.pointOfSale ?? '—'}</td>
+                    <td>{item.invoiceNumber ?? '—'}</td>
+                    <td class="align-right">{formatNumber(item.total)}</td>
+                    <td class="file-col">{item.file ? item.file.split('/').pop() : '—'}</td>
+                  </tr>
+                {/each}
+              {/if}
+            </tbody>
+          </table>
+        </div>
+      </section>
     {/if}
   </main>
 </div>
@@ -1958,6 +2042,59 @@
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     gap: 1rem;
     margin-bottom: 1.5rem;
+  }
+
+  /* KNOWN INVOICES TABLE (Revisión) */
+  .known-invoices {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+    margin-top: 1rem;
+  }
+
+  .known-table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 760px;
+  }
+
+  .known-table th,
+  .known-table td {
+    padding: 0.65rem 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+  }
+
+  .known-table th {
+    background: #f8fafc;
+    font-weight: 600;
+    font-size: 0.95rem;
+  }
+
+  .known-table tbody tr:hover {
+    background: #f8fafc;
+  }
+
+  .align-right {
+    text-align: right;
+  }
+
+  .file-col {
+    max-width: 240px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .empty-row {
+    text-align: center;
+    color: #6b7280;
+    padding: 1rem;
   }
 
   .detail {
