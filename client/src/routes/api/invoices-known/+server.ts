@@ -14,6 +14,7 @@ type ExpectedInvoice = {
   invoiceNumber: number;
   total?: number | null;
   status?: string;
+  categoryId?: number | null;
 };
 
 type PdfInvoice = {
@@ -31,7 +32,7 @@ function listExpectedInvoices(dbPath: string): ExpectedInvoice[] {
   const rows = db
     .prepare(
       `SELECT id, cuit, emitter_name as emitterName, issue_date as issueDate, invoice_type as invoiceType,
-              point_of_sale as pointOfSale, invoice_number as invoiceNumber, total, status
+              point_of_sale as pointOfSale, invoice_number as invoiceNumber, total, status, category_id as categoryId
        FROM expected_invoices
        ORDER BY issue_date DESC`
     )
@@ -45,6 +46,7 @@ function listExpectedInvoices(dbPath: string): ExpectedInvoice[] {
     invoiceNumber: number;
     total: number | null;
     status: string;
+    categoryId: number | null;
   }>;
 
   return rows.map((r) => ({
@@ -58,6 +60,7 @@ function listExpectedInvoices(dbPath: string): ExpectedInvoice[] {
     invoiceNumber: r.invoiceNumber,
     total: r.total,
     status: r.status,
+    categoryId: r.categoryId,
   }));
 }
 

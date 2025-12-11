@@ -48,7 +48,25 @@
   let selectedInvoices = $state<Set<number>>(new Set());
   let selectedPendingFiles = $state<Set<number>>(new Set());
   let activeTab = $state<'upload' | 'review' | 'invoices' | 'excel' | 'revision'>('upload');
-  let knownInvoices = $state<Array<{ source: string; id?: number; cuit?: string; cuit_guess?: string; issueDate?: string; invoiceType?: string; pointOfSale?: number; invoiceNumber?: number; total?: number | null; file?: string; year?: string }>>([]);
+  let knownInvoices = $state<
+    Array<{
+      source: string;
+      id?: number;
+      cuit?: string;
+      cuit_guess?: string;
+      issueDate?: string;
+      invoiceType?: string;
+      pointOfSale?: number;
+      invoiceNumber?: number;
+      total?: number | null;
+      file?: string;
+      year?: string;
+      categoryId?: number | null;
+    }>
+  >([]);
+  let knownCategories = $state<Array<{ id: number; key: string; description: string }>>([]);
+  let selectedKnown: (typeof knownInvoices)[number] | null = $state(null);
+  let selectedKnownCategoryId: number | null = $state(null);
   let reviewFilter = $state<'pending' | 'all'>('pending'); // Filtro para tab Revisar
 
   // Estado para edición inline
@@ -67,6 +85,7 @@
     await loadPendingFilesToReview();
     await loadImportBatches();
     await loadKnownInvoices();
+    await loadKnownCategories();
   });
 
   // Manejar errores de carga de archivos con información detallada
@@ -161,6 +180,16 @@
     }
   }
 
+  async function loadKnownCategories() {
+    try {
+      const response = await fetch('/api/categories');
+      const data = await response.json();
+      knownCategories = data.items || [];
+    } catch (err) {
+      console.error('Error cargando categorías', err);
+    }
+  }
+
   function formatCuit(cuit?: string, fallback?: string) {
     const value = cuit || fallback || '';
     const digits = value.replace(/\D/g, '');
@@ -182,6 +211,31 @@
   function formatNumber(value?: number | null) {
     if (value === null || value === undefined) return '—';
     return value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function selectKnown(item: (typeof knownInvoices)[number]) {
+    selectedKnown = item;
+    selectedKnownCategoryId = item.categoryId ?? null;
+  }
+
+  async function saveKnownCategory() {
+    if (!selectedKnown || selectedKnown.source !== 'expected' || !selectedKnown.id || !selectedKnownCategoryId) return;
+    try {
+      const res = await fetch('/api/invoices-known/category', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedId: selectedKnown.id, categoryId: selectedKnownCategoryId }),
+      });
+      const out = await res.json();
+      if (out.ok) {
+        selectedKnown = { ...selectedKnown, categoryId: selectedKnownCategoryId };
+        knownInvoices = knownInvoices.map((k) =>
+          k.id === selectedKnown?.id && k.source === 'expected' ? { ...k, categoryId: selectedKnownCategoryId } : k
+        );
+      }
+    } catch (err) {
+      console.error('Error asignando categoría', err);
+    }
   }
 
   async function loadMatchesForPendingFiles(files: PendingFileItem[]) {
@@ -1567,39 +1621,70 @@
           <p class="help-text">Cruce entre facturas esperadas (Excel AFIP) y PDFs procesados.</p>
         </div>
 
-        <div class="table-scroll">
-          <table class="known-table">
-            <thead>
-              <tr>
-                <th>Origen</th>
-                <th>CUIT</th>
-                <th>Fecha</th>
-                <th>Tipo</th>
-                <th>PV</th>
-                <th>Número</th>
-                <th class="align-right">Total</th>
-                <th>Archivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#if knownInvoices.length === 0}
-                <tr><td colspan="8" class="empty-row">No hay registros</td></tr>
-              {:else}
-                {#each knownInvoices as item}
-                  <tr>
-                    <td>{item.source === 'expected' ? 'Excel AFIP' : 'PDF'}</td>
-                    <td>{formatCuit(item.cuit, item.cuit_guess)}</td>
-                    <td>{formatDateISO(item.issueDate)}</td>
-                    <td>{item.invoiceType ?? '—'}</td>
-                    <td>{item.pointOfSale ?? '—'}</td>
-                    <td>{item.invoiceNumber ?? '—'}</td>
-                    <td class="align-right">{formatNumber(item.total)}</td>
-                    <td class="file-col">{item.file ? item.file.split('/').pop() : '—'}</td>
-                  </tr>
-                {/each}
+        <div class="known-layout">
+          <div class="table-scroll">
+            <table class="known-table">
+              <thead>
+                <tr>
+                  <th>Origen</th>
+                  <th>CUIT</th>
+                  <th>Fecha</th>
+                  <th>Tipo</th>
+                  <th>PV</th>
+                  <th>Número</th>
+                  <th class="align-right">Total</th>
+                  <th>Archivo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {#if knownInvoices.length === 0}
+                  <tr><td colspan="8" class="empty-row">No hay registros</td></tr>
+                {:else}
+                  {#each knownInvoices as item}
+                    <tr class:selected={selectedKnown && selectedKnown.id === item.id && selectedKnown.source === item.source} onclick={() => selectKnown(item)}>
+                      <td>{item.source === 'expected' ? 'Excel AFIP' : 'PDF'}</td>
+                      <td>{formatCuit(item.cuit, item.cuit_guess)}</td>
+                      <td>{formatDateISO(item.issueDate)}</td>
+                      <td>{item.invoiceType ?? '—'}</td>
+                      <td>{item.pointOfSale ?? '—'}</td>
+                      <td>{item.invoiceNumber ?? '—'}</td>
+                      <td class="align-right">{formatNumber(item.total)}</td>
+                      <td class="file-col">{item.file ? item.file.split('/').pop() : '—'}</td>
+                    </tr>
+                  {/each}
+                {/if}
+              </tbody>
+            </table>
+          </div>
+
+          <aside class="known-sidebar">
+            {#if selectedKnown}
+              <h3>Detalle</h3>
+              <p><strong>Origen:</strong> {selectedKnown.source === 'expected' ? 'Excel AFIP' : 'PDF'}</p>
+              <p><strong>CUIT:</strong> {formatCuit(selectedKnown.cuit, selectedKnown.cuit_guess)}</p>
+              <p><strong>Fecha:</strong> {formatDateISO(selectedKnown.issueDate)}</p>
+              <p><strong>Comprobante:</strong> {selectedKnown.invoiceType ?? '—'}-{String(selectedKnown.pointOfSale ?? 0).padStart(4, '0')}-{String(selectedKnown.invoiceNumber ?? 0).padStart(8, '0')}</p>
+              <p><strong>Total:</strong> {formatNumber(selectedKnown.total)}</p>
+              {#if selectedKnown.file}
+                <p><strong>Archivo:</strong> {selectedKnown.file.split('/').pop()}</p>
               {/if}
-            </tbody>
-          </table>
+
+              {#if selectedKnown.source === 'expected'}
+                <div class="sidebar-block">
+                  <label for="known-category">Categoría</label>
+                  <select id="known-category" bind:value={selectedKnownCategoryId}>
+                    <option value={null}>Sin categoría</option>
+                    {#each knownCategories as cat}
+                      <option value={cat.id}>{cat.description}</option>
+                    {/each}
+                  </select>
+                  <button class="btn btn-primary" onclick={saveKnownCategory} disabled={!selectedKnownCategoryId}>Asignar</button>
+                </div>
+              {/if}
+            {:else}
+              <p class="help-text">Seleccioná una fila para ver detalles.</p>
+            {/if}
+          </aside>
         </div>
       </section>
     {/if}
@@ -2052,6 +2137,13 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
 
+  .known-layout {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+
   .table-scroll {
     overflow-x: auto;
     margin-top: 1rem;
@@ -2080,6 +2172,10 @@
     background: #f8fafc;
   }
 
+  .known-table tbody tr.selected {
+    background: #e0ecff;
+  }
+
   .align-right {
     text-align: right;
   }
@@ -2095,6 +2191,28 @@
     text-align: center;
     color: #6b7280;
     padding: 1rem;
+  }
+
+  .known-sidebar {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 1rem;
+    background: #f8fafc;
+  }
+
+  .known-sidebar p {
+    margin: 0.25rem 0;
+  }
+
+  .sidebar-block {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .sidebar-block select {
+    flex: 1;
   }
 
   .detail {
