@@ -91,8 +91,10 @@ function listPdfInvoices(processedDir: string): PdfInvoice[] {
 }
 
 export async function GET() {
-  const processedDir = path.resolve('data/processed');
-  const dbPath = path.resolve('data/database.sqlite');
+  // During client dev, CWD is client/, so go up one level to reach project data/
+  const rootDir = path.join(process.cwd(), '..');
+  const processedDir = path.join(rootDir, 'data', 'processed');
+  const dbPath = path.join(rootDir, 'data', 'database.sqlite');
   const expected = listExpectedInvoices(dbPath);
   const pdfs = listPdfInvoices(processedDir);
   const data: KnownInvoice[] = [...expected, ...pdfs];

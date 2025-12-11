@@ -9,7 +9,8 @@ export async function POST({ request }) {
     return json({ ok: false, error: 'expectedId and categoryId are required' }, { status: 400 });
   }
 
-  const dbPath = path.resolve('data/database.sqlite');
+  const rootDir = path.join(process.cwd(), '..');
+  const dbPath = path.join(rootDir, 'data', 'database.sqlite');
   const db = new Database(dbPath);
 
   const category = db.prepare('SELECT id FROM categories WHERE id = ?').get(categoryId);
