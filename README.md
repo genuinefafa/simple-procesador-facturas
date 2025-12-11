@@ -101,19 +101,23 @@ cd simple-procesador-facturas
 # 2. Instalar dependencias (workspaces: root, client, server)
 npm install
 
-# 3. (Opcional) Configurar puerto personalizado
+# 3. Configurar archivo de configuración
+cp server/config.json.example server/config.json
+# Editar server/config.json si necesitas cambiar rutas o configuración
+
+# 4. (Opcional) Configurar puerto personalizado
 cd client
 cp .env.example .env
 # Editar .env y cambiar VITE_PORT si querés usar otro puerto
 cd ..
 
-# 4. Ejecutar migraciones de BD
+# 5. Ejecutar migraciones de BD
 npm run db:migrate
 
-# 5. (Opcional) Cargar datos de prueba
+# 6. (Opcional) Cargar datos de prueba
 npm run db:seed
 
-# 6. Iniciar servidor de desarrollo
+# 7. Iniciar servidor de desarrollo
 npm run dev
 ```
 

@@ -9,9 +9,9 @@ import {
   GoogleIntegrationService,
   ProjectConfig,
 } from './google-integration.service';
-import configData from '../../config.json';
+import { getConfig } from '../../utils/config-loader';
 
-const config = configData as ProjectConfig;
+const config = getConfig() as ProjectConfig;
 
 /**
  * Ejemplo 1: Inicializar el servicio de Google

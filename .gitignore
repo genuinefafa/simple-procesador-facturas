@@ -88,8 +88,10 @@ coverage/
 *.lcov
 
 # Archivos de configuración local
+config.json
 config.local.json
 config.override.json
+server/config.json
 
 # Archivos de prueba generados
 test-output/

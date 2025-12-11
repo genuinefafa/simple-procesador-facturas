@@ -8,8 +8,10 @@ import { GoogleAuthService, isGoogleConfigured } from '../server/services/google
 import { GoogleSheetsService } from '../server/services/google/google-sheets.service';
 import { GoogleDriveService } from '../server/services/google/google-drive.service';
 import { GoogleIntegrationService } from '../server/services/google/google-integration.service';
-import * as config from '../server/config.json';
+import { getConfig } from '../server/utils/config-loader';
 import * as fs from 'fs';
+
+const config = getConfig();
 
 const EMOJI = {
   SUCCESS: '✅',

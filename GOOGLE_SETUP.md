@@ -203,9 +203,14 @@ Si todo funciona, verás:
 
 ## 🔒 Seguridad
 
-### ⚠️ NUNCA subas `google-credentials.json` a Git
+### ⚠️ Archivos que NUNCA deben subirse a Git
 
-Este archivo contiene credenciales privadas. Si lo subes accidentalmente:
+**`google-credentials.json`** - Contiene credenciales privadas del service account.
+**`server/config.json`** - Puede contener configuraciones sensibles o específicas del entorno.
+
+✅ **Usa `server/config.json.example`** como plantilla y copia a `server/config.json` localmente.
+
+Si subes accidentalmente `google-credentials.json`:
 
 1. **Revoca la clave inmediatamente**:
    - Ve a Google Cloud Console → Service Accounts
