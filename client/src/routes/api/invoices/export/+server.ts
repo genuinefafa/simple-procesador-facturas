@@ -26,7 +26,9 @@ export const POST: RequestHandler = async ({ request }) => {
     const invoiceRepo = new InvoiceRepository();
     const exportService = new FileExportService(OUTPUT_DIR);
 
-    const invoices = invoiceIds.map((id) => invoiceRepo.findById(id)).filter((inv) => inv !== null);
+    const invoices = (await Promise.all(invoiceIds.map((id) => invoiceRepo.findById(id)))).filter(
+      (inv) => inv !== null
+    );
 
     if (invoices.length === 0) {
       return json({ success: false, error: 'No se encontraron facturas' }, { status: 404 });

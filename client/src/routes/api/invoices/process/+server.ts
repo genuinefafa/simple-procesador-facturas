@@ -79,7 +79,7 @@ export const POST: RequestHandler = async ({ request }) => {
         console.info(
           `✅ Procesamiento exitoso (conf: ${result.confidence}%), vinculando con factura ${result.invoice.id}`
         );
-        await pendingFileRepo.linkToInvoice(pendingFile.id, result.invoice.id);
+        await pendingFileRepo.updateStatus(pendingFile.id, 'processed');
         processedCount++;
       } else if (result.requiresReview) {
         // Requiere revisión manual

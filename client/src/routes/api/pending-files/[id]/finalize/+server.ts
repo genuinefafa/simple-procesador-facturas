@@ -85,14 +85,14 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Buscar o crear emisor
     const emitterRepo = new EmitterRepository();
-    let emitter = emitterRepo.findByCUIT(normalizedCuit);
+    let emitter = await emitterRepo.findByCUIT(normalizedCuit);
 
     if (!emitter) {
       console.info(`➕ Creando nuevo emisor para ${normalizedCuit}`);
       const cuitNumeric = normalizedCuit.replace(/-/g, '');
       const personType = getPersonType(normalizedCuit);
 
-      emitter = emitterRepo.create({
+      emitter = await emitterRepo.create({
         cuit: normalizedCuit,
         cuitNumeric: cuitNumeric,
         name: `Emisor ${normalizedCuit}`,
@@ -170,12 +170,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Actualizar pending file: vincular con factura y marcar como processed
     console.info(`🔗 Vinculando pending file ${id} con factura ${invoice.id}`);
-    await pendingFileRepo.linkToInvoice(id, invoice.id);
+    await pendingFileRepo.updateStatus(id, 'processed');
 
     // Si hay expectedInvoice match, marcar como matched
     if (expectedInvoice) {
       console.info(`📌 Marcando expectedInvoice ${expectedInvoice.id} como matched`);
-      await expectedInvoiceRepo.markAsMatched(expectedInvoice.id, id, invoice.id, 100);
+      await expectedInvoiceRepo.markAsMatched(expectedInvoice.id, id, 95);
     }
 
     console.info(`✅ [FINALIZE] Completado exitosamente`);

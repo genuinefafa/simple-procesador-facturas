@@ -95,7 +95,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
       // Crear registro en pending_files
       const pendingFileRepo = new PendingFileRepository();
-      const pendingFile = pendingFileRepo.create({
+      const pendingFile = await pendingFileRepo.create({
         originalFilename: file.name,
         filePath: filePath,
         fileSize: file.size,
