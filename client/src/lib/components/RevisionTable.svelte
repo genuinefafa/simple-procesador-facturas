@@ -21,6 +21,8 @@
     file?: string;
     year?: string;
     categoryId?: number | null;
+    expectedInvoiceId?: number | null;
+    pendingFileId?: number | null;
   }
 
   interface Category {
@@ -38,6 +40,22 @@
   let categoryLabelById = $derived(
     new Map(knownCategories.map((c) => [c.id, c.description || c.name || c.key || '']))
   );
+
+  const getOriginIcon = (item: KnownInvoice) => {
+    const hasExcel = item.source === 'expected' || !!item.expectedInvoiceId;
+    const hasProcessed = item.source === 'final' || !!item.pendingFileId;
+    if (hasExcel && hasProcessed) return '📊📄';
+    if (hasExcel) return '📊';
+    return '📄';
+  };
+
+  const getOriginTitle = (item: KnownInvoice) => {
+    const hasExcel = item.source === 'expected' || !!item.expectedInvoiceId;
+    const hasProcessed = item.source === 'final' || !!item.pendingFileId;
+    if (hasExcel && hasProcessed) return 'Excel AFIP y PDF procesado';
+    if (hasExcel) return 'Excel AFIP';
+    return 'PDF procesado';
+  };
 
   function selectKnown(item: KnownInvoice) {
     selectedKnownCategoryId = item.categoryId ?? null;
@@ -100,9 +118,9 @@
             >
               <td
                 class="text-center"
-                title={item.source === 'expected' ? 'Excel AFIP' : 'PDF procesado'}
+                title={getOriginTitle(item)}
               >
-                {item.source === 'expected' ? '📊' : '📄'}
+                {getOriginIcon(item)}
               </td>
               <td class="nowrap">{formatCuit(item.cuit, item.cuit_guess)}</td>
               <td title={getFullDateForTooltip(item.issueDate)}
@@ -149,9 +167,7 @@
         <h4>Información</h4>
         <div class="detail-row">
           <span class="detail-label">Origen:</span>
-          <span class="detail-value"
-            >{selectedKnown.source === 'expected' ? '📊 Excel AFIP' : '📄 PDF'}</span
-          >
+          <span class="detail-value">{getOriginTitle(selectedKnown)}</span>
         </div>
         <div class="detail-row">
           <span class="detail-label">CUIT:</span>
