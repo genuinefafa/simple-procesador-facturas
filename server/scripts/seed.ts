@@ -21,30 +21,106 @@ if (!existsSync(DB_PATH)) {
 
 // Parse CLI arguments
 const args = process.argv.slice(2);
+// Valid canonical table keys
 const validTables = ['categories', 'templates', 'emisores', 'facturas', 'all'];
+// Aliases mapping to canonical keys (supports Spanish forms and short names)
+const aliasMap: Record<string, string> = {
+  categorias: 'categories',
+  categoria: 'categories',
+  cats: 'categories',
+  cat: 'categories',
+  templates: 'templates',
+  plantilla: 'templates',
+  plantillas: 'templates',
+  tmpl: 'templates',
+  emisores: 'emisores',
+  emisor: 'emisores',
+  facturas: 'facturas',
+  factura: 'facturas',
+  all: 'all',
+  todos: 'all',
+};
+
+function normalizeKey(key: string): string {
+  const k = key.trim().toLowerCase();
+  return aliasMap[k] ?? k;
+}
 const helpRequested = args.includes('--help') || args.includes('-h');
 const forceRequested = args.includes('--force');
 const dryRunRequested = args.includes('--dry-run');
-const onlyArg = args.find((a) => a.startsWith('--only='));
-const tableArg = args.find((a) => validTables.includes(a)) || 'all';
+// Accept --only=... and --tables=... as aliases
+const onlyArg =
+  args.find((a) => a.startsWith('--only=')) ?? args.find((a) => a.startsWith('--tables='));
+
+// Validate unknown flags early for better UX
+const allowedFlagPrefixes = ['--help', '-h', '--force', '--dry-run', '--only=', '--tables='];
+const unknownFlags = args.filter(
+  (a) => a.startsWith('--') && !allowedFlagPrefixes.some((p) => a.startsWith(p))
+);
+if (unknownFlags.length > 0) {
+  console.error(`❌ Flags desconocidos: ${unknownFlags.join(', ')}`);
+  console.error('   Válidos: --help, -h, --force, --dry-run, --only=lista, --tables=lista');
+  process.exit(1);
+}
+
+// Detect positional arg explicitly and validate
+const positionalArgs = args.filter((a) => !a.startsWith('--'));
+let tableArg: string = 'all';
+if (positionalArgs.length > 0) {
+  const firstPositional = positionalArgs[0] ?? '';
+  const normalizedPositional = normalizeKey(firstPositional);
+  if (!validTables.includes(normalizedPositional)) {
+    console.error(`❌ Tabla posicional inválida: ${firstPositional}`);
+    console.error(
+      `   Válidas: ${validTables.join(', ')} (alias: categorias, plantillas, emisores, facturas, todos)`
+    );
+    process.exit(1);
+  }
+  tableArg = normalizedPositional;
+}
 
 // Resolve selected tables
-const onlyTables = onlyArg
-  ? onlyArg
-      .replace('--only=', '')
-      .split(',')
-      .map((t) => t.trim())
-      .filter((t) => validTables.includes(t) && t !== 'all')
-  : [];
-const selectedTables = onlyTables.length > 0 ? onlyTables : [tableArg];
+let onlyTables: string[] = [];
+if (onlyArg) {
+  // Inform when both positional and --only are provided
+  if (positionalArgs.length > 0) {
+    console.info(
+      'ℹ️  Nota: --only tiene prioridad sobre el argumento posicional y se usará para la selección'
+    );
+  }
+  const rawList = onlyArg
+    .replace(/^--(only|tables)=/, '')
+    // split by commas, semicolons, or whitespace
+    .split(/[;,.\s]+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  const normalizedList = rawList.map((t) => normalizeKey(t));
+  const unknownInOnly = normalizedList.filter((t) => !validTables.includes(t));
+  if (unknownInOnly.length > 0) {
+    console.error(`❌ Tablas inválidas en --only: ${unknownInOnly.join(', ')}`);
+    console.error(
+      `   Válidas: ${validTables.join(', ')} (alias: categorias, plantillas, emisores, facturas, todos)`
+    );
+    process.exit(1);
+  }
+  onlyTables = normalizedList.filter((t) => t !== 'all');
+}
+
+const selectedTables =
+  onlyTables.length > 0
+    ? onlyTables
+    : tableArg !== 'all'
+      ? [tableArg]
+      : ['categories', 'templates', 'emisores', 'facturas'];
 
 if (helpRequested) {
   console.info(
-    'Script para poblar la base de datos desde archivos JSON en server/scripts/seed-data/'
+    'Script para poblar la base de datos desde archivos JSON en server/scripts/seed-data/',
+    args
   );
   console.info('');
   console.info(
-    'Uso: npm run db:seed [tabla] [-- --force] [-- --dry-run] [-- --only=tabla1,tabla2]'
+    'Uso: npm run db:seed [tabla] [-- --force] [-- --dry-run] [-- --only=lista] [-- --tables=lista]'
   );
   console.info('Tablas: categories | templates | emisores | facturas | all');
   console.info('Flags:');
@@ -52,8 +128,11 @@ if (helpRequested) {
     '  --force      Borra datos existentes de la(s) tabla(s) seleccionadas antes de poblar'
   );
   console.info('  --dry-run    Muestra las acciones que se ejecutarían sin modificar la base');
+  console.info('  --only=...   Lista de tablas específica (override del argumento posicional)');
+  console.info('  --tables=... Alias de --only');
+  console.info('Separadores aceptados para listas: coma (,), punto y coma (;), o espacios');
   console.info(
-    '  --only=...   Lista separada por comas para seleccionar tablas específicas (override del argumento posicional)'
+    'Alias soportados: categorias→categories, plantillas→templates, emisores→emisores, facturas→facturas, todos→all'
   );
   process.exit(0);
 }
@@ -72,7 +151,7 @@ if (!selectedTables.every((t) => validTables.includes(t))) {
   process.exit(1);
 }
 
-console.info('🌱 Poblando base de datos con datos de prueba...');
+console.info('🌱 Poblando base de datos con datos de prueba...', args);
 console.info(
   `📋 Selección: ${selectedTables.join(', ')}${forceRequested ? ' (force)' : ''}${dryRunRequested ? ' (dry-run)' : ''}\n`
 );
