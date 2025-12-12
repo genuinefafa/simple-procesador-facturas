@@ -15,6 +15,7 @@ import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types
 import { extractCUITsWithContext } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 import { pdf } from 'pdf-to-img';
+// @ts-ignore: no type definitions for heic-convert
 import convert from 'heic-convert';
 
 // Configuración de OCR

@@ -111,17 +111,20 @@ export class PendingFileRepository {
     limit?: number;
     offset?: number;
   }): Promise<PendingFile[]> {
-    let query = db.select().from(pendingFiles);
+    let queryAux = db.select().from(pendingFiles);
 
-    if (filters?.status) {
-      if (Array.isArray(filters.status)) {
-        query = query.where(inArray(pendingFiles.status, filters.status as any));
-      } else {
-        query = query.where(eq(pendingFiles.status, filters.status as any));
+    function createQuery() {
+      if (filters?.status) {
+        if (Array.isArray(filters.status)) {
+          return queryAux.where(inArray(pendingFiles.status, filters.status as any));
+        } else {
+          return queryAux.where(eq(pendingFiles.status, filters.status as any));
+        }
       }
+      return queryAux;
     }
 
-    const allResults = await query.orderBy(desc(pendingFiles.uploadDate));
+    const allResults = await createQuery().orderBy(desc(pendingFiles.uploadDate));
 
     let result = allResults;
 

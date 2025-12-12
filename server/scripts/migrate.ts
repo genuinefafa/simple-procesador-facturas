@@ -39,7 +39,7 @@ try {
 
   console.info('\n📦 Migraciones disponibles:');
   availableMigrations.forEach((m) => {
-    const isApplied = appliedMigrations.some((am) => m.startsWith(am.split('_')[0]));
+    const isApplied = appliedMigrations.some((am) => m.startsWith(am.split('_')[0]!));
     const status = isApplied ? '✓ Ya aplicada' : '⏳ Pendiente';
     console.info(`   ${status}: ${m}`);
   });
