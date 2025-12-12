@@ -36,6 +36,13 @@
       "when": 1765480005322,
       "tag": "0004_brown_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1765512502338,
+      "tag": "0005_add_linking_columns",
+      "breakpoints": true
     }
   ]
 }
