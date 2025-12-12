@@ -1,5 +1,21 @@
 import { json } from '@sveltejs/kit';
+import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
+
+type ExpectedInvoice = {
+  source: 'expected';
+  id: number;
+  cuit: string;
+  emitterName?: string | null;
+  issueDate: string;
+  invoiceType: string;
+  pointOfSale: number;
+  invoiceNumber: number;
+  total?: number | null;
+  status?: string;
+  file?: string;
+  matchedPendingFileId?: number | null;
+};
 
 type FinalInvoice = {
   source: 'final';
@@ -19,7 +35,12 @@ type FinalInvoice = {
 
 export async function GET() {
   const invoiceRepo = new InvoiceRepository();
+  const expectedRepo = new ExpectedInvoiceRepository();
+
   const invoices = await invoiceRepo.list();
+  const expectedInvoices = await expectedRepo.listWithFiles({
+    status: ['pending', 'discrepancy', 'manual', 'ignored'],
+  });
 
   const toISODate = (value: Date | string | null | undefined) => {
     if (!value) return null;
@@ -43,7 +64,24 @@ export async function GET() {
     expectedInvoiceId: inv.expectedInvoiceId ?? null,
   }));
 
-  const items = finals;
+  const expecteds: ExpectedInvoice[] = expectedInvoices
+    .filter((inv) => inv.matchedPendingFileId == null)
+    .map((inv) => ({
+      source: 'expected',
+      id: inv.id,
+      cuit: inv.cuit,
+      emitterName: inv.emitterName,
+      issueDate: inv.issueDate,
+      invoiceType: inv.invoiceType,
+      pointOfSale: inv.pointOfSale,
+      invoiceNumber: inv.invoiceNumber,
+      total: inv.total,
+      status: inv.status,
+      file: inv.filePath || undefined,
+      matchedPendingFileId: inv.matchedPendingFileId ?? null,
+    }));
+
+  const items = [...expecteds, ...finals];
 
   return json({ count: items.length, items });
 }
