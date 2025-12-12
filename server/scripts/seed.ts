@@ -20,17 +20,58 @@ if (!existsSync(DB_PATH)) {
 }
 
 // Parse CLI arguments
-const tableName = process.argv[2] || 'all';
+const args = process.argv.slice(2);
 const validTables = ['categories', 'templates', 'emisores', 'facturas', 'all'];
+const helpRequested = args.includes('--help') || args.includes('-h');
+const forceRequested = args.includes('--force');
+const dryRunRequested = args.includes('--dry-run');
+const onlyArg = args.find((a) => a.startsWith('--only='));
+const tableArg = args.find((a) => validTables.includes(a)) || 'all';
 
-if (!validTables.includes(tableName)) {
-  console.error(`❌ Tabla inválida: "${tableName}"`);
-  console.error(`   Opciones válidas: ${validTables.join(', ')}`);
+// Resolve selected tables
+const onlyTables = onlyArg
+  ? onlyArg
+      .replace('--only=', '')
+      .split(',')
+      .map((t) => t.trim())
+      .filter((t) => validTables.includes(t) && t !== 'all')
+  : [];
+const selectedTables = onlyTables.length > 0 ? onlyTables : [tableArg];
+
+if (helpRequested) {
+  console.info(
+    'Uso: npm run db:seed [tabla] [-- --force] [-- --dry-run] [-- --only=tabla1,tabla2]'
+  );
+  console.info('Tablas: categories | templates | emisores | facturas | all');
+  console.info('Flags:');
+  console.info(
+    '  --force      Borra datos existentes de la(s) tabla(s) seleccionadas antes de poblar'
+  );
+  console.info('  --dry-run    Muestra las acciones que se ejecutarían sin modificar la base');
+  console.info(
+    '  --only=...   Lista separada por comas para seleccionar tablas específicas (override del argumento posicional)'
+  );
+  process.exit(0);
+}
+
+if (!selectedTables.every((t) => validTables.includes(t))) {
+  console.error(`❌ Parámetros inválidos: ${args.join(' ') || '(vacío)'}`);
+  console.error(
+    `   Opciones válidas: ${validTables.join(', ')} y flags --force, --dry-run, --only`
+  );
+  console.error('   Ejemplos:');
+  console.error('     npm run db:seed');
+  console.error('     npm run db:seed templates');
+  console.error('     npm run db:seed facturas -- --force');
+  console.error('     npm run db:seed -- --only=templates,emisores');
+  console.error('     npm run db:seed templates -- --dry-run');
   process.exit(1);
 }
 
 console.info('🌱 Poblando base de datos con datos de prueba...');
-console.info(`📋 Tabla seleccionada: ${tableName}\n`);
+console.info(
+  `📋 Selección: ${selectedTables.join(', ')}${forceRequested ? ' (force)' : ''}${dryRunRequested ? ' (dry-run)' : ''}\n`
+);
 
 const db = new Database(DB_PATH);
 
@@ -306,20 +347,42 @@ function seedFacturas() {
 try {
   db.exec('BEGIN TRANSACTION');
 
-  // Execute seeding based on table parameter
-  if (tableName === 'all') {
-    seedCategories();
-    seedTemplates();
-    seedEmisores();
-    seedFacturas();
-  } else if (tableName === 'categories') {
-    seedCategories();
-  } else if (tableName === 'templates') {
-    seedTemplates();
-  } else if (tableName === 'emisores') {
-    seedEmisores();
-  } else if (tableName === 'facturas') {
-    seedFacturas();
+  // Truncation helpers
+  const truncateCategories = () => {
+    db.exec('DELETE FROM categories;');
+    db.exec("DELETE FROM sqlite_sequence WHERE name='categories';");
+  };
+  const truncateTemplates = () => {
+    db.exec('DELETE FROM templates_extraccion;');
+    db.exec("DELETE FROM sqlite_sequence WHERE name='templates_extraccion';");
+  };
+  const truncateEmisores = () => {
+    db.exec('DELETE FROM emisores;');
+    db.exec("DELETE FROM sqlite_sequence WHERE name='emisores';");
+  };
+  const truncateFacturas = () => {
+    db.exec('DELETE FROM facturas;');
+    db.exec("DELETE FROM sqlite_sequence WHERE name='facturas';");
+  };
+
+  // Execute actions for selected tables
+  const actions = {
+    categories: { truncate: truncateCategories, seed: seedCategories },
+    templates: { truncate: truncateTemplates, seed: seedTemplates },
+    emisores: { truncate: truncateEmisores, seed: seedEmisores },
+    facturas: { truncate: truncateFacturas, seed: seedFacturas },
+    all: { truncate: () => {}, seed: () => {} },
+  } as const;
+
+  for (const table of selectedTables) {
+    const act = actions[table as keyof typeof actions];
+    if (!act) continue;
+    if (forceRequested) {
+      if (dryRunRequested) console.info(`🔶 Truncaría: ${table}`);
+      else act.truncate();
+    }
+    if (dryRunRequested) console.info(`🔶 Poblaría: ${table}`);
+    else act.seed();
   }
 
   db.exec('COMMIT');

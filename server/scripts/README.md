@@ -45,6 +45,40 @@ Las tablas disponibles incluyen:
 
 > **Nota**: El seeding usa `INSERT OR IGNORE`, por lo que ejecutar el comando múltiples veces no duplicará datos.
 
+### Borrar datos antes de poblar (force)
+
+Podés truncar la(s) tabla(s) seleccionadas antes de poblar usando `--force`:
+
+```bash
+# Forzar sobre una tabla
+npm run db:seed facturas -- --force
+
+# Forzar sobre todas
+npm run db:seed -- --force
+```
+
+Esto ejecuta `DELETE FROM ...` y resetea el contador de `AUTOINCREMENT` (limpiando `sqlite_sequence`).
+
+### Seleccionar tablas específicas (`--only`)
+
+Podés elegir qué tablas poblar usando `--only` (override del argumento posicional):
+
+```bash
+npm run db:seed -- --only=templates,emisores
+npm run db:seed categories -- --only=facturas   # `--only` tiene prioridad
+```
+
+### Simular acciones sin modificar (`--dry-run`)
+
+Para verificar qué haría el script sin tocar la base:
+
+```bash
+npm run db:seed templates -- --dry-run
+npm run db:seed -- --only=facturas --dry-run --force
+```
+
+El modo `--dry-run` muestra "Truncaría" y/o "Poblaría" según corresponda.
+
 ### Migraciones (futuro)
 
 ```bash
