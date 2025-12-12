@@ -10,6 +10,14 @@ dist/
 build/
 *.tsbuildinfo
 
+# TypeScript compiled output (we use tsc --noEmit for validation only)
+**/*.js
+**/*.js.map
+!client/vite.config.js
+!server/vitest.config.js
+!server/drizzle.config.js
+!.githooks/install.sh
+
 # SvelteKit
 web/.svelte-kit/
 web/build/

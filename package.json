@@ -1,46 +1,47 @@
 {
-  "name": "simple-procesador-facturas",
-  "version": "0.2.0",
-  "description": "Sistema automatizado para procesamiento, extracción y gestión de facturas argentinas con reconocimiento OCR y aprendizaje de patrones",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "postinstall": ".githooks/install.sh 2>/dev/null || echo '⚠️  Nota: No se pudieron instalar git hooks'",
-    "dev": "npm run dev -w client",
-    "build": "npm run build -w client",
-    "preview": "npm run preview -w client",
-    "test": "npm run test -w server",
-    "test:coverage": "npm run test:coverage -w server",
-    "lint": "npm run lint --workspaces --if-present",
-    "format": "npm run format --workspaces --if-present",
-    "format:check": "npm run format:check --workspaces --if-present",
-    "db:migrate": "npm run db:migrate -w server",
-    "db:seed": "npm run db:seed -w server",
-    "db:studio": "npm run db:studio -w server",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up -d",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f"
-  },
-  "keywords": [
-    "facturas",
-    "ocr",
-    "pdf",
-    "argentina",
-    "afip",
-    "cuit",
-    "invoice",
-    "processing",
-    "automation"
-  ],
-  "author": "",
-  "license": "MIT",
-  "engines": {
-    "node": ">=22.21.0",
-    "npm": ">=10.0.0"
-  },
-  "workspaces": [
-    "client",
-    "server"
-  ]
+	"name": "simple-procesador-facturas",
+	"version": "0.2.0",
+	"description": "Sistema automatizado para procesamiento, extracción y gestión de facturas argentinas con reconocimiento OCR y aprendizaje de patrones",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"postinstall": ".githooks/install.sh 2>/dev/null || echo '⚠️  Nota: No se pudieron instalar git hooks'",
+		"dev": "npm run dev -w client",
+		"build": "npm run check && npm run build -w client",
+		"check": "tsc --noEmit -p server/tsconfig.json && npm run check -w client",
+		"preview": "npm run preview -w client",
+		"test": "npm run test -w server",
+		"test:coverage": "npm run test:coverage -w server",
+		"lint": "npm run lint --workspaces --if-present",
+		"format": "npm run format --workspaces --if-present",
+		"format:check": "npm run format:check --workspaces --if-present",
+		"db:migrate": "npm run db:migrate -w server",
+		"db:seed": "npm run db:seed -w server",
+		"db:studio": "npm run db:studio -w server",
+		"docker:build": "docker-compose build",
+		"docker:up": "docker-compose up -d",
+		"docker:down": "docker-compose down",
+		"docker:logs": "docker-compose logs -f"
+	},
+	"keywords": [
+		"facturas",
+		"ocr",
+		"pdf",
+		"argentina",
+		"afip",
+		"cuit",
+		"invoice",
+		"processing",
+		"automation"
+	],
+	"author": "",
+	"license": "MIT",
+	"engines": {
+		"node": ">=22.21.0",
+		"npm": ">=10.0.0"
+	},
+	"workspaces": [
+		"client",
+		"server"
+	]
 }
