@@ -21,16 +21,29 @@ npm run db:init
 
 ### Poblar con Datos de Prueba
 
-Inserta datos de ejemplo (templates, emisores, facturas):
+Inserta datos de ejemplo en la base de datos. Podés poblar todas las tablas o solo una específica:
 
 ```bash
+# Poblar todas las tablas (default)
 npm run db:seed
+
+# Poblar solo una tabla específica
+npm run db:seed categories   # Solo categorías desde categorias.json
+npm run db:seed templates     # Solo templates de extracción
+npm run db:seed emisores      # Solo emisores de ejemplo
+npm run db:seed facturas      # Solo facturas de prueba
 ```
 
-Esto crea:
+Las tablas disponibles incluyen:
 - 3 templates de extracción
 - 3 emisores de ejemplo
 - 4 facturas de prueba
+- **categories**: Carga desde `categorias.json` (usar `INSERT OR IGNORE`)
+- **templates**: 3 templates de extracción (AFIP Electrónica A, PDF Genérico, OCR Genérico)
+- **emisores**: 3 emisores de ejemplo (Servicios Tecnológicos SA, Distribuidora ABC, Consultora XYZ)
+- **facturas**: 4 facturas de prueba
+
+> **Nota**: El seeding usa `INSERT OR IGNORE`, por lo que ejecutar el comando múltiples veces no duplicará datos.
 
 ### Migraciones (futuro)
 

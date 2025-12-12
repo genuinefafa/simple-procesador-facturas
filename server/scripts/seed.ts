@@ -1,5 +1,7 @@
 /**
  * Script para poblar la base de datos con datos de prueba
+ * Uso: npm run db:seed [table]
+ * Opciones: categories | templates | emisores | facturas | all (default)
  */
 
 import Database from 'better-sqlite3';
@@ -17,19 +19,27 @@ if (!existsSync(DB_PATH)) {
   process.exit(1);
 }
 
+// Parse CLI arguments
+const tableName = process.argv[2] || 'all';
+const validTables = ['categories', 'templates', 'emisores', 'facturas', 'all'];
+
+if (!validTables.includes(tableName)) {
+  console.error(`❌ Tabla inválida: "${tableName}"`);
+  console.error(`   Opciones válidas: ${validTables.join(', ')}`);
+  process.exit(1);
+}
+
 console.info('🌱 Poblando base de datos con datos de prueba...');
+console.info(`📋 Tabla seleccionada: ${tableName}\n`);
 
 const db = new Database(DB_PATH);
 
-try {
-  // Iniciar transacción
-  db.exec('BEGIN TRANSACTION');
+// ===========================
+// SEEDING FUNCTIONS
+// ===========================
 
-  // ===========================
-  // CATEGORÍAS DESDE categorias.json
-  // ===========================
-
-  console.info('\n🏷️  Cargando categorías desde categorias.json...');
+function seedCategories() {
+  console.info('🏷️  Cargando categorías desde categorias.json...');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS categories (
@@ -47,37 +57,43 @@ try {
     console.warn(
       '⚠️  No se encontró categorias.json. Creá una copia desde categorias.json.example'
     );
-  } else {
-    try {
-      const raw = readFileSync(categoriesPath, 'utf-8');
-      const parsed = JSON.parse(raw) as Array<{ key: string; description: string }>;
-      const insertCategory = db.prepare(
-        `INSERT OR IGNORE INTO categories (key, description, active) VALUES (?, ?, 1)`
-      );
-      for (const cat of parsed) {
-        if (!cat.key || !cat.description) continue;
-        insertCategory.run(cat.key, cat.description);
-      }
-      console.info(`✅ Categorías insertadas (${parsed.length})`);
-    } catch (error) {
-      console.error('❌ Error leyendo categorias.json:', error);
-    }
+    return;
   }
 
-  // ===========================
-  // TEMPLATES DE EJEMPLO
-  // ===========================
+  try {
+    const raw = readFileSync(categoriesPath, 'utf-8');
+    const parsed = JSON.parse(raw) as Array<{ key: string; description: string }>;
+    const insertCategory = db.prepare(
+      `INSERT OR IGNORE INTO categories (key, description, active) VALUES (?, ?, 1)`
+    );
 
-  console.info('\n📋 Creando templates de ejemplo...');
+    let insertadas = 0;
+    for (const cat of parsed) {
+      if (!cat.key || !cat.description) continue;
+      const result = insertCategory.run(cat.key, cat.description);
+      if (result.changes > 0) insertadas++;
+    }
+
+    console.info(
+      `✅ Categorías: ${insertadas} insertadas, ${parsed.length - insertadas} ya existían (total: ${parsed.length})`
+    );
+  } catch (error) {
+    console.error('❌ Error leyendo categorias.json:', error);
+  }
+}
+
+function seedTemplates() {
+  console.info('📋 Creando templates de extracción...');
 
   const insertTemplate = db.prepare(`
-    INSERT INTO templates_extraccion (
+    INSERT OR IGNORE INTO templates_extraccion (
       nombre, descripcion, categoria, tipo_documento, estrategia, config_extraccion
     ) VALUES (?, ?, ?, ?, ?, ?)
   `);
 
-  // Template 1: AFIP Factura Electrónica A
-  insertTemplate.run(
+  let insertadas = 0;
+
+  let result = insertTemplate.run(
     'AFIP Factura Electrónica A',
     'Template para facturas electrónicas AFIP tipo A',
     'AFIP_ELECTRONICA',
@@ -97,8 +113,9 @@ try {
     })
   );
 
-  // Template 2: PDF Digital Genérico
-  insertTemplate.run(
+  if (result.changes > 0) insertadas++;
+
+  result = insertTemplate.run(
     'PDF Digital Genérico',
     'Template genérico para PDFs digitales sin formato específico',
     'GENERICO',
@@ -114,8 +131,9 @@ try {
     })
   );
 
-  // Template 3: Imagen OCR Genérico
-  insertTemplate.run(
+  if (result.changes > 0) insertadas++;
+
+  result = insertTemplate.run(
     'Imagen OCR Genérico',
     'Template para procesamiento OCR de imágenes escaneadas',
     'GENERICO',
@@ -140,22 +158,23 @@ try {
     })
   );
 
-  console.info('✅ Templates creados (3)');
+  if (result.changes > 0) insertadas++;
 
-  // ===========================
-  // EMISORES DE EJEMPLO
-  // ===========================
+  console.info(`✅ Templates: ${insertadas} insertados, ${3 - insertadas} ya existían (total: 3)`);
+}
 
-  console.info('\n👥 Creando emisores de ejemplo...');
+function seedEmisores() {
+  console.info('👥 Creando emisores de ejemplo...');
 
   const insertEmitter = db.prepare(`
-    INSERT INTO emisores (
+    INSERT OR IGNORE INTO emisores (
       cuit, cuit_numerico, nombre, razon_social, template_preferido_id, tipo_persona
     ) VALUES (?, ?, ?, ?, ?, ?)
   `);
 
-  // Emisor 1: Empresa de servicios
-  insertEmitter.run(
+  let insertados = 0;
+
+  let result = insertEmitter.run(
     '30-12345678-9',
     '30123456789',
     'Servicios Tecnológicos SA',
@@ -164,8 +183,9 @@ try {
     'JURIDICA'
   );
 
-  // Emisor 2: Proveedor
-  insertEmitter.run(
+  if (result.changes > 0) insertados++;
+
+  result = insertEmitter.run(
     '20-98765432-1',
     '20987654321',
     'Distribuidora ABC',
@@ -174,8 +194,9 @@ try {
     'FISICA'
   );
 
-  // Emisor 3: Consultora
-  insertEmitter.run(
+  if (result.changes > 0) insertados++;
+
+  result = insertEmitter.run(
     '33-87654321-0',
     '33876543210',
     'Consultora XYZ SRL',
@@ -184,16 +205,16 @@ try {
     'JURIDICA'
   );
 
-  console.info('✅ Emisores creados (3)');
+  if (result.changes > 0) insertados++;
 
-  // ===========================
-  // FACTURAS DE EJEMPLO
-  // ===========================
+  console.info(`✅ Emisores: ${insertados} insertados, ${3 - insertados} ya existían (total: 3)`);
+}
 
-  console.info('\n📄 Creando facturas de ejemplo...');
+function seedFacturas() {
+  console.info('📄 Creando facturas de ejemplo...');
 
   const insertInvoice = db.prepare(`
-    INSERT INTO facturas (
+    INSERT OR IGNORE INTO facturas (
       emisor_cuit, template_usado_id, fecha_emision, tipo_comprobante,
       punto_venta, numero_comprobante, comprobante_completo, total,
       archivo_original, archivo_procesado, tipo_archivo,
@@ -201,8 +222,9 @@ try {
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
-  // Factura 1
-  insertInvoice.run(
+  let insertadas = 0;
+
+  let result = insertInvoice.run(
     '30-12345678-9',
     1,
     '2024-11-15',
@@ -218,8 +240,9 @@ try {
     95.5
   );
 
-  // Factura 2
-  insertInvoice.run(
+  if (result.changes > 0) insertadas++;
+
+  result = insertInvoice.run(
     '30-12345678-9',
     1,
     '2024-11-20',
@@ -235,8 +258,9 @@ try {
     93.2
   );
 
-  // Factura 3
-  insertInvoice.run(
+  if (result.changes > 0) insertadas++;
+
+  result = insertInvoice.run(
     '20-98765432-1',
     2,
     '2024-11-18',
@@ -252,8 +276,9 @@ try {
     88.0
   );
 
-  // Factura 4
-  insertInvoice.run(
+  if (result.changes > 0) insertadas++;
+
+  result = insertInvoice.run(
     '33-87654321-0',
     1,
     '2024-11-22',
@@ -269,9 +294,34 @@ try {
     82.5
   );
 
-  console.info('✅ Facturas creadas (4)');
+  if (result.changes > 0) insertadas++;
 
-  // Commit de la transacción
+  console.info(`✅ Facturas: ${insertadas} insertadas, ${4 - insertadas} ya existían (total: 4)`);
+}
+
+// ===========================
+// MAIN EXECUTION
+// ===========================
+
+try {
+  db.exec('BEGIN TRANSACTION');
+
+  // Execute seeding based on table parameter
+  if (tableName === 'all') {
+    seedCategories();
+    seedTemplates();
+    seedEmisores();
+    seedFacturas();
+  } else if (tableName === 'categories') {
+    seedCategories();
+  } else if (tableName === 'templates') {
+    seedTemplates();
+  } else if (tableName === 'emisores') {
+    seedEmisores();
+  } else if (tableName === 'facturas') {
+    seedFacturas();
+  }
+
   db.exec('COMMIT');
 
   // ===========================
