@@ -6,6 +6,7 @@
     formatDateShort,
     getFullDateForTooltip,
   } from '$lib/formatters';
+  import FilePreview from './FilePreview.svelte';
 
   interface KnownInvoice {
     id?: number;
@@ -135,19 +136,12 @@
       {#if selectedKnown.file}
         <div class="preview-section">
           <h4>Vista previa</h4>
-          {#if selectedKnown.file.toLowerCase().endsWith('.pdf')}
-            <iframe
-              src="/api/files/{encodeURI(selectedKnown.file)}"
-              title="Preview de archivo"
-              class="pdf-iframe"
-            ></iframe>
-          {:else}
-            <img
-              src="/api/files/{encodeURI(selectedKnown.file)}"
-              alt="Vista previa"
-              class="image-preview"
-            />
-          {/if}
+          <FilePreview
+            src="/api/files/{encodeURI(selectedKnown.file)}"
+            filename={selectedKnown.file}
+            showZoom={true}
+            maxHeight="600px"
+          />
         </div>
       {/if}
 
@@ -344,7 +338,7 @@
     right: 0;
     top: 0;
     bottom: 0;
-    width: 400px;
+    width: 800px;
     max-width: 90vw;
     background: white;
     box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
@@ -448,21 +442,10 @@
     margin-bottom: 1.5rem;
   }
 
-  .pdf-iframe {
-    width: 100%;
-    height: 480px;
-    border: none;
-    background: white;
-  }
-
-  .image-preview {
-    max-width: 100%;
-    max-height: 480px;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+  .preview-section h4 {
+    margin: 0 0 0.75rem 0;
+    font-size: 1rem;
+    color: #374151;
   }
 
   .category-form {

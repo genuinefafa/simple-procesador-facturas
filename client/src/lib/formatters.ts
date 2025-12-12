@@ -50,14 +50,15 @@ export function formatDateISO(dateStr?: string): string {
 /**
  * Formatea una fecha a formato corto dd/mmm (sin año)
  * Ideal para tablas compactas
- * @param dateStr Fecha en formato ISO o Date
+ * @param dateStr Fecha en formato ISO (YYYY-MM-DD)
  * @returns Fecha corta (ej: 15/dic)
  */
 export function formatDateShort(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';
   try {
-    const date = new Date(dateStr);
-    const day = String(date.getDate()).padStart(2, '0');
+    // Parsear directamente el string ISO sin conversión de timezone
+    const [y, m, d] = dateStr.split('-');
+    if (!y || !m || !d) return dateStr;
     const months = [
       'ene',
       'feb',
@@ -72,8 +73,8 @@ export function formatDateShort(dateStr: string | null | undefined): string {
       'nov',
       'dic',
     ];
-    const month = months[date.getMonth()];
-    return `${day}/${month}`;
+    const monthIdx = Number(m) - 1;
+    return `${d}/${months[monthIdx] || m}`;
   } catch {
     return dateStr;
   }
@@ -81,13 +82,16 @@ export function formatDateShort(dateStr: string | null | undefined): string {
 
 /**
  * Obtiene la fecha completa para mostrar en tooltips
- * @param dateStr Fecha en formato ISO
+ * @param dateStr Fecha en formato ISO (YYYY-MM-DD)
  * @returns Fecha larga localizada (ej: "15 de diciembre de 2025")
  */
 export function getFullDateForTooltip(dateStr: string | null | undefined): string {
   if (!dateStr) return '';
   try {
-    const date = new Date(dateStr);
+    // Parsear como fecha local sin conversión de timezone
+    const [y, m, d] = dateStr.split('-');
+    if (!y || !m || !d) return dateStr;
+    const date = new Date(Number(y), Number(m) - 1, Number(d));
     return date.toLocaleDateString('es-AR', { year: 'numeric', month: 'long', day: 'numeric' });
   } catch {
     return dateStr;

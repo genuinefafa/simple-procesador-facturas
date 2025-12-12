@@ -6,6 +6,7 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import fs from 'fs';
 import path from 'path';
+import heicConvert from 'heic-convert';
 
 export const GET: RequestHandler = async ({ params }) => {
   const filename = path.basename(decodeURIComponent(params.path));
@@ -73,10 +74,27 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     // Read file
-    const fileBuffer = fs.readFileSync(absolutePath);
+    let fileBuffer = fs.readFileSync(absolutePath);
     const ext = path.extname(absolutePath).toLowerCase();
 
     console.info(`✅ [FILE-SERVER] Sirviendo: ${filename} (${fileBuffer.length} bytes)`);
+
+    // Convert HEIC/HEIF to JPEG for browser compatibility
+    if (ext === '.heic' || ext === '.heif') {
+      console.info(`   🔄 Convirtiendo HEIC a JPEG...`);
+      try {
+        const outputBuffer = await heicConvert({
+          buffer: fileBuffer,
+          format: 'JPEG',
+          quality: 0.9,
+        });
+        fileBuffer = Buffer.from(outputBuffer);
+        console.info(`   ✅ Conversión exitosa (${fileBuffer.length} bytes)`);
+      } catch (convertErr) {
+        console.error(`   ❌ Error convirtiendo HEIC:`, convertErr);
+        throw error(500, 'Error converting HEIC file');
+      }
+    }
 
     // Determine content type
     let contentType = 'application/octet-stream';
@@ -91,7 +109,8 @@ export const GET: RequestHandler = async ({ params }) => {
     } else if (ext === '.webp') {
       contentType = 'image/webp';
     } else if (ext === '.heic' || ext === '.heif') {
-      contentType = 'image/heic';
+      // After conversion, serve as JPEG
+      contentType = 'image/jpeg';
     }
 
     // Encodear filename para soportar caracteres UTF-8 (ñ, tildes, etc)

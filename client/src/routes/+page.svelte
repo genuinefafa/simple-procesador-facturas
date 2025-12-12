@@ -12,6 +12,7 @@
     getExtractionMethodLabel,
   } from '$lib/formatters';
   import RevisionTable from '$lib/components/RevisionTable.svelte';
+  import FilePreview from '$lib/components/FilePreview.svelte';
 
   let reviewFilter = $state<'pending' | 'all'>('pending'); // Filtro para tab Revisar
 
@@ -443,6 +444,7 @@
         toast.success('¡Factura procesada correctamente!');
         await loadPendingFilesToReview();
         await loadInvoices();
+        await loadKnownInvoices();
         editingFile = null;
       } else {
         toast.error(data.error || 'Error al procesar');
@@ -451,6 +453,13 @@
       toast.error('Error al guardar');
     }
   }
+
+  // Refrescar la pestaña de Revisión cada vez que se ingresa
+  $effect(() => {
+    if (activeTab === 'revision') {
+      loadKnownInvoices();
+    }
+  });
 
   function handleDragOver(event: DragEvent) {
     event.preventDefault();
@@ -932,31 +941,12 @@
               </div>
 
               <div class="review-card-content">
-                <!-- PREVIEW DEL ARCHIVO (sin overlay) -->
-                <div class="file-preview clean">
-                  {#if file.originalFilename.toLowerCase().endsWith('.pdf')}
-                    <iframe
-                      src="/api/pending-files/{file.id}/file"
-                      title="Preview de {file.originalFilename}"
-                      class="pdf-iframe"
-                      onerror={() => handleFileLoadError(file.id, file.originalFilename)}
-                    ></iframe>
-                  {:else if file.originalFilename
-                    .toLowerCase()
-                    .match(/\.(jpg|jpeg|png|tif|tiff|webp|heic|heif)$/)}
-                    <img
-                      src="/api/pending-files/{file.id}/file"
-                      alt="Preview de {file.originalFilename}"
-                      class="image-preview"
-                      onerror={() => handleFileLoadError(file.id, file.originalFilename)}
-                    />
-                  {:else}
-                    <div class="preview-error">
-                      <p>Vista previa no disponible</p>
-                      <p class="filename">{file.originalFilename}</p>
-                    </div>
-                  {/if}
-                </div>
+                <!-- PREVIEW DEL ARCHIVO -->
+                <FilePreview
+                  src="/api/pending-files/{file.id}/file"
+                  filename={file.originalFilename}
+                  onError={() => handleFileLoadError(file.id, file.originalFilename)}
+                />
 
                 <!-- DATOS COMPARATIVOS -->
                 <div class="file-data">
@@ -2369,48 +2359,6 @@
     .review-card-content {
       grid-template-columns: 1fr;
     }
-  }
-
-  /* FILE PREVIEW */
-  .file-preview {
-    position: relative;
-    background: #f8fafc;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    overflow: hidden;
-    min-height: 500px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .pdf-iframe {
-    width: 100%;
-    height: 600px;
-    border: none;
-    background: white;
-  }
-
-  .image-preview {
-    max-width: 100%;
-    max-height: 600px;
-    object-fit: contain;
-    display: block;
-    margin: 0 auto;
-  }
-
-  .preview-error {
-    text-align: center;
-    padding: 3rem;
-    color: #64748b;
-  }
-
-  .preview-error .filename {
-    font-family: monospace;
-    font-size: 0.9rem;
-    color: #94a3b8;
-    margin-top: 0.5rem;
-    word-break: break-all;
   }
 
   /* FILE DATA COLUMN */
