@@ -1629,8 +1629,8 @@
                 <th style="width: 12%">CUIT</th>
                 <th style="width: 10%">Fecha</th>
                 <th style="width: 8%">Tipo</th>
-                <th style="width: 6%">PV</th>
-                <th style="width: 8%">Número</th>
+                <th style="width: 6%; text-align: right">PV</th>
+                <th style="width: 8%; text-align: right">Número</th>
                 <th style="width: 12%; text-align: right">Total</th>
                 <th style="width: 34%">Archivo</th>
               </tr>
