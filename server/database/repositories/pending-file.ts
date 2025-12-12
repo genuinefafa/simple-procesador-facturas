@@ -13,7 +13,7 @@ export interface PendingFile {
   originalFilename: string;
   filePath: string;
   fileSize: number | null;
-  uploadDate: string;
+  uploadDate: string | null;
   extractedCuit: string | null;
   extractedDate: string | null;
   extractedTotal: number | null;
@@ -24,32 +24,33 @@ export interface PendingFile {
   extractionMethod: string | null;
   extractionErrors: string | null;
   status: PendingFileStatus;
-  invoiceId: number | null;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export class PendingFileRepository {
-  private mapDrizzleToPendingFile(row: DrizzelPendingFile): PendingFile {
+  private mapDrizzleToPendingFile(row: DrizzelPendingFile | undefined): PendingFile {
+    if (!row) {
+      throw new Error('Cannot map undefined row to PendingFile');
+    }
     return {
       id: row.id,
-      originalFilename: row.nombreArchivoOriginal,
-      filePath: row.rutaArchivo,
-      fileSize: row.tamanoArchivo,
-      uploadDate: row.fechaCarga,
-      extractedCuit: row.cuitExtraido,
-      extractedDate: row.fechaExtraida,
-      extractedTotal: row.totalExtraido,
-      extractedType: row.tipoExtraido,
-      extractedPointOfSale: row.puntoVentaExtraido,
-      extractedInvoiceNumber: row.numeroComprobanteExtraido,
-      extractionConfidence: row.confianzaExtraccion,
-      extractionMethod: row.metodoExtraccion,
-      extractionErrors: row.erroresExtraccion,
-      status: (row.estado as PendingFileStatus) || 'pending',
-      invoiceId: row.facturaId,
-      createdAt: row.creadoEn,
-      updatedAt: row.actualizadoEn,
+      originalFilename: row.originalFilename,
+      filePath: row.filePath,
+      fileSize: row.fileSize || null,
+      uploadDate: row.uploadDate || null,
+      extractedCuit: row.extractedCuit || null,
+      extractedDate: row.extractedDate || null,
+      extractedTotal: row.extractedTotal || null,
+      extractedType: row.extractedType || null,
+      extractedPointOfSale: row.extractedPointOfSale || null,
+      extractedInvoiceNumber: row.extractedInvoiceNumber || null,
+      extractionConfidence: row.extractionConfidence || null,
+      extractionMethod: row.extractionMethod || null,
+      extractionErrors: row.extractionErrors || null,
+      status: (row.status as PendingFileStatus) || 'pending',
+      createdAt: row.createdAt || null,
+      updatedAt: row.updatedAt || null,
     };
   }
 
@@ -76,19 +77,19 @@ export class PendingFileRepository {
     const result = await db
       .insert(pendingFiles)
       .values({
-        nombreArchivoOriginal: data.originalFilename,
-        rutaArchivo: data.filePath,
-        tamanoArchivo: data.fileSize || null,
-        cuitExtraido: data.extractedCuit || null,
-        fechaExtraida: data.extractedDate || null,
-        totalExtraido: data.extractedTotal || null,
-        tipoExtraido: data.extractedType || null,
-        puntoVentaExtraido: data.extractedPointOfSale || null,
-        numeroComprobanteExtraido: data.extractedInvoiceNumber || null,
-        confianzaExtraccion: data.extractionConfidence || null,
-        metodoExtraccion: data.extractionMethod || null,
-        erroresExtraccion: errorsJson,
-        estado: (data.status || 'pending') as any,
+        originalFilename: data.originalFilename,
+        filePath: data.filePath,
+        fileSize: data.fileSize || null,
+        extractedCuit: data.extractedCuit || null,
+        extractedDate: data.extractedDate || null,
+        extractedTotal: data.extractedTotal || null,
+        extractedType: data.extractedType || null,
+        extractedPointOfSale: data.extractedPointOfSale || null,
+        extractedInvoiceNumber: data.extractedInvoiceNumber || null,
+        extractionConfidence: data.extractionConfidence || null,
+        extractionMethod: data.extractionMethod || null,
+        extractionErrors: errorsJson,
+        status: (data.status || 'pending') as any,
       })
       .returning();
 
@@ -100,7 +101,8 @@ export class PendingFileRepository {
   }
 
   async findById(id: number): Promise<PendingFile | null> {
-    const result = await db.select().from(pendingFiles).where(eq(pendingFiles.id, id)).limit(1);
+    const result = await db.select().from(pendingFiles).where(eq(pendingFiles.id, id));
+
     return result.length > 0 ? this.mapDrizzleToPendingFile(result[0]) : null;
   }
 
@@ -113,23 +115,24 @@ export class PendingFileRepository {
 
     if (filters?.status) {
       if (Array.isArray(filters.status)) {
-        query = query.where(inArray(pendingFiles.estado, filters.status as any));
+        query = query.where(inArray(pendingFiles.status, filters.status as any));
       } else {
-        query = query.where(eq(pendingFiles.estado, filters.status as any));
+        query = query.where(eq(pendingFiles.status, filters.status as any));
       }
     }
 
-    query = query.orderBy(desc(pendingFiles.fechaCarga));
+    const allResults = await query.orderBy(desc(pendingFiles.uploadDate));
 
-    if (filters?.limit) {
-      query = query.limit(filters.limit);
-    }
+    let result = allResults;
 
     if (filters?.offset) {
-      query = query.offset(filters.offset);
+      result = result.slice(filters.offset);
     }
 
-    const result = await query;
+    if (filters?.limit) {
+      result = result.slice(0, filters.limit);
+    }
+
     return result.map((row) => this.mapDrizzleToPendingFile(row));
   }
 
@@ -149,23 +152,23 @@ export class PendingFileRepository {
   ): Promise<PendingFile> {
     const updates: any = {};
 
-    if (data.extractedCuit !== undefined) updates.cuitExtraido = data.extractedCuit;
-    if (data.extractedDate !== undefined) updates.fechaExtraida = data.extractedDate;
-    if (data.extractedTotal !== undefined) updates.totalExtraido = data.extractedTotal;
-    if (data.extractedType !== undefined) updates.tipoExtraido = data.extractedType;
+    if (data.extractedCuit !== undefined) updates.extractedCuit = data.extractedCuit;
+    if (data.extractedDate !== undefined) updates.extractedDate = data.extractedDate;
+    if (data.extractedTotal !== undefined) updates.extractedTotal = data.extractedTotal;
+    if (data.extractedType !== undefined) updates.extractedType = data.extractedType;
     if (data.extractedPointOfSale !== undefined)
-      updates.puntoVentaExtraido = data.extractedPointOfSale;
+      updates.extractedPointOfSale = data.extractedPointOfSale;
     if (data.extractedInvoiceNumber !== undefined)
-      updates.numeroComprobanteExtraido = data.extractedInvoiceNumber;
+      updates.extractedInvoiceNumber = data.extractedInvoiceNumber;
     if (data.extractionConfidence !== undefined)
-      updates.confianzaExtraccion = data.extractionConfidence;
-    if (data.extractionMethod !== undefined) updates.metodoExtraccion = data.extractionMethod;
+      updates.extractionConfidence = data.extractionConfidence;
+    if (data.extractionMethod !== undefined) updates.extractionMethod = data.extractionMethod;
 
     if (data.extractionErrors !== undefined) {
       const errorsJson = Array.isArray(data.extractionErrors)
         ? JSON.stringify(data.extractionErrors)
         : data.extractionErrors;
-      updates.erroresExtraccion = errorsJson;
+      updates.extractionErrors = errorsJson;
     }
 
     if (Object.keys(updates).length === 0) {
@@ -190,26 +193,12 @@ export class PendingFileRepository {
   async updateStatus(id: number, status: PendingFileStatus): Promise<PendingFile> {
     const result = await db
       .update(pendingFiles)
-      .set({ estado: status as any })
+      .set({ status: status as any })
       .where(eq(pendingFiles.id, id))
       .returning();
 
     if (result.length === 0) {
       throw new Error('Pending file not found after status update');
-    }
-
-    return this.mapDrizzleToPendingFile(result[0]);
-  }
-
-  async linkToInvoice(id: number, invoiceId: number): Promise<PendingFile> {
-    const result = await db
-      .update(pendingFiles)
-      .set({ facturaId: invoiceId, estado: 'processed' as any })
-      .where(eq(pendingFiles.id, id))
-      .returning();
-
-    if (result.length === 0) {
-      throw new Error('Pending file not found after linking');
     }
 
     return this.mapDrizzleToPendingFile(result[0]);
@@ -222,7 +211,7 @@ export class PendingFileRepository {
   }
 
   async countByStatus(): Promise<Record<PendingFileStatus, number>> {
-    const result = await db.select({ status: pendingFiles.estado }).from(pendingFiles);
+    const result = await db.select({ status: pendingFiles.status }).from(pendingFiles);
 
     const counts: Record<PendingFileStatus, number> = {
       pending: 0,
@@ -233,7 +222,7 @@ export class PendingFileRepository {
 
     for (const row of result) {
       const status = row.status as PendingFileStatus;
-      counts[status]++;
+      if (status) counts[status]++;
     }
 
     return counts;

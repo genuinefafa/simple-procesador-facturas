@@ -50,9 +50,9 @@ export class InvoiceRepository {
       fileType: row.tipoArchivo as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN',
       extractionMethod: row.metodoExtraccion as ExtractionMethod,
       extractionConfidence: row.confianzaExtraccion || undefined,
-      manuallyValidated: row.validadoManualmente,
-      requiresReview: row.requiereRevision,
-      processedAt: new Date(row.procesadoEn),
+      manuallyValidated: row.validadoManualmente ?? false,
+      requiresReview: row.requiereRevision ?? false,
+      processedAt: row.procesadoEn ? new Date(row.procesadoEn) : new Date(),
       expectedInvoiceId: row.expectedInvoiceId || undefined,
       pendingFileId: row.pendingFileId || undefined,
       categoryId: row.categoryId || undefined,
@@ -89,36 +89,37 @@ export class InvoiceRepository {
       .insert(facturas)
       .values({
         emisorCuit: data.emitterCuit,
-        templateUsadoId: data.templateUsedId || null,
+        templateUsadoId: data.templateUsedId ?? null,
         fechaEmision: issueDateStr,
         tipoComprobante: data.invoiceType as any,
         puntoVenta: data.pointOfSale,
         numeroComprobante: data.invoiceNumber,
         comprobanteCompleto: fullInvoiceNumber,
-        total: data.total || null,
+        total: data.total ?? null,
         moneda: (data.currency || 'ARS') as any,
         archivoOriginal: data.originalFile,
         archivoProcesado: data.processedFile,
         tipoArchivo: data.fileType as any,
         metodoExtraccion: data.extractionMethod as any,
-        confianzaExtraccion: data.extractionConfidence || null,
-        requiereRevision: data.requiresReview ? true : false,
-        expectedInvoiceId: data.expectedInvoiceId || null,
-        pendingFileId: data.pendingFileId || null,
-        categoryId: data.categoryId || null,
-      })
+        confianzaExtraccion: data.extractionConfidence ?? null,
+        validadoManualmente: false,
+        requiereRevision: data.requiresReview ?? false,
+        expectedInvoiceId: data.expectedInvoiceId ?? null,
+        pendingFileId: data.pendingFileId ?? null,
+        categoryId: data.categoryId ?? null,
+      } as any)
       .returning();
 
     if (!result || result.length === 0) {
       throw new Error('Failed to create invoice');
     }
 
-    return this.mapDrizzleToInvoice(result[0]);
+    return this.mapDrizzleToInvoice(result[0]!);
   }
 
   async findById(id: number): Promise<Invoice | null> {
     const result = await db.select().from(facturas).where(eq(facturas.id, id)).limit(1);
-    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]) : null;
+    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
   }
 
   async findByInvoiceNumber(
@@ -140,7 +141,7 @@ export class InvoiceRepository {
       )
       .limit(1);
 
-    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]) : null;
+    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
   }
 
   async list(filters?: {
@@ -169,19 +170,21 @@ export class InvoiceRepository {
     let query = db.select().from(facturas);
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = query.where(and(...conditions)) as any;
     }
 
-    query = query.orderBy(facturas.fechaEmision);
+    // Execute query first, then apply limit/offset in JS
+    const allResults = await query;
+    let result = allResults.sort(
+      (a, b) => new Date(b.fechaEmision).getTime() - new Date(a.fechaEmision).getTime()
+    );
 
-    if (filters?.limit) {
-      query = query.limit(filters.limit);
-    }
     if (filters?.offset) {
-      query = query.offset(filters.offset);
+      result = result.slice(filters.offset);
     }
-
-    const result = await query;
+    if (filters?.limit) {
+      result = result.slice(0, filters.limit);
+    }
     return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 
@@ -216,7 +219,7 @@ export class InvoiceRepository {
 
     let query = db.select({ count: require('drizzle-orm').count() }).from(facturas);
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = query.where(and(...conditions)) as any;
     }
 
     const result = await query;
@@ -242,6 +245,6 @@ export class InvoiceRepository {
 
     const result = await db.update(facturas).set(updates).where(eq(facturas.id, id)).returning();
 
-    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]) : null;
+    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
   }
 }

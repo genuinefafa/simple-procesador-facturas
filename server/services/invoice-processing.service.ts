@@ -341,7 +341,7 @@ export class InvoiceProcessingService {
         const normalizedCuit = normalizeCUIT(data.cuit);
         console.info(`   🔍 Buscando matches en Excel AFIP para CUIT: ${normalizedCuit}`);
 
-        const matchResult = this.findExcelMatch(normalizedCuit, data);
+        const matchResult = await this.findExcelMatch(normalizedCuit, data);
 
         // MATCH ÚNICO - Auto-completar desde Excel
         if (matchResult.type === 'UNIQUE') {
@@ -467,7 +467,7 @@ export class InvoiceProcessingService {
       const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(5, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
       console.info(`   🔍 Verificando duplicados: ${fullInvoiceNumber}`);
 
-      const existing = this.invoiceRepo.findByEmitterAndNumber(
+      const existing = await this.invoiceRepo.findByEmitterAndNumber(
         normalizedCuit,
         data.invoiceType,
         data.pointOfSale,
@@ -490,7 +490,10 @@ export class InvoiceProcessingService {
       let formattedDate = format(new Date(), 'yyyy-MM-dd');
       if (data.date) {
         try {
-          const [day, month, year] = data.date.split(/[/-]/);
+          const parts = data.date.split(/[/-]/);
+          const day = parts[0]!;
+          const month = parts[1]!;
+          const year = parts[2]!;
           formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
         } catch {
           // Usar fecha actual si falla el parseo
@@ -500,7 +503,7 @@ export class InvoiceProcessingService {
 
       // 7. Crear factura en BD
       console.info(`   💾 Guardando factura en base de datos...`);
-      const invoice = this.invoiceRepo.create({
+      const invoice = await this.invoiceRepo.create({
         emitterCuit: normalizedCuit,
         issueDate: formattedDate,
         invoiceType: data.invoiceType,
@@ -556,7 +559,7 @@ export class InvoiceProcessingService {
   /**
    * Busca matches de una factura en el Excel AFIP
    */
-  private findExcelMatch(
+  private async findExcelMatch(
     cuit: string,
     extractedData: {
       date?: string;
@@ -565,10 +568,11 @@ export class InvoiceProcessingService {
       pointOfSale?: number;
       invoiceNumber?: number;
     }
-  ):
+  ): Promise<
     | { type: 'NONE' }
     | { type: 'UNIQUE'; match: ExpectedInvoice }
-    | { type: 'AMBIGUOUS'; candidates: ExpectedInvoice[] } {
+    | { type: 'AMBIGUOUS'; candidates: ExpectedInvoice[] }
+  > {
     // Estrategia de matching progresiva:
 
     // 1. Si tenemos TODOS los datos, buscar match exacto
@@ -577,7 +581,7 @@ export class InvoiceProcessingService {
       extractedData.pointOfSale !== undefined &&
       extractedData.invoiceNumber !== undefined
     ) {
-      const exactMatch = this.expectedInvoiceRepo.findExactMatch(
+      const exactMatch = await this.expectedInvoiceRepo.findExactMatch(
         cuit,
         extractedData.invoiceType,
         extractedData.pointOfSale,
@@ -603,7 +607,10 @@ export class InvoiceProcessingService {
         // Parsear fecha extraída (formato DD/MM/YYYY o DD-MM-YYYY)
         let date: Date;
         if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(extractedData.date)) {
-          const [day, month, year] = extractedData.date.split(/[/-]/);
+          const parts = extractedData.date.split(/[/-]/);
+          const day = parts[0]!;
+          const month = parts[1]!;
+          const year = parts[2]!;
           date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
         } else {
           date = new Date(extractedData.date);
@@ -624,14 +631,14 @@ export class InvoiceProcessingService {
       criteria.totalRange = [extractedData.total - margin, extractedData.total + margin];
     }
 
-    const candidates = this.expectedInvoiceRepo.findCandidates(criteria);
+    const candidates = await this.expectedInvoiceRepo.findCandidates(criteria);
 
     if (candidates.length === 0) {
       return { type: 'NONE' };
     }
 
     if (candidates.length === 1) {
-      return { type: 'UNIQUE', match: candidates[0] };
+      return { type: 'UNIQUE', match: candidates[0]! };
     }
 
     // Si hay entre 2 y 5 candidatos, devolver para selección manual

@@ -47,7 +47,7 @@ export class PDFExtractor {
 
     if (cuitsWithContext.length > 0) {
       // Tomar el CUIT con mayor score
-      const bestMatch = cuitsWithContext[0];
+      const bestMatch = cuitsWithContext[0]!;
       cuit = bestMatch.cuit;
 
       console.info(`   💼 CUIT emisor detectado (score: ${bestMatch.score}): ${cuit}`);
@@ -98,9 +98,9 @@ export class PDFExtractor {
       // "24 de Octubre de 2025" o "24 Octubre 2025"
       const match = dateText.match(/(\d{1,2})\s+(?:de\s+)?([a-záéíóú]+)\s+(?:de\s+)?(\d{4})/i);
       if (match) {
-        const day = match[1].padStart(2, '0');
-        const monthName = match[2].toLowerCase();
-        const year = match[3];
+        const day = match[1]!.padStart(2, '0');
+        const monthName = match[2]!.toLowerCase();
+        const year = match[3]!;
         const month = months[monthName];
 
         if (month) {
@@ -116,9 +116,9 @@ export class PDFExtractor {
     const parseDateToObject = (dateStr: string): Date | null => {
       const parts = dateStr.split(/[/-]/);
       if (parts.length === 3) {
-        const day = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1; // JS months are 0-indexed
-        const year = parseInt(parts[2], 10);
+        const day = parseInt(parts[0]!, 10);
+        const month = parseInt(parts[1]!, 10) - 1; // JS months are 0-indexed
+        const year = parseInt(parts[2]!, 10);
         return new Date(year, month, day);
       }
       return null;
@@ -142,7 +142,7 @@ export class PDFExtractor {
 
     // Procesar fechas de emisión con mayor prioridad
     for (const match of emissionMatches) {
-      const dateStr = match[1].replace(/-/g, '/');
+      const dateStr = match[1]!.replace(/-/g, '/');
       const dateObj = parseDateToObject(dateStr);
       if (dateObj) {
         allDates.push({
@@ -211,8 +211,8 @@ export class PDFExtractor {
 
         // Convertir año de 2 dígitos a 4 dígitos (YY → YYYY)
         const parts = normalizedDate.split('/');
-        if (parts.length === 3 && parts[2].length === 2) {
-          const yearShort = parseInt(parts[2], 10);
+        if (parts.length === 3 && parts[2]!.length === 2) {
+          const yearShort = parseInt(parts[2]!, 10);
           // Asumimos que años 00-49 son 2000-2049, 50-99 son 1950-1999
           const yearFull = yearShort <= 49 ? 2000 + yearShort : 1900 + yearShort;
           normalizedDate = `${parts[0]}/${parts[1]}/${yearFull}`;
@@ -342,11 +342,11 @@ export class PDFExtractor {
         return b.timestamp - a.timestamp;
       });
 
-      date = allDates[0].date;
+      date = allDates[0]!.date;
 
       if (allDates.length > 1) {
         console.info(
-          `   📅 Múltiples fechas encontradas (${allDates.length}), usando mejor match (score: ${allDates[0].score}): ${date}`
+          `   📅 Múltiples fechas encontradas (${allDates.length}), usando mejor match (score: ${allDates[0]!.score}): ${date}`
         );
         console.info(
           `      Otras: ${allDates
