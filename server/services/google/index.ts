@@ -12,16 +12,15 @@ export {
 } from './google-integration.service';
 
 // Tipos y constantes
-export {
+export type {
   EmisoresSheetRow,
   FacturasSheetRow,
   FacturasEsperadasSheetRow,
   LogsSheetRow,
   GoogleSheetsConfig,
   GoogleDriveConfig,
-  SHEET_HEADERS,
-  SheetConverters,
 } from './types';
+export { SHEET_HEADERS, SheetConverters } from './types';
 
 // Tipos específicos de servicios
 export type { UploadFileOptions, UploadFileResult } from './google-drive.service';

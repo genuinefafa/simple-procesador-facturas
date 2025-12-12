@@ -3,8 +3,8 @@
  * Este archivo muestra cómo integrar los servicios de Google en tu flujo de procesamiento
  */
 
-import {
-  getGoogleIntegrationService,
+import { getGoogleIntegrationService } from './google-integration.service';
+import type {
   InvoiceData,
   GoogleIntegrationService,
   ProjectConfig,

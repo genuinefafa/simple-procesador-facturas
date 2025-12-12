@@ -170,6 +170,17 @@ export const SHEET_HEADERS = {
 } as const;
 
 /**
+ * Helper para convertir valores de celda a string de forma segura
+ */
+function cellToString(value: unknown, defaultValue = ''): string {
+  if (value === null || value === undefined) return defaultValue;
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  // Para objetos, arrays, etc, devolver valor por defecto
+  return defaultValue;
+}
+
+/**
  * Helpers para convertir entre formatos
  */
 export class SheetConverters {
@@ -178,62 +189,62 @@ export class SheetConverters {
    */
   static rowToEmisores(row: unknown[]): EmisoresSheetRow {
     return {
-      cuit: row[0] || '',
-      cuitNumerico: row[1] || '',
-      nombre: row[2] || '',
-      razonSocial: row[3] || '',
-      aliases: row[4] || '[]',
-      templatePreferido: row[5] || '',
+      cuit: cellToString(row[0]),
+      cuitNumerico: cellToString(row[1]),
+      nombre: cellToString(row[2]),
+      razonSocial: cellToString(row[3]),
+      aliases: cellToString(row[4], '[]'),
+      templatePreferido: cellToString(row[5]),
       tipoPersona: (row[6] as 'FISICA' | 'JURIDICA') || 'JURIDICA',
       totalFacturas: Number(row[7]) || 0,
-      primeraFactura: row[8] || '',
-      ultimaFactura: row[9] || '',
+      primeraFactura: cellToString(row[8]),
+      ultimaFactura: cellToString(row[9]),
     };
   }
 
   static rowToFacturas(row: unknown[]): FacturasSheetRow {
     return {
-      id: row[0] || '',
-      emisorCuit: row[1] || '',
-      fechaEmision: row[2] || '',
-      tipoComprobante: row[3] || '',
+      id: cellToString(row[0]),
+      emisorCuit: cellToString(row[1]),
+      fechaEmision: cellToString(row[2]),
+      tipoComprobante: cellToString(row[3]),
       puntoVenta: Number(row[4]) || 0,
       numeroComprobante: Number(row[5]) || 0,
       total: Number(row[6]) || 0,
-      moneda: row[7] || 'ARS',
-      archivoDriveId: row[8] || '',
-      archivoLink: row[9] || '',
-      tipoArchivo: (String(row[10]) || 'PDF_DIGITAL') as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN',
-      metodoExtraccion: (String(row[11]) || 'GENERICO') as 'TEMPLATE' | 'GENERICO' | 'MANUAL',
+      moneda: cellToString(row[7], 'ARS'),
+      archivoDriveId: cellToString(row[8]),
+      archivoLink: cellToString(row[9]),
+      tipoArchivo: cellToString(row[10], 'PDF_DIGITAL') as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN',
+      metodoExtraccion: cellToString(row[11], 'GENERICO') as 'TEMPLATE' | 'GENERICO' | 'MANUAL',
       confianzaExtraccion: Number(row[12]) || 0,
       validadoManualmente: row[13] === 'TRUE' || row[13] === true,
       requiereRevision: row[14] === 'TRUE' || row[14] === true,
-      fileHash: row[15] || '',
-      procesadoEn: row[16] || '',
+      fileHash: cellToString(row[15]),
+      procesadoEn: cellToString(row[16]),
     };
   }
 
   static rowToEsperadas(row: unknown[]): FacturasEsperadasSheetRow {
     return {
-      id: row[0] || '',
-      loteImportacion: row[1] || '',
-      cuit: row[2] || '',
-      nombreEmisor: row[3] || '',
-      fechaEmision: row[4] || '',
-      tipoComprobante: row[5] || '',
+      id: cellToString(row[0]),
+      loteImportacion: cellToString(row[1]),
+      cuit: cellToString(row[2]),
+      nombreEmisor: cellToString(row[3]),
+      fechaEmision: cellToString(row[4]),
+      tipoComprobante: cellToString(row[5]),
       puntoVenta: Number(row[6]) || 0,
       numeroComprobante: Number(row[7]) || 0,
       total: Number(row[8]) || 0,
-      cae: row[9] || '',
-      status: (String(row[10]) || 'pending') as
+      cae: cellToString(row[9]),
+      status: cellToString(row[10], 'pending') as
         | 'pending'
         | 'matched'
         | 'discrepancy'
         | 'manual'
         | 'ignored',
-      idFacturaMatched: row[11] || '',
+      idFacturaMatched: cellToString(row[11]),
       confianzaMatch: Number(row[12]) || 0,
-      notas: row[13] || '',
+      notas: cellToString(row[13]),
     };
   }
 

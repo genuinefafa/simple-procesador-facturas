@@ -115,7 +115,12 @@ export class GoogleSheetsService {
       throw new Error(`Emisor con CUIT ${cuit} no encontrado`);
     }
 
-    const updatedEmisor = { ...emisores[index], ...updates };
+    const existing = emisores[index];
+    if (!existing) {
+      throw new Error(`Emisor con CUIT ${cuit} no encontrado`);
+    }
+
+    const updatedEmisor = { ...existing, ...updates };
     const row = SheetConverters.emisoresToRow(updatedEmisor);
 
     // +2 porque: +1 para header, +1 para convertir de 0-indexed a 1-indexed
@@ -236,7 +241,12 @@ export class GoogleSheetsService {
       throw new Error(`Factura con ID ${id} no encontrada`);
     }
 
-    const updatedFactura = { ...facturas[index], ...updates };
+    const existing = facturas[index];
+    if (!existing) {
+      throw new Error(`Factura con ID ${id} no encontrada`);
+    }
+
+    const updatedFactura = { ...existing, ...updates };
     const row = SheetConverters.facturasToRow(updatedFactura);
 
     const rowNumber = index + 2;
@@ -328,6 +338,7 @@ export class GoogleSheetsService {
       // Comparar fechas (simplificado - asumir formato DD/MM/YYYY)
       const [d1, m1, y1] = fecha.split('/').map(Number);
       const [d2, m2, y2] = e.fechaEmision.split('/').map(Number);
+      if (!d1 || !m1 || !y1 || !d2 || !m2 || !y2) return false;
       const date1 = new Date(y1, m1 - 1, d1);
       const date2 = new Date(y2, m2 - 1, d2);
 
@@ -377,7 +388,12 @@ export class GoogleSheetsService {
       throw new Error(`Factura esperada con ID ${id} no encontrada`);
     }
 
-    const updatedEsperada = { ...esperadas[index], ...updates };
+    const existing = esperadas[index];
+    if (!existing) {
+      throw new Error(`Factura esperada con ID ${id} no encontrada`);
+    }
+
+    const updatedEsperada = { ...existing, ...updates };
     const row = SheetConverters.esperadasToRow(updatedEsperada);
 
     const rowNumber = index + 2;
@@ -473,7 +489,7 @@ export class GoogleSheetsService {
             range: `${sheet.name}!A1`,
             valueInputOption: 'USER_ENTERED',
             requestBody: {
-              values: [sheet.headers],
+              values: [[...sheet.headers]],
             },
           });
 

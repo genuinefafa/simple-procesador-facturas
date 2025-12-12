@@ -491,7 +491,9 @@ export class InvoiceProcessingService {
       if (data.date) {
         try {
           const [day, month, year] = data.date.split(/[/-]/);
-          formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          if (day && month && year) {
+            formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          }
         } catch {
           // Usar fecha actual si falla el parseo
         }
@@ -604,7 +606,11 @@ export class InvoiceProcessingService {
         let date: Date;
         if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(extractedData.date)) {
           const [day, month, year] = extractedData.date.split(/[/-]/);
-          date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          if (day && month && year) {
+            date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          } else {
+            date = new Date(extractedData.date);
+          }
         } else {
           date = new Date(extractedData.date);
         }
@@ -630,7 +636,7 @@ export class InvoiceProcessingService {
       return { type: 'NONE' };
     }
 
-    if (candidates.length === 1) {
+    if (candidates.length === 1 && candidates[0]) {
       return { type: 'UNIQUE', match: candidates[0] };
     }
 

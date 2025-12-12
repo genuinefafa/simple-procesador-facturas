@@ -3,14 +3,13 @@
  * Permite sincronizar datos bajo demanda sin requerir conexión permanente
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
-
 import { getGoogleIntegrationService } from './google-integration.service.js';
 import { EmitterRepository } from '../../database/repositories/emitter.js';
 import { InvoiceRepository } from '../../database/repositories/invoice.js';
 import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice.js';
 import { getConfig } from '../../utils/config-loader.js';
 import type { InvoiceData } from './google-integration.service.js';
+import type { InvoiceType, Currency } from '../../utils/types.js';
 import { format } from 'date-fns';
 
 export type SyncMode = 'sync' | 'push' | 'pull';
@@ -171,10 +170,9 @@ export class GoogleSyncService {
             stats.downloaded++;
             details.push(`✅ Descargado emisor: ${googleEmisor.cuit} - ${googleEmisor.nombre}`);
           } else if (mode === 'pull') {
-            // En modo pull, actualizar siempre
-            this.emitterRepo.update(existing.id, { name: googleEmisor.nombre });
-            stats.downloaded++;
-            details.push(`🔄 Actualizado emisor: ${googleEmisor.cuit} - ${googleEmisor.nombre}`);
+            // En modo pull, el emisor ya existe localmente
+            // TODO: Agregar método de actualización en EmitterRepository si es necesario
+            details.push(`ℹ️  Emisor ya existe: ${googleEmisor.cuit} - ${googleEmisor.nombre}`);
           }
         } catch (err) {
           stats.errors++;
@@ -217,9 +215,16 @@ export class GoogleSyncService {
           );
 
           if (!existing) {
-            // Convertir fecha de YYYY-MM-DD a DD/MM/YYYY
-            const [year, month, day] = invoice.issueDate.split('-');
-            const fechaEmision = `${day}/${month}/${year}`;
+            // Convertir fecha de Date a DD/MM/YYYY
+            const fechaEmision = format(invoice.issueDate, 'dd/MM/yyyy');
+
+            // Mapear método de extracción a valores aceptados por Google
+            let metodoExtraccion: 'TEMPLATE' | 'GENERICO' | 'MANUAL' = 'GENERICO';
+            if (invoice.extractionMethod === 'TEMPLATE') {
+              metodoExtraccion = 'TEMPLATE';
+            } else if (invoice.extractionMethod === 'MANUAL') {
+              metodoExtraccion = 'MANUAL';
+            }
 
             const invoiceData: InvoiceData = {
               cuit: invoice.emitterCuit,
@@ -230,7 +235,7 @@ export class GoogleSyncService {
               total: invoice.total || 0,
               moneda: invoice.currency || 'ARS',
               tipoArchivo: invoice.fileType || 'PDF_DIGITAL',
-              metodoExtraccion: invoice.extractionMethod || 'GENERICO',
+              metodoExtraccion,
               confianzaExtraccion: invoice.extractionConfidence || 0,
               validadoManualmente: !invoice.requiresReview,
               requiereRevision: invoice.requiresReview,
@@ -270,7 +275,7 @@ export class GoogleSyncService {
           // Verificar si ya existe localmente
           const existing = this.invoiceRepo.findByEmitterAndNumber(
             googleInvoice.emisorCuit,
-            googleInvoice.tipoComprobante,
+            googleInvoice.tipoComprobante as InvoiceType,
             googleInvoice.puntoVenta,
             googleInvoice.numeroComprobante
           );
@@ -278,6 +283,13 @@ export class GoogleSyncService {
           if (!existing) {
             // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
             const [day, month, year] = googleInvoice.fechaEmision.split('/');
+            if (!day || !month || !year) {
+              stats.errors++;
+              details.push(
+                `❌ Fecha inválida para factura ${googleInvoice.id}: ${googleInvoice.fechaEmision}`
+              );
+              continue;
+            }
             const issueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
             // Crear emisor si no existe
@@ -296,13 +308,13 @@ export class GoogleSyncService {
             this.invoiceRepo.create({
               emitterCuit: googleInvoice.emisorCuit,
               issueDate,
-              invoiceType: googleInvoice.tipoComprobante,
+              invoiceType: googleInvoice.tipoComprobante as InvoiceType,
               pointOfSale: googleInvoice.puntoVenta,
               invoiceNumber: googleInvoice.numeroComprobante,
               total: googleInvoice.total,
-              currency: googleInvoice.moneda,
-              originalFile: googleInvoice.archivoOriginal || '',
-              processedFile: googleInvoice.archivoOriginal || '',
+              currency: (googleInvoice.moneda as Currency) || 'ARS',
+              originalFile: googleInvoice.archivoLink || '',
+              processedFile: googleInvoice.archivoLink || '',
               fileType: googleInvoice.tipoArchivo,
               extractionMethod: googleInvoice.metodoExtraccion,
               extractionConfidence: googleInvoice.confianzaExtraccion,
@@ -347,22 +359,27 @@ export class GoogleSyncService {
       // Agrupar por lotes para importar eficientemente
       const loteId = `SYNC-${Date.now()}`;
 
-      const esperadasToImport = localExpected.map((expected) => {
-        // Convertir fecha de YYYY-MM-DD a DD/MM/YYYY
-        const [year, month, day] = expected.issueDate.split('-');
-        const fechaEmision = `${day}/${month}/${year}`;
+      const esperadasToImport = localExpected
+        .map((expected) => {
+          // Convertir fecha de YYYY-MM-DD a DD/MM/YYYY
+          const [year, month, day] = expected.issueDate.split('-');
+          if (!year || !month || !day) {
+            return null; // Fecha inválida, se filtrará
+          }
+          const fechaEmision = `${day}/${month}/${year}`;
 
-        return {
-          cuit: expected.cuit,
-          nombreEmisor: expected.emitterName || '',
-          fechaEmision,
-          tipoComprobante: expected.invoiceType,
-          puntoVenta: expected.pointOfSale,
-          numeroComprobante: expected.invoiceNumber,
-          total: expected.total || 0,
-          cae: expected.cae || '',
-        };
-      });
+          return {
+            cuit: expected.cuit,
+            nombreEmisor: expected.emitterName || '',
+            fechaEmision,
+            tipoComprobante: expected.invoiceType,
+            puntoVenta: expected.pointOfSale,
+            numeroComprobante: expected.invoiceNumber,
+            total: expected.total || 0,
+            cae: expected.cae || '',
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
 
       try {
         if (esperadasToImport.length > 0) {
@@ -385,14 +402,17 @@ export class GoogleSyncService {
       console.info('📥 Bajando facturas esperadas desde Google Sheets...');
       const googleExpected = await this.googleService.getAllEsperadas();
 
-      // Crear lote de importación
-      const batch = this.expectedInvoiceRepo.createBatch({
-        filename: `google-sync-${format(new Date(), 'yyyy-MM-dd-HH-mm-ss')}.json`,
-        totalRows: googleExpected.length,
-        importedRows: 0,
-        skippedRows: 0,
-        errorRows: 0,
-      });
+      // Filtrar facturas que no existan localmente
+      const newInvoices: Array<{
+        cuit: string;
+        emitterName?: string;
+        issueDate: string;
+        invoiceType: string;
+        pointOfSale: number;
+        invoiceNumber: number;
+        total?: number;
+        cae?: string;
+      }> = [];
 
       for (const googleEsp of googleExpected) {
         try {
@@ -407,10 +427,16 @@ export class GoogleSyncService {
           if (!existing) {
             // Convertir fecha de DD/MM/YYYY a YYYY-MM-DD
             const [day, month, year] = googleEsp.fechaEmision.split('/');
+            if (!day || !month || !year) {
+              stats.errors++;
+              details.push(
+                `❌ Fecha inválida para esperada ${googleEsp.id}: ${googleEsp.fechaEmision}`
+              );
+              continue;
+            }
             const issueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
-            this.expectedInvoiceRepo.create({
-              batchId: batch.id,
+            newInvoices.push({
               cuit: googleEsp.cuit,
               emitterName: googleEsp.nombreEmisor || undefined,
               issueDate,
@@ -419,12 +445,10 @@ export class GoogleSyncService {
               invoiceNumber: googleEsp.numeroComprobante,
               total: googleEsp.total,
               cae: googleEsp.cae || undefined,
-              status: googleEsp.status,
             });
 
-            stats.downloaded++;
             details.push(
-              `✅ Descargada esperada: ${googleEsp.cuit} ${googleEsp.tipoComprobante}-${String(googleEsp.puntoVenta).padStart(5, '0')}-${String(googleEsp.numeroComprobante).padStart(8, '0')}`
+              `✅ Preparada esperada: ${googleEsp.cuit} ${googleEsp.tipoComprobante}-${String(googleEsp.puntoVenta).padStart(5, '0')}-${String(googleEsp.numeroComprobante).padStart(8, '0')}`
             );
           }
         } catch (err) {
@@ -435,11 +459,25 @@ export class GoogleSyncService {
         }
       }
 
-      // Actualizar estadísticas del lote
-      this.expectedInvoiceRepo.updateBatch(batch.id, {
-        importedRows: stats.downloaded,
-        errorRows: stats.errors,
-      });
+      // Crear lote e importar facturas nuevas
+      if (newInvoices.length > 0) {
+        const batch = this.expectedInvoiceRepo.createBatch({
+          filename: `google-sync-${format(new Date(), 'yyyy-MM-dd-HH-mm-ss')}.json`,
+          totalRows: googleExpected.length,
+          importedRows: 0,
+          skippedRows: 0,
+          errorRows: 0,
+        });
+
+        const created = this.expectedInvoiceRepo.createManyInvoices(newInvoices, batch.id);
+        stats.downloaded = created.length;
+
+        // Actualizar estadísticas del lote
+        this.expectedInvoiceRepo.updateBatch(batch.id, {
+          importedRows: created.length,
+          errorRows: stats.errors,
+        });
+      }
     }
 
     return {
@@ -466,7 +504,7 @@ export class GoogleSyncService {
 
     if (mode === 'pull') {
       console.info('📥 Bajando logs desde Google Sheets...');
-      const googleLogs = await this.googleService.getLogs({ limit: 100 });
+      const googleLogs = await this.googleService.getLogs(100);
 
       stats.downloaded = googleLogs.length;
       details.push(`ℹ️  Consultados ${googleLogs.length} logs recientes desde Google`);

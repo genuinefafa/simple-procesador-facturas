@@ -6,7 +6,7 @@
 import { GoogleSheetsService } from './google-sheets.service';
 import { GoogleDriveService } from './google-drive.service';
 import { isGoogleConfigured } from './google-auth.service';
-import {
+import type {
   FacturasSheetRow,
   EmisoresSheetRow,
   FacturasEsperadasSheetRow,
@@ -298,9 +298,76 @@ export class GoogleIntegrationService {
 
     await this.sheetsService.updateEmisor(cuit, {
       totalFacturas: facturas.length,
-      primeraFactura: facturas[0].fechaEmision,
-      ultimaFactura: facturas[facturas.length - 1].fechaEmision,
+      primeraFactura: facturas[0]?.fechaEmision ?? '',
+      ultimaFactura: facturas[facturas.length - 1]?.fechaEmision ?? '',
     });
+  }
+
+  /**
+   * Busca un emisor por CUIT (wrapper para compatibilidad)
+   */
+  public async findEmisorByCuit(cuit: string): Promise<EmisoresSheetRow | null> {
+    if (!this.initialized) {
+      return null;
+    }
+    return await this.sheetsService.getEmisorByCuit(cuit);
+  }
+
+  /**
+   * Crea o actualiza un emisor (wrapper para compatibilidad)
+   */
+  public async createOrUpdateEmisor(cuit: string, nombre: string): Promise<void> {
+    if (!this.initialized) {
+      return;
+    }
+
+    const existingEmisor = await this.sheetsService.getEmisorByCuit(cuit);
+
+    if (existingEmisor) {
+      // Actualizar nombre si es diferente
+      if (existingEmisor.nombre !== nombre) {
+        await this.sheetsService.updateEmisor(cuit, { nombre });
+      }
+    } else {
+      // Crear nuevo emisor
+      await this.getOrCreateEmisor(cuit, nombre);
+    }
+  }
+
+  /**
+   * Obtiene todos los emisores (wrapper para compatibilidad)
+   */
+  public async getAllEmisores(): Promise<EmisoresSheetRow[]> {
+    if (!this.initialized) {
+      return [];
+    }
+    return await this.sheetsService.getAllEmisores();
+  }
+
+  /**
+   * Obtiene todas las facturas (wrapper para compatibilidad)
+   */
+  public async getAllFacturas(filters?: {
+    emisorCuit?: string;
+    desde?: string;
+    hasta?: string;
+  }): Promise<FacturasSheetRow[]> {
+    if (!this.initialized) {
+      return [];
+    }
+    return await this.sheetsService.getAllFacturas(filters);
+  }
+
+  /**
+   * Obtiene todas las facturas esperadas (wrapper para compatibilidad)
+   */
+  public async getAllEsperadas(filters?: {
+    status?: string;
+  }): Promise<FacturasEsperadasSheetRow[]> {
+    if (!this.initialized) {
+      return [];
+    }
+    return await this.sheetsService.getAllEsperadas(filters);
   }
 
   // ========== MATCHING CON FACTURAS ESPERADAS ==========
