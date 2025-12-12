@@ -116,10 +116,7 @@
               role="button"
               tabindex={idx}
             >
-              <td
-                class="text-center"
-                title={getOriginTitle(item)}
-              >
+              <td class="text-center" title={getOriginTitle(item)}>
                 {getOriginIcon(item)}
               </td>
               <td class="nowrap">{formatCuit(item.cuit, item.cuit_guess)}</td>

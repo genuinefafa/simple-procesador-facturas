@@ -55,13 +55,11 @@
   {:else if isImage}
     <!-- Imágenes: contenedor con scroll propio y zoom por CSS -->
     <div class="image-container" style:max-height={maxHeight}>
-      <div class="image-content" style="transform: scale({zoomLevel / 100}); transform-origin: center;">
-        <img
-          {src}
-          alt="Preview de {filename}"
-          class="image-preview"
-          onerror={onError}
-        />
+      <div
+        class="image-content"
+        style="transform: scale({zoomLevel / 100}); transform-origin: center;"
+      >
+        <img {src} alt="Preview de {filename}" class="image-preview" onerror={onError} />
       </div>
     </div>
   {:else}

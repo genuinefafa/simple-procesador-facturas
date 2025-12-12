@@ -1,5 +1,8 @@
 <script lang="ts">
-  export let data: { items: any[]; categories: Array<{ id: number; key: string; description: string }> };
+  export let data: {
+    items: any[];
+    categories: Array<{ id: number; key: string; description: string }>;
+  };
   let selected: any | null = null;
   let sidebarOpen = false;
   let selectedCategoryId: number | null = null;
@@ -31,15 +34,6 @@
     selected = null;
   }
 </script>
-
-<style>
-  .layout { display: grid; grid-template-columns: 1fr 380px; gap: 16px; }
-  .table { border-collapse: collapse; width: 100%; }
-  .table th, .table td { border: 1px solid #ddd; padding: 8px; }
-  .table th { background: #f5f5f5; text-align: left; }
-  .sidebar { border: 1px solid #ddd; padding: 12px; border-radius: 8px; }
-  .badge { display: inline-block; padding: 2px 6px; border-radius: 6px; background: #eef; }
-</style>
 
 <h1>Facturas conocidas</h1>
 <div class="layout">
@@ -83,7 +77,12 @@
       {#if selected.source === 'expected'}
         <p><strong>CUIT:</strong> {selected.cuit}</p>
         <p><strong>Fecha:</strong> {selected.issueDate}</p>
-        <p><strong>Comprobante:</strong> {selected.invoiceType}-{String(selected.pointOfSale).padStart(4, '0')}-{String(selected.invoiceNumber).padStart(8, '0')}</p>
+        <p>
+          <strong>Comprobante:</strong>
+          {selected.invoiceType}-{String(selected.pointOfSale).padStart(4, '0')}-{String(
+            selected.invoiceNumber
+          ).padStart(8, '0')}
+        </p>
         <p><strong>Total:</strong> {selected.total ?? '-'}</p>
       {:else}
         <p><strong>Archivo:</strong> {selected.file}</p>
@@ -121,3 +120,35 @@
     {/if}
   </aside>
 </div>
+
+<style>
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 16px;
+  }
+  .table {
+    border-collapse: collapse;
+    width: 100%;
+  }
+  .table th,
+  .table td {
+    border: 1px solid #ddd;
+    padding: 8px;
+  }
+  .table th {
+    background: #f5f5f5;
+    text-align: left;
+  }
+  .sidebar {
+    border: 1px solid #ddd;
+    padding: 12px;
+    border-radius: 8px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: #eef;
+  }
+</style>

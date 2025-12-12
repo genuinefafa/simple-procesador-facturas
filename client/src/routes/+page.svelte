@@ -70,7 +70,13 @@
   let selectedInvoices = $state<Set<number>>(new Set());
 
   let pendingFilesToReview = $state<PendingFileItem[]>([]);
-  let pendingFilesStats = $state<{ total: number; pending: number; reviewing: number; processed: number; failed: number } | null>(null);
+  let pendingFilesStats = $state<{
+    total: number;
+    pending: number;
+    reviewing: number;
+    processed: number;
+    failed: number;
+  } | null>(null);
   let selectedPendingFiles = $state<Set<number>>(new Set());
 
   // Estado de subida y procesamiento
@@ -211,7 +217,13 @@
   }
 
   async function saveKnownCategory() {
-    if (!selectedKnown || selectedKnown.source !== 'expected' || !selectedKnown.id || !selectedKnownCategoryId) return;
+    if (
+      !selectedKnown ||
+      selectedKnown.source !== 'expected' ||
+      !selectedKnown.id ||
+      !selectedKnownCategoryId
+    )
+      return;
     try {
       const res = await fetch('/api/invoices-known/category', {
         method: 'POST',
@@ -222,7 +234,9 @@
       if (out.ok) {
         selectedKnown = { ...selectedKnown, categoryId: selectedKnownCategoryId };
         knownInvoices = knownInvoices.map((k) =>
-          k.id === selectedKnown?.id && k.source === 'expected' ? { ...k, categoryId: selectedKnownCategoryId } : k
+          k.id === selectedKnown?.id && k.source === 'expected'
+            ? { ...k, categoryId: selectedKnownCategoryId }
+            : k
         );
       }
     } catch (err) {
@@ -934,7 +948,11 @@
                   </p>
                 </div>
                 {#if file.extractionConfidence !== null}
-                  <div class="confidence-badge {getConfidenceColorClass(file.extractionConfidence ?? null)}">
+                  <div
+                    class="confidence-badge {getConfidenceColorClass(
+                      file.extractionConfidence ?? null
+                    )}"
+                  >
                     {file.extractionConfidence}% confianza
                   </div>
                 {/if}
@@ -1062,8 +1080,16 @@
                           class:missing={!file.extractedDate}
                         >
                           <td class="field-name">Fecha</td>
-                          <td class="detected-value" title={getFullDateForTooltip(file.extractedDate)}>{formatDateShort(file.extractedDate)}</td>
-                          <td class="excel-value" title={getFullDateForTooltip(excelData?.issueDate)}>{formatDateShort(excelData?.issueDate)}</td>
+                          <td
+                            class="detected-value"
+                            title={getFullDateForTooltip(file.extractedDate)}
+                            >{formatDateShort(file.extractedDate)}</td
+                          >
+                          <td
+                            class="excel-value"
+                            title={getFullDateForTooltip(excelData?.issueDate)}
+                            >{formatDateShort(excelData?.issueDate)}</td
+                          >
                           <td class="status-cell">
                             {#if !file.extractedDate}
                               <span class="status-icon missing" title="No detectado en PDF">❌</span
@@ -1095,26 +1121,32 @@
                             class:missing={!file.extractedType}
                           >
                             <td class="field-name">Origen</td>
-                            <td class="detected-value icon-cell" title={detectedType.label}>{detectedType.icon}</td>
-                            <td class="excel-value icon-cell" title={excelType.label}>{excelType.icon}</td>
-                          <td class="status-cell">
-                            {#if !file.extractedType}
-                              <span class="status-icon missing" title="No detectado en PDF">❌</span
-                              >
-                            {:else if !excelData?.invoiceType}
-                              <span class="status-icon no-excel" title="Sin datos de Excel">⚪</span
-                              >
-                            {:else if typeMatch}
-                              <span class="status-icon ok" title="Coincide">✓</span>
-                            {:else}
-                              <span
-                                class="status-icon error"
-                                title="No coincide: PDF={file.extractedType}, Excel={excelData.invoiceType}"
-                                >⚠</span
-                              >
-                            {/if}
-                          </td>
-                        </tr>
+                            <td class="detected-value icon-cell" title={detectedType.label}
+                              >{detectedType.icon}</td
+                            >
+                            <td class="excel-value icon-cell" title={excelType.label}
+                              >{excelType.icon}</td
+                            >
+                            <td class="status-cell">
+                              {#if !file.extractedType}
+                                <span class="status-icon missing" title="No detectado en PDF"
+                                  >❌</span
+                                >
+                              {:else if !excelData?.invoiceType}
+                                <span class="status-icon no-excel" title="Sin datos de Excel"
+                                  >⚪</span
+                                >
+                              {:else if typeMatch}
+                                <span class="status-icon ok" title="Coincide">✓</span>
+                              {:else}
+                                <span
+                                  class="status-icon error"
+                                  title="No coincide: PDF={file.extractedType}, Excel={excelData.invoiceType}"
+                                  >⚠</span
+                                >
+                              {/if}
+                            </td>
+                          </tr>
                         {/if}
 
                         <!-- Punto de Venta -->
@@ -1126,7 +1158,9 @@
                           class:missing={file.extractedPointOfSale == null}
                         >
                           <td class="field-name">P.V.</td>
-                          <td class="detected-value numeric-cell">{file.extractedPointOfSale ?? '—'}</td>
+                          <td class="detected-value numeric-cell"
+                            >{file.extractedPointOfSale ?? '—'}</td
+                          >
                           <td class="excel-value numeric-cell">{excelData?.pointOfSale ?? '—'}</td>
                           <td class="status-cell">
                             {#if file.extractedPointOfSale == null}
@@ -1156,8 +1190,11 @@
                           class:missing={file.extractedInvoiceNumber == null}
                         >
                           <td class="field-name">Nº</td>
-                          <td class="detected-value numeric-cell">{file.extractedInvoiceNumber ?? '—'}</td>
-                          <td class="excel-value numeric-cell">{excelData?.invoiceNumber ?? '—'}</td>
+                          <td class="detected-value numeric-cell"
+                            >{file.extractedInvoiceNumber ?? '—'}</td
+                          >
+                          <td class="excel-value numeric-cell">{excelData?.invoiceNumber ?? '—'}</td
+                          >
                           <td class="status-cell">
                             {#if file.extractedInvoiceNumber == null}
                               <span class="status-icon missing" title="No detectado en PDF">❌</span
@@ -1546,7 +1583,9 @@
                   </p>
                   <p class="cuit">{invoice.emitterCuit}</p>
                 </div>
-                <div class="confidence {getConfidenceColorClass(invoice.extractionConfidence ?? null)}">
+                <div
+                  class="confidence {getConfidenceColorClass(invoice.extractionConfidence ?? null)}"
+                >
                   {invoice.extractionConfidence?.toFixed(0) || '?'}%
                 </div>
               </div>
@@ -1583,7 +1622,13 @@
         categories={knownCategories}
         selectedItem={selectedKnown}
         onSelect={(item: any) => selectKnown(item)}
-        onCategoryChange={({ invoiceId, categoryId }: { invoiceId: number; categoryId: number }) => {
+        onCategoryChange={({
+          invoiceId,
+          categoryId,
+        }: {
+          invoiceId: number;
+          categoryId: number;
+        }) => {
           selectedKnownCategoryId = categoryId;
           // Reusar la función existente
           saveKnownCategory();
@@ -2040,7 +2085,6 @@
   }
 
   /* Styles for the Revision table moved to component */
-
 
   .detail {
     display: flex;
