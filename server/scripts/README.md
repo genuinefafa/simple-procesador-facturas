@@ -21,24 +21,35 @@ npm run db:init
 
 ### Poblar con Datos de Prueba
 
-Inserta datos de ejemplo en la base de datos. Podés poblar todas las tablas o solo una específica:
+Inserta datos de ejemplo en la base de datos desde archivos JSON en `server/scripts/seed-data/`. Podés poblar todas las tablas o solo una específica:
 
 ```bash
 # Poblar todas las tablas (default)
 npm run db:seed
 
 # Poblar solo una tabla específica
-npm run db:seed categories   # Solo categorías desde categorias.json
+npm run db:seed categories   # Solo categorías
 npm run db:seed templates     # Solo templates de extracción
 npm run db:seed emisores      # Solo emisores de ejemplo
 npm run db:seed facturas      # Solo facturas de prueba
 ```
 
+**Estructura de datos de seed**:
+
+Los datos de seed están organizados en `server/scripts/seed-data/`:
+- `categories.example.json`, `templates.example.json`, `emisores.example.json`, `facturas.example.json`: Templates de ejemplo (subidos a repo)
+- `categories.json`, `templates.json`, `emisores.json`, `facturas.json`: Datos reales (ignorados por git, creados localmente)
+
+El script **auto-copia** los `.example.json` a `.json` la primera vez, así simplificamos la vida. Si querés customizar los datos:
+
+```bash
+# Editar directamente el archivo .json local (git lo ignorará)
+nano server/scripts/seed-data/emisores.json
+npm run db:seed emisores -- --force
+```
+
 Las tablas disponibles incluyen:
-- 3 templates de extracción
-- 3 emisores de ejemplo
-- 4 facturas de prueba
-- **categories**: Carga desde `categorias.json` (usar `INSERT OR IGNORE`)
+- **categories**: Categorías de gastos/ingresos (5 por defecto)
 - **templates**: 3 templates de extracción (AFIP Electrónica A, PDF Genérico, OCR Genérico)
 - **emisores**: 3 emisores de ejemplo (Servicios Tecnológicos SA, Distribuidora ABC, Consultora XYZ)
 - **facturas**: 4 facturas de prueba

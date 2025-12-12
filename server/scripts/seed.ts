@@ -7,7 +7,7 @@
 import Database from 'better-sqlite3';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, copyFileSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -78,6 +78,33 @@ console.info(
 );
 
 const db = new Database(DB_PATH);
+
+// ===========================
+// AUTO-COPY .example.json FILES
+// ===========================
+
+function ensureSeedFiles() {
+  const seedDir = join(__dirname, 'seed-data');
+  const tables = ['categories', 'templates', 'emisores', 'facturas'];
+
+  for (const table of tables) {
+    const examplePath = join(seedDir, `${table}.example.json`);
+    const targetPath = join(seedDir, `${table}.json`);
+
+    // If target doesn't exist but example does, copy it
+    if (!existsSync(targetPath) && existsSync(examplePath)) {
+      try {
+        copyFileSync(examplePath, targetPath);
+        console.info(`ℹ️  Copiado: ${table}.example.json → ${table}.json`);
+      } catch (err) {
+        console.warn(`⚠️  No se pudo copiar ${table}: ${err}`);
+      }
+    }
+  }
+}
+
+// Ensure seed files exist before proceeding
+ensureSeedFiles();
 
 // ===========================
 // SEEDING FUNCTIONS
