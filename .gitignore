@@ -29,6 +29,11 @@ data/
 !data/.gitkeep
 exports/*
 !exports/.gitkeep
+
+# Seed data (ignore generated, track .example templates only)
+server/scripts/seed-data/*.json
+!server/scripts/seed-data/*.example.json
+
 *.sqlite
 *.sqlite3
 *.db

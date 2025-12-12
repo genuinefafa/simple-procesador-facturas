@@ -40,6 +40,10 @@ const selectedTables = onlyTables.length > 0 ? onlyTables : [tableArg];
 
 if (helpRequested) {
   console.info(
+    'Script para poblar la base de datos desde archivos JSON en server/scripts/seed-data/'
+  );
+  console.info('');
+  console.info(
     'Uso: npm run db:seed [tabla] [-- --force] [-- --dry-run] [-- --only=tabla1,tabla2]'
   );
   console.info('Tablas: categories | templates | emisores | facturas | all');
@@ -93,11 +97,9 @@ function seedCategories() {
     );
   `);
 
-  const categoriesPath = join(__dirname, '..', '..', 'categorias.json');
+  const categoriesPath = join(__dirname, 'seed-data', 'categories.json');
   if (!existsSync(categoriesPath)) {
-    console.warn(
-      '⚠️  No se encontró categorias.json. Creá una copia desde categorias.json.example'
-    );
+    console.info('ℹ️  Saltear: seed-data/categories.json no encontrado');
     return;
   }
 
@@ -134,7 +136,7 @@ function seedTemplates() {
   let insertadas = 0;
   const templatesPath = join(__dirname, 'seed-data', 'templates.json');
   if (!existsSync(templatesPath)) {
-    console.warn('⚠️  No se encontró seed-data/templates.json');
+    console.info('ℹ️  Saltear: seed-data/templates.json no encontrado');
     return;
   }
   const raw = readFileSync(templatesPath, 'utf-8');
@@ -176,7 +178,7 @@ function seedEmisores() {
   let insertados = 0;
   const emisoresPath = join(__dirname, 'seed-data', 'emisores.json');
   if (!existsSync(emisoresPath)) {
-    console.warn('⚠️  No se encontró seed-data/emisores.json');
+    console.info('ℹ️  Saltear: seed-data/emisores.json no encontrado');
     return;
   }
   const raw = readFileSync(emisoresPath, 'utf-8');
@@ -221,7 +223,7 @@ function seedFacturas() {
   let insertadas = 0;
   const facturasPath = join(__dirname, 'seed-data', 'facturas.json');
   if (!existsSync(facturasPath)) {
-    console.warn('⚠️  No se encontró seed-data/facturas.json');
+    console.info('ℹ️  Saltear: seed-data/facturas.json no encontrado');
     return;
   }
   const raw = readFileSync(facturasPath, 'utf-8');

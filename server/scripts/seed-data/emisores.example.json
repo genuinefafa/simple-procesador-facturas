@@ -1,0 +1,26 @@
+[
+  {
+    "cuit": "30-12345678-9",
+    "cuit_numerico": "30123456789",
+    "nombre": "Servicios Tecnológicos SA",
+    "razon_social": "Servicios Tecnológicos Sociedad Anónima",
+    "template_preferido_id": 1,
+    "tipo_persona": "JURIDICA"
+  },
+  {
+    "cuit": "20-98765432-1",
+    "cuit_numerico": "20987654321",
+    "nombre": "Distribuidora ABC",
+    "razon_social": "Juan Pérez Distribuidora",
+    "template_preferido_id": 2,
+    "tipo_persona": "FISICA"
+  },
+  {
+    "cuit": "33-87654321-0",
+    "cuit_numerico": "33876543210",
+    "nombre": "Consultora XYZ SRL",
+    "razon_social": "Consultora XYZ Sociedad de Responsabilidad Limitada",
+    "template_preferido_id": 1,
+    "tipo_persona": "JURIDICA"
+  }
+]
