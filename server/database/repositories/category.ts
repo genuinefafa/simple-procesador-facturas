@@ -46,18 +46,24 @@ export class CategoryRepository {
    */
   async create(category: NewCategory): Promise<Category> {
     const result = await db.insert(categories).values(category).returning();
+    if (!result || result.length === 0 || !result[0]) {
+      throw new Error('Failed to create category');
+    }
     return result[0];
   }
 
   /**
    * Actualiza una categoría
    */
-  async update(id: number, updates: Partial<NewCategory>): Promise<Category | undefined> {
+  async update(id: number, updates: Partial<NewCategory>): Promise<Category> {
     const result = await db
       .update(categories)
       .set({ ...updates, updatedAt: new Date().toISOString() })
       .where(eq(categories.id, id))
       .returning();
+    if (!result || result.length === 0 || !result[0]) {
+      throw new Error('Category not found');
+    }
     return result[0];
   }
 

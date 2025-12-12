@@ -1,46 +1,65 @@
 /**
- * Repository para la gestión de facturas
+ * Repository para la gestión de facturas (Drizzle ORM)
  */
 
-import type { Database } from 'better-sqlite3';
-import type { Invoice, InvoiceType, Currency, ExtractionMethod } from '../../utils/types';
-import { getDatabase } from '../connection';
+import { eq, and } from 'drizzle-orm';
+import { db } from '../db';
+import { facturas, type Factura } from '../schema';
+import type { InvoiceType, Currency, ExtractionMethod } from '../../utils/types';
 
-interface InvoiceRow {
+// For backward compatibility
+export interface Invoice {
   id: number;
-  emisor_cuit: string;
-  template_usado_id: number | null;
-  fecha_emision: string;
-  tipo_comprobante: InvoiceType;
-  punto_venta: number;
-  numero_comprobante: number;
-  comprobante_completo: string;
-  total: number | null;
-  moneda: Currency;
-  archivo_original: string;
-  archivo_procesado: string;
-  tipo_archivo: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
-  file_hash: string | null;
-  metodo_extraccion: ExtractionMethod;
-  confianza_extraccion: number | null;
-  validado_manualmente: number;
-  requiere_revision: number;
-  procesado_en: string;
+  emitterCuit: string;
+  templateUsedId?: number;
+  issueDate: Date;
+  invoiceType: InvoiceType;
+  pointOfSale: number;
+  invoiceNumber: number;
+  fullInvoiceNumber: string;
+  total: number;
+  currency: Currency;
+  originalFile: string;
+  processedFile: string;
+  fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
+  extractionMethod: ExtractionMethod;
+  extractionConfidence?: number;
+  manuallyValidated: boolean;
+  requiresReview: boolean;
+  processedAt: Date;
+  expectedInvoiceId?: number;
+  pendingFileId?: number;
+  categoryId?: number;
 }
 
 export class InvoiceRepository {
-  private db: Database;
-
-  constructor(db?: Database) {
-    this.db = db || getDatabase();
+  private mapDrizzleToInvoice(row: Factura): Invoice {
+    return {
+      id: row.id,
+      emitterCuit: row.emisorCuit,
+      templateUsedId: row.templateUsadoId || undefined,
+      issueDate: new Date(row.fechaEmision),
+      invoiceType: row.tipoComprobante as InvoiceType,
+      pointOfSale: row.puntoVenta,
+      invoiceNumber: row.numeroComprobante,
+      fullInvoiceNumber: row.comprobanteCompleto,
+      total: row.total || 0,
+      currency: (row.moneda as Currency) || 'ARS',
+      originalFile: row.archivoOriginal,
+      processedFile: row.archivoProcesado,
+      fileType: row.tipoArchivo as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN',
+      extractionMethod: row.metodoExtraccion as ExtractionMethod,
+      extractionConfidence: row.confianzaExtraccion || undefined,
+      manuallyValidated: row.validadoManualmente,
+      requiresReview: row.requiereRevision,
+      processedAt: new Date(row.procesadoEn),
+      expectedInvoiceId: row.expectedInvoiceId || undefined,
+      pendingFileId: row.pendingFileId || undefined,
+      categoryId: row.categoryId || undefined,
+    };
   }
 
-  /**
-   * Crea una nueva factura
-   * @param data - Datos de la factura
-   * @returns La factura creada
-   */
-  create(data: {
+  async create(data: {
     emitterCuit: string;
     templateUsedId?: number;
     issueDate: Date | string;
@@ -55,114 +74,76 @@ export class InvoiceRepository {
     extractionMethod: ExtractionMethod;
     extractionConfidence?: number;
     requiresReview?: boolean;
-  }): Invoice {
-    const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(4, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
-
-    // Normalizar fecha
+    expectedInvoiceId?: number;
+    pendingFileId?: number;
+    categoryId?: number;
+  }): Promise<Invoice> {
     const issueDateStr =
       typeof data.issueDate === 'string'
         ? data.issueDate
         : data.issueDate.toISOString().split('T')[0];
 
-    const stmt = this.db.prepare(`
-      INSERT INTO facturas (
-        emisor_cuit, template_usado_id, fecha_emision, tipo_comprobante,
-        punto_venta, numero_comprobante, comprobante_completo, total, moneda,
-        archivo_original, archivo_procesado, tipo_archivo,
-        metodo_extraccion, confianza_extraccion, requiere_revision
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(4, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
 
-    const result = stmt.run(
-      data.emitterCuit,
-      data.templateUsedId || null,
-      issueDateStr,
-      data.invoiceType,
-      data.pointOfSale,
-      data.invoiceNumber,
-      fullInvoiceNumber,
-      data.total ?? null,
-      data.currency || 'ARS',
-      data.originalFile,
-      data.processedFile,
-      data.fileType,
-      data.extractionMethod,
-      data.extractionConfidence || null,
-      data.requiresReview ? 1 : 0
-    );
+    const result = await db
+      .insert(facturas)
+      .values({
+        emisorCuit: data.emitterCuit,
+        templateUsadoId: data.templateUsedId || null,
+        fechaEmision: issueDateStr,
+        tipoComprobante: data.invoiceType as any,
+        puntoVenta: data.pointOfSale,
+        numeroComprobante: data.invoiceNumber,
+        comprobanteCompleto: fullInvoiceNumber,
+        total: data.total || null,
+        moneda: (data.currency || 'ARS') as any,
+        archivoOriginal: data.originalFile,
+        archivoProcesado: data.processedFile,
+        tipoArchivo: data.fileType as any,
+        metodoExtraccion: data.extractionMethod as any,
+        confianzaExtraccion: data.extractionConfidence || null,
+        requiereRevision: data.requiresReview ? true : false,
+        expectedInvoiceId: data.expectedInvoiceId || null,
+        pendingFileId: data.pendingFileId || null,
+        categoryId: data.categoryId || null,
+      })
+      .returning();
 
-    return this.findById(Number(result.lastInsertRowid))!;
+    if (!result || result.length === 0) {
+      throw new Error('Failed to create invoice');
+    }
+
+    return this.mapDrizzleToInvoice(result[0]);
   }
 
-  /**
-   * Mapea una fila de la base de datos a un objeto Invoice
-   */
-  private mapRowToInvoice(row: InvoiceRow): Invoice {
-    return {
-      id: row.id,
-      emitterCuit: row.emisor_cuit,
-      templateUsedId: row.template_usado_id ?? undefined,
-      issueDate: new Date(row.fecha_emision),
-      invoiceType: row.tipo_comprobante,
-      pointOfSale: row.punto_venta,
-      invoiceNumber: row.numero_comprobante,
-      fullInvoiceNumber: row.comprobante_completo,
-      total: row.total ?? 0,
-      currency: row.moneda,
-      originalFile: row.archivo_original,
-      processedFile: row.archivo_procesado,
-      fileType: row.tipo_archivo,
-      extractionMethod: row.metodo_extraccion,
-      extractionConfidence: row.confianza_extraccion ?? undefined,
-      manuallyValidated: row.validado_manualmente === 1,
-      requiresReview: row.requiere_revision === 1,
-      processedAt: new Date(row.procesado_en),
-    };
+  async findById(id: number): Promise<Invoice | null> {
+    const result = await db.select().from(facturas).where(eq(facturas.id, id)).limit(1);
+    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]) : null;
   }
 
-  /**
-   * Busca una factura por ID
-   * @param id - ID de la factura
-   * @returns Factura o null
-   */
-  findById(id: number): Invoice | null {
-    const stmt = this.db.prepare('SELECT * FROM facturas WHERE id = ?');
-    const row = stmt.get(id) as InvoiceRow | undefined;
-    return row ? this.mapRowToInvoice(row) : null;
-  }
-
-  /**
-   * Busca una factura por comprobante
-   * @param emitterCuit - CUIT del emisor
-   * @param type - Tipo de comprobante
-   * @param pointOfSale - Punto de venta
-   * @param number - Número de comprobante
-   * @returns Factura o null
-   */
-  findByInvoiceNumber(
+  async findByInvoiceNumber(
     emitterCuit: string,
     type: InvoiceType,
     pointOfSale: number,
     number: number
-  ): Invoice | null {
-    const stmt = this.db.prepare(`
-      SELECT * FROM facturas
-      WHERE emisor_cuit = ?
-        AND tipo_comprobante = ?
-        AND punto_venta = ?
-        AND numero_comprobante = ?
-    `);
+  ): Promise<Invoice | null> {
+    const result = await db
+      .select()
+      .from(facturas)
+      .where(
+        and(
+          eq(facturas.emisorCuit, emitterCuit),
+          eq(facturas.tipoComprobante, type as any),
+          eq(facturas.puntoVenta, pointOfSale),
+          eq(facturas.numeroComprobante, number)
+        )
+      )
+      .limit(1);
 
-    const row = stmt.get(emitterCuit, type, pointOfSale, number) as InvoiceRow | undefined;
-    return row ? this.mapRowToInvoice(row) : null;
+    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]) : null;
   }
 
-  /**
-   * Lista facturas con filtros
-   * @param filters - Filtros opcionales
-   * @returns Array de facturas
-   */
-  list(filters?: {
+  async list(filters?: {
     emitterCuit?: string;
     dateFrom?: Date;
     dateTo?: Date;
@@ -172,130 +153,95 @@ export class InvoiceRepository {
     requiresReview?: boolean;
     limit?: number;
     offset?: number;
-  }): Invoice[] {
-    let query = 'SELECT * FROM facturas WHERE 1=1';
-    const params: unknown[] = [];
+  }): Promise<Invoice[]> {
+    const conditions = [];
 
     if (filters?.emitterCuit) {
-      query += ' AND emisor_cuit = ?';
-      params.push(filters.emitterCuit);
+      conditions.push(eq(facturas.emisorCuit, filters.emitterCuit));
     }
-
-    if (filters?.dateFrom) {
-      query += ' AND fecha_emision >= ?';
-      params.push(filters.dateFrom.toISOString().split('T')[0]);
-    }
-
-    if (filters?.dateTo) {
-      query += ' AND fecha_emision <= ?';
-      params.push(filters.dateTo.toISOString().split('T')[0]);
-    }
-
-    if (filters?.minAmount !== undefined) {
-      query += ' AND total >= ?';
-      params.push(filters.minAmount);
-    }
-
-    if (filters?.maxAmount !== undefined) {
-      query += ' AND total <= ?';
-      params.push(filters.maxAmount);
-    }
-
     if (filters?.invoiceType) {
-      query += ' AND tipo_comprobante = ?';
-      params.push(filters.invoiceType);
+      conditions.push(eq(facturas.tipoComprobante, filters.invoiceType as any));
     }
-
     if (filters?.requiresReview !== undefined) {
-      query += ' AND requiere_revision = ?';
-      params.push(filters.requiresReview ? 1 : 0);
+      conditions.push(eq(facturas.requiereRevision, filters.requiresReview));
     }
 
-    query += ' ORDER BY fecha_emision DESC, id DESC';
+    let query = db.select().from(facturas);
+
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    query = query.orderBy(facturas.fechaEmision);
 
     if (filters?.limit) {
-      query += ' LIMIT ?';
-      params.push(filters.limit);
+      query = query.limit(filters.limit);
     }
-
     if (filters?.offset) {
-      query += ' OFFSET ?';
-      params.push(filters.offset);
+      query = query.offset(filters.offset);
     }
 
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as InvoiceRow[];
-    return rows.map((row) => this.mapRowToInvoice(row));
+    const result = await query;
+    return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 
-  /**
-   * Marca una factura como validada manualmente
-   * @param id - ID de la factura
-   */
-  markAsValidated(id: number): void {
-    const stmt = this.db.prepare(`
-      UPDATE facturas
-      SET validado_manualmente = 1,
-          requiere_revision = 0
-      WHERE id = ?
-    `);
-
-    stmt.run(id);
+  async markAsValidated(id: number): Promise<void> {
+    await db
+      .update(facturas)
+      .set({ validadoManualmente: true, requiereRevision: false })
+      .where(eq(facturas.id, id));
   }
 
-  /**
-   * Actualiza la ruta del archivo procesado
-   * @param id - ID de la factura
-   * @param processedFile - Nueva ruta del archivo
-   */
-  updateProcessedFile(id: number, processedFile: string): void {
-    const stmt = this.db.prepare(`
-      UPDATE facturas
-      SET archivo_procesado = ?
-      WHERE id = ?
-    `);
-
-    stmt.run(processedFile, id);
+  async updateProcessedFile(id: number, processedFile: string): Promise<void> {
+    await db.update(facturas).set({ archivoProcesado: processedFile }).where(eq(facturas.id, id));
   }
 
-  /**
-   * Busca una factura por emisor y número completo
-   * @param emitterCuit - CUIT del emisor
-   * @param type - Tipo de comprobante
-   * @param pointOfSale - Punto de venta
-   * @param number - Número de comprobante
-   * @returns Factura o null
-   */
-  findByEmitterAndNumber(
+  async findByEmitterAndNumber(
     emitterCuit: string,
     type: InvoiceType,
     pointOfSale: number,
     number: number
-  ): Invoice | null {
+  ): Promise<Invoice | null> {
     return this.findByInvoiceNumber(emitterCuit, type, pointOfSale, number);
   }
 
-  /**
-   * Cuenta facturas según filtros
-   * @param filters - Filtros opcionales
-   * @returns Cantidad de facturas
-   */
-  count(filters?: { emitterCuit?: string; requiresReview?: boolean }): number {
-    let query = 'SELECT COUNT(*) as count FROM facturas WHERE 1=1';
-    const params: unknown[] = [];
-
+  async count(filters?: { emitterCuit?: string; requiresReview?: boolean }): Promise<number> {
+    const conditions = [];
     if (filters?.emitterCuit) {
-      query += ' AND emisor_cuit = ?';
-      params.push(filters.emitterCuit);
+      conditions.push(eq(facturas.emisorCuit, filters.emitterCuit));
     }
-
     if (filters?.requiresReview !== undefined) {
-      query += ' AND requiere_revision = ?';
-      params.push(filters.requiresReview ? 1 : 0);
+      conditions.push(eq(facturas.requiereRevision, filters.requiresReview));
     }
 
-    const stmt = this.db.prepare(query);
-    const result = stmt.get(...params) as { count: number };
-    return result.count;
+    let query = db.select({ count: require('drizzle-orm').count() }).from(facturas);
+    if (conditions.length > 0) {
+      query = query.where(and(...conditions));
+    }
+
+    const result = await query;
+    return result[0]?.count || 0;
+  }
+
+  async updateLinking(
+    id: number,
+    data: {
+      expectedInvoiceId?: number | null;
+      pendingFileId?: number | null;
+      categoryId?: number | null;
+    }
+  ): Promise<Invoice | null> {
+    const updates: any = {};
+    if (data.expectedInvoiceId !== undefined) updates.expectedInvoiceId = data.expectedInvoiceId;
+    if (data.pendingFileId !== undefined) updates.pendingFileId = data.pendingFileId;
+    if (data.categoryId !== undefined) updates.categoryId = data.categoryId;
+
+    if (Object.keys(updates).length === 0) {
+      return this.findById(id);
+    }
+
+    const result = await db.update(facturas).set(updates).where(eq(facturas.id, id)).returning();
+
+    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]) : null;
   }
 }
