@@ -1,73 +1,87 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast, Toaster } from 'svelte-sonner';
+  import {
+    formatCuit,
+    formatDateISO,
+    formatNumber,
+    formatDateShort,
+    getFullDateForTooltip,
+    getInvoiceTypeIcon,
+    getConfidenceColorClass,
+    getExtractionMethodLabel,
+  } from '$lib/formatters';
+  import RevisionTable from '$lib/components/RevisionTable.svelte';
 
-  interface PendingInvoice {
-    id: number;
-    emitterCuit: string;
-    emitterName: string;
-    emitterAlias: string | null;
-    issueDate: string;
-    invoiceType: string;
-    fullInvoiceNumber: string;
-    total: number | null;
-    originalFile: string;
-    extractionConfidence: number | null;
-    requiresReview: boolean;
-    manuallyValidated: boolean;
-  }
+  let reviewFilter = $state<'pending' | 'all'>('pending'); // Filtro para tab Revisar
 
-  interface PendingFileItem {
+  // Estado de pestañas y cargas
+  let activeTab = $state<'excel' | 'upload' | 'review' | 'invoices' | 'revision'>('upload');
+  let loading = $state<boolean>(false);
+
+  // Tipos mínimos para evitar errores de TS
+  type PendingFileItem = {
     id: number;
     originalFilename: string;
-    filePath: string;
-    fileSize: number | null;
     uploadDate: string;
-    extractedCuit: string | null;
-    extractedDate: string | null;
-    extractedTotal: number | null;
-    extractedType: string | null;
-    extractedPointOfSale: number | null;
-    extractedInvoiceNumber: number | null;
-    extractionConfidence: number | null;
-    extractionMethod: string | null; // PDF_TEXT, OCR, TEMPLATE, MANUAL
-    extractionErrors: string | null;
-    status: 'pending' | 'reviewing' | 'processed' | 'failed';
-    invoiceId: number | null;
-    createdAt: string;
-    updatedAt: string;
-  }
+    fileSize?: number | null;
+    extractionConfidence?: number | null;
+    extractionMethod?: string | null;
+    extractionErrors?: string | null;
+    extractedCuit?: string | null;
+    extractedDate?: string | null;
+    extractedType?: string | null;
+    extractedPointOfSale?: number | null;
+    extractedInvoiceNumber?: number | null;
+    extractedTotal?: number | null;
+    status?: 'pending' | 'reviewing' | 'processed' | 'failed';
+  };
 
-  let invoices: PendingInvoice[] = $state([]);
-  let pendingFilesToReview: PendingFileItem[] = $state([]);
-  let pendingFilesStats = $state({ total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 });
-  let loading = $state(false);
-  let uploading = $state(false);
-  let processing = $state(false);
-  let uploadedFiles: File[] = $state([]);
+  type InvoiceItem = {
+    id: number;
+    fullInvoiceNumber: string;
+    emitterName: string;
+    emitterAlias?: string | null;
+    emitterCuit: string;
+    extractionConfidence?: number | null;
+    issueDate?: string | null;
+    total: number | null;
+    originalFile: string;
+  };
+
+  type KnownInvoice = {
+    id: number;
+    source: 'expected' | 'final';
+    emitterName?: string | null;
+    emitterCuit?: string | null;
+    invoiceType?: string | null;
+    pointOfSale?: number | null;
+    invoiceNumber?: number | null;
+    issueDate?: string | null;
+    total?: number | null;
+    categoryId?: number | null;
+  };
+
+  type CategoryItem = { id: number; name: string };
+
+  // Estado de datos principales
+  let invoices = $state<InvoiceItem[]>([]);
   let selectedInvoices = $state<Set<number>>(new Set());
+
+  let pendingFilesToReview = $state<PendingFileItem[]>([]);
+  let pendingFilesStats = $state<{ total: number; pending: number; reviewing: number; processed: number; failed: number } | null>(null);
   let selectedPendingFiles = $state<Set<number>>(new Set());
-  let activeTab = $state<'upload' | 'review' | 'invoices' | 'excel' | 'revision'>('upload');
-  let knownInvoices = $state<
-    Array<{
-      source: string;
-      id?: number;
-      cuit?: string;
-      cuit_guess?: string;
-      issueDate?: string;
-      invoiceType?: string;
-      pointOfSale?: number;
-      invoiceNumber?: number;
-      total?: number | null;
-      file?: string;
-      year?: string;
-      categoryId?: number | null;
-    }>
-  >([]);
-  let knownCategories = $state<Array<{ id: number; key: string; description: string }>>([]);
-  let selectedKnown: (typeof knownInvoices)[number] | null = $state(null);
-  let selectedKnownCategoryId: number | null = $state(null);
-  let reviewFilter = $state<'pending' | 'all'>('pending'); // Filtro para tab Revisar
+
+  // Estado de subida y procesamiento
+  let uploadedFiles = $state<File[]>([]);
+  let uploading = $state<boolean>(false);
+  let processing = $state<boolean>(false);
+
+  // Conocidos (para Revisión)
+  let knownInvoices = $state<KnownInvoice[]>([]);
+  let knownCategories = $state<CategoryItem[]>([]);
+  let selectedKnown = $state<KnownInvoice | null>(null);
+  let selectedKnownCategoryId = $state<number | null>(null);
 
   // Estado para edición inline
   let editingFile = $state<number | null>(null);
@@ -188,29 +202,6 @@
     } catch (err) {
       console.error('Error cargando categorías', err);
     }
-  }
-
-  function formatCuit(cuit?: string, fallback?: string) {
-    const value = cuit || fallback || '';
-    const digits = value.replace(/\D/g, '');
-    if (digits.length === 11) {
-      return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
-    }
-    return value || '—';
-  }
-
-  function formatDateISO(dateStr?: string) {
-    if (!dateStr) return '—';
-    const [y, m, d] = dateStr.split('-');
-    if (!y || !m || !d) return dateStr;
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-    const idx = Number(m) - 1;
-    return `${d}-${months[idx] || m}-${y}`;
-  }
-
-  function formatNumber(value?: number | null) {
-    if (value === null || value === undefined) return '—';
-    return value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
 
   function selectKnown(item: (typeof knownInvoices)[number]) {
@@ -619,29 +610,7 @@
     }
   }
 
-  function getConfidenceColor(confidence: number | null): string {
-    if (!confidence) return 'text-gray-400';
-    if (confidence >= 90) return 'text-green-600';
-    if (confidence >= 70) return 'text-yellow-600';
-    return 'text-red-600';
-  }
-
-  function getExtractionMethodLabel(method: string | null): string {
-    switch (method) {
-      case 'PDF_TEXT':
-        return '📄 PDF (texto)';
-      case 'OCR':
-        return '🔍 OCR (imagen)';
-      case 'PDF_TEXT+OCR':
-        return '📄🔍 PDF+OCR (fallback)';
-      case 'TEMPLATE':
-        return '📋 Template';
-      case 'MANUAL':
-        return '✏️ Manual';
-      default:
-        return '❓ Desconocido';
-    }
-  }
+  // getConfidenceColor ahora proviene de $lib/formatters como getConfidenceColorClass
 
   // Funciones para pending files (selección múltiple)
   function togglePendingFileSelection(id: number) {
@@ -956,7 +925,7 @@
                   </p>
                 </div>
                 {#if file.extractionConfidence !== null}
-                  <div class="confidence-badge {getConfidenceColor(file.extractionConfidence)}">
+                  <div class="confidence-badge {getConfidenceColorClass(file.extractionConfidence ?? null)}">
                     {file.extractionConfidence}% confianza
                   </div>
                 {/if}
@@ -1004,7 +973,7 @@
                         class:high={ocrConfidence >= 80}
                       >
                         <span class="metric-label"
-                          >{getExtractionMethodLabel(file.extractionMethod)}:</span
+                          >{getExtractionMethodLabel(file.extractionMethod ?? null)}:</span
                         >
                         <span class="metric-value">{ocrConfidence}%</span>
                       </div>
@@ -1103,8 +1072,8 @@
                           class:missing={!file.extractedDate}
                         >
                           <td class="field-name">Fecha</td>
-                          <td class="detected-value">{file.extractedDate || '—'}</td>
-                          <td class="excel-value">{excelData?.issueDate || '—'}</td>
+                          <td class="detected-value" title={getFullDateForTooltip(file.extractedDate)}>{formatDateShort(file.extractedDate)}</td>
+                          <td class="excel-value" title={getFullDateForTooltip(excelData?.issueDate)}>{formatDateShort(excelData?.issueDate)}</td>
                           <td class="status-cell">
                             {#if !file.extractedDate}
                               <span class="status-icon missing" title="No detectado en PDF">❌</span
@@ -1124,17 +1093,20 @@
                           </td>
                         </tr>
 
-                        <!-- Tipo -->
-                        <tr
-                          class:match={typeMatch}
-                          class:no-match={file.extractedType &&
-                            excelData?.invoiceType &&
-                            !typeMatch}
-                          class:missing={!file.extractedType}
-                        >
-                          <td class="field-name">Tipo</td>
-                          <td class="detected-value">{file.extractedType || '—'}</td>
-                          <td class="excel-value">{excelData?.invoiceType || '—'}</td>
+                        <!-- Tipo (Origen) -->
+                        {#if true}
+                          {@const detectedType = getInvoiceTypeIcon(file.extractedType)}
+                          {@const excelType = getInvoiceTypeIcon(excelData?.invoiceType)}
+                          <tr
+                            class:match={typeMatch}
+                            class:no-match={file.extractedType &&
+                              excelData?.invoiceType &&
+                              !typeMatch}
+                            class:missing={!file.extractedType}
+                          >
+                            <td class="field-name">Origen</td>
+                            <td class="detected-value icon-cell" title={detectedType.label}>{detectedType.icon}</td>
+                            <td class="excel-value icon-cell" title={excelType.label}>{excelType.icon}</td>
                           <td class="status-cell">
                             {#if !file.extractedType}
                               <span class="status-icon missing" title="No detectado en PDF">❌</span
@@ -1153,6 +1125,7 @@
                             {/if}
                           </td>
                         </tr>
+                        {/if}
 
                         <!-- Punto de Venta -->
                         <tr
@@ -1162,9 +1135,9 @@
                             !posMatch}
                           class:missing={file.extractedPointOfSale == null}
                         >
-                          <td class="field-name">P. Venta</td>
-                          <td class="detected-value">{file.extractedPointOfSale ?? '—'}</td>
-                          <td class="excel-value">{excelData?.pointOfSale ?? '—'}</td>
+                          <td class="field-name">P.V.</td>
+                          <td class="detected-value numeric-cell">{file.extractedPointOfSale ?? '—'}</td>
+                          <td class="excel-value numeric-cell">{excelData?.pointOfSale ?? '—'}</td>
                           <td class="status-cell">
                             {#if file.extractedPointOfSale == null}
                               <span class="status-icon missing" title="No detectado en PDF">❌</span
@@ -1192,9 +1165,9 @@
                             !numMatch}
                           class:missing={file.extractedInvoiceNumber == null}
                         >
-                          <td class="field-name">Número</td>
-                          <td class="detected-value">{file.extractedInvoiceNumber ?? '—'}</td>
-                          <td class="excel-value">{excelData?.invoiceNumber ?? '—'}</td>
+                          <td class="field-name">Nº</td>
+                          <td class="detected-value numeric-cell">{file.extractedInvoiceNumber ?? '—'}</td>
+                          <td class="excel-value numeric-cell">{excelData?.invoiceNumber ?? '—'}</td>
                           <td class="status-cell">
                             {#if file.extractedInvoiceNumber == null}
                               <span class="status-icon missing" title="No detectado en PDF">❌</span
@@ -1223,12 +1196,12 @@
                           class:missing={file.extractedTotal == null}
                         >
                           <td class="field-name">Total</td>
-                          <td class="detected-value"
+                          <td class="detected-value numeric-cell"
                             >{file.extractedTotal != null
                               ? `$${file.extractedTotal.toLocaleString('es-AR')}`
                               : '—'}</td
                           >
-                          <td class="excel-value"
+                          <td class="excel-value numeric-cell"
                             >{excelData?.total != null
                               ? `$${excelData.total.toLocaleString('es-AR')}`
                               : '—'}</td
@@ -1583,7 +1556,7 @@
                   </p>
                   <p class="cuit">{invoice.emitterCuit}</p>
                 </div>
-                <div class="confidence {getConfidenceColor(invoice.extractionConfidence)}">
+                <div class="confidence {getConfidenceColorClass(invoice.extractionConfidence ?? null)}">
                   {invoice.extractionConfidence?.toFixed(0) || '?'}%
                 </div>
               </div>
@@ -1615,123 +1588,17 @@
         </div>
       {/if}
     {:else if activeTab === 'revision'}
-      <section class="known-invoices">
-        <div class="section-header">
-          <h2>🧮 Revisión de facturas conocidas</h2>
-          <p class="help-text">Cruce entre facturas esperadas (Excel AFIP) y PDFs procesados. Hacé click en una fila para ver detalles.</p>
-        </div>
-
-        <div class="known-table-container">
-          <table class="known-table">
-            <thead>
-              <tr>
-                <th style="width: 10%">Origen</th>
-                <th style="width: 12%">CUIT</th>
-                <th style="width: 10%">Fecha</th>
-                <th style="width: 8%">Tipo</th>
-                <th style="width: 6%; text-align: right">PV</th>
-                <th style="width: 8%; text-align: right">Número</th>
-                <th style="width: 12%; text-align: right">Total</th>
-                <th style="width: 34%">Archivo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#if knownInvoices.length === 0}
-                <tr><td colspan="8" class="empty-row">No hay registros</td></tr>
-              {:else}
-                {#each knownInvoices as item, idx}
-                  <tr
-                    class="invoice-row"
-                    class:selected={selectedKnown && selectedKnown.id === item.id && selectedKnown.source === item.source}
-                    onclick={() => selectKnown(item)}
-                    role="button"
-                    tabindex={idx}
-                  >
-                    <td>{item.source === 'expected' ? '📊 Excel' : '📄 PDF'}</td>
-                    <td class="monospace">{formatCuit(item.cuit, item.cuit_guess)}</td>
-                    <td>{formatDateISO(item.issueDate)}</td>
-                    <td>{item.invoiceType ?? '—'}</td>
-                    <td class="text-center">{item.pointOfSale ?? '—'}</td>
-                    <td class="text-center">{item.invoiceNumber ?? '—'}</td>
-                    <td class="text-right">{formatNumber(item.total)}</td>
-                    <td class="file-col truncate">{item.file ? item.file.split('/').pop() : '—'}</td>
-                  </tr>
-                {/each}
-              {/if}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Sidebar overlay -->
-      {#if selectedKnown}
-        <div class="sidebar-overlay" onclick={() => (selectedKnown = null)} role="presentation"></div>
-        <aside class="sidebar-panel">
-          <div class="sidebar-header">
-            <h3>Detalle del {selectedKnown.source === 'expected' ? 'AFIP' : 'PDF'}</h3>
-            <button class="close-btn" onclick={() => (selectedKnown = null)} aria-label="Cerrar">&times;</button>
-          </div>
-
-          <div class="sidebar-content">
-            <div class="detail-section">
-              <h4>Información</h4>
-              <div class="detail-row">
-                <span class="detail-label">Origen:</span>
-                <span class="detail-value">{selectedKnown.source === 'expected' ? '📊 Excel AFIP' : '📄 PDF'}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">CUIT:</span>
-                <span class="detail-value monospace">{formatCuit(selectedKnown.cuit, selectedKnown.cuit_guess)}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Fecha:</span>
-                <span class="detail-value">{formatDateISO(selectedKnown.issueDate)}</span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Comprobante:</span>
-                <span class="detail-value monospace">
-                  {selectedKnown.invoiceType ?? '—'}-{String(selectedKnown.pointOfSale ?? 0).padStart(4, '0')}-{String(selectedKnown.invoiceNumber ?? 0).padStart(8, '0')}
-                </span>
-              </div>
-              <div class="detail-row">
-                <span class="detail-label">Total:</span>
-                <span class="detail-value">{formatNumber(selectedKnown.total)}</span>
-              </div>
-              {#if selectedKnown.file}
-                <div class="detail-row">
-                  <span class="detail-label">Archivo:</span>
-                  <span class="detail-value filename">{selectedKnown.file.split('/').pop()}</span>
-                </div>
-              {/if}
-            </div>
-
-            {#if selectedKnown.source === 'expected'}
-              <div class="detail-section">
-                <h4>Categoría</h4>
-                <div class="category-form">
-                  <select
-                    id="known-category"
-                    bind:value={selectedKnownCategoryId}
-                    class="category-select"
-                  >
-                    <option value={null}>Sin categoría</option>
-                    {#each knownCategories as cat}
-                      <option value={cat.id}>{cat.description}</option>
-                    {/each}
-                  </select>
-                  <button
-                    class="btn btn-primary"
-                    onclick={saveKnownCategory}
-                    disabled={!selectedKnownCategoryId}
-                  >
-                    Asignar categoría
-                  </button>
-                </div>
-              </div>
-            {/if}
-          </div>
-        </aside>
-      {/if}
+      <RevisionTable
+        invoices={knownInvoices}
+        categories={knownCategories}
+        selectedItem={selectedKnown}
+        onSelect={(item: any) => selectKnown(item)}
+        onCategoryChange={({ invoiceId, categoryId }: { invoiceId: number; categoryId: number }) => {
+          selectedKnownCategoryId = categoryId;
+          // Reusar la función existente
+          saveKnownCategory();
+        }}
+      />
     {/if}
   </main>
 </div>
@@ -2182,61 +2049,7 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
 
-  .known-layout {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 1rem;
-    align-items: start;
-  }
-
-  .table-scroll {
-    overflow-x: auto;
-    margin-top: 1rem;
-  }
-
-  .known-table {
-    width: 100%;
-    border-collapse: collapse;
-    min-width: 760px;
-  }
-
-  .known-table th,
-  .known-table td {
-    padding: 0.65rem 0.75rem;
-    border-bottom: 1px solid #e5e7eb;
-    text-align: left;
-  }
-
-  .known-table th {
-    background: #f8fafc;
-    font-weight: 600;
-    font-size: 0.95rem;
-  }
-
-  .known-table tbody tr:hover {
-    background: #f8fafc;
-  }
-
-  .known-table tbody tr.selected {
-    background: #e0ecff;
-  }
-
-  .align-right {
-    text-align: right;
-  }
-
-  .file-col {
-    max-width: 240px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .empty-row {
-    text-align: center;
-    color: #6b7280;
-    padding: 1rem;
-  }
+  /* Styles for the Revision table moved to component */
 
 
   .detail {
@@ -2780,13 +2593,22 @@
   }
 
   .comparison-table .detected-value {
-    font-family: monospace;
     color: #1e293b;
+    word-break: break-word;
   }
 
   .comparison-table .excel-value {
-    font-family: monospace;
     color: #6366f1;
+    word-break: break-word;
+  }
+
+  .comparison-table .numeric-cell {
+    text-align: right;
+  }
+
+  .comparison-table .icon-cell {
+    text-align: center;
+    font-size: 1.1rem;
   }
 
   .comparison-table .status-cell {
@@ -2922,92 +2744,7 @@
     font-size: 1rem;
   }
 
-  .known-table-container {
-    background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    overflow-x: auto;
-    margin-bottom: 2rem;
-  }
-
-  .known-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.95rem;
-  }
-
-  .known-table thead {
-    background: #f8fafc;
-    border-bottom: 2px solid #e2e8f0;
-  }
-
-  .known-table th {
-    padding: 1rem;
-    text-align: left;
-    font-weight: 600;
-    color: #475569;
-    font-size: 0.85rem;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
-
-  .known-table td {
-    padding: 0.875rem 1rem;
-    border-bottom: 1px solid #e2e8f0;
-    color: #334155;
-  }
-
-  .known-table tbody tr {
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .known-table tbody tr:hover {
-    background: #f8fafc;
-  }
-
-  .known-table tbody tr.selected {
-    background: #dbeafe;
-  }
-
-  .known-table tbody tr.invoice-row.selected {
-    background: #dbeafe;
-    border-left: 4px solid #2563eb;
-  }
-
-  .known-table .empty-row {
-    text-align: center;
-    color: #94a3b8;
-    padding: 2rem 1rem;
-  }
-
-  .known-table .monospace {
-    font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
-    color: #475569;
-  }
-
-  .known-table .text-center {
-    text-align: center;
-  }
-
-  .known-table .text-right {
-    text-align: right;
-    font-family: 'Courier New', monospace;
-  }
-
-  .known-table .file-col {
-    max-width: 300px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    color: #64748b;
-    font-size: 0.9rem;
-  }
-
-  .known-table .file-col.truncate {
-    word-break: break-word;
-  }
+  /* Estilos de la tabla de Revisión se movieron al componente RevisionTable */
 
   /* SIDEBAR OVERLAY AND PANEL */
   .sidebar-overlay {
@@ -3063,11 +2800,7 @@
     background: #f8fafc;
   }
 
-  .sidebar-header h3 {
-    margin: 0;
-    font-size: 1.2rem;
-    color: #1e293b;
-  }
+  /* Encabezado de sidebar eliminado junto con la vista previa lateral de Revisión */
 
   .close-btn {
     background: none;
@@ -3098,14 +2831,7 @@
     margin-bottom: 2rem;
   }
 
-  .detail-section h4 {
-    margin: 0 0 1rem 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #475569;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-  }
+  /* Títulos de sección del sidebar removidos; ahora gestionados en el componente */
 
   .detail-row {
     display: flex;
