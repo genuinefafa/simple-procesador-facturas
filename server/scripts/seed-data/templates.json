@@ -1,0 +1,53 @@
+[
+  {
+    "nombre": "AFIP Factura Electrónica A",
+    "descripcion": "Template para facturas electrónicas AFIP tipo A",
+    "categoria": "AFIP_ELECTRONICA",
+    "tipo_documento": "PDF_DIGITAL",
+    "estrategia": "REGEX",
+    "config_extraccion": {
+      "type": "PDF_DIGITAL",
+      "patterns": {
+        "cuit": { "regex": "CUIT[:\\s]*(\\d{2}-\\d{8}-\\d)", "flags": "i", "confianza": 95 },
+        "fecha": { "regex": "Fecha[:\\s]*(\\d{2}/\\d{2}/\\d{4})", "formato": "DD/MM/YYYY" },
+        "comprobante": {
+          "regex": "(A)\\s*-?\\s*(\\d{4})\\s*-?\\s*(\\d{8})",
+          "grupos": ["tipo", "punto_venta", "numero"]
+        },
+        "total": { "regex": "Importe Total[:\\s]*\\$?\\s*([\\d,.]+)" }
+      }
+    }
+  },
+  {
+    "nombre": "PDF Digital Genérico",
+    "descripcion": "Template genérico para PDFs digitales sin formato específico",
+    "categoria": "GENERICO",
+    "tipo_documento": "PDF_DIGITAL",
+    "estrategia": "PDF_TEXT",
+    "config_extraccion": {
+      "type": "PDF_DIGITAL",
+      "patterns": {
+        "cuit": { "regex": "\\d{2}[-\\s]?\\d{8}[-\\s]?\\d", "confianza": 85 },
+        "fecha": { "regex": "\\d{2}[/-]\\d{2}[/-]\\d{4}", "formato": "flexible" },
+        "total": { "regex": "(?:Total|Importe)[:\\s]*\\$?\\s*([\\d,.]+)", "confianza": 80 }
+      }
+    }
+  },
+  {
+    "nombre": "Imagen OCR Genérico",
+    "descripcion": "Template para procesamiento OCR de imágenes escaneadas",
+    "categoria": "GENERICO",
+    "tipo_documento": "IMAGEN",
+    "estrategia": "OCR_ZONES",
+    "config_extraccion": {
+      "type": "OCR_ZONES",
+      "zonas": {
+        "cuit": { "x": 50, "y": 10, "width": 200, "height": 30, "regex_validacion": "\\d{2}-\\d{8}-\\d" },
+        "fecha": { "x": 400, "y": 10, "width": 150, "height": 30, "formato_esperado": "DD/MM/YYYY" },
+        "total": { "x": 400, "y": 700, "width": 150, "height": 40, "keywords": ["TOTAL", "IMPORTE"], "busqueda": "bottom_right" }
+      },
+      "resolucion_dpi": 300,
+      "idioma_ocr": "spa"
+    }
+  }
+]

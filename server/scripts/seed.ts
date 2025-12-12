@@ -131,77 +131,37 @@ function seedTemplates() {
       nombre, descripcion, categoria, tipo_documento, estrategia, config_extraccion
     ) VALUES (?, ?, ?, ?, ?, ?)
   `);
-
   let insertadas = 0;
+  const templatesPath = join(__dirname, 'seed-data', 'templates.json');
+  if (!existsSync(templatesPath)) {
+    console.warn('⚠️  No se encontró seed-data/templates.json');
+    return;
+  }
+  const raw = readFileSync(templatesPath, 'utf-8');
+  const templates = JSON.parse(raw) as Array<{
+    nombre: string;
+    descripcion: string;
+    categoria: string;
+    tipo_documento: string;
+    estrategia: string;
+    config_extraccion: unknown;
+  }>;
 
-  let result = insertTemplate.run(
-    'AFIP Factura Electrónica A',
-    'Template para facturas electrónicas AFIP tipo A',
-    'AFIP_ELECTRONICA',
-    'PDF_DIGITAL',
-    'REGEX',
-    JSON.stringify({
-      type: 'PDF_DIGITAL',
-      patterns: {
-        cuit: { regex: 'CUIT[:\\s]*(\\d{2}-\\d{8}-\\d)', flags: 'i', confianza: 95 },
-        fecha: { regex: 'Fecha[:\\s]*(\\d{2}/\\d{2}/\\d{4})', formato: 'DD/MM/YYYY' },
-        comprobante: {
-          regex: '(A)\\s*-?\\s*(\\d{4})\\s*-?\\s*(\\d{8})',
-          grupos: ['tipo', 'punto_venta', 'numero'],
-        },
-        total: { regex: 'Importe Total[:\\s]*\\$?\\s*([\\d,.]+)' },
-      },
-    })
+  for (const t of templates) {
+    const res = insertTemplate.run(
+      t.nombre,
+      t.descripcion,
+      t.categoria,
+      t.tipo_documento,
+      t.estrategia,
+      JSON.stringify(t.config_extraccion)
+    );
+    if (res.changes > 0) insertadas++;
+  }
+
+  console.info(
+    `✅ Templates: ${insertadas} insertados, ${templates.length - insertadas} ya existían (total: ${templates.length})`
   );
-
-  if (result.changes > 0) insertadas++;
-
-  result = insertTemplate.run(
-    'PDF Digital Genérico',
-    'Template genérico para PDFs digitales sin formato específico',
-    'GENERICO',
-    'PDF_DIGITAL',
-    'PDF_TEXT',
-    JSON.stringify({
-      type: 'PDF_DIGITAL',
-      patterns: {
-        cuit: { regex: '\\d{2}[-\\s]?\\d{8}[-\\s]?\\d', confianza: 85 },
-        fecha: { regex: '\\d{2}[/-]\\d{2}[/-]\\d{4}', formato: 'flexible' },
-        total: { regex: '(?:Total|Importe)[:\\s]*\\$?\\s*([\\d,.]+)', confianza: 80 },
-      },
-    })
-  );
-
-  if (result.changes > 0) insertadas++;
-
-  result = insertTemplate.run(
-    'Imagen OCR Genérico',
-    'Template para procesamiento OCR de imágenes escaneadas',
-    'GENERICO',
-    'IMAGEN',
-    'OCR_ZONES',
-    JSON.stringify({
-      type: 'OCR_ZONES',
-      zonas: {
-        cuit: { x: 50, y: 10, width: 200, height: 30, regex_validacion: '\\d{2}-\\d{8}-\\d' },
-        fecha: { x: 400, y: 10, width: 150, height: 30, formato_esperado: 'DD/MM/YYYY' },
-        total: {
-          x: 400,
-          y: 700,
-          width: 150,
-          height: 40,
-          keywords: ['TOTAL', 'IMPORTE'],
-          busqueda: 'bottom_right',
-        },
-      },
-      resolucion_dpi: 300,
-      idioma_ocr: 'spa',
-    })
-  );
-
-  if (result.changes > 0) insertadas++;
-
-  console.info(`✅ Templates: ${insertadas} insertados, ${3 - insertadas} ya existían (total: 3)`);
 }
 
 function seedEmisores() {
@@ -214,41 +174,36 @@ function seedEmisores() {
   `);
 
   let insertados = 0;
+  const emisoresPath = join(__dirname, 'seed-data', 'emisores.json');
+  if (!existsSync(emisoresPath)) {
+    console.warn('⚠️  No se encontró seed-data/emisores.json');
+    return;
+  }
+  const raw = readFileSync(emisoresPath, 'utf-8');
+  const emisores = JSON.parse(raw) as Array<{
+    cuit: string;
+    cuit_numerico: string;
+    nombre: string;
+    razon_social: string;
+    template_preferido_id: number;
+    tipo_persona: string;
+  }>;
 
-  let result = insertEmitter.run(
-    '30-12345678-9',
-    '30123456789',
-    'Servicios Tecnológicos SA',
-    'Servicios Tecnológicos Sociedad Anónima',
-    1, // AFIP Electrónica A
-    'JURIDICA'
+  for (const e of emisores) {
+    const res = insertEmitter.run(
+      e.cuit,
+      e.cuit_numerico,
+      e.nombre,
+      e.razon_social,
+      e.template_preferido_id,
+      e.tipo_persona
+    );
+    if (res.changes > 0) insertados++;
+  }
+
+  console.info(
+    `✅ Emisores: ${insertados} insertados, ${emisores.length - insertados} ya existían (total: ${emisores.length})`
   );
-
-  if (result.changes > 0) insertados++;
-
-  result = insertEmitter.run(
-    '20-98765432-1',
-    '20987654321',
-    'Distribuidora ABC',
-    'Juan Pérez Distribuidora',
-    2, // PDF Genérico
-    'FISICA'
-  );
-
-  if (result.changes > 0) insertados++;
-
-  result = insertEmitter.run(
-    '33-87654321-0',
-    '33876543210',
-    'Consultora XYZ SRL',
-    'Consultora XYZ Sociedad de Responsabilidad Limitada',
-    1, // AFIP Electrónica A
-    'JURIDICA'
-  );
-
-  if (result.changes > 0) insertados++;
-
-  console.info(`✅ Emisores: ${insertados} insertados, ${3 - insertados} ya existían (total: 3)`);
 }
 
 function seedFacturas() {
@@ -264,80 +219,50 @@ function seedFacturas() {
   `);
 
   let insertadas = 0;
+  const facturasPath = join(__dirname, 'seed-data', 'facturas.json');
+  if (!existsSync(facturasPath)) {
+    console.warn('⚠️  No se encontró seed-data/facturas.json');
+    return;
+  }
+  const raw = readFileSync(facturasPath, 'utf-8');
+  const facturas = JSON.parse(raw) as Array<{
+    emisor_cuit: string;
+    template_usado_id: number;
+    fecha_emision: string;
+    tipo_comprobante: string;
+    punto_venta: number;
+    numero_comprobante: number;
+    comprobante_completo: string;
+    total: number;
+    archivo_original: string;
+    archivo_procesado: string;
+    tipo_archivo: string;
+    metodo_extraccion: string;
+    confianza_extraccion: number;
+  }>;
 
-  let result = insertInvoice.run(
-    '30-12345678-9',
-    1,
-    '2024-11-15',
-    'A',
-    1,
-    123,
-    'A-0001-00000123',
-    15000.0,
-    'factura_empresa1_001.pdf',
-    '30123456789_20241115_A-0001-00000123.pdf',
-    'PDF_DIGITAL',
-    'TEMPLATE',
-    95.5
+  for (const f of facturas) {
+    const res = insertInvoice.run(
+      f.emisor_cuit,
+      f.template_usado_id,
+      f.fecha_emision,
+      f.tipo_comprobante,
+      f.punto_venta,
+      f.numero_comprobante,
+      f.comprobante_completo,
+      f.total,
+      f.archivo_original,
+      f.archivo_procesado,
+      f.tipo_archivo,
+      f.metodo_extraccion,
+      f.confianza_extraccion
+    );
+    if (res.changes > 0) insertadas++;
+  }
+
+  console.info(
+    `✅ Facturas: ${insertadas} insertadas, ${facturas.length - insertadas} ya existían (total: ${facturas.length})`
   );
-
-  if (result.changes > 0) insertadas++;
-
-  result = insertInvoice.run(
-    '30-12345678-9',
-    1,
-    '2024-11-20',
-    'A',
-    1,
-    124,
-    'A-0001-00000124',
-    22500.75,
-    'factura_empresa1_002.pdf',
-    '30123456789_20241120_A-0001-00000124.pdf',
-    'PDF_DIGITAL',
-    'TEMPLATE',
-    93.2
-  );
-
-  if (result.changes > 0) insertadas++;
-
-  result = insertInvoice.run(
-    '20-98765432-1',
-    2,
-    '2024-11-18',
-    'B',
-    3,
-    567,
-    'B-0003-00000567',
-    8750.0,
-    'factura_proveedor_001.pdf',
-    '20987654321_20241118_B-0003-00000567.pdf',
-    'PDF_DIGITAL',
-    'TEMPLATE',
-    88.0
-  );
-
-  if (result.changes > 0) insertadas++;
-
-  result = insertInvoice.run(
-    '33-87654321-0',
-    1,
-    '2024-11-22',
-    'C',
-    2,
-    789,
-    'C-0002-00000789',
-    50000.0,
-    'factura_consultora_001.jpg',
-    '33876543210_20241122_C-0002-00000789.jpg',
-    'IMAGEN',
-    'TEMPLATE',
-    82.5
-  );
-
-  if (result.changes > 0) insertadas++;
-
-  console.info(`✅ Facturas: ${insertadas} insertadas, ${4 - insertadas} ya existían (total: 4)`);
 }
 
 // ===========================
@@ -374,13 +299,23 @@ try {
     all: { truncate: () => {}, seed: () => {} },
   } as const;
 
-  for (const table of selectedTables) {
-    const act = actions[table as keyof typeof actions];
-    if (!act) continue;
-    if (forceRequested) {
+  // When truncating multiple tables, enforce safe FK order
+  const truncateOrder = ['facturas', 'emisores', 'templates', 'categories'] as const;
+  const seedOrder = ['categories', 'templates', 'emisores', 'facturas'] as const;
+  const selectedSet = new Set(selectedTables);
+
+  if (forceRequested) {
+    for (const table of truncateOrder) {
+      if (!selectedSet.has(table)) continue;
+      const act = actions[table];
       if (dryRunRequested) console.info(`🔶 Truncaría: ${table}`);
       else act.truncate();
     }
+  }
+
+  for (const table of seedOrder) {
+    if (!selectedSet.has(table)) continue;
+    const act = actions[table];
     if (dryRunRequested) console.info(`🔶 Poblaría: ${table}`);
     else act.seed();
   }
