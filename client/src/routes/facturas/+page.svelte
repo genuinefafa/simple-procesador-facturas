@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast, Toaster } from 'svelte-sonner';
+  import { PageHeader, StatsBar, Button } from '$lib/components';
 
   interface Invoice {
     id: number;
@@ -102,28 +103,22 @@
 <Toaster position="top-right" richColors />
 
 <div class="invoices-container">
-  <div class="page-header">
-    <h1>📋 Facturas Procesadas</h1>
-    <p class="subtitle">Todas las facturas que has procesado exitosamente</p>
-  </div>
+  <PageHeader
+    title="📋 Facturas Procesadas"
+    subtitle="Todas las facturas que has procesado exitosamente"
+  />
 
   <!-- STATS -->
-  <div class="stats-bar">
-    <div class="stat">
-      <span class="stat-value">{invoices.length}</span>
-      <span class="stat-label">Total</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">
-        {invoices.filter((inv) => (inv.extractionConfidence || 0) < 70).length}
-      </span>
-      <span class="stat-label">Baja confianza</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">{selectedInvoices.size}</span>
-      <span class="stat-label">Seleccionadas</span>
-    </div>
-  </div>
+  <StatsBar
+    stats={[
+      { value: invoices.length, label: 'Total' },
+      {
+        value: invoices.filter((inv) => (inv.extractionConfidence || 0) < 70).length,
+        label: 'Baja confianza',
+      },
+      { value: selectedInvoices.size, label: 'Seleccionadas' },
+    ]}
+  />
 
   <!-- BULK ACTIONS -->
   {#if invoices.length > 0}

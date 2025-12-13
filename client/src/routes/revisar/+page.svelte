@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast, Toaster } from 'svelte-sonner';
+  import { PageHeader, StatsBar, Button, Card } from '$lib/components';
 
   interface PendingFileItem {
     id: number;
@@ -226,34 +227,21 @@
 <Toaster position="top-right" richColors />
 
 <div class="review-container">
-  <div class="page-header">
-    <h1>✏️ Revisar Archivos</h1>
-    <p class="subtitle">Revisa y corrige los datos detectados antes de confirmar</p>
-  </div>
+  <PageHeader
+    title="✏️ Revisar Archivos"
+    subtitle="Revisa y corrige los datos detectados antes de confirmar"
+  />
 
   <!-- STATS -->
-  <div class="stats-bar">
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.total || 0}</span>
-      <span class="stat-label">Total</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.pending || 0}</span>
-      <span class="stat-label">Pendientes</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.reviewing || 0}</span>
-      <span class="stat-label">En Revisión</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.processed || 0}</span>
-      <span class="stat-label">Procesados</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.failed || 0}</span>
-      <span class="stat-label">Errores</span>
-    </div>
-  </div>
+  <StatsBar
+    stats={[
+      { value: pendingFilesStats?.total || 0, label: 'Total' },
+      { value: pendingFilesStats?.pending || 0, label: 'Pendientes' },
+      { value: pendingFilesStats?.reviewing || 0, label: 'En Revisión' },
+      { value: pendingFilesStats?.processed || 0, label: 'Procesados' },
+      { value: pendingFilesStats?.failed || 0, label: 'Errores' },
+    ]}
+  />
 
   <!-- FILTROS -->
   <div class="filter-bar">

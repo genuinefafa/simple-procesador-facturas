@@ -1,11 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast, Toaster } from 'svelte-sonner';
+  import { PageHeader, UploadSection } from '$lib/components';
 
   let activeTab = $state<'excel' | 'upload'>('upload');
   let uploading = $state(false);
   let processing = $state(false);
-  let uploadedFiles: File[] = $state([]);
   let excelImportResult = $state<any>(null);
   let importBatches = $state<any[]>([]);
 
@@ -26,56 +26,16 @@
     }
   }
 
-  function handleDragOver(event: DragEvent) {
-    event.preventDefault();
-    if (event.dataTransfer) {
-      event.dataTransfer.dropEffect = 'copy';
-    }
-  }
-
-  function handleDrop(event: DragEvent) {
-    event.preventDefault();
-    if (event.dataTransfer?.files) {
-      const allowedTypes = [
-        'application/pdf',
-        'image/jpeg',
-        'image/png',
-        'image/tiff',
-        'image/webp',
-        'image/heic',
-        'image/heif',
-      ];
-      const newFiles = Array.from(event.dataTransfer.files).filter(
-        (file) =>
-          allowedTypes.includes(file.type) ||
-          /\.(pdf|jpe?g|png|tiff?|webp|heic|heif)$/i.test(file.name)
-      );
-      uploadedFiles = [...uploadedFiles, ...newFiles];
-    }
-  }
-
-  function handleFileInput(event: Event) {
-    const target = event.target as HTMLInputElement;
-    if (target.files) {
-      const newFiles = Array.from(target.files);
-      uploadedFiles = [...uploadedFiles, ...newFiles];
-    }
-  }
-
-  function removeFile(index: number) {
-    uploadedFiles = uploadedFiles.filter((_, i) => i !== index);
-  }
-
-  async function uploadAndProcess() {
-    if (uploadedFiles.length === 0) return;
+  async function uploadAndProcess(files: File[]) {
+    if (files.length === 0) return;
 
     uploading = true;
-    const uploadToastId = toast.loading(`Subiendo ${uploadedFiles.length} archivo(s)...`);
+    const uploadToastId = toast.loading(`Subiendo ${files.length} archivo(s)...`);
 
     try {
       // 1. Upload files
       const formData = new FormData();
-      uploadedFiles.forEach((file) => {
+      files.forEach((file) => {
         formData.append('files', file);
       });
 
@@ -121,7 +81,6 @@
         toast.info(`${stats.pending} archivo(s) requieren revisión manual`);
       }
 
-      uploadedFiles = [];
       // Redirect to revisar
       window.location.href = '/revisar';
     } catch (err) {
@@ -168,10 +127,10 @@
 <Toaster position="top-right" richColors />
 
 <div class="import-container">
-  <div class="page-header">
-    <h1>📥 Importar Archivos</h1>
-    <p class="subtitle">Importa facturas desde archivos PDF/imágenes o desde Excel AFIP</p>
-  </div>
+  <PageHeader
+    title="📥 Importar Archivos"
+    subtitle="Importa facturas desde archivos PDF/imágenes o desde Excel AFIP"
+  />
 
   <!-- TABS -->
   <div class="tabs-container">
@@ -193,62 +152,10 @@
   <div class="tab-content">
     {#if activeTab === 'upload'}
       <!-- UPLOAD TAB -->
-      <div class="upload-section">
-        <div
-          class="dropzone"
-          ondragover={handleDragOver}
-          ondrop={handleDrop}
-          role="button"
-          tabindex="0"
-        >
-          <p class="dropzone-icon">📁</p>
-          <p class="dropzone-text">Arrastrá archivos aquí</p>
-          <p class="dropzone-hint">o hacé click para seleccionar</p>
-          <p class="dropzone-formats">Formatos: PDF, JPG, PNG, TIFF, WEBP, HEIC (máx 10MB c/u)</p>
-          <input
-            type="file"
-            multiple
-            accept=".pdf,.jpg,.jpeg,.png,.tif,.tiff,.webp,.heic,.heif"
-            onchange={handleFileInput}
-            class="file-input"
-          />
-        </div>
-
-        {#if uploadedFiles.length > 0}
-          <div class="file-list">
-            <h3>Archivos seleccionados ({uploadedFiles.length})</h3>
-            {#each uploadedFiles as file, index (index)}
-              <div class="file-item">
-                <span class="file-icon">
-                  {file.type === 'application/pdf' ? '📄' : '🖼️'}
-                </span>
-                <span class="file-name">{file.name}</span>
-                <span class="file-size">{(file.size / 1024).toFixed(0)} KB</span>
-                <button class="btn-remove" onclick={() => removeFile(index)}>✕</button>
-              </div>
-            {/each}
-          </div>
-
-          <div class="upload-actions">
-            <button
-              class="btn btn-primary btn-large"
-              onclick={uploadAndProcess}
-              disabled={uploading || processing}
-            >
-              {#if uploading}
-                ⏳ Subiendo archivos...
-              {:else if processing}
-                ⚙️ Procesando facturas...
-              {:else}
-                🚀 Subir y Procesar ({uploadedFiles.length} archivos)
-              {/if}
-            </button>
-            <button class="btn btn-secondary" onclick={() => (uploadedFiles = [])}>
-              🗑️ Limpiar todo
-            </button>
-          </div>
-        {/if}
-      </div>
+      <UploadSection
+        onUpload={uploadAndProcess}
+        isLoading={uploading || processing}
+      />
     {:else if activeTab === 'excel'}
       <!-- EXCEL TAB -->
       <div class="excel-section">
