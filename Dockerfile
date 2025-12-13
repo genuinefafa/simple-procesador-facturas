@@ -1,42 +1,22 @@
 # Multi-stage build para optimizar tamaño de imagen
+# El código se compila en GitHub Actions antes de docker build
 
-# Stage 1: Dependencies
+# Stage 1: Dependencies (solo producción)
 FROM node:22.21.0-alpine AS deps
 
 WORKDIR /app
 
-# Copiar solo package files para aprovechar cache de Docker
+# Copiar solo package files
 COPY package*.json ./
 COPY server/package*.json ./server/
 COPY client/package*.json ./client/
 
-# Instalar dependencias de producción
+# Instalar solo dependencias de producción
 RUN npm ci --only=production --ignore-scripts && \
     cd server && npm ci --only=production --ignore-scripts && \
     cd ../client && npm ci --only=production --ignore-scripts
 
-# Stage 2: Build
-FROM node:22.21.0-alpine AS builder
-
-WORKDIR /app
-
-# Copiar package files
-COPY package*.json ./
-COPY server/package*.json ./server/
-COPY client/package*.json ./client/
-
-# Instalar todas las dependencias (incluidas devDependencies)
-RUN npm ci --ignore-scripts && \
-    cd server && npm ci --ignore-scripts && \
-    cd ../client && npm ci --ignore-scripts
-
-# Copiar código fuente
-COPY . .
-
-# Build de la aplicación web
-RUN cd client && npm run build
-
-# Stage 3: Production
+# Stage 2: Production
 FROM node:22.21.0-alpine
 
 WORKDIR /app
@@ -56,10 +36,10 @@ COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
 COPY --from=deps --chown=nodejs:nodejs /app/server/node_modules ./server/node_modules
 COPY --from=deps --chown=nodejs:nodejs /app/client/node_modules ./client/node_modules
 
-# Copiar archivos necesarios desde builder
-COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
-COPY --from=builder --chown=nodejs:nodejs /app/server ./server
-COPY --from=builder --chown=nodejs:nodejs /app/client/build ./client/build
+# Copiar archivos compilados y código fuente
+COPY --chown=nodejs:nodejs /app/package*.json ./
+COPY --chown=nodejs:nodejs /app/server ./server
+COPY --chown=nodejs:nodejs /app/client/build ./client/build
 
 # Crear directorios de datos con permisos apropiados
 RUN mkdir -p data/input data/processed data/backup && \
