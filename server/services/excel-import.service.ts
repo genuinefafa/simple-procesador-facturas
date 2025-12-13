@@ -146,17 +146,17 @@ export class ExcelImportService {
 
     console.info(`   📋 Hoja seleccionada: "${worksheet.name}"`);
 
-    return this.processWorksheet(worksheet, path.basename(filePath), columnMapping);
+    return await this.processWorksheet(worksheet, path.basename(filePath), columnMapping);
   }
 
   /**
    * Procesa una hoja de Excel/CSV
    */
-  private processWorksheet(
+  private async processWorksheet(
     worksheet: ExcelJS.Worksheet,
     filename: string,
     columnMapping?: ColumnMapping
-  ): ImportResult {
+  ): Promise<ImportResult> {
     const rows: ParsedInvoice[] = [];
     const errors: Array<{ row: number; error: string }> = [];
 

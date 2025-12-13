@@ -341,7 +341,7 @@ export class InvoiceProcessingService {
         const normalizedCuit = normalizeCUIT(data.cuit);
         console.info(`   🔍 Buscando matches en Excel AFIP para CUIT: ${normalizedCuit}`);
 
-        const matchResult = this.findExcelMatch(normalizedCuit, data);
+        const matchResult = await this.findExcelMatch(normalizedCuit, data);
 
         // MATCH ÚNICO - Auto-completar desde Excel
         if (matchResult.type === 'UNIQUE') {
@@ -558,7 +558,7 @@ export class InvoiceProcessingService {
   /**
    * Busca matches de una factura en el Excel AFIP
    */
-  private findExcelMatch(
+  private async findExcelMatch(
     cuit: string,
     extractedData: {
       date?: string;
@@ -567,10 +567,11 @@ export class InvoiceProcessingService {
       pointOfSale?: number;
       invoiceNumber?: number;
     }
-  ):
+  ): Promise<
     | { type: 'NONE' }
     | { type: 'UNIQUE'; match: ExpectedInvoice }
-    | { type: 'AMBIGUOUS'; candidates: ExpectedInvoice[] } {
+    | { type: 'AMBIGUOUS'; candidates: ExpectedInvoice[] }
+  > {
     // Estrategia de matching progresiva:
 
     // 1. Si tenemos TODOS los datos, buscar match exacto
