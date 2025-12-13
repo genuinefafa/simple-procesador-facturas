@@ -254,6 +254,97 @@ El proyecto mantiene un objetivo de **70% de cobertura** mínima.
 
 Los PRs que reduzcan la cobertura por debajo del threshold serán rechazados a menos que haya una buena razón.
 
+## Proceso de Release y Deployment
+
+### Estrategia de Versioning
+
+El proyecto usa **Semantic Versioning (semver)**: `MAJOR.MINOR.PATCH`
+
+- **0.x.y**: Versiones pre-1.0 durante desarrollo activo
+- **1.0.0**: Primera versión estable después del rediseño completo
+- **PATCH** (0.1.1): Bug fixes y cambios menores
+- **MINOR** (0.2.0): Nuevas features sin breaking changes
+- **MAJOR** (1.0.0): Breaking changes
+
+### Crear un Release
+
+Los releases se crean **manualmente** usando GitHub Releases y están asociados a milestones:
+
+1. **Completar el milestone** correspondiente
+2. **Crear el tag de versión**:
+   ```bash
+   git tag -a v0.1.0 -m "Release v0.1.0: Descripción breve"
+   git push origin v0.1.0
+   ```
+
+3. **Crear GitHub Release**:
+   - Ir a [Releases](https://github.com/genuinefafa/simple-procesador-facturas/releases)
+   - Click en "Draft a new release"
+   - Seleccionar el tag creado (v0.1.0)
+   - Título: `v0.1.0 - Nombre descriptivo`
+   - Descripción: Resumen de cambios principales
+   - Click "Publish release"
+
+4. **Automatización post-release**:
+   - GitHub Actions construye la imagen Docker automáticamente
+   - La imagen se publica en GitHub Container Registry
+   - Tags generados: `v0.1.0`, `0.1`, `0`, `latest`
+   - Changelog automático se agrega a las notas del release
+
+### Deployment con Docker
+
+#### Producción (usando imagen del registry)
+
+```bash
+# Descargar imagen del registry
+docker pull ghcr.io/genuinefafa/simple-procesador-facturas:latest
+
+# O una versión específica
+docker pull ghcr.io/genuinefafa/simple-procesador-facturas:0.1.0
+
+# Correr con docker-compose
+# Descomentar la línea 'image:' en docker-compose.yml
+docker-compose up -d
+```
+
+#### Desarrollo local
+
+```bash
+# Construir desde código fuente
+docker-compose up --build
+
+# O construir manualmente
+docker build -t procesador-facturas:dev .
+docker run -p 3000:3000 -v $(pwd)/data:/app/data procesador-facturas:dev
+```
+
+### Mapeo de Milestones a Releases
+
+- **M0** → v0.1.0: DevOps y CI/CD (este milestone)
+- **M1** → v0.2.0: Rediseño UI y componentes
+- **M2** → v0.3.0: Features de importación y revisión
+- **M3** → v0.4.0: Búsqueda y optimizaciones
+- **v1.0.0**: Release estable post-rediseño completo
+
+### Verificar un Release
+
+Después de publicar un release, verificá:
+
+```bash
+# Check CI workflow
+# Debe pasar todos los tests
+
+# Check Release workflow
+# Debe construir y pushear imagen
+
+# Test imagen localmente
+docker pull ghcr.io/genuinefafa/simple-procesador-facturas:TAG
+docker run -p 3000:3000 ghcr.io/genuinefafa/simple-procesador-facturas:TAG
+
+# Verificar healthcheck
+curl http://localhost:3000/
+```
+
 ## Preguntas
 
 Si tenés preguntas, podés:
