@@ -10,6 +10,14 @@ dist/
 build/
 *.tsbuildinfo
 
+# TypeScript compiled output (we use tsc --noEmit for validation only)
+**/*.js
+**/*.js.map
+!client/vite.config.js
+!server/vitest.config.js
+!server/drizzle.config.js
+!.githooks/install.sh
+
 # SvelteKit
 web/.svelte-kit/
 web/build/
@@ -21,6 +29,11 @@ data/
 !data/.gitkeep
 exports/*
 !exports/.gitkeep
+
+# Seed data (ignore generated, track .example templates only)
+server/scripts/seed-data/*.json
+!server/scripts/seed-data/*.example.json
+
 *.sqlite
 *.sqlite3
 *.db
@@ -92,6 +105,8 @@ config.json
 config.local.json
 config.override.json
 server/config.json
+.local-invoice-categories.json
+categorias.json
 
 # Archivos de prueba generados
 test-output/

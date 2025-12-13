@@ -54,7 +54,7 @@ export const GET: RequestHandler = async () => {
     }
 
     // 2. Leer facturas de la BD
-    const invoices = invoiceRepo.list({ limit: 1000 });
+    const invoices = await invoiceRepo.list({ limit: 1000 });
 
     for (const invoice of invoices) {
       const fileName = invoice.originalFile;

@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Obtener la factura esperada
     const expectedRepo = new ExpectedInvoiceRepository();
-    const expected = expectedRepo.findById(parseInt(id));
+    const expected = await expectedRepo.findById(parseInt(id));
 
     if (!expected) {
       return json(
@@ -56,7 +56,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Obtener el archivo pendiente
     const pendingRepo = new PendingFileRepository();
-    const pendingFile = pendingRepo.findById(pendingFileId);
+    const pendingFile = await pendingRepo.findById(pendingFileId);
 
     if (!pendingFile) {
       return json(
@@ -72,14 +72,14 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Crear o buscar emisor
     const emitterRepo = new EmitterRepository();
-    let emitter = emitterRepo.findByCUIT(expected.cuit);
+    let emitter = await emitterRepo.findByCUIT(expected.cuit);
 
     if (!emitter) {
       console.info(`   ➕ Creando nuevo emisor: ${expected.cuit}`);
       const cuitNumeric = expected.cuit.replace(/-/g, '');
       const personType = getPersonType(expected.cuit);
 
-      emitter = emitterRepo.create({
+      emitter = await emitterRepo.create({
         cuit: expected.cuit,
         cuitNumeric: cuitNumeric,
         name: expected.emitterName || `Emisor ${expected.cuit}`,
@@ -92,7 +92,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const invoiceRepo = new InvoiceRepository();
 
     // Verificar que no exista ya
-    const existing = invoiceRepo.findByEmitterAndNumber(
+    const existing = await invoiceRepo.findByEmitterAndNumber(
       expected.cuit,
       expected.invoiceType as InvoiceType,
       expected.pointOfSale,
@@ -110,7 +110,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       );
     }
 
-    const invoice = invoiceRepo.create({
+    const invoice = await invoiceRepo.create({
       emitterCuit: expected.cuit,
       issueDate: expected.issueDate,
       invoiceType: expected.invoiceType as InvoiceType,
@@ -129,11 +129,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
     console.info(`   ✅ Factura creada - ID: ${invoice.id}`);
 
     // Actualizar pending file
-    pendingRepo.linkToInvoice(pendingFileId, invoice.id);
-    console.info(`   🔗 Archivo pendiente vinculado a factura`);
+    await pendingRepo.updateStatus(pendingFileId, 'processed');
+    console.info(`   🔗 Archivo pendiente marcado como procesado`);
 
     // Marcar expected invoice como matched
-    expectedRepo.markAsMatched(parseInt(id), pendingFileId, invoice.id, 100);
+    await expectedRepo.markAsMatched(parseInt(id), pendingFileId, invoice.id);
     console.info(`   ✅ Factura esperada marcada como matched`);
 
     return json({

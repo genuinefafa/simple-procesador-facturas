@@ -23,7 +23,7 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     const pendingFileRepo = new PendingFileRepository();
-    const pendingFile = pendingFileRepo.findById(id);
+    const pendingFile = await pendingFileRepo.findById(id);
 
     if (!pendingFile) {
       return json({ success: false, error: 'Archivo pendiente no encontrado' }, { status: 404 });
@@ -75,7 +75,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     const pendingFileRepo = new PendingFileRepository();
 
     // Verificar que existe
-    const existing = pendingFileRepo.findById(id);
+    const existing = await pendingFileRepo.findById(id);
     if (!existing) {
       return json({ success: false, error: 'Archivo pendiente no encontrado' }, { status: 404 });
     }
@@ -85,7 +85,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     // Si solo se actualiza el estado
     if (data.status && Object.keys(data).length === 1) {
       console.info(`📝 Actualizando solo estado a: ${data.status}`);
-      updated = pendingFileRepo.updateStatus(id, data.status);
+      updated = await pendingFileRepo.updateStatus(id, data.status);
     } else {
       // Actualizar datos extraídos
       const extractedData = {
@@ -99,11 +99,11 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       };
 
       console.info(`📝 Actualizando datos extraídos`);
-      updated = pendingFileRepo.updateExtractedData(id, extractedData);
+      updated = await pendingFileRepo.updateExtractedData(id, extractedData);
 
       // Si también se especifica un estado, actualizarlo
       if (data.status) {
-        updated = pendingFileRepo.updateStatus(id, data.status);
+        updated = await pendingFileRepo.updateStatus(id, data.status);
       }
     }
 
@@ -141,7 +141,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
     const pendingFileRepo = new PendingFileRepository();
 
     // Obtener información del archivo antes de eliminarlo
-    const pendingFile = pendingFileRepo.findById(id);
+    const pendingFile = await pendingFileRepo.findById(id);
     if (!pendingFile) {
       return json({ success: false, error: 'Archivo pendiente no encontrado' }, { status: 404 });
     }
@@ -153,7 +153,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
     }
 
     // Eliminar registro de BD
-    const deleted = pendingFileRepo.delete(id);
+    const deleted = await pendingFileRepo.delete(id);
     if (!deleted) {
       return json({ success: false, error: 'No se pudo eliminar el registro' }, { status: 500 });
     }

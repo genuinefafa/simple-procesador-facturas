@@ -1,0 +1,6 @@
+{
+  // Example local categories mapping. Copy to .local-invoice-categories.json and edit.
+  // Key can be expected invoice ID (for source "expected") or PDF file path.
+  "expected:123": { "category": "SERVICIOS", "linkedPdf": "data/processed/30546741253/2025/30546741253_20251022_A-0077-00329001.pdf" },
+  "pdf:data/processed/30546741253/2025/30546741253_20251022_A-0077-00329001.pdf": { "category": "INSUMOS" }
+}

@@ -32,7 +32,7 @@ for (const file of problemFiles) {
 
     // Mostrar snippet del texto donde aparecen los CUITs
     console.log(`\n📝 Texto relevante:`);
-    const firstCuit = cuits[0];
+    const firstCuit = cuits[0]!;
     const start = Math.max(0, firstCuit.position - 200);
     const end = Math.min(text.length, firstCuit.position + 200);
     console.log(text.slice(start, end).replace(/\s+/g, ' '));
