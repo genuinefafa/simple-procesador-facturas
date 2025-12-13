@@ -146,17 +146,17 @@ export class ExcelImportService {
 
     console.info(`   📋 Hoja seleccionada: "${worksheet.name}"`);
 
-    return this.processWorksheet(worksheet, path.basename(filePath), columnMapping);
+    return await this.processWorksheet(worksheet, path.basename(filePath), columnMapping);
   }
 
   /**
    * Procesa una hoja de Excel/CSV
    */
-  private processWorksheet(
+  private async processWorksheet(
     worksheet: ExcelJS.Worksheet,
     filename: string,
     columnMapping?: ColumnMapping
-  ): ImportResult {
+  ): Promise<ImportResult> {
     const rows: ParsedInvoice[] = [];
     const errors: Array<{ row: number; error: string }> = [];
 
@@ -203,7 +203,9 @@ export class ExcelImportService {
         const rowData: Record<string, ExcelJS.CellValue> = {};
         row.eachCell((cell, colNumber) => {
           const header = headers[colNumber - 1];
-          rowData[header] = cell.value;
+          if (header) {
+            rowData[header] = cell.value;
+          }
         });
 
         const parsed = this.parseRow(rowData, mapping);
@@ -221,7 +223,7 @@ export class ExcelImportService {
     console.info(`   ❌ Errores encontrados: ${errors.length}`);
 
     // Crear lote de importación
-    const batch = this.repo.createBatch({
+    const batch = await this.repo.createBatch({
       filename,
       totalRows: rowCount + errors.length,
       importedRows: 0, // Se actualizará después
@@ -232,12 +234,12 @@ export class ExcelImportService {
     console.info(`   📦 Lote creado - ID: ${batch.id}`);
 
     // Insertar facturas en la base de datos
-    const imported = this.repo.createManyInvoices(rows, batch.id);
+    const imported = await this.repo.createManyInvoices(rows, batch.id);
 
     console.info(`   ✅ Facturas importadas: ${imported.length}`);
 
     // Actualizar estadísticas del lote
-    this.repo.updateBatch(batch.id, {
+    await this.repo.updateBatch(batch.id, {
       importedRows: imported.length,
       skippedRows: rowCount - imported.length,
     });
@@ -265,7 +267,7 @@ export class ExcelImportService {
       for (const pattern of patterns) {
         const index = normalizedHeaders.findIndex((h) => h.includes(pattern));
         if (index !== -1) {
-          return headers[index];
+          return headers[index]!;
         }
       }
       throw new Error(`No se pudo auto-detectar columna para patrones: ${patterns.join(', ')}`);
@@ -322,12 +324,15 @@ export class ExcelImportService {
 
     // Si es un objeto Date de Excel
     if (rawDate instanceof Date) {
-      issueDate = rawDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      issueDate = rawDate.toISOString().split('T')[0]!; // YYYY-MM-DD
     } else {
       issueDate = getCellStringValue(rawDate).trim();
       // Si es formato DD/MM/YYYY o DD-MM-YYYY
       if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(issueDate)) {
-        const [day, month, year] = issueDate.split(/[/-]/);
+        const parts = issueDate.split(/[/-]/);
+        const day = parts[0]!;
+        const month = parts[1]!;
+        const year = parts[2]!;
         issueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       }
       // Si es formato YYYY-MM-DD (ya válido)
@@ -401,19 +406,19 @@ export class ExcelImportService {
   /**
    * Obtiene estadísticas de un lote
    */
-  getBatchStats(batchId: number): {
+  async getBatchStats(batchId: number): Promise<{
     batch: import('../database/repositories/expected-invoice.js').ImportBatch;
     statusCounts: Record<
       import('../database/repositories/expected-invoice.js').ExpectedInvoiceStatus,
       number
     >;
-  } {
-    const batch = this.repo.findBatchById(batchId);
+  }> {
+    const batch = await this.repo.findBatchById(batchId);
     if (!batch) {
       throw new Error(`Lote de importación no encontrado: ${batchId}`);
     }
 
-    const statusCounts = this.repo.countByStatus(batchId);
+    const statusCounts = await this.repo.countByStatus(batchId);
 
     return {
       batch,
@@ -424,9 +429,9 @@ export class ExcelImportService {
   /**
    * Lista todos los lotes de importación
    */
-  listBatches(
+  async listBatches(
     limit?: number
-  ): import('../database/repositories/expected-invoice.js').ImportBatch[] {
-    return this.repo.listBatches(limit);
+  ): Promise<import('../database/repositories/expected-invoice.js').ImportBatch[]> {
+    return await this.repo.listBatches(limit);
   }
 }

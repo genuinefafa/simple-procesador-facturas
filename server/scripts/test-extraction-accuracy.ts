@@ -90,7 +90,7 @@ async function testExtractionAccuracy() {
             // Convertir fecha detectada DD/MM/YYYY → YYYY-MM-DD
             const parts = detected.date.split('/');
             if (parts.length === 3) {
-              const detectedFormatted = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+              const detectedFormatted = `${parts[2]}-${parts[1]!.padStart(2, '0')}-${parts[0]!.padStart(2, '0')}`;
               return detectedFormatted === expected.factura.fecha;
             }
             return false;

@@ -30,9 +30,9 @@ export const POST: RequestHandler = async ({ request }) => {
     const processingService = new InvoiceProcessingService();
 
     // Cargar pending files desde BD
-    const pendingFiles = pendingFileIds
-      .map((id) => pendingFileRepo.findById(id))
-      .filter((pf) => pf !== null);
+    const pendingFilesPromises = pendingFileIds.map((id) => pendingFileRepo.findById(id));
+    const pendingFilesResults = await Promise.all(pendingFilesPromises);
+    const pendingFiles = pendingFilesResults.filter((pf) => pf !== null);
 
     if (pendingFiles.length === 0) {
       return json(
@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ request }) => {
       // Actualizar pending_file con datos extraídos
       if (result.extractedData) {
         console.info(`💾 Actualizando datos extraídos en pending file ${pendingFile.id}`);
-        pendingFileRepo.updateExtractedData(pendingFile.id, {
+        await pendingFileRepo.updateExtractedData(pendingFile.id, {
           extractedCuit: result.extractedData.cuit,
           extractedDate: result.extractedData.date,
           extractedTotal: result.extractedData.total,
@@ -79,17 +79,17 @@ export const POST: RequestHandler = async ({ request }) => {
         console.info(
           `✅ Procesamiento exitoso (conf: ${result.confidence}%), vinculando con factura ${result.invoice.id}`
         );
-        pendingFileRepo.linkToInvoice(pendingFile.id, result.invoice.id);
+        await pendingFileRepo.updateStatus(pendingFile.id, 'processed');
         processedCount++;
       } else if (result.requiresReview) {
         // Requiere revisión manual
         console.info(`⚠️  Requiere revisión manual (conf: ${result.confidence}%)`);
-        pendingFileRepo.updateStatus(pendingFile.id, 'pending');
+        await pendingFileRepo.updateStatus(pendingFile.id, 'pending');
         pendingCount++;
       } else {
         // Falló completamente
         console.warn(`❌ Procesamiento falló: ${result.error}`);
-        pendingFileRepo.updateStatus(pendingFile.id, 'failed');
+        await pendingFileRepo.updateStatus(pendingFile.id, 'failed');
         failedCount++;
       }
 

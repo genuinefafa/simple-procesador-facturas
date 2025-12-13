@@ -17,7 +17,7 @@ export const GET: RequestHandler = async () => {
 
     // Obtener todas las facturas recientes (ordenadas por fecha)
     // El frontend puede filtrar por confianza o estado de revisión
-    const pendingInvoices = invoiceRepo.list({
+    const pendingInvoices = await invoiceRepo.list({
       limit: 50,
     });
 

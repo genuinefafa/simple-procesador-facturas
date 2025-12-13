@@ -114,7 +114,7 @@ async function generateBaselineYMLs() {
           // Intentar parsear DD/MM/YYYY o DD-MM-YYYY
           if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(data.date)) {
             const [day, month, year] = data.date.split(/[/-]/);
-            issueDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+            issueDate = new Date(parseInt(year!), parseInt(month!) - 1, parseInt(day!));
           } else {
             issueDate = new Date(data.date);
           }
@@ -127,14 +127,15 @@ async function generateBaselineYMLs() {
       // 6. Crear anotación
       const annotation: InvoiceAnnotation = {
         emitter: {
-          id: 0,
+          active: true,
           cuit: normalizedCuit,
           cuitNumeric: normalizedCuit.replace(/-/g, ''),
           name: `Emisor ${normalizedCuit}`,
           aliases: [],
           personType: getPersonType(normalizedCuit) || undefined,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          totalInvoices: 0,
         },
         invoiceType: (data.invoiceType || 'A') as InvoiceType,
         pointOfSale: data.pointOfSale ?? 0,

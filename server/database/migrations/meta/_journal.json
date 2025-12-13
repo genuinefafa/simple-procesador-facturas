@@ -29,6 +29,20 @@
       "when": 1764020980932,
       "tag": "0003_polite_eternals",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1765480005322,
+      "tag": "0004_brown_whizzer",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1765512502338,
+      "tag": "0005_add_linking_columns",
+      "breakpoints": true
     }
   ]
 }

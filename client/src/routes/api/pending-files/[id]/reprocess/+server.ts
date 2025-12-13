@@ -16,7 +16,7 @@ export const POST: RequestHandler = async ({ params }) => {
     }
 
     const pendingFileRepo = new PendingFileRepository();
-    const pendingFile = pendingFileRepo.findById(id);
+    const pendingFile = await pendingFileRepo.findById(id);
 
     if (!pendingFile) {
       return json({ error: 'Archivo no encontrado' }, { status: 404 });
@@ -32,7 +32,7 @@ export const POST: RequestHandler = async ({ params }) => {
     );
 
     // Actualizar datos extraídos en la BD
-    const updated = pendingFileRepo.updateExtractedData(id, {
+    const updated = await pendingFileRepo.updateExtractedData(id, {
       extractedCuit: result.extractedData?.cuit,
       extractedDate: result.extractedData?.date,
       extractedTotal: result.extractedData?.total,
@@ -45,7 +45,7 @@ export const POST: RequestHandler = async ({ params }) => {
     });
 
     // Volver a pending para que se pueda revisar
-    pendingFileRepo.updateStatus(id, 'pending');
+    await pendingFileRepo.updateStatus(id, 'pending');
 
     if (!updated) {
       return json({ error: 'Error al actualizar archivo' }, { status: 500 });

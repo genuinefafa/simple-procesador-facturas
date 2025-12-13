@@ -45,7 +45,7 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     const pendingFileRepo = new PendingFileRepository();
-    const pendingFile = pendingFileRepo.findById(id);
+    const pendingFile = await pendingFileRepo.findById(id);
 
     if (!pendingFile) {
       return json({ success: false, error: 'Archivo pendiente no encontrado' }, { status: 404 });
@@ -111,7 +111,7 @@ export const GET: RequestHandler = async ({ params }) => {
       pendingFile.extractedPointOfSale !== null &&
       pendingFile.extractedInvoiceNumber !== null
     ) {
-      exactMatch = expectedInvoiceRepo.findExactMatch(
+      exactMatch = await expectedInvoiceRepo.findExactMatch(
         normalizedCuit,
         pendingFile.extractedType,
         pendingFile.extractedPointOfSale,
@@ -138,7 +138,7 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     // 2. Buscar matches parciales con los campos disponibles
-    const partialMatches = expectedInvoiceRepo.findPartialMatches({
+    const partialMatches = await expectedInvoiceRepo.findPartialMatches({
       cuit: normalizedCuit,
       invoiceType: pendingFile.extractedType || undefined,
       pointOfSale: pendingFile.extractedPointOfSale ?? undefined,

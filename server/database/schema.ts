@@ -6,11 +6,21 @@
 import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
+// Forward declarations for circular references
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare let _pendingFiles: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare let _expectedInvoices: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare let _facturas: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare let _categories: any;
+
 // =============================================================================
 // TEMPLATES DE EXTRACCIÓN
 // =============================================================================
 
-export const templatesExtraccion = sqliteTable(
+const templatesExtraccion = sqliteTable(
   'templates_extraccion',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
@@ -50,11 +60,13 @@ export const templatesExtraccion = sqliteTable(
   })
 );
 
+export { templatesExtraccion };
+
 // =============================================================================
 // EMISORES
 // =============================================================================
 
-export const emisores = sqliteTable(
+const emisores = sqliteTable(
   'emisores',
   {
     cuit: text('cuit').primaryKey(), // Formato: XX-XXXXXXXX-X
@@ -84,11 +96,145 @@ export const emisores = sqliteTable(
   })
 );
 
+export { emisores };
+
+// =============================================================================
+// CATEGORÍAS
+// =============================================================================
+
+const categories_ = sqliteTable(
+  'categories',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    key: text('key').notNull().unique(),
+    description: text('description').notNull(),
+    active: integer('active', { mode: 'boolean' }).default(true),
+    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  () => ({})
+);
+
+export { categories_ as categories };
+
+// =============================================================================
+// IMPORTACIÓN DE EXCEL AFIP - LOTES
+// =============================================================================
+
+const importBatches_ = sqliteTable('import_batches', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  filename: text('filename').notNull(),
+  totalRows: integer('total_rows').notNull(),
+  importedRows: integer('imported_rows').notNull(),
+  skippedRows: integer('skipped_rows').default(0),
+  errorRows: integer('error_rows').default(0),
+  importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
+  notes: text('notes'),
+});
+
+export { importBatches_ as importBatches };
+
+// =============================================================================
+// ARCHIVOS PENDIENTES
+// =============================================================================
+
+const pendingFiles_ = sqliteTable(
+  'pending_files',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    originalFilename: text('original_filename').notNull(),
+    filePath: text('file_path').notNull(),
+    fileSize: integer('file_size'),
+    uploadDate: text('upload_date').default(sql`CURRENT_TIMESTAMP`),
+
+    // Datos extraídos (pueden estar incompletos/nulos)
+    extractedCuit: text('extracted_cuit'),
+    extractedDate: text('extracted_date'),
+    extractedTotal: real('extracted_total'),
+    extractedType: text('extracted_type'),
+    extractedPointOfSale: integer('extracted_point_of_sale'),
+    extractedInvoiceNumber: integer('extracted_invoice_number'),
+
+    extractionConfidence: integer('extraction_confidence'),
+    extractionMethod: text('extraction_method'),
+    extractionErrors: text('extraction_errors'),
+
+    // Estados: pending, reviewing, processed, failed
+    status: text('status', {
+      enum: ['pending', 'reviewing', 'processed', 'failed'],
+    }).default('pending'),
+
+    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    statusIdx: index('idx_pending_status').on(table.status),
+    uploadDateIdx: index('idx_pending_upload_date').on(table.uploadDate),
+  })
+);
+
+export { pendingFiles_ as pendingFiles };
+
+// =============================================================================
+// FACTURAS ESPERADAS (DESDE EXCEL AFIP)
+// =============================================================================
+
+const expectedInvoices_ = sqliteTable(
+  'expected_invoices',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    importBatchId: integer('import_batch_id').references(() => importBatches_.id, {
+      onDelete: 'cascade',
+    }),
+
+    // Datos desde Excel AFIP (columnas típicas)
+    cuit: text('cuit').notNull(),
+    emitterName: text('emitter_name'),
+    issueDate: text('issue_date').notNull(),
+    invoiceType: text('invoice_type').notNull(),
+    pointOfSale: integer('point_of_sale').notNull(),
+    invoiceNumber: integer('invoice_number').notNull(),
+    total: real('total'),
+
+    // Datos adicionales opcionales
+    cae: text('cae'),
+    caeExpiration: text('cae_expiration'),
+    currency: text('currency').default('ARS'),
+
+    // Estado del matching
+    status: text('status', {
+      enum: ['pending', 'matched', 'discrepancy', 'manual', 'ignored'],
+    }).default('pending'),
+    matchedPendingFileId: integer('matched_pending_file_id').references(() => pendingFiles_.id, {
+      onDelete: 'set null',
+    }),
+    matchConfidence: real('match_confidence'),
+
+    // Metadata
+    importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
+    notes: text('notes'),
+  },
+  (table) => ({
+    cuitIdx: index('idx_expected_invoices_cuit').on(table.cuit),
+    statusIdx: index('idx_expected_invoices_status').on(table.status),
+    batchIdx: index('idx_expected_invoices_batch').on(table.importBatchId),
+    issueDateIdx: index('idx_expected_invoices_date').on(table.issueDate),
+    uniqueInvoice: index('unique_expected_invoice').on(
+      table.cuit,
+      table.invoiceType,
+      table.pointOfSale,
+      table.invoiceNumber
+    ),
+  })
+);
+
+export { expectedInvoices_ as expectedInvoices };
+
 // =============================================================================
 // FACTURAS
 // =============================================================================
 
-export const facturas = sqliteTable(
+const facturas_ = sqliteTable(
   'facturas',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
@@ -100,7 +246,7 @@ export const facturas = sqliteTable(
     }),
 
     // Datos de la factura
-    fechaEmision: text('fecha_emision').notNull(), // DATE
+    fechaEmision: text('fecha_emision').notNull(),
     tipoComprobante: text('tipo_comprobante', {
       enum: ['A', 'B', 'C', 'E', 'M', 'X'],
     }).notNull(),
@@ -126,6 +272,19 @@ export const facturas = sqliteTable(
     validadoManualmente: integer('validado_manualmente', { mode: 'boolean' }).default(false),
     requiereRevision: integer('requiere_revision', { mode: 'boolean' }).default(false),
 
+    // Vinculación a datos de origen
+    expectedInvoiceId: integer('expected_invoice_id').references(() => expectedInvoices_.id, {
+      onDelete: 'set null',
+    }),
+    pendingFileId: integer('pending_file_id').references(() => pendingFiles_.id, {
+      onDelete: 'set null',
+    }),
+
+    // Categorización
+    categoryId: integer('category_id').references(() => categories_.id, {
+      onDelete: 'set null',
+    }),
+
     procesadoEn: text('procesado_en').default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
@@ -136,7 +295,9 @@ export const facturas = sqliteTable(
     templateIdx: index('idx_facturas_template').on(table.templateUsadoId),
     hashIdx: index('idx_facturas_hash').on(table.fileHash),
     revisionIdx: index('idx_facturas_revision').on(table.requiereRevision),
-    // UNIQUE constraint: no duplicar facturas del mismo emisor
+    expectedInvoiceIdx: index('idx_facturas_expected_invoice').on(table.expectedInvoiceId),
+    pendingFileIdx: index('idx_facturas_pending_file').on(table.pendingFileId),
+    categoryIdx: index('idx_facturas_category').on(table.categoryId),
     uniqueFactura: index('unique_factura').on(
       table.emisorCuit,
       table.tipoComprobante,
@@ -146,11 +307,13 @@ export const facturas = sqliteTable(
   })
 );
 
+export { facturas_ as facturas };
+
 // =============================================================================
 // HISTORIAL DE TEMPLATES POR EMISOR
 // =============================================================================
 
-export const emisorTemplatesHistorial = sqliteTable(
+const emisorTemplatesHistorial_ = sqliteTable(
   'emisor_templates_historial',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
@@ -164,30 +327,30 @@ export const emisorTemplatesHistorial = sqliteTable(
     intentos: integer('intentos').default(0),
     exitos: integer('exitos').default(0),
     fallos: integer('fallos').default(0),
-    // Nota: tasa_exito es una columna generada, se crea via SQL en migration
 
-    ultimaPrueba: text('ultima_prueba'), // DATETIME
+    ultimaPrueba: text('ultima_prueba'),
     promovidoAPreferido: integer('promovido_a_preferido', { mode: 'boolean' }).default(false),
   },
   (table) => ({
     emisorIdx: index('idx_historial_emisor').on(table.emisorCuit),
     templateIdx: index('idx_historial_template').on(table.templateId),
-    // Nota: unique constraint se creará via SQL
     uniqueEmisorTemplate: index('unique_emisor_template').on(table.emisorCuit, table.templateId),
   })
 );
+
+export { emisorTemplatesHistorial_ as emisorTemplatesHistorial };
 
 // =============================================================================
 // CORRECCIONES DE FACTURAS
 // =============================================================================
 
-export const facturasCorrecciones = sqliteTable(
+const facturasCorrecciones_ = sqliteTable(
   'facturas_correcciones',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     facturaId: integer('factura_id')
       .notNull()
-      .references(() => facturas.id, { onDelete: 'cascade' }),
+      .references(() => facturas_.id, { onDelete: 'cascade' }),
     campo: text('campo').notNull(),
     valorOriginal: text('valor_original'),
     valorCorregido: text('valor_corregido').notNull(),
@@ -200,18 +363,20 @@ export const facturasCorrecciones = sqliteTable(
   })
 );
 
+export { facturasCorrecciones_ as facturasCorrecciones };
+
 // =============================================================================
 // ZONAS ANOTADAS
 // =============================================================================
 
-export const facturasZonasAnotadas = sqliteTable(
+const facturasZonasAnotadas_ = sqliteTable(
   'facturas_zonas_anotadas',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     facturaId: integer('factura_id')
       .notNull()
-      .references(() => facturas.id, { onDelete: 'cascade' }),
-    campo: text('campo').notNull(), // 'cuit', 'fecha', 'total', 'punto_venta', 'numero', 'tipo'
+      .references(() => facturas_.id, { onDelete: 'cascade' }),
+    campo: text('campo').notNull(),
 
     // Coordenadas de la zona
     x: integer('x').notNull(),
@@ -234,6 +399,8 @@ export const facturasZonasAnotadas = sqliteTable(
   })
 );
 
+export { facturasZonasAnotadas_ as facturasZonasAnotadas };
+
 // =============================================================================
 // TIPOS TYPESCRIPT
 // =============================================================================
@@ -244,138 +411,26 @@ export type NewTemplateExtraccion = typeof templatesExtraccion.$inferInsert;
 export type Emisor = typeof emisores.$inferSelect;
 export type NewEmisor = typeof emisores.$inferInsert;
 
-export type Factura = typeof facturas.$inferSelect;
-export type NewFactura = typeof facturas.$inferInsert;
+export type Factura = typeof facturas_.$inferSelect;
+export type NewFactura = typeof facturas_.$inferInsert;
 
-export type EmisorTemplateHistorial = typeof emisorTemplatesHistorial.$inferSelect;
-export type NewEmisorTemplateHistorial = typeof emisorTemplatesHistorial.$inferInsert;
+export type EmisorTemplateHistorial = typeof emisorTemplatesHistorial_.$inferSelect;
+export type NewEmisorTemplateHistorial = typeof emisorTemplatesHistorial_.$inferInsert;
 
-export type FacturaCorreccion = typeof facturasCorrecciones.$inferSelect;
-export type NewFacturaCorreccion = typeof facturasCorrecciones.$inferInsert;
+export type FacturaCorreccion = typeof facturasCorrecciones_.$inferSelect;
+export type NewFacturaCorreccion = typeof facturasCorrecciones_.$inferInsert;
 
-export type FacturaZonaAnotada = typeof facturasZonasAnotadas.$inferSelect;
-export type NewFacturaZonaAnotada = typeof facturasZonasAnotadas.$inferInsert;
+export type FacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferSelect;
+export type NewFacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferInsert;
 
-// =============================================================================
-// ARCHIVOS PENDIENTES
-// =============================================================================
+export type PendingFile = typeof pendingFiles_.$inferSelect;
+export type NewPendingFile = typeof pendingFiles_.$inferInsert;
 
-export const pendingFiles = sqliteTable(
-  'pending_files',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    originalFilename: text('original_filename').notNull(),
-    filePath: text('file_path').notNull(),
-    fileSize: integer('file_size'),
-    uploadDate: text('upload_date').default(sql`CURRENT_TIMESTAMP`),
+export type ImportBatch = typeof importBatches_.$inferSelect;
+export type NewImportBatch = typeof importBatches_.$inferInsert;
 
-    // Datos extraídos (pueden estar incompletos/nulos)
-    extractedCuit: text('extracted_cuit'),
-    extractedDate: text('extracted_date'),
-    extractedTotal: real('extracted_total'),
-    extractedType: text('extracted_type'),
-    extractedPointOfSale: integer('extracted_point_of_sale'),
-    extractedInvoiceNumber: integer('extracted_invoice_number'),
+export type ExpectedInvoice = typeof expectedInvoices_.$inferSelect;
+export type NewExpectedInvoice = typeof expectedInvoices_.$inferInsert;
 
-    extractionConfidence: integer('extraction_confidence'),
-    extractionMethod: text('extraction_method'), // PDF_TEXT, OCR, TEMPLATE, MANUAL
-    extractionErrors: text('extraction_errors'), // JSON con array de errores
-
-    // Estados: pending, reviewing, processed, failed
-    status: text('status', {
-      enum: ['pending', 'reviewing', 'processed', 'failed'],
-    }).default('pending'),
-
-    // Referencia a factura final (si se completó)
-    invoiceId: integer('invoice_id').references(() => facturas.id, { onDelete: 'set null' }),
-
-    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => ({
-    statusIdx: index('idx_pending_status').on(table.status),
-    uploadDateIdx: index('idx_pending_upload_date').on(table.uploadDate),
-    invoiceIdx: index('idx_pending_invoice').on(table.invoiceId),
-  })
-);
-
-export type PendingFile = typeof pendingFiles.$inferSelect;
-export type NewPendingFile = typeof pendingFiles.$inferInsert;
-
-// =============================================================================
-// IMPORTACIÓN DE EXCEL AFIP - LOTES
-// =============================================================================
-
-export const importBatches = sqliteTable('import_batches', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  filename: text('filename').notNull(),
-  totalRows: integer('total_rows').notNull(),
-  importedRows: integer('imported_rows').notNull(),
-  skippedRows: integer('skipped_rows').default(0),
-  errorRows: integer('error_rows').default(0),
-  importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
-  notes: text('notes'),
-});
-
-export type ImportBatch = typeof importBatches.$inferSelect;
-export type NewImportBatch = typeof importBatches.$inferInsert;
-
-// =============================================================================
-// FACTURAS ESPERADAS (DESDE EXCEL AFIP)
-// =============================================================================
-
-export const expectedInvoices = sqliteTable(
-  'expected_invoices',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    importBatchId: integer('import_batch_id').references(() => importBatches.id, {
-      onDelete: 'cascade',
-    }),
-
-    // Datos desde Excel AFIP (columnas típicas)
-    cuit: text('cuit').notNull(),
-    emitterName: text('emitter_name'),
-    issueDate: text('issue_date').notNull(), // Fecha de emisión
-    invoiceType: text('invoice_type').notNull(), // A, B, C, E, M
-    pointOfSale: integer('point_of_sale').notNull(), // Punto de venta
-    invoiceNumber: integer('invoice_number').notNull(), // Número
-    total: real('total'), // Importe total
-
-    // Datos adicionales opcionales
-    cae: text('cae'), // Código Autorización Electrónica
-    caeExpiration: text('cae_expiration'), // Vencimiento CAE
-    currency: text('currency').default('ARS'),
-
-    // Estado del matching
-    status: text('status', {
-      enum: ['pending', 'matched', 'discrepancy', 'manual', 'ignored'],
-    }).default('pending'),
-    matchedPendingFileId: integer('matched_pending_file_id').references(() => pendingFiles.id, {
-      onDelete: 'set null',
-    }),
-    matchedInvoiceId: integer('matched_invoice_id').references(() => facturas.id, {
-      onDelete: 'set null',
-    }),
-    matchConfidence: real('match_confidence'), // Confianza del match (0-100)
-
-    // Metadata
-    importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
-    notes: text('notes'),
-  },
-  (table) => ({
-    cuitIdx: index('idx_expected_invoices_cuit').on(table.cuit),
-    statusIdx: index('idx_expected_invoices_status').on(table.status),
-    batchIdx: index('idx_expected_invoices_batch').on(table.importBatchId),
-    issueDateIdx: index('idx_expected_invoices_date').on(table.issueDate),
-    // UNIQUE constraint: no duplicar facturas
-    uniqueInvoice: index('unique_expected_invoice').on(
-      table.cuit,
-      table.invoiceType,
-      table.pointOfSale,
-      table.invoiceNumber
-    ),
-  })
-);
-
-export type ExpectedInvoice = typeof expectedInvoices.$inferSelect;
-export type NewExpectedInvoice = typeof expectedInvoices.$inferInsert;
+export type Category = typeof categories_.$inferSelect;
+export type NewCategory = typeof categories_.$inferInsert;

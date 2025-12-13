@@ -49,7 +49,14 @@ interface TestResult {
   numeroMatch: boolean;
   totalMatch: boolean;
   expected: YMLData;
-  detected: any;
+  detected: {
+    cuit?: string;
+    fecha?: string;
+    tipo?: string;
+    pv?: number;
+    numero?: number;
+    total?: number;
+  };
 }
 
 describe('Precisión de Extracción de Datos', () => {

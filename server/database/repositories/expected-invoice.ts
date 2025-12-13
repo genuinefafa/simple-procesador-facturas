@@ -1,9 +1,16 @@
 /**
- * Repository para la gestión de facturas esperadas (desde Excel AFIP)
+ * Repository para la gestión de facturas esperadas (Drizzle ORM)
  */
 
-import type { Database } from 'better-sqlite3';
-import { getDatabase } from '../connection';
+import { eq, inArray, and, desc, gte, lte } from 'drizzle-orm';
+import { db } from '../db';
+import {
+  expectedInvoices,
+  importBatches,
+  pendingFiles,
+  type ExpectedInvoice as DrizzelExpectedInvoice,
+  type ImportBatch as DrizzelImportBatch,
+} from '../schema';
 
 export type ExpectedInvoiceStatus = 'pending' | 'matched' | 'discrepancy' | 'manual' | 'ignored';
 
@@ -22,31 +29,13 @@ export interface ExpectedInvoice {
   currency: string | null;
   status: ExpectedInvoiceStatus;
   matchedPendingFileId: number | null;
-  matchedInvoiceId: number | null;
   matchConfidence: number | null;
-  importDate: string;
+  importDate: string | null;
   notes: string | null;
 }
 
-interface ExpectedInvoiceRow {
-  id: number;
-  import_batch_id: number | null;
-  cuit: string;
-  emitter_name: string | null;
-  issue_date: string;
-  invoice_type: string;
-  point_of_sale: number;
-  invoice_number: number;
-  total: number | null;
-  cae: string | null;
-  cae_expiration: string | null;
-  currency: string | null;
-  status: ExpectedInvoiceStatus;
-  matched_pending_file_id: number | null;
-  matched_invoice_id: number | null;
-  match_confidence: number | null;
-  import_date: string;
-  notes: string | null;
+export interface ExpectedInvoiceWithFile extends ExpectedInvoice {
+  filePath: string | null;
 }
 
 export interface ImportBatch {
@@ -54,69 +43,51 @@ export interface ImportBatch {
   filename: string;
   totalRows: number;
   importedRows: number;
-  skippedRows: number;
-  errorRows: number;
-  importDate: string;
-  notes: string | null;
-}
-
-interface ImportBatchRow {
-  id: number;
-  filename: string;
-  total_rows: number;
-  imported_rows: number;
-  skipped_rows: number;
-  error_rows: number;
-  import_date: string;
+  skippedRows: number | null;
+  errorRows: number | null;
+  importDate: string | null;
   notes: string | null;
 }
 
 export class ExpectedInvoiceRepository {
-  private db: Database;
-
-  constructor(db?: Database) {
-    this.db = db || getDatabase();
-  }
-
-  /**
-   * Convierte una fila de base de datos a objeto ExpectedInvoice
-   */
-  private rowToObject(row: ExpectedInvoiceRow): ExpectedInvoice {
+  private mapDrizzleToExpectedInvoice(row: DrizzelExpectedInvoice | undefined): ExpectedInvoice {
+    if (!row) {
+      throw new Error('Cannot map undefined row to ExpectedInvoice');
+    }
     return {
       id: row.id,
-      importBatchId: row.import_batch_id,
+      importBatchId: row.importBatchId || null,
       cuit: row.cuit,
-      emitterName: row.emitter_name,
-      issueDate: row.issue_date,
-      invoiceType: row.invoice_type,
-      pointOfSale: row.point_of_sale,
-      invoiceNumber: row.invoice_number,
-      total: row.total,
-      cae: row.cae,
-      caeExpiration: row.cae_expiration,
-      currency: row.currency,
-      status: row.status,
-      matchedPendingFileId: row.matched_pending_file_id,
-      matchedInvoiceId: row.matched_invoice_id,
-      matchConfidence: row.match_confidence,
-      importDate: row.import_date,
-      notes: row.notes,
+      emitterName: row.emitterName || null,
+      issueDate: row.issueDate,
+      invoiceType: row.invoiceType,
+      pointOfSale: row.pointOfSale,
+      invoiceNumber: row.invoiceNumber,
+      total: row.total || null,
+      cae: row.cae || null,
+      caeExpiration: row.caeExpiration || null,
+      currency: row.currency || 'ARS',
+      status: (row.status as ExpectedInvoiceStatus) || 'pending',
+      matchedPendingFileId: row.matchedPendingFileId || null,
+      matchConfidence: row.matchConfidence || null,
+      importDate: row.importDate || null,
+      notes: row.notes || null,
     };
   }
 
-  /**
-   * Convierte una fila de batch a objeto ImportBatch
-   */
-  private batchRowToObject(row: ImportBatchRow): ImportBatch {
+  private mapDrizzleToImportBatch(row: DrizzelImportBatch | undefined): ImportBatch {
+    if (!row) {
+      throw new Error('Cannot map undefined row to ImportBatch');
+    }
     return {
       id: row.id,
       filename: row.filename,
-      totalRows: row.total_rows,
-      importedRows: row.imported_rows,
-      skippedRows: row.skipped_rows,
-      errorRows: row.error_rows,
-      importDate: row.import_date,
-      notes: row.notes,
+      totalRows: row.totalRows,
+      importedRows: row.importedRows,
+      skippedRows: row.skippedRows || null,
+      errorRows: row.errorRows || null,
+      importDate: row.importDate || null,
+      notes: row.notes || null,
     };
   }
 
@@ -124,54 +95,40 @@ export class ExpectedInvoiceRepository {
   // GESTIÓN DE LOTES DE IMPORTACIÓN
   // =============================================================================
 
-  /**
-   * Crea un nuevo lote de importación
-   */
-  createBatch(data: {
+  async createBatch(data: {
     filename: string;
     totalRows: number;
     importedRows?: number;
     skippedRows?: number;
     errorRows?: number;
     notes?: string;
-  }): ImportBatch {
-    const stmt = this.db.prepare(`
-      INSERT INTO import_batches (
-        filename, total_rows, imported_rows, skipped_rows, error_rows, notes
-      ) VALUES (?, ?, ?, ?, ?, ?)
-    `);
+  }): Promise<ImportBatch> {
+    const result = await db
+      .insert(importBatches)
+      .values({
+        filename: data.filename,
+        totalRows: data.totalRows,
+        importedRows: data.importedRows || 0,
+        skippedRows: data.skippedRows || 0,
+        errorRows: data.errorRows || 0,
+        notes: data.notes || null,
+      })
+      .returning();
 
-    const result = stmt.run(
-      data.filename,
-      data.totalRows,
-      data.importedRows || 0,
-      data.skippedRows || 0,
-      data.errorRows || 0,
-      data.notes || null
-    );
-
-    const batch = this.findBatchById(Number(result.lastInsertRowid));
-    if (!batch) {
+    if (result.length === 0) {
       throw new Error('Failed to create import batch');
     }
 
-    return batch;
+    return this.mapDrizzleToImportBatch(result[0]);
   }
 
-  /**
-   * Busca un lote por ID
-   */
-  findBatchById(id: number): ImportBatch | null {
-    const stmt = this.db.prepare('SELECT * FROM import_batches WHERE id = ?');
-    const row = stmt.get(id) as ImportBatchRow | undefined;
+  async findBatchById(id: number): Promise<ImportBatch | null> {
+    const result = await db.select().from(importBatches).where(eq(importBatches.id, id));
 
-    return row ? this.batchRowToObject(row) : null;
+    return result.length > 0 ? this.mapDrizzleToImportBatch(result[0]) : null;
   }
 
-  /**
-   * Actualiza un lote de importación
-   */
-  updateBatch(
+  async updateBatch(
     id: number,
     data: {
       importedRows?: number;
@@ -179,69 +136,45 @@ export class ExpectedInvoiceRepository {
       errorRows?: number;
       notes?: string;
     }
-  ): ImportBatch {
-    const updates: string[] = [];
-    const params: (string | number | null)[] = [];
+  ): Promise<ImportBatch> {
+    const updates: Record<string, number | string> = {};
+    if (data.importedRows !== undefined) updates.importedRows = data.importedRows;
+    if (data.skippedRows !== undefined) updates.skippedRows = data.skippedRows;
+    if (data.errorRows !== undefined) updates.errorRows = data.errorRows;
+    if (data.notes !== undefined) updates.notes = data.notes;
 
-    if (data.importedRows !== undefined) {
-      updates.push('imported_rows = ?');
-      params.push(data.importedRows);
-    }
-    if (data.skippedRows !== undefined) {
-      updates.push('skipped_rows = ?');
-      params.push(data.skippedRows);
-    }
-    if (data.errorRows !== undefined) {
-      updates.push('error_rows = ?');
-      params.push(data.errorRows);
-    }
-    if (data.notes !== undefined) {
-      updates.push('notes = ?');
-      params.push(data.notes);
+    if (Object.keys(updates).length === 0) {
+      const found = await this.findBatchById(id);
+      if (!found) throw new Error('Import batch not found');
+      return found;
     }
 
-    if (updates.length === 0) {
-      throw new Error('No fields to update');
-    }
+    const result = await db
+      .update(importBatches)
+      .set(updates)
+      .where(eq(importBatches.id, id))
+      .returning();
 
-    const query = `UPDATE import_batches SET ${updates.join(', ')} WHERE id = ?`;
-    params.push(id);
-
-    const stmt = this.db.prepare(query);
-    stmt.run(...params);
-
-    const updated = this.findBatchById(id);
-    if (!updated) {
+    if (result.length === 0) {
       throw new Error('Import batch not found after update');
     }
 
-    return updated;
+    return this.mapDrizzleToImportBatch(result[0]);
   }
 
-  /**
-   * Lista todos los lotes de importación
-   */
-  listBatches(limit?: number): ImportBatch[] {
-    let query = 'SELECT * FROM import_batches ORDER BY import_date DESC';
+  async listBatches(limit?: number): Promise<ImportBatch[]> {
+    const result = limit
+      ? await db.select().from(importBatches).orderBy(desc(importBatches.importDate)).limit(limit)
+      : await db.select().from(importBatches).orderBy(desc(importBatches.importDate));
 
-    if (limit) {
-      query += ` LIMIT ${limit}`;
-    }
-
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all() as ImportBatchRow[];
-
-    return rows.map((row) => this.batchRowToObject(row));
+    return result.map((row) => this.mapDrizzleToImportBatch(row));
   }
 
   // =============================================================================
   // GESTIÓN DE FACTURAS ESPERADAS
   // =============================================================================
 
-  /**
-   * Crea múltiples facturas esperadas en un lote
-   */
-  createManyInvoices(
+  async createManyInvoices(
     invoices: Array<{
       cuit: string;
       emitterName?: string;
@@ -255,143 +188,189 @@ export class ExpectedInvoiceRepository {
       currency?: string;
     }>,
     batchId: number
-  ): ExpectedInvoice[] {
-    const stmt = this.db.prepare(`
-      INSERT INTO expected_invoices (
-        import_batch_id, cuit, emitter_name, issue_date, invoice_type,
-        point_of_sale, invoice_number, total, cae, cae_expiration, currency
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
+  ): Promise<ExpectedInvoice[]> {
     const created: ExpectedInvoice[] = [];
 
-    // Usar transacción para insertar todos los registros
-    const insertMany = this.db.transaction(
-      (
-        invoicesToInsert: Array<{
-          cuit: string;
-          emitterName?: string;
-          issueDate: string;
-          invoiceType: string;
-          pointOfSale: number;
-          invoiceNumber: number;
-          total?: number;
-          cae?: string;
-          caeExpiration?: string;
-          currency?: string;
-        }>
-      ) => {
-        for (const invoice of invoicesToInsert) {
-          try {
-            const result = stmt.run(
-              batchId,
-              invoice.cuit,
-              invoice.emitterName || null,
-              invoice.issueDate,
-              invoice.invoiceType,
-              invoice.pointOfSale,
-              invoice.invoiceNumber,
-              invoice.total || null,
-              invoice.cae || null,
-              invoice.caeExpiration || null,
-              invoice.currency || 'ARS'
-            );
+    for (const invoice of invoices) {
+      try {
+        const result = await db
+          .insert(expectedInvoices)
+          .values({
+            importBatchId: batchId,
+            cuit: invoice.cuit,
+            emitterName: invoice.emitterName || null,
+            issueDate: invoice.issueDate,
+            invoiceType: invoice.invoiceType,
+            pointOfSale: invoice.pointOfSale,
+            invoiceNumber: invoice.invoiceNumber,
+            total: invoice.total || null,
+            cae: invoice.cae || null,
+            caeExpiration: invoice.caeExpiration || null,
+            currency: invoice.currency || 'ARS',
+            status: 'pending',
+          })
+          .returning();
 
-            const newInvoice = this.findById(Number(result.lastInsertRowid));
-            if (newInvoice) {
-              created.push(newInvoice);
-            }
-          } catch (error) {
-            // Si falla por duplicado, continuar con el siguiente
-            console.warn(
-              `Factura duplicada: ${invoice.invoiceType}-${invoice.pointOfSale}-${invoice.invoiceNumber}`,
-              error
-            );
-          }
+        if (result.length > 0) {
+          created.push(this.mapDrizzleToExpectedInvoice(result[0]));
         }
+      } catch (error) {
+        console.warn(
+          `Factura duplicada: ${invoice.invoiceType}-${invoice.pointOfSale}-${invoice.invoiceNumber}`,
+          error
+        );
       }
-    );
-
-    insertMany(invoices);
+    }
 
     return created;
   }
 
-  /**
-   * Busca una factura esperada por ID
-   */
-  findById(id: number): ExpectedInvoice | null {
-    const stmt = this.db.prepare('SELECT * FROM expected_invoices WHERE id = ?');
-    const row = stmt.get(id) as ExpectedInvoiceRow | undefined;
+  async findById(id: number): Promise<ExpectedInvoice | null> {
+    const result = await db.select().from(expectedInvoices).where(eq(expectedInvoices.id, id));
 
-    return row ? this.rowToObject(row) : null;
+    return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
   }
 
-  /**
-   * Busca candidatos para matching según criterios
-   */
-  findCandidates(criteria: {
+  async findCandidates(criteria: {
     cuit: string;
-    dateRange?: [string, string]; // [fecha_desde, fecha_hasta]
-    totalRange?: [number, number]; // [total_min, total_max]
+    dateRange?: [string, string];
+    totalRange?: [number, number];
     status?: ExpectedInvoiceStatus[];
-  }): ExpectedInvoice[] {
-    let query = 'SELECT * FROM expected_invoices WHERE cuit = ?';
-    const params: (string | number)[] = [criteria.cuit];
+  }): Promise<ExpectedInvoice[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const conditions: any[] = [eq(expectedInvoices.cuit, criteria.cuit)];
 
     if (criteria.dateRange) {
-      query += ' AND issue_date BETWEEN ? AND ?';
-      params.push(criteria.dateRange[0], criteria.dateRange[1]);
+      conditions.push(
+        and(
+          gte(expectedInvoices.issueDate, criteria.dateRange[0]),
+          lte(expectedInvoices.issueDate, criteria.dateRange[1])
+        )
+      );
     }
 
     if (criteria.totalRange) {
-      query += ' AND total BETWEEN ? AND ?';
-      params.push(criteria.totalRange[0], criteria.totalRange[1]);
+      conditions.push(
+        and(
+          gte(expectedInvoices.total, criteria.totalRange[0]),
+          lte(expectedInvoices.total, criteria.totalRange[1])
+        )
+      );
     }
 
-    if (criteria.status && criteria.status.length > 0) {
-      const placeholders = criteria.status.map(() => '?').join(',');
-      query += ` AND status IN (${placeholders})`;
-      params.push(...criteria.status);
+    if (!criteria.status || criteria.status.length === 0) {
+      conditions.push(eq(expectedInvoices.status, 'pending'));
     } else {
-      // Por defecto solo buscar en pending
-      query += " AND status = 'pending'";
+      conditions.push(inArray(expectedInvoices.status, criteria.status));
     }
 
-    query += ' ORDER BY issue_date DESC';
+    const result = await db
+      .select()
+      .from(expectedInvoices)
+      .where(and(...(conditions as Parameters<typeof and>)))
+      .orderBy(desc(expectedInvoices.issueDate));
 
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as ExpectedInvoiceRow[];
-
-    return rows.map((row) => this.rowToObject(row));
+    return result.map((row) => this.mapDrizzleToExpectedInvoice(row));
   }
 
-  /**
-   * Busca un match exacto por todos los campos clave
-   */
-  findExactMatch(
+  async listWithFiles(filters?: {
+    status?: ExpectedInvoiceStatus | ExpectedInvoiceStatus[];
+    batchId?: number;
+    cuit?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ExpectedInvoiceWithFile[]> {
+    // eslint-disable-next-line @typescript-eslint/no-duplicate-type-constituents
+    const conditions: (ReturnType<typeof eq> | ReturnType<typeof inArray>)[] = [];
+
+    if (filters?.status) {
+      if (Array.isArray(filters.status)) {
+        conditions.push(inArray(expectedInvoices.status, filters.status));
+      } else {
+        conditions.push(eq(expectedInvoices.status, filters.status));
+      }
+    }
+
+    if (filters?.batchId) {
+      conditions.push(eq(expectedInvoices.importBatchId, filters.batchId));
+    }
+
+    if (filters?.cuit) {
+      conditions.push(eq(expectedInvoices.cuit, filters.cuit));
+    }
+
+    // Build query step by step to avoid type issues with leftJoin
+    const whereClause =
+      conditions.length > 0 ? and(...(conditions as Parameters<typeof and>)) : undefined;
+
+    let query = db
+      .select({
+        expectedInvoice: expectedInvoices,
+        filePath: pendingFiles.filePath,
+      })
+      .from(expectedInvoices)
+      .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId));
+
+    if (whereClause) {
+      query = db
+        .select({
+          expectedInvoice: expectedInvoices,
+          filePath: pendingFiles.filePath,
+        })
+        .from(expectedInvoices)
+        .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
+        .where(whereClause) as typeof query;
+    }
+
+    // Execute the query and apply post-query operations
+    const result = await query;
+    let filtered = result;
+
+    // Sort
+    filtered.sort(
+      (a, b) =>
+        new Date(b.expectedInvoice.issueDate).getTime() -
+        new Date(a.expectedInvoice.issueDate).getTime()
+    );
+
+    // Apply limit and offset manually since Drizzle can't chain them with leftJoin
+    if (filters?.offset) {
+      filtered = filtered.slice(filters.offset);
+    }
+
+    if (filters?.limit) {
+      filtered = filtered.slice(0, filters.limit);
+    }
+
+    return filtered.map((row) => ({
+      ...this.mapDrizzleToExpectedInvoice(row.expectedInvoice),
+      filePath: row.filePath || null,
+    }));
+  }
+
+  async findExactMatch(
     cuit: string,
     type: string,
     pointOfSale: number,
     invoiceNumber: number
-  ): ExpectedInvoice | null {
-    const stmt = this.db.prepare(`
-      SELECT * FROM expected_invoices
-      WHERE cuit = ? AND invoice_type = ? AND point_of_sale = ? AND invoice_number = ?
-      AND status = 'pending'
-      LIMIT 1
-    `);
+  ): Promise<ExpectedInvoice | null> {
+    const result = await db
+      .select()
+      .from(expectedInvoices)
+      .where(
+        and(
+          eq(expectedInvoices.cuit, cuit),
+          eq(expectedInvoices.invoiceType, type),
+          eq(expectedInvoices.pointOfSale, pointOfSale),
+          eq(expectedInvoices.invoiceNumber, invoiceNumber),
+          eq(expectedInvoices.status, 'pending')
+        )
+      );
 
-    const row = stmt.get(cuit, type, pointOfSale, invoiceNumber) as ExpectedInvoiceRow | undefined;
-
-    return row ? this.rowToObject(row) : null;
+    return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
   }
 
-  /**
-   * Busca matches parciales con los campos disponibles
-   * Devuelve candidatos con score de coincidencia
-   */
-  findPartialMatches(criteria: {
+  async findPartialMatches(criteria: {
     cuit?: string;
     invoiceType?: string;
     pointOfSale?: number;
@@ -399,61 +378,37 @@ export class ExpectedInvoiceRepository {
     issueDate?: string;
     total?: number;
     limit?: number;
-  }): Array<
-    ExpectedInvoice & { matchScore: number; matchedFields: string[]; totalFieldsCompared: number }
+  }): Promise<
+    Array<
+      ExpectedInvoice & { matchScore: number; matchedFields: string[]; totalFieldsCompared: number }
+    >
   > {
-    // Necesitamos al menos un campo para buscar
-    if (
-      !criteria.cuit &&
-      !criteria.invoiceType &&
-      criteria.pointOfSale === undefined &&
-      criteria.invoiceNumber === undefined
-    ) {
-      return [];
-    }
+    const conditions: ReturnType<typeof eq>[] = [eq(expectedInvoices.status, 'pending')];
 
-    // Construir query dinámica
-    let query = "SELECT * FROM expected_invoices WHERE status = 'pending'";
-    const params: (string | number)[] = [];
-    const conditions: string[] = [];
-
-    // Agregar condiciones para campos disponibles
-    // Priorizamos CUIT como filtro principal si está disponible
     if (criteria.cuit) {
-      conditions.push('cuit = ?');
-      params.push(criteria.cuit);
-    }
-
-    // Si no hay CUIT, necesitamos otros campos para filtrar
-    if (!criteria.cuit) {
+      conditions.push(eq(expectedInvoices.cuit, criteria.cuit));
+    } else if (criteria.invoiceNumber !== undefined || criteria.pointOfSale !== undefined) {
       if (criteria.invoiceNumber !== undefined) {
-        conditions.push('invoice_number = ?');
-        params.push(criteria.invoiceNumber);
+        conditions.push(eq(expectedInvoices.invoiceNumber, criteria.invoiceNumber));
       }
       if (criteria.pointOfSale !== undefined) {
-        conditions.push('point_of_sale = ?');
-        params.push(criteria.pointOfSale);
+        conditions.push(eq(expectedInvoices.pointOfSale, criteria.pointOfSale));
       }
     }
 
-    if (conditions.length > 0) {
-      query += ' AND ' + conditions.join(' AND ');
-    }
+    const result = await db
+      .select()
+      .from(expectedInvoices)
+      .where(and(...conditions))
+      .orderBy(desc(expectedInvoices.issueDate))
+      .limit(criteria.limit || 20);
 
-    query += ' ORDER BY issue_date DESC';
-    query += ` LIMIT ${criteria.limit || 20}`;
-
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as ExpectedInvoiceRow[];
-
-    // Calcular score de coincidencia para cada resultado
-    return rows
+    return result
       .map((row) => {
-        const invoice = this.rowToObject(row);
+        const invoice = this.mapDrizzleToExpectedInvoice(row);
         const matchedFields: string[] = [];
         let fieldsCompared = 0;
 
-        // Comparar cada campo disponible
         if (criteria.cuit !== undefined) {
           fieldsCompared++;
           if (invoice.cuit === criteria.cuit) {
@@ -491,7 +446,6 @@ export class ExpectedInvoiceRepository {
 
         if (criteria.total !== undefined && invoice.total !== null) {
           fieldsCompared++;
-          // Tolerancia del 1% para totales
           const tolerance = criteria.total * 0.01;
           if (Math.abs(invoice.total - criteria.total) <= tolerance) {
             matchedFields.push('total');
@@ -508,149 +462,118 @@ export class ExpectedInvoiceRepository {
           totalFieldsCompared: fieldsCompared,
         };
       })
-      .sort((a, b) => b.matchScore - a.matchScore); // Ordenar por score descendente
+      .sort((a, b) => b.matchScore - a.matchScore);
   }
 
-  /**
-   * Lista facturas esperadas con filtros
-   */
-  list(filters?: {
+  async list(filters?: {
     status?: ExpectedInvoiceStatus | ExpectedInvoiceStatus[];
     batchId?: number;
     cuit?: string;
     limit?: number;
     offset?: number;
-  }): ExpectedInvoice[] {
-    let query = 'SELECT * FROM expected_invoices WHERE 1=1';
-    const params: (string | number)[] = [];
+  }): Promise<ExpectedInvoice[]> {
+    const conditions: ReturnType<typeof eq | typeof inArray>[] = [];
 
     if (filters?.status) {
       if (Array.isArray(filters.status)) {
-        const placeholders = filters.status.map(() => '?').join(',');
-        query += ` AND status IN (${placeholders})`;
-        params.push(...filters.status);
+        conditions.push(inArray(expectedInvoices.status, filters.status));
       } else {
-        query += ' AND status = ?';
-        params.push(filters.status);
+        conditions.push(eq(expectedInvoices.status, filters.status));
       }
     }
 
     if (filters?.batchId) {
-      query += ' AND import_batch_id = ?';
-      params.push(filters.batchId);
+      conditions.push(eq(expectedInvoices.importBatchId, filters.batchId));
     }
 
     if (filters?.cuit) {
-      query += ' AND cuit = ?';
-      params.push(filters.cuit);
+      conditions.push(eq(expectedInvoices.cuit, filters.cuit));
     }
 
-    query += ' ORDER BY issue_date DESC';
+    let query;
 
-    if (filters?.limit) {
-      query += ' LIMIT ?';
-      params.push(filters.limit);
+    if (conditions.length > 0) {
+      query = await db
+        .select()
+        .from(expectedInvoices)
+        .where(and(...conditions));
+    } else {
+      query = await db.select().from(expectedInvoices);
     }
 
+    // Sort
+    let result = query.sort(
+      (a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime()
+    );
+
+    // Apply offset
     if (filters?.offset) {
-      query += ' OFFSET ?';
-      params.push(filters.offset);
+      result = result.slice(filters.offset);
     }
 
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as ExpectedInvoiceRow[];
+    // Apply limit
+    if (filters?.limit) {
+      result = result.slice(0, filters.limit);
+    }
 
-    return rows.map((row) => this.rowToObject(row));
+    return result.map((row) => this.mapDrizzleToExpectedInvoice(row));
   }
 
-  /**
-   * Marca una factura esperada como matcheada
-   */
-  markAsMatched(
+  async markAsMatched(
     id: number,
     pendingFileId: number,
-    invoiceId: number,
     confidence: number
-  ): ExpectedInvoice {
-    const stmt = this.db.prepare(`
-      UPDATE expected_invoices
-      SET status = 'matched',
-          matched_pending_file_id = ?,
-          matched_invoice_id = ?,
-          match_confidence = ?
-      WHERE id = ?
-    `);
+  ): Promise<ExpectedInvoice> {
+    const result = await db
+      .update(expectedInvoices)
+      .set({
+        status: 'matched',
+        matchedPendingFileId: pendingFileId,
+        matchConfidence: confidence,
+      })
+      .where(eq(expectedInvoices.id, id))
+      .returning();
 
-    stmt.run(pendingFileId, invoiceId, confidence, id);
-
-    const updated = this.findById(id);
-    if (!updated) {
+    if (result.length === 0) {
       throw new Error('Expected invoice not found after marking as matched');
     }
 
-    return updated;
+    return this.mapDrizzleToExpectedInvoice(result[0]);
   }
 
-  /**
-   * Marca una factura esperada como procesada manualmente
-   */
-  markAsManual(id: number, notes?: string): ExpectedInvoice {
-    const stmt = this.db.prepare(`
-      UPDATE expected_invoices
-      SET status = 'manual', notes = ?
-      WHERE id = ?
-    `);
+  async markAsManual(id: number, notes?: string): Promise<ExpectedInvoice> {
+    const result = await db
+      .update(expectedInvoices)
+      .set({ status: 'manual', notes: notes || null })
+      .where(eq(expectedInvoices.id, id))
+      .returning();
 
-    stmt.run(notes || null, id);
-
-    const updated = this.findById(id);
-    if (!updated) {
+    if (result.length === 0) {
       throw new Error('Expected invoice not found after marking as manual');
     }
 
-    return updated;
+    return this.mapDrizzleToExpectedInvoice(result[0]);
   }
 
-  /**
-   * Marca una factura esperada como ignorada
-   */
-  markAsIgnored(id: number, notes?: string): ExpectedInvoice {
-    const stmt = this.db.prepare(`
-      UPDATE expected_invoices
-      SET status = 'ignored', notes = ?
-      WHERE id = ?
-    `);
+  async markAsIgnored(id: number, notes?: string): Promise<ExpectedInvoice> {
+    const result = await db
+      .update(expectedInvoices)
+      .set({ status: 'ignored', notes: notes || null })
+      .where(eq(expectedInvoices.id, id))
+      .returning();
 
-    stmt.run(notes || null, id);
-
-    const updated = this.findById(id);
-    if (!updated) {
+    if (result.length === 0) {
       throw new Error('Expected invoice not found after marking as ignored');
     }
 
-    return updated;
+    return this.mapDrizzleToExpectedInvoice(result[0]);
   }
 
-  /**
-   * Cuenta facturas esperadas por estado
-   */
-  countByStatus(batchId?: number): Record<ExpectedInvoiceStatus, number> {
-    let query = `
-      SELECT status, COUNT(*) as count
-      FROM expected_invoices
-    `;
-
-    const params: number[] = [];
-
-    if (batchId) {
-      query += ' WHERE import_batch_id = ?';
-      params.push(batchId);
-    }
-
-    query += ' GROUP BY status';
-
-    const stmt = this.db.prepare(query);
-    const rows = stmt.all(...params) as { status: ExpectedInvoiceStatus; count: number }[];
+  async countByStatus(batchId?: number): Promise<Record<ExpectedInvoiceStatus, number>> {
+    const result = await db
+      .select({ status: expectedInvoices.status })
+      .from(expectedInvoices)
+      .where(batchId ? eq(expectedInvoices.importBatchId, batchId) : undefined);
 
     const counts: Record<ExpectedInvoiceStatus, number> = {
       pending: 0,
@@ -660,31 +583,15 @@ export class ExpectedInvoiceRepository {
       ignored: 0,
     };
 
-    for (const row of rows) {
-      counts[row.status] = row.count;
+    for (const row of result) {
+      const status = row.status as ExpectedInvoiceStatus;
+      counts[status]++;
     }
 
     return counts;
   }
 
-  /**
-   * Lista facturas esperadas pendientes (sin match)
-   */
-  listPending(limit?: number): ExpectedInvoice[] {
+  async listPending(limit?: number): Promise<ExpectedInvoice[]> {
     return this.list({ status: 'pending', limit });
-  }
-
-  /**
-   * Lista facturas esperadas matcheadas
-   */
-  listMatched(batchId?: number): ExpectedInvoice[] {
-    return this.list({ status: 'matched', batchId });
-  }
-
-  /**
-   * Lista facturas esperadas sin match
-   */
-  listUnmatched(batchId?: number): ExpectedInvoice[] {
-    return this.list({ status: 'pending', batchId });
   }
 }

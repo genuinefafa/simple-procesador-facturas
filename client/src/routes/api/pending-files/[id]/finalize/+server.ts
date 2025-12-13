@@ -7,6 +7,7 @@ import type { RequestHandler } from './$types';
 import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
+import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '@server/validators/cuit.js';
 import { join, dirname, basename, extname } from 'path';
 import { mkdir, rename, copyFile } from 'fs/promises';
@@ -19,6 +20,7 @@ const PROCESSED_DIR = join(process.cwd(), '..', 'data', 'processed');
  * POST /api/pending-files/:id/finalize
  * Intentar procesar nuevamente con datos actualizados/corregidos
  * Si OK: crear factura, renombrar archivo, marcar como processed
+ * NUEVO: Vincular con expectedInvoice si existe match exacto
  */
 export const POST: RequestHandler = async ({ params, request }) => {
   console.info(`🎯 [FINALIZE] Finalizando archivo pendiente ID ${params.id}...`);
@@ -30,7 +32,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     }
 
     const pendingFileRepo = new PendingFileRepository();
-    const pendingFile = pendingFileRepo.findById(id);
+    const pendingFile = await pendingFileRepo.findById(id);
 
     if (!pendingFile) {
       return json({ success: false, error: 'Archivo pendiente no encontrado' }, { status: 404 });
@@ -83,14 +85,14 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Buscar o crear emisor
     const emitterRepo = new EmitterRepository();
-    let emitter = emitterRepo.findByCUIT(normalizedCuit);
+    let emitter = await emitterRepo.findByCUIT(normalizedCuit);
 
     if (!emitter) {
       console.info(`➕ Creando nuevo emisor para ${normalizedCuit}`);
       const cuitNumeric = normalizedCuit.replace(/-/g, '');
       const personType = getPersonType(normalizedCuit);
 
-      emitter = emitterRepo.create({
+      emitter = await emitterRepo.create({
         cuit: normalizedCuit,
         cuitNumeric: cuitNumeric,
         name: `Emisor ${normalizedCuit}`,
@@ -132,9 +134,24 @@ export const POST: RequestHandler = async ({ params, request }) => {
     console.info(`📁 Copiando archivo a: ${processedFilePath}`);
     await copyFile(pendingFile.filePath, processedFilePath);
 
-    // Crear factura en BD
+    // Buscar expectedInvoice match exacto ANTES de crear factura
+    const expectedInvoiceRepo = new ExpectedInvoiceRepository();
+    const expectedInvoice = await expectedInvoiceRepo.findExactMatch(
+      normalizedCuit,
+      invoiceType,
+      extractedPointOfSale,
+      extractedInvoiceNumber
+    );
+
+    console.info(
+      expectedInvoice
+        ? `✅ Encontrado expectedInvoice match: ${expectedInvoice.id}`
+        : `⚠️ No encontrado expectedInvoice match`
+    );
+
+    // Crear factura en BD con FKs si existe match
     console.info(`💾 Creando factura en BD...`);
-    const invoice = invoiceRepo.create({
+    const invoice = await invoiceRepo.create({
       emitterCuit: normalizedCuit,
       issueDate: extractedDate,
       invoiceType: invoiceType,
@@ -147,11 +164,19 @@ export const POST: RequestHandler = async ({ params, request }) => {
       extractionMethod: 'MANUAL', // Fue corregido manualmente
       extractionConfidence: 100, // 100% porque fue validado manualmente
       requiresReview: false,
+      expectedInvoiceId: expectedInvoice?.id || undefined,
+      pendingFileId: id,
     });
 
-    // Vincular pending file con factura
+    // Actualizar pending file: vincular con factura y marcar como processed
     console.info(`🔗 Vinculando pending file ${id} con factura ${invoice.id}`);
-    pendingFileRepo.linkToInvoice(id, invoice.id);
+    await pendingFileRepo.updateStatus(id, 'processed');
+
+    // Si hay expectedInvoice match, marcar como matched
+    if (expectedInvoice) {
+      console.info(`📌 Marcando expectedInvoice ${expectedInvoice.id} como matched`);
+      await expectedInvoiceRepo.markAsMatched(expectedInvoice.id, id, 95);
+    }
 
     console.info(`✅ [FINALIZE] Completado exitosamente`);
 
@@ -166,6 +191,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         total: invoice.total,
         issueDate: invoice.issueDate,
         processedFile: invoice.processedFile,
+        linkedToExpectedInvoice: !!expectedInvoice,
       },
     });
   } catch (error) {

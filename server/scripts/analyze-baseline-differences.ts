@@ -258,9 +258,9 @@ async function generateReport() {
       if (!fieldStats[field.field]) {
         fieldStats[field.field] = { correct: 0, total: 0 };
       }
-      fieldStats[field.field].total++;
+      fieldStats[field.field]!.total++;
       if (field.match) {
-        fieldStats[field.field].correct++;
+        fieldStats[field.field]!.correct++;
       }
     });
   });

@@ -33,8 +33,8 @@ export const GET: RequestHandler = async ({ url }) => {
     const limit = limitParam ? parseInt(limitParam, 10) : undefined;
     const offset = offsetParam ? parseInt(offsetParam, 10) : undefined;
 
-    const pendingFiles = pendingFileRepo.list({ status, limit, offset });
-    const counts = pendingFileRepo.countByStatus();
+    const pendingFiles = await pendingFileRepo.list({ status, limit, offset });
+    const counts = await pendingFileRepo.countByStatus();
 
     // Calcular total
     const total = counts.pending + counts.reviewing + counts.processed + counts.failed;

@@ -1,0 +1,7 @@
+[
+  { "key": "SERVICIOS", "description": "Servicios" },
+  { "key": "INSUMOS", "description": "Insumos" },
+  { "key": "IMPUESTOS", "description": "Impuestos" },
+  { "key": "ALQUILERES", "description": "Alquileres" },
+  { "key": "HONORARIOS", "description": "Honorarios" }
+]

@@ -56,10 +56,10 @@ export const GET: RequestHandler = async ({ url }) => {
     }
 
     // Obtener facturas esperadas
-    const invoices = repo.list(filters);
+    const invoices = await repo.list(filters);
 
     // Obtener estadísticas
-    const stats = repo.countByStatus(filters.batchId);
+    const stats = await repo.countByStatus(filters.batchId);
 
     const total = Object.values(stats).reduce((sum: number, count: number) => sum + count, 0);
 

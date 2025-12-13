@@ -28,7 +28,8 @@
   "dependencies": {
     "date-fns": "^4.1.0",
     "pdfjs-dist": "^5.4.394",
-    "svelte-sonner": "^1.0.6"
+    "svelte-sonner": "^1.0.6",
+    "better-sqlite3": "^11.7.0"
   },
   "engines": {
     "node": ">=22.12.0",

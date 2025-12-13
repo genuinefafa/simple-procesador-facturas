@@ -26,20 +26,24 @@ export const POST: RequestHandler = async ({ request }) => {
     const invoiceRepo = new InvoiceRepository();
     const exportService = new FileExportService(OUTPUT_DIR);
 
-    const invoices = invoiceIds.map((id) => invoiceRepo.findById(id)).filter((inv) => inv !== null);
+    const invoices = (await Promise.all(invoiceIds.map((id) => invoiceRepo.findById(id)))).filter(
+      (inv) => inv !== null
+    );
 
     if (invoices.length === 0) {
       return json({ success: false, error: 'No se encontraron facturas' }, { status: 404 });
     }
 
     // Exportar cada factura
-    const results = invoices.map((invoice) => {
-      const originalPath = join(INPUT_DIR, invoice.originalFile);
-      return {
-        invoice,
-        result: exportService.exportInvoice(invoice, originalPath),
-      };
-    });
+    const results = await Promise.all(
+      invoices.map(async (invoice) => {
+        const originalPath = join(INPUT_DIR, invoice.originalFile);
+        return {
+          invoice,
+          result: await exportService.exportInvoice(invoice, originalPath),
+        };
+      })
+    );
 
     const successful = results.filter((r) => r.result.success);
     const failed = results.filter((r) => !r.result.success);

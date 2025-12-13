@@ -21,7 +21,7 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     const pendingFileRepo = new PendingFileRepository();
-    const pendingFile = pendingFileRepo.findById(id);
+    const pendingFile = await pendingFileRepo.findById(id);
 
     if (!pendingFile) {
       console.error(`❌ [FILE-SERVER] Archivo no encontrado en BD - ID: ${id}`);

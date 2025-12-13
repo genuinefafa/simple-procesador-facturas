@@ -31,9 +31,9 @@ sqlite.pragma('foreign_keys = ON');
 export const db = drizzle(sqlite, { schema });
 
 // Exportar también la conexión SQLite pura para casos especiales
-export const rawDb = sqlite;
+export const rawDb: Database.Database = sqlite;
 
 // Helper para cerrar la conexión (útil en tests)
-export function closeDb() {
+export function closeDb(): void {
   sqlite.close();
 }
