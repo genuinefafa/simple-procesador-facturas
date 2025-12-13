@@ -183,7 +183,11 @@
       >
         📤 Subir PDFs
       </button>
-      <button class="tab" class:active={activeTab === 'excel'} onclick={() => (activeTab = 'excel')}>
+      <button
+        class="tab"
+        class:active={activeTab === 'excel'}
+        onclick={() => (activeTab = 'excel')}
+      >
         📊 Importar Excel
       </button>
     </div>

@@ -315,7 +315,9 @@
                 title="Preview de {file.originalFilename}"
                 class="pdf-iframe"
               ></iframe>
-            {:else if file.originalFilename.toLowerCase().match(/\.(jpg|jpeg|png|tif|tiff|webp|heic|heif)$/)}
+            {:else if file.originalFilename
+              .toLowerCase()
+              .match(/\.(jpg|jpeg|png|tif|tiff|webp|heic|heif)$/)}
               <img
                 src="/api/pending-files/{file.id}/file"
                 alt="Preview de {file.originalFilename}"
@@ -447,7 +449,11 @@
                   </label>
                   <label>
                     Total
-                    <input type="number" step="0.01" bind:value={editFormData[file.id].extractedTotal} />
+                    <input
+                      type="number"
+                      step="0.01"
+                      bind:value={editFormData[file.id].extractedTotal}
+                    />
                   </label>
                 </div>
                 <div class="edit-actions">
