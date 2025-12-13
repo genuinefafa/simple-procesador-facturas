@@ -60,8 +60,6 @@ COPY --from=deps --chown=nodejs:nodejs /app/client/node_modules ./client/node_mo
 COPY --from=builder --chown=nodejs:nodejs /app/package*.json ./
 COPY --from=builder --chown=nodejs:nodejs /app/server ./server
 COPY --from=builder --chown=nodejs:nodejs /app/client/build ./client/build
-COPY --from=builder --chown=nodejs:nodejs /app/client/vite.config.ts ./client/
-COPY --from=builder --chown=nodejs:nodejs /app/client/svelte.config.js ./client/
 
 # Crear directorios de datos con permisos apropiados
 RUN mkdir -p data/input data/processed data/backup && \
@@ -85,6 +83,6 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 # Usar dumb-init para manejar señales correctamente
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-# Iniciar aplicación directamente con node (sin npm)
+# Iniciar aplicación compilada directamente con node
 WORKDIR /app
-CMD ["node", "./node_modules/.bin/vite", "preview", "--config", "./client/vite.config.ts", "--host", "0.0.0.0", "--port", "3000"]
+CMD ["node", "client/build/index.js"]
