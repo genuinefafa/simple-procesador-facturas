@@ -15,14 +15,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and Dependencies
+        uses: ./.github/actions/setup-node-deps
 
       - name: Run Prettier
         run: npm run format:check
@@ -38,14 +32,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and Dependencies
+        uses: ./.github/actions/setup-node-deps
 
       - name: Check TypeScript (Client)
         run: cd client && npx tsc --noEmit
@@ -61,14 +49,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and Dependencies
+        uses: ./.github/actions/setup-node-deps
 
       - name: Build frontend
         run: npm run build
@@ -89,14 +71,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
+      - name: Setup Node and Dependencies
+        uses: ./.github/actions/setup-node-deps
 
       - name: Run tests with coverage
         run: npm run test:coverage || echo "No tests yet"
@@ -119,11 +95,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
+      - name: Setup Node and Dependencies
+        uses: ./.github/actions/setup-node-deps
 
       - name: Run npm audit (production only)
         run: npm audit --omit=dev --audit-level=high

@@ -1,0 +1,15 @@
+name: "Setup Node.js and Dependencies"
+description: "Reutilizable action para checkout, setup Node.js y npm ci"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+        cache: "npm"
+
+    - name: Install dependencies
+      shell: bash
+      run: npm ci

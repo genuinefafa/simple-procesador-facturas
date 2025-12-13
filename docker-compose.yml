@@ -2,38 +2,60 @@ version: '3.8'
 
 services:
   app:
+    # Usar imagen del registry para producción
+    # image: ghcr.io/genuinefafa/simple-procesador-facturas:latest
+
+    # Para desarrollo local, construir desde Dockerfile
     build:
       context: .
       dockerfile: Dockerfile
+
     container_name: procesador-facturas
     restart: unless-stopped
+
     ports:
       - "${APP_PORT:-3000}:3000"
+
     volumes:
-      # Persistir base de datos
-      - ./data:/app/data
-      # Archivos de entrada (bind mount para subir facturas)
-      - ./data/input:/app/data/input
-      # Archivos procesados
-      - ./data/processed:/app/data/processed
-      # Backups opcionales
-      - ./data/backup:/app/data/backup
+      # Persistir base de datos SQLite
+      - procesador-data:/app/data
+      # Alternativa: bind mount para acceso directo a archivos
+      # - ./data:/app/data
+      # Credenciales y configs sensibles (se leen desde el host)
+      - ./google-credentials.json:/app/google-credentials.json:ro
+      - ./server/config.json:/app/server/config.json:ro
+      # Seeds y mapeos locales (no versionados en la imagen)
+      - ./server/scripts/seed-data:/app/server/scripts/seed-data:ro
+
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - HOST=0.0.0.0
       # Configuración de base de datos
       - DB_PATH=/app/data/database.sqlite
+
     networks:
       - procesador-network
+
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/"]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
 
+    # Límites de recursos (opcional pero recomendado)
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
   # Opcional: Reverse proxy con Nginx
-  # Si ya tienes tu propio reverse proxy, puedes comentar o eliminar esto
+  # Descomentar si necesitas HTTPS o balanceo de carga
   # nginx:
   #   image: nginx:alpine
   #   container_name: procesador-nginx
@@ -45,7 +67,8 @@ services:
   #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
   #     - ./ssl:/etc/nginx/ssl:ro
   #   depends_on:
-  #     - app
+  #     app:
+  #       condition: service_healthy
   #   networks:
   #     - procesador-network
 
@@ -54,4 +77,5 @@ networks:
     driver: bridge
 
 volumes:
-  data:
+  procesador-data:
+    driver: local
