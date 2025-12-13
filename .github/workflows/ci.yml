@@ -12,6 +12,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Node and Dependencies
         uses: ./.github/actions/setup-node-deps
 
@@ -26,6 +29,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Node and Dependencies
         uses: ./.github/actions/setup-node-deps
 
@@ -40,6 +46,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Node and Dependencies
         uses: ./.github/actions/setup-node-deps
 
@@ -59,6 +68,9 @@ jobs:
     needs: build
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Node and Dependencies
         uses: ./.github/actions/setup-node-deps
 
@@ -80,6 +92,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Setup Node and Dependencies
         uses: ./.github/actions/setup-node-deps
 
