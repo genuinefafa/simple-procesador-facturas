@@ -467,7 +467,7 @@ export class InvoiceProcessingService {
       const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(5, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
       console.info(`   🔍 Verificando duplicados: ${fullInvoiceNumber}`);
 
-      const existing = this.invoiceRepo.findByEmitterAndNumber(
+      const existing = await this.invoiceRepo.findByEmitterAndNumber(
         normalizedCuit,
         data.invoiceType,
         data.pointOfSale,
@@ -502,7 +502,7 @@ export class InvoiceProcessingService {
 
       // 7. Crear factura en BD
       console.info(`   💾 Guardando factura en base de datos...`);
-      const invoice = this.invoiceRepo.create({
+      const invoice = await this.invoiceRepo.create({
         emitterCuit: normalizedCuit,
         issueDate: formattedDate,
         invoiceType: data.invoiceType,
@@ -579,7 +579,7 @@ export class InvoiceProcessingService {
       extractedData.pointOfSale !== undefined &&
       extractedData.invoiceNumber !== undefined
     ) {
-      const exactMatch = this.expectedInvoiceRepo.findExactMatch(
+      const exactMatch = await this.expectedInvoiceRepo.findExactMatch(
         cuit,
         extractedData.invoiceType,
         extractedData.pointOfSale,
@@ -630,7 +630,7 @@ export class InvoiceProcessingService {
       criteria.totalRange = [extractedData.total - margin, extractedData.total + margin];
     }
 
-    const candidates = this.expectedInvoiceRepo.findCandidates(criteria);
+    const candidates = await this.expectedInvoiceRepo.findCandidates(criteria);
 
     if (candidates.length === 0) {
       return { type: 'NONE' };

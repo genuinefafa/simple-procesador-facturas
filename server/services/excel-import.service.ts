@@ -223,7 +223,7 @@ export class ExcelImportService {
     console.info(`   ❌ Errores encontrados: ${errors.length}`);
 
     // Crear lote de importación
-    const batch = this.repo.createBatch({
+    const batch = await this.repo.createBatch({
       filename,
       totalRows: rowCount + errors.length,
       importedRows: 0, // Se actualizará después
@@ -234,12 +234,12 @@ export class ExcelImportService {
     console.info(`   📦 Lote creado - ID: ${batch.id}`);
 
     // Insertar facturas en la base de datos
-    const imported = this.repo.createManyInvoices(rows, batch.id);
+    const imported = await this.repo.createManyInvoices(rows, batch.id);
 
     console.info(`   ✅ Facturas importadas: ${imported.length}`);
 
     // Actualizar estadísticas del lote
-    this.repo.updateBatch(batch.id, {
+    await this.repo.updateBatch(batch.id, {
       importedRows: imported.length,
       skippedRows: rowCount - imported.length,
     });
@@ -415,19 +415,19 @@ export class ExcelImportService {
   /**
    * Obtiene estadísticas de un lote
    */
-  getBatchStats(batchId: number): {
+  async getBatchStats(batchId: number): Promise<{
     batch: import('../database/repositories/expected-invoice.js').ImportBatch;
     statusCounts: Record<
       import('../database/repositories/expected-invoice.js').ExpectedInvoiceStatus,
       number
     >;
-  } {
-    const batch = this.repo.findBatchById(batchId);
+  }> {
+    const batch = await this.repo.findBatchById(batchId);
     if (!batch) {
       throw new Error(`Lote de importación no encontrado: ${batchId}`);
     }
 
-    const statusCounts = this.repo.countByStatus(batchId);
+    const statusCounts = await this.repo.countByStatus(batchId);
 
     return {
       batch,
@@ -438,9 +438,9 @@ export class ExcelImportService {
   /**
    * Lista todos los lotes de importación
    */
-  listBatches(
+  async listBatches(
     limit?: number
-  ): import('../database/repositories/expected-invoice.js').ImportBatch[] {
-    return this.repo.listBatches(limit);
+  ): Promise<import('../database/repositories/expected-invoice.js').ImportBatch[]> {
+    return await this.repo.listBatches(limit);
   }
 }

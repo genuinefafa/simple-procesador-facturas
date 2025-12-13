@@ -3,8 +3,6 @@
  * Permite sincronizar datos bajo demanda sin requerir conexión permanente
  */
 
-/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
-
 import { getGoogleIntegrationService } from './google-integration.service.js';
 import { EmitterRepository } from '../../database/repositories/emitter.js';
 import { InvoiceRepository } from '../../database/repositories/invoice.js';
@@ -204,7 +202,7 @@ export class GoogleSyncService {
     // PUSH: Subir facturas locales a Google
     if (mode === 'push' || mode === 'sync') {
       console.info('📤 Subiendo facturas a Google Sheets...');
-      const localInvoices = this.invoiceRepo.list({ limit: 10000 }); // Limitar por performance
+      const localInvoices = await this.invoiceRepo.list({ limit: 10000 }); // Limitar por performance
 
       for (const invoice of localInvoices) {
         try {
@@ -275,7 +273,7 @@ export class GoogleSyncService {
       for (const googleInvoice of googleInvoices) {
         try {
           // Verificar si ya existe localmente
-          const existing = this.invoiceRepo.findByEmitterAndNumber(
+          const existing = await this.invoiceRepo.findByEmitterAndNumber(
             googleInvoice.emisorCuit,
             googleInvoice.tipoComprobante as InvoiceType,
             googleInvoice.puntoVenta,
@@ -307,7 +305,7 @@ export class GoogleSyncService {
             }
 
             // Crear factura local
-            this.invoiceRepo.create({
+            await this.invoiceRepo.create({
               emitterCuit: googleInvoice.emisorCuit,
               issueDate,
               invoiceType: googleInvoice.tipoComprobante as InvoiceType,
@@ -356,7 +354,7 @@ export class GoogleSyncService {
     // PUSH: Subir facturas esperadas locales a Google
     if (mode === 'push' || mode === 'sync') {
       console.info('📤 Subiendo facturas esperadas a Google Sheets...');
-      const localExpected = this.expectedInvoiceRepo.list({ limit: 10000 });
+      const localExpected = await this.expectedInvoiceRepo.list({ limit: 10000 });
 
       // Agrupar por lotes para importar eficientemente
       const loteId = `SYNC-${Date.now()}`;
@@ -419,7 +417,7 @@ export class GoogleSyncService {
       for (const googleEsp of googleExpected) {
         try {
           // Verificar si ya existe localmente
-          const existing = this.expectedInvoiceRepo.findExactMatch(
+          const existing = await this.expectedInvoiceRepo.findExactMatch(
             googleEsp.cuit,
             googleEsp.tipoComprobante,
             googleEsp.puntoVenta,
@@ -463,7 +461,7 @@ export class GoogleSyncService {
 
       // Crear lote e importar facturas nuevas
       if (newInvoices.length > 0) {
-        const batch = this.expectedInvoiceRepo.createBatch({
+        const batch = await this.expectedInvoiceRepo.createBatch({
           filename: `google-sync-${format(new Date(), 'yyyy-MM-dd-HH-mm-ss')}.json`,
           totalRows: googleExpected.length,
           importedRows: 0,
@@ -471,11 +469,11 @@ export class GoogleSyncService {
           errorRows: 0,
         });
 
-        const created = this.expectedInvoiceRepo.createManyInvoices(newInvoices, batch.id);
+        const created = await this.expectedInvoiceRepo.createManyInvoices(newInvoices, batch.id);
         stats.downloaded = created.length;
 
         // Actualizar estadísticas del lote
-        this.expectedInvoiceRepo.updateBatch(batch.id, {
+        await this.expectedInvoiceRepo.updateBatch(batch.id, {
           importedRows: created.length,
           errorRows: stats.errors,
         });
