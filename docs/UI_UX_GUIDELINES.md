@@ -1,4 +1,4 @@
-# 🚫 UI/UX Guidelines - LO QUE NO SE DEBE HACER
+# UI/UX Guidelines
 
 ## ❌ PROHIBIDO TERMINANTEMENTE
 
@@ -190,5 +190,57 @@ Si querés usar una librería:
 
 ---
 
-Última actualización: 2025-11-20
-**Esta es una regla no negociable del proyecto.**
+---
+
+## 🧭 Navigation & Layout
+- Sidebar expandida por defecto (desktop-first), persistente entre rutas.
+- Rutas limpias: `/importar`, `/revisar`, `/facturas`, `/sync` (baja prioridad), `/anotar/[id]` (baja prioridad).
+- Evitar navegación por tabs dentro de una sola página; usar rutas SvelteKit.
+- Topbar minimal con espacio para buscador global.
+- Contenedores full-width; evitar `max-width: 1200px` heredado.
+
+## 📥 Importación y 📑 Revisión
+- Entrada única en `/importar` con dropzone unificada.
+- Detección por tipo:
+  - Excel/CSV → importar y procesar inmediatamente (crea batch; clave: CUIT, tipo, PV, número).
+  - PDFs/Imágenes → subir solamente; no procesar automáticamente.
+- Procesamiento manual en `/revisar`:
+  - Listar `pending_files` y acción por ítem “Procesar”.
+  - Calcular hash de contenido (SHA-256) si falta; mostrar hash corto.
+  - Preview y sugerencias desde reporte fisco con scores; indicar origen (OCR vs PDF_TEXT).
+  - Acciones: aplicar sugerencia, editar manual, descartar.
+
+## 🔐 Hashing y 🏷️ Naming
+- Guardar SHA-256 completo en DB; mostrar hash corto (8–10 chars) en la UI.
+- Dedupe por contenido (hash), no por nombre: avisar y permitir sobrescribir o descartar.
+- Export/nombre: `processed/yyyy-mm/Alias CUIT YYYY-MM-DD Tipo PV Numero [cat].pdf`
+  - Alias (emisor corto), CUIT, fecha emisión (`YYYY-MM-DD`).
+  - Tipo: `FACA` | `NCRA` | `NDDA`.
+  - PV: padded a 5; Número: padded a 8; categoría entre corchetes.
+- Colisiones: resolver con sufijo o hash corto.
+
+## 🔎 Buscador Global
+- Input en topbar para facturas procesadas.
+- Filtros: texto libre (alias, CUIT, tipo, categoría), rango de fechas, rango de montos.
+- Resultados con acciones rápidas (ver, abrir archivo, copiar hash corto).
+
+## ♿ Accesibilidad y Feedback
+- Sin `alert`, `confirm`, `prompt`.
+- Toasts para feedback no intrusivo; dialogs para confirmaciones.
+- ARIA y navegación por teclado correctos (Melt UI builders).
+- Validación inline en formularios.
+
+## 🎨 Styling
+- CSS vanilla con tokens compartidos (colores, espaciado, tipografía) y estilos por componente.
+- Consistencia en espaciado y escala tipográfica; evitar valores hardcoded repetidos.
+- Desktop-first; mobile fuera de alcance por ahora.
+
+## 🧩 Librería de Componentes
+- Adoptar Melt UI (builders ≈ composables de Vue) para componentes headless accesibles.
+- Primitives en `client/src/lib/components/ui`: Button, Input, Dialog, Tabs, Badge, Modal.
+- Reutilizar `FilePreview` y `RevisionTable`; dividir vistas grandes en piezas pequeñas.
+
+---
+
+Última actualización: 2025-12-13
+**Estas pautas son no negociables en el proyecto.**
