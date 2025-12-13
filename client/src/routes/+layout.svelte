@@ -37,12 +37,7 @@
 
     <nav class="sidebar-nav">
       {#each navItems as item}
-        <a
-          href={item.href}
-          class="nav-item"
-          class:active={isActive(item.href)}
-          title={item.label}
-        >
+        <a href={item.href} class="nav-item" class:active={isActive(item.href)} title={item.label}>
           <span class="nav-icon">{item.icon}</span>
           <span class="nav-label">{item.label}</span>
         </a>
@@ -67,8 +62,7 @@
     margin: 0;
     padding: 0;
     font-family:
-      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell,
-      sans-serif;
+      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     background: #f5f5f5;
     color: #333;
   }

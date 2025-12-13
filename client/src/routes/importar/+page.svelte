@@ -142,7 +142,11 @@
       >
         📤 Subir PDFs
       </button>
-      <button class="tab" class:active={activeTab === 'excel'} onclick={() => (activeTab = 'excel')}>
+      <button
+        class="tab"
+        class:active={activeTab === 'excel'}
+        onclick={() => (activeTab = 'excel')}
+      >
         📊 Importar Excel
       </button>
     </div>
@@ -152,10 +156,7 @@
   <div class="tab-content">
     {#if activeTab === 'upload'}
       <!-- UPLOAD TAB -->
-      <UploadSection
-        onUpload={uploadAndProcess}
-        isLoading={uploading || processing}
-      />
+      <UploadSection onUpload={uploadAndProcess} isLoading={uploading || processing} />
     {:else if activeTab === 'excel'}
       <!-- EXCEL TAB -->
       <div class="excel-section">
