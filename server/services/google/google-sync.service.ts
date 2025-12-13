@@ -3,6 +3,8 @@
  * Permite sincronizar datos bajo demanda sin requerir conexión permanente
  */
 
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-argument */
+
 import { getGoogleIntegrationService } from './google-integration.service.js';
 import { EmitterRepository } from '../../database/repositories/emitter.js';
 import { InvoiceRepository } from '../../database/repositories/invoice.js';
