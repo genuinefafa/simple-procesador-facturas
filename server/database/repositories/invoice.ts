@@ -2,7 +2,7 @@
  * Repository para la gestión de facturas (Drizzle ORM)
  */
 
-import { eq, and } from 'drizzle-orm';
+import { eq, and, count } from 'drizzle-orm';
 import { db } from '../db';
 import { facturas, type Factura } from '../schema';
 import type { InvoiceType, Currency, ExtractionMethod } from '../../utils/types';
@@ -39,15 +39,15 @@ export class InvoiceRepository {
       emitterCuit: row.emisorCuit,
       templateUsedId: row.templateUsadoId || undefined,
       issueDate: new Date(row.fechaEmision),
-      invoiceType: row.tipoComprobante as InvoiceType,
+      invoiceType: row.tipoComprobante,
       pointOfSale: row.puntoVenta,
       invoiceNumber: row.numeroComprobante,
       fullInvoiceNumber: row.comprobanteCompleto,
       total: row.total || 0,
-      currency: (row.moneda as Currency) || 'ARS',
+      currency: row.moneda || 'ARS',
       originalFile: row.archivoOriginal,
       processedFile: row.archivoProcesado,
-      fileType: row.tipoArchivo as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN',
+      fileType: row.tipoArchivo,
       extractionMethod: row.metodoExtraccion as ExtractionMethod,
       extractionConfidence: row.confianzaExtraccion || undefined,
       manuallyValidated: row.validadoManualmente ?? false,
@@ -87,26 +87,28 @@ export class InvoiceRepository {
 
     const result = await db
       .insert(facturas)
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       .values({
         emisorCuit: data.emitterCuit,
         templateUsadoId: data.templateUsedId ?? null,
         fechaEmision: issueDateStr,
-        tipoComprobante: data.invoiceType as any,
+        tipoComprobante: data.invoiceType,
         puntoVenta: data.pointOfSale,
         numeroComprobante: data.invoiceNumber,
         comprobanteCompleto: fullInvoiceNumber,
         total: data.total ?? null,
-        moneda: (data.currency || 'ARS') as any,
+        moneda: data.currency || 'ARS',
         archivoOriginal: data.originalFile,
         archivoProcesado: data.processedFile,
-        tipoArchivo: data.fileType as any,
-        metodoExtraccion: data.extractionMethod as any,
+        tipoArchivo: data.fileType,
+        metodoExtraccion: data.extractionMethod,
         confianzaExtraccion: data.extractionConfidence ?? null,
         validadoManualmente: false,
         requiereRevision: data.requiresReview ?? false,
         expectedInvoiceId: data.expectedInvoiceId ?? null,
         pendingFileId: data.pendingFileId ?? null,
         categoryId: data.categoryId ?? null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
       .returning();
 
@@ -134,7 +136,7 @@ export class InvoiceRepository {
       .where(
         and(
           eq(facturas.emisorCuit, emitterCuit),
-          eq(facturas.tipoComprobante, type as any),
+          eq(facturas.tipoComprobante, type),
           eq(facturas.puntoVenta, pointOfSale),
           eq(facturas.numeroComprobante, number)
         )
@@ -161,7 +163,7 @@ export class InvoiceRepository {
       conditions.push(eq(facturas.emisorCuit, filters.emitterCuit));
     }
     if (filters?.invoiceType) {
-      conditions.push(eq(facturas.tipoComprobante, filters.invoiceType as any));
+      conditions.push(eq(facturas.tipoComprobante, filters.invoiceType));
     }
     if (filters?.requiresReview !== undefined) {
       conditions.push(eq(facturas.requiereRevision, filters.requiresReview));
@@ -170,7 +172,7 @@ export class InvoiceRepository {
     let query = db.select().from(facturas);
 
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     // Execute query first, then apply limit/offset in JS
@@ -217,9 +219,9 @@ export class InvoiceRepository {
       conditions.push(eq(facturas.requiereRevision, filters.requiresReview));
     }
 
-    let query = db.select({ count: require('drizzle-orm').count() }).from(facturas);
+    let query = db.select({ count: count() }).from(facturas);
     if (conditions.length > 0) {
-      query = query.where(and(...conditions)) as any;
+      query = query.where(and(...conditions)) as typeof query;
     }
 
     const result = await query;
@@ -234,7 +236,7 @@ export class InvoiceRepository {
       categoryId?: number | null;
     }
   ): Promise<Invoice | null> {
-    const updates: any = {};
+    const updates: Record<string, number | null> = {};
     if (data.expectedInvoiceId !== undefined) updates.expectedInvoiceId = data.expectedInvoiceId;
     if (data.pendingFileId !== undefined) updates.pendingFileId = data.pendingFileId;
     if (data.categoryId !== undefined) updates.categoryId = data.categoryId;

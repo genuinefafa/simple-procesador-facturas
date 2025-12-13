@@ -15,7 +15,8 @@ import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types
 import { extractCUITsWithContext } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
 import { pdf } from 'pdf-to-img';
-// @ts-ignore: no type definitions for heic-convert
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - no type definitions available for heic-convert
 import convert from 'heic-convert';
 
 // Configuración de OCR
@@ -601,9 +602,9 @@ export class OCRExtractor {
             }
           }
 
-          total = bestCandidate!.value;
+          total = bestCandidate.value;
           console.info(`   ✅ Total detectado con heurística (score: ${bestScore}): ${total}`);
-          console.info(`      Línea: "${bestCandidate!.line.trim()}"`);
+          console.info(`      Línea: "${bestCandidate.line.trim()}"`);
         }
       }
 

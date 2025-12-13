@@ -89,7 +89,7 @@ export class PendingFileRepository {
         extractionConfidence: data.extractionConfidence || null,
         extractionMethod: data.extractionMethod || null,
         extractionErrors: errorsJson,
-        status: (data.status || 'pending') as any,
+        status: data.status || 'pending',
       })
       .returning();
 
@@ -111,14 +111,14 @@ export class PendingFileRepository {
     limit?: number;
     offset?: number;
   }): Promise<PendingFile[]> {
-    let queryAux = db.select().from(pendingFiles);
+    const queryAux = db.select().from(pendingFiles);
 
-    function createQuery() {
+    function createQuery(): typeof queryAux {
       if (filters?.status) {
         if (Array.isArray(filters.status)) {
-          return queryAux.where(inArray(pendingFiles.status, filters.status as any));
+          return queryAux.where(inArray(pendingFiles.status, filters.status)) as typeof queryAux;
         } else {
-          return queryAux.where(eq(pendingFiles.status, filters.status as any));
+          return queryAux.where(eq(pendingFiles.status, filters.status)) as typeof queryAux;
         }
       }
       return queryAux;
@@ -153,7 +153,7 @@ export class PendingFileRepository {
       extractionErrors?: string | string[];
     }
   ): Promise<PendingFile> {
-    const updates: any = {};
+    const updates: Record<string, string | number | null> = {};
 
     if (data.extractedCuit !== undefined) updates.extractedCuit = data.extractedCuit;
     if (data.extractedDate !== undefined) updates.extractedDate = data.extractedDate;
@@ -196,7 +196,7 @@ export class PendingFileRepository {
   async updateStatus(id: number, status: PendingFileStatus): Promise<PendingFile> {
     const result = await db
       .update(pendingFiles)
-      .set({ status: status as any })
+      .set({ status: status })
       .where(eq(pendingFiles.id, id))
       .returning();
 

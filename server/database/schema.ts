@@ -7,10 +7,14 @@ import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core
 import { sql } from 'drizzle-orm';
 
 // Forward declarations for circular references
-declare let pendingFiles: any;
-declare let expectedInvoices: any;
-declare let facturas: any;
-declare let categories: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare let _pendingFiles: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare let _expectedInvoices: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare let _facturas: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare let _categories: any;
 
 // =============================================================================
 // TEMPLATES DE EXTRACCIÓN

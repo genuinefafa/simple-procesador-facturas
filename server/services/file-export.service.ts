@@ -49,7 +49,11 @@ export class FileExportService {
    * @param options - Opciones de exportación
    * @returns Resultado de la exportación
    */
-  exportInvoice(invoice: Invoice, originalPath: string, options: ExportOptions = {}): ExportResult {
+  async exportInvoice(
+    invoice: Invoice,
+    originalPath: string,
+    options: ExportOptions = {}
+  ): Promise<ExportResult> {
     try {
       const outputDir = options.outputDir || this.defaultOutputDir;
       const documentKind = options.documentKind || 'FAC';
@@ -101,7 +105,7 @@ export class FileExportService {
       console.info(`   ✅ Archivo exportado: ${relativePath}`);
 
       // Actualizar BD con la nueva ruta (relativa)
-      this.invoiceRepo.updateProcessedFile(invoice.id, relativePath);
+      await this.invoiceRepo.updateProcessedFile(invoice.id, relativePath);
 
       return {
         success: true,
@@ -202,14 +206,16 @@ export class FileExportService {
    * @param options - Opciones de exportación
    * @returns Array de resultados
    */
-  exportBatch(
+  async exportBatch(
     invoices: Array<{ invoice: Invoice; originalPath: string }>,
     options: ExportOptions = {}
-  ): ExportResult[] {
+  ): Promise<ExportResult[]> {
     console.info(`\n📦 [EXPORT] Exportando ${invoices.length} archivo(s)...`);
 
-    const results = invoices.map(({ invoice, originalPath }) =>
-      this.exportInvoice(invoice, originalPath, options)
+    const results = await Promise.all(
+      invoices.map(({ invoice, originalPath }) =>
+        this.exportInvoice(invoice, originalPath, options)
+      )
     );
 
     const successful = results.filter((r) => r.success).length;

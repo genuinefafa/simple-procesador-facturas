@@ -137,7 +137,7 @@ export class ExpectedInvoiceRepository {
       notes?: string;
     }
   ): Promise<ImportBatch> {
-    const updates: any = {};
+    const updates: Record<string, number | string> = {};
     if (data.importedRows !== undefined) updates.importedRows = data.importedRows;
     if (data.skippedRows !== undefined) updates.skippedRows = data.skippedRows;
     if (data.errorRows !== undefined) updates.errorRows = data.errorRows;
@@ -207,7 +207,7 @@ export class ExpectedInvoiceRepository {
             cae: invoice.cae || null,
             caeExpiration: invoice.caeExpiration || null,
             currency: invoice.currency || 'ARS',
-            status: 'pending' as any,
+            status: 'pending',
           })
           .returning();
 
@@ -237,6 +237,7 @@ export class ExpectedInvoiceRepository {
     totalRange?: [number, number];
     status?: ExpectedInvoiceStatus[];
   }): Promise<ExpectedInvoice[]> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const conditions: any[] = [eq(expectedInvoices.cuit, criteria.cuit)];
 
     if (criteria.dateRange) {
@@ -258,15 +259,15 @@ export class ExpectedInvoiceRepository {
     }
 
     if (!criteria.status || criteria.status.length === 0) {
-      conditions.push(eq(expectedInvoices.status, 'pending' as any));
+      conditions.push(eq(expectedInvoices.status, 'pending'));
     } else {
-      conditions.push(inArray(expectedInvoices.status, criteria.status as any));
+      conditions.push(inArray(expectedInvoices.status, criteria.status));
     }
 
     const result = await db
       .select()
       .from(expectedInvoices)
-      .where(and(...conditions))
+      .where(and(...(conditions as Parameters<typeof and>)))
       .orderBy(desc(expectedInvoices.issueDate));
 
     return result.map((row) => this.mapDrizzleToExpectedInvoice(row));
@@ -279,13 +280,14 @@ export class ExpectedInvoiceRepository {
     limit?: number;
     offset?: number;
   }): Promise<ExpectedInvoiceWithFile[]> {
-    const conditions: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-duplicate-type-constituents
+    const conditions: (ReturnType<typeof eq> | ReturnType<typeof inArray>)[] = [];
 
     if (filters?.status) {
       if (Array.isArray(filters.status)) {
-        conditions.push(inArray(expectedInvoices.status, filters.status as any));
+        conditions.push(inArray(expectedInvoices.status, filters.status));
       } else {
-        conditions.push(eq(expectedInvoices.status, filters.status as any));
+        conditions.push(eq(expectedInvoices.status, filters.status));
       }
     }
 
@@ -298,9 +300,10 @@ export class ExpectedInvoiceRepository {
     }
 
     // Build query step by step to avoid type issues with leftJoin
-    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    const whereClause =
+      conditions.length > 0 ? and(...(conditions as Parameters<typeof and>)) : undefined;
 
-    let query: any = db
+    let query = db
       .select({
         expectedInvoice: expectedInvoices,
         filePath: pendingFiles.filePath,
@@ -316,12 +319,12 @@ export class ExpectedInvoiceRepository {
         })
         .from(expectedInvoices)
         .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
-        .where(whereClause);
+        .where(whereClause) as typeof query;
     }
 
     // Execute the query and apply post-query operations
-    const result = await (query as any);
-    let filtered = result as any[];
+    const result = await query;
+    let filtered = result;
 
     // Sort
     filtered.sort(
@@ -360,7 +363,7 @@ export class ExpectedInvoiceRepository {
           eq(expectedInvoices.invoiceType, type),
           eq(expectedInvoices.pointOfSale, pointOfSale),
           eq(expectedInvoices.invoiceNumber, invoiceNumber),
-          eq(expectedInvoices.status, 'pending' as any)
+          eq(expectedInvoices.status, 'pending')
         )
       );
 
@@ -380,7 +383,7 @@ export class ExpectedInvoiceRepository {
       ExpectedInvoice & { matchScore: number; matchedFields: string[]; totalFieldsCompared: number }
     >
   > {
-    const conditions: any[] = [eq(expectedInvoices.status, 'pending' as any)];
+    const conditions: ReturnType<typeof eq>[] = [eq(expectedInvoices.status, 'pending')];
 
     if (criteria.cuit) {
       conditions.push(eq(expectedInvoices.cuit, criteria.cuit));
@@ -469,13 +472,13 @@ export class ExpectedInvoiceRepository {
     limit?: number;
     offset?: number;
   }): Promise<ExpectedInvoice[]> {
-    const conditions: any[] = [];
+    const conditions: ReturnType<typeof eq | typeof inArray>[] = [];
 
     if (filters?.status) {
       if (Array.isArray(filters.status)) {
-        conditions.push(inArray(expectedInvoices.status, filters.status as any));
+        conditions.push(inArray(expectedInvoices.status, filters.status));
       } else {
-        conditions.push(eq(expectedInvoices.status, filters.status as any));
+        conditions.push(eq(expectedInvoices.status, filters.status));
       }
     }
 
@@ -487,7 +490,7 @@ export class ExpectedInvoiceRepository {
       conditions.push(eq(expectedInvoices.cuit, filters.cuit));
     }
 
-    let query: any;
+    let query;
 
     if (conditions.length > 0) {
       query = await db
@@ -499,7 +502,7 @@ export class ExpectedInvoiceRepository {
     }
 
     // Sort
-    let result = (query as any[]).sort(
+    let result = query.sort(
       (a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime()
     );
 
@@ -524,7 +527,7 @@ export class ExpectedInvoiceRepository {
     const result = await db
       .update(expectedInvoices)
       .set({
-        status: 'matched' as any,
+        status: 'matched',
         matchedPendingFileId: pendingFileId,
         matchConfidence: confidence,
       })
@@ -541,7 +544,7 @@ export class ExpectedInvoiceRepository {
   async markAsManual(id: number, notes?: string): Promise<ExpectedInvoice> {
     const result = await db
       .update(expectedInvoices)
-      .set({ status: 'manual' as any, notes: notes || null })
+      .set({ status: 'manual', notes: notes || null })
       .where(eq(expectedInvoices.id, id))
       .returning();
 
@@ -555,7 +558,7 @@ export class ExpectedInvoiceRepository {
   async markAsIgnored(id: number, notes?: string): Promise<ExpectedInvoice> {
     const result = await db
       .update(expectedInvoices)
-      .set({ status: 'ignored' as any, notes: notes || null })
+      .set({ status: 'ignored', notes: notes || null })
       .where(eq(expectedInvoices.id, id))
       .returning();
 

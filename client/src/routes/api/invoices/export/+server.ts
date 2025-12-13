@@ -35,13 +35,15 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     // Exportar cada factura
-    const results = invoices.map((invoice) => {
-      const originalPath = join(INPUT_DIR, invoice.originalFile);
-      return {
-        invoice,
-        result: exportService.exportInvoice(invoice, originalPath),
-      };
-    });
+    const results = await Promise.all(
+      invoices.map(async (invoice) => {
+        const originalPath = join(INPUT_DIR, invoice.originalFile);
+        return {
+          invoice,
+          result: await exportService.exportInvoice(invoice, originalPath),
+        };
+      })
+    );
 
     const successful = results.filter((r) => r.result.success);
     const failed = results.filter((r) => !r.result.success);
