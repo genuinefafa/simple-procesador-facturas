@@ -101,11 +101,12 @@ coverage/
 *.lcov
 
 # Archivos de configuración local
+config.json
 config.local.json
 config.override.json
+server/config.json
 .local-invoice-categories.json
 categorias.json
-.local-invoice-categories.json
 
 # Archivos de prueba generados
 test-output/
@@ -116,6 +117,10 @@ test-results/
 *.key
 *.cert
 *.crt
+
+# Google Cloud credentials
+google-credentials.json
+.credentials/
 
 # Caché
 .cache/

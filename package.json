@@ -12,6 +12,7 @@
 		"preview": "npm run preview -w client",
 		"test": "npm run test -w server",
 		"test:coverage": "npm run test:coverage -w server",
+		"test:google": "tsx scripts/test-google-config.ts",
 		"lint": "npm run lint --workspaces --if-present",
 		"format": "npm run format --workspaces --if-present",
 		"format:check": "npm run format:check --workspaces --if-present",
@@ -44,5 +45,12 @@
 	"workspaces": [
 		"client",
 		"server"
-	]
+	],
+	"dependencies": {
+		"googleapis": "^167.0.0"
+	},
+	"devDependencies": {
+		"ts-node": "^10.9.2",
+		"tsx": "^4.21.0"
+	}
 }

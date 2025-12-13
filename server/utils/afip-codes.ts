@@ -154,7 +154,8 @@ export function extractAFIPCodeFromText(text: string): AFIPDocumentType | undefi
   ];
 
   for (let i = 0; i < patterns.length; i++) {
-    const pattern = patterns[i]!;
+    const pattern = patterns[i];
+    if (!pattern) continue;
     const match = text.match(pattern);
     if (match) {
       // El primer patrón captura la letra del comprobante Y el código

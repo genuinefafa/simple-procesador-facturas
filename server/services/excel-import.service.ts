@@ -267,7 +267,8 @@ export class ExcelImportService {
       for (const pattern of patterns) {
         const index = normalizedHeaders.findIndex((h) => h.includes(pattern));
         if (index !== -1) {
-          return headers[index]!;
+          const header = headers[index];
+          if (header) return header;
         }
       }
       throw new Error(`No se pudo auto-detectar columna para patrones: ${patterns.join(', ')}`);
@@ -324,15 +325,23 @@ export class ExcelImportService {
 
     // Si es un objeto Date de Excel
     if (rawDate instanceof Date) {
-      issueDate = rawDate.toISOString().split('T')[0]!; // YYYY-MM-DD
+      const datePart = rawDate.toISOString().split('T')[0];
+      if (!datePart) {
+        throw new Error('Error al convertir fecha de Excel');
+      }
+      issueDate = datePart; // YYYY-MM-DD
     } else {
-      issueDate = getCellStringValue(rawDate).trim();
+      const dateStr = getCellStringValue(rawDate);
+      if (!dateStr) {
+        throw new Error('Fecha vacía o inválida');
+      }
+      issueDate = dateStr.trim();
       // Si es formato DD/MM/YYYY o DD-MM-YYYY
       if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(issueDate)) {
-        const parts = issueDate.split(/[/-]/);
-        const day = parts[0]!;
-        const month = parts[1]!;
-        const year = parts[2]!;
+        const [day, month, year] = issueDate.split(/[/-]/);
+        if (!day || !month || !year) {
+          throw new Error(`Formato de fecha inválido: ${issueDate}`);
+        }
         issueDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       }
       // Si es formato YYYY-MM-DD (ya válido)

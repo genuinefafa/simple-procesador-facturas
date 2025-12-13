@@ -10,6 +10,7 @@
     "test:integration": "vitest run tests/integration",
     "test:coverage": "vitest run --coverage",
     "test:watch": "vitest watch",
+    "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write \"**/*.ts\"",

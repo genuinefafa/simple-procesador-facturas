@@ -1,94 +1,54 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast, Toaster } from 'svelte-sonner';
-  import {
-    formatCuit,
-    formatDateISO,
-    formatNumber,
-    formatDateShort,
-    getFullDateForTooltip,
-    getInvoiceTypeIcon,
-    getConfidenceColorClass,
-    getExtractionMethodLabel,
-  } from '$lib/formatters';
-  import RevisionTable from '$lib/components/RevisionTable.svelte';
-  import FilePreview from '$lib/components/FilePreview.svelte';
 
-  let reviewFilter = $state<'pending' | 'all'>('pending'); // Filtro para tab Revisar
-
-  // Estado de pestañas y cargas
-  let activeTab = $state<'excel' | 'upload' | 'review' | 'invoices' | 'revision'>('upload');
-  let loading = $state<boolean>(false);
-
-  // Tipos mínimos para evitar errores de TS
-  type PendingFileItem = {
+  interface PendingInvoice {
     id: number;
-    originalFilename: string;
-    uploadDate: string;
-    fileSize?: number | null;
-    extractionConfidence?: number | null;
-    extractionMethod?: string | null;
-    extractionErrors?: string | null;
-    extractedCuit?: string | null;
-    extractedDate?: string | null;
-    extractedType?: string | null;
-    extractedPointOfSale?: number | null;
-    extractedInvoiceNumber?: number | null;
-    extractedTotal?: number | null;
-    status?: 'pending' | 'reviewing' | 'processed' | 'failed';
-  };
-
-  type InvoiceItem = {
-    id: number;
-    fullInvoiceNumber: string;
-    emitterName: string;
-    emitterAlias?: string | null;
     emitterCuit: string;
-    extractionConfidence?: number | null;
-    issueDate?: string | null;
+    emitterName: string;
+    emitterAlias: string | null;
+    issueDate: string;
+    invoiceType: string;
+    fullInvoiceNumber: string;
     total: number | null;
     originalFile: string;
-  };
+    extractionConfidence: number | null;
+    requiresReview: boolean;
+    manuallyValidated: boolean;
+  }
 
-  type KnownInvoice = {
+  interface PendingFileItem {
     id: number;
-    source: 'expected' | 'final';
-    emitterName?: string | null;
-    emitterCuit?: string | null;
-    invoiceType?: string | null;
-    pointOfSale?: number | null;
-    invoiceNumber?: number | null;
-    issueDate?: string | null;
-    total?: number | null;
-    categoryId?: number | null;
-  };
+    originalFilename: string;
+    filePath: string;
+    fileSize: number | null;
+    uploadDate: string;
+    extractedCuit: string | null;
+    extractedDate: string | null;
+    extractedTotal: number | null;
+    extractedType: string | null;
+    extractedPointOfSale: number | null;
+    extractedInvoiceNumber: number | null;
+    extractionConfidence: number | null;
+    extractionMethod: string | null; // PDF_TEXT, OCR, TEMPLATE, MANUAL
+    extractionErrors: string | null;
+    status: 'pending' | 'reviewing' | 'processed' | 'failed';
+    invoiceId: number | null;
+    createdAt: string;
+    updatedAt: string;
+  }
 
-  type CategoryItem = { id: number; name: string };
-
-  // Estado de datos principales
-  let invoices = $state<InvoiceItem[]>([]);
+  let invoices: PendingInvoice[] = $state([]);
+  let pendingFilesToReview: PendingFileItem[] = $state([]);
+  let pendingFilesStats = $state({ total: 0, pending: 0, reviewing: 0, processed: 0, failed: 0 });
+  let loading = $state(false);
+  let uploading = $state(false);
+  let processing = $state(false);
+  let uploadedFiles: File[] = $state([]);
   let selectedInvoices = $state<Set<number>>(new Set());
-
-  let pendingFilesToReview = $state<PendingFileItem[]>([]);
-  let pendingFilesStats = $state<{
-    total: number;
-    pending: number;
-    reviewing: number;
-    processed: number;
-    failed: number;
-  } | null>(null);
   let selectedPendingFiles = $state<Set<number>>(new Set());
-
-  // Estado de subida y procesamiento
-  let uploadedFiles = $state<File[]>([]);
-  let uploading = $state<boolean>(false);
-  let processing = $state<boolean>(false);
-
-  // Conocidos (para Revisión)
-  let knownInvoices = $state<KnownInvoice[]>([]);
-  let knownCategories = $state<CategoryItem[]>([]);
-  let selectedKnown = $state<KnownInvoice | null>(null);
-  let selectedKnownCategoryId = $state<number | null>(null);
+  let activeTab = $state<'upload' | 'review' | 'invoices' | 'excel' | 'google'>('upload');
+  let reviewFilter = $state<'pending' | 'all'>('pending'); // Filtro para tab Revisar
 
   // Estado para edición inline
   let editingFile = $state<number | null>(null);
@@ -101,12 +61,72 @@
   // Estado para matches de expected invoices
   let matchesData = $state<Record<number, any>>({});
 
+  // Estado para Google Sync
+  type SyncMode = 'sync' | 'push' | 'pull';
+  type SheetType = 'emisores' | 'facturas' | 'esperadas' | 'logs';
+
+  interface SyncState {
+    loading: boolean;
+    lastResult: SyncResult | null;
+  }
+
+  interface SyncResult {
+    success: boolean;
+    sheet: SheetType;
+    mode: SyncMode;
+    stats: {
+      uploaded: number;
+      downloaded: number;
+      conflicts: number;
+      errors: number;
+    };
+    details?: string[];
+    error?: string;
+  }
+
+  let syncStates = $state<Record<SheetType, SyncState>>({
+    emisores: { loading: false, lastResult: null },
+    facturas: { loading: false, lastResult: null },
+    esperadas: { loading: false, lastResult: null },
+    logs: { loading: false, lastResult: null },
+  });
+
+  const sheets: Array<{
+    type: SheetType;
+    name: string;
+    description: string;
+    icon: string;
+  }> = [
+    {
+      type: 'emisores',
+      name: 'Emisores',
+      description: 'Proveedores/Emisores de facturas',
+      icon: '🏢',
+    },
+    {
+      type: 'facturas',
+      name: 'Facturas Procesadas',
+      description: 'Facturas ya procesadas y validadas',
+      icon: '📄',
+    },
+    {
+      type: 'esperadas',
+      name: 'Facturas Esperadas AFIP',
+      description: 'Facturas importadas desde Excel AFIP',
+      icon: '📋',
+    },
+    {
+      type: 'logs',
+      name: 'Logs',
+      description: 'Registro de eventos y actividades',
+      icon: '📝',
+    },
+  ];
+
   onMount(async () => {
     await loadInvoices();
     await loadPendingFilesToReview();
     await loadImportBatches();
-    await loadKnownInvoices();
-    await loadKnownCategories();
   });
 
   // Manejar errores de carga de archivos con información detallada
@@ -188,59 +208,6 @@
       toast.error('Error de conexión');
     } finally {
       loading = false;
-    }
-  }
-
-  async function loadKnownInvoices() {
-    try {
-      const response = await fetch('/api/invoices-known');
-      const data = await response.json();
-      knownInvoices = data.items || [];
-    } catch (err) {
-      console.error('Error cargando facturas conocidas', err);
-    }
-  }
-
-  async function loadKnownCategories() {
-    try {
-      const response = await fetch('/api/categories');
-      const data = await response.json();
-      knownCategories = data.items || [];
-    } catch (err) {
-      console.error('Error cargando categorías', err);
-    }
-  }
-
-  function selectKnown(item: (typeof knownInvoices)[number]) {
-    selectedKnown = item;
-    selectedKnownCategoryId = item.categoryId ?? null;
-  }
-
-  async function saveKnownCategory() {
-    if (
-      !selectedKnown ||
-      selectedKnown.source !== 'expected' ||
-      !selectedKnown.id ||
-      !selectedKnownCategoryId
-    )
-      return;
-    try {
-      const res = await fetch('/api/invoices-known/category', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expectedId: selectedKnown.id, categoryId: selectedKnownCategoryId }),
-      });
-      const out = await res.json();
-      if (out.ok) {
-        selectedKnown = { ...selectedKnown, categoryId: selectedKnownCategoryId };
-        knownInvoices = knownInvoices.map((k) =>
-          k.id === selectedKnown?.id && k.source === 'expected'
-            ? { ...k, categoryId: selectedKnownCategoryId }
-            : k
-        );
-      }
-    } catch (err) {
-      console.error('Error asignando categoría', err);
     }
   }
 
@@ -458,7 +425,6 @@
         toast.success('¡Factura procesada correctamente!');
         await loadPendingFilesToReview();
         await loadInvoices();
-        await loadKnownInvoices();
         editingFile = null;
       } else {
         toast.error(data.error || 'Error al procesar');
@@ -467,13 +433,6 @@
       toast.error('Error al guardar');
     }
   }
-
-  // Refrescar la pestaña de Revisión cada vez que se ingresa
-  $effect(() => {
-    if (activeTab === 'revision') {
-      loadKnownInvoices();
-    }
-  });
 
   function handleDragOver(event: DragEvent) {
     event.preventDefault();
@@ -633,7 +592,29 @@
     }
   }
 
-  // getConfidenceColor ahora proviene de $lib/formatters como getConfidenceColorClass
+  function getConfidenceColor(confidence: number | null): string {
+    if (!confidence) return 'text-gray-400';
+    if (confidence >= 90) return 'text-green-600';
+    if (confidence >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+  }
+
+  function getExtractionMethodLabel(method: string | null): string {
+    switch (method) {
+      case 'PDF_TEXT':
+        return '📄 PDF (texto)';
+      case 'OCR':
+        return '🔍 OCR (imagen)';
+      case 'PDF_TEXT+OCR':
+        return '📄🔍 PDF+OCR (fallback)';
+      case 'TEMPLATE':
+        return '📋 Template';
+      case 'MANUAL':
+        return '✏️ Manual';
+      default:
+        return '❓ Desconocido';
+    }
+  }
 
   // Funciones para pending files (selección múltiple)
   function togglePendingFileSelection(id: number) {
@@ -724,6 +705,65 @@
         return status;
     }
   }
+
+  // Funciones de Google Sync
+  async function syncSheet(sheet: SheetType, mode: SyncMode) {
+    syncStates[sheet].loading = true;
+    syncStates[sheet].lastResult = null;
+
+    try {
+      const response = await fetch('/api/google-sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ sheet, mode }),
+      });
+
+      const result: SyncResult = await response.json();
+
+      syncStates[sheet].lastResult = result;
+
+      if (result.success) {
+        const modeText =
+          mode === 'sync' ? 'Sincronizado' : mode === 'push' ? 'Subido' : 'Descargado';
+        toast.success(
+          `${modeText} "${sheet}": ⬆️ ${result.stats.uploaded} subidos, ⬇️ ${result.stats.downloaded} descargados`,
+          { duration: 5000 }
+        );
+      } else {
+        toast.error(`Error en "${sheet}": ${result.error}`, { duration: 7000 });
+      }
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Error desconocido';
+      toast.error(`Error al sincronizar "${sheet}": ${errorMsg}`, { duration: 7000 });
+      syncStates[sheet].lastResult = {
+        success: false,
+        sheet,
+        mode,
+        stats: { uploaded: 0, downloaded: 0, conflicts: 0, errors: 1 },
+        error: errorMsg,
+      };
+    } finally {
+      syncStates[sheet].loading = false;
+    }
+  }
+
+  function getModeLabel(mode: SyncMode): string {
+    return mode === 'sync' ? 'Sincronizar' : mode === 'push' ? 'Subir' : 'Descargar';
+  }
+
+  function getModeIcon(mode: SyncMode): string {
+    return mode === 'sync' ? '🔄' : mode === 'push' ? '⬆️' : '⬇️';
+  }
+
+  function getModeDescription(mode: SyncMode): string {
+    return mode === 'sync'
+      ? 'Bidireccional: sincroniza datos locales ↔ Google'
+      : mode === 'push'
+        ? 'Solo subida: local → Google'
+        : 'Solo descarga: Google → local';
+  }
 </script>
 
 <svelte:head>
@@ -770,10 +810,10 @@
     </button>
     <button
       class="tab"
-      class:active={activeTab === 'revision'}
-      onclick={() => (activeTab = 'revision')}
+      class:active={activeTab === 'google'}
+      onclick={() => (activeTab = 'google')}
     >
-      🧮 Revisión
+      ☁️ Google Sync
     </button>
   </nav>
 
@@ -948,23 +988,38 @@
                   </p>
                 </div>
                 {#if file.extractionConfidence !== null}
-                  <div
-                    class="confidence-badge {getConfidenceColorClass(
-                      file.extractionConfidence ?? null
-                    )}"
-                  >
+                  <div class="confidence-badge {getConfidenceColor(file.extractionConfidence)}">
                     {file.extractionConfidence}% confianza
                   </div>
                 {/if}
               </div>
 
               <div class="review-card-content">
-                <!-- PREVIEW DEL ARCHIVO -->
-                <FilePreview
-                  src="/api/pending-files/{file.id}/file"
-                  filename={file.originalFilename}
-                  onError={() => handleFileLoadError(file.id, file.originalFilename)}
-                />
+                <!-- PREVIEW DEL ARCHIVO (sin overlay) -->
+                <div class="file-preview clean">
+                  {#if file.originalFilename.toLowerCase().endsWith('.pdf')}
+                    <iframe
+                      src="/api/pending-files/{file.id}/file"
+                      title="Preview de {file.originalFilename}"
+                      class="pdf-iframe"
+                      onerror={() => handleFileLoadError(file.id, file.originalFilename)}
+                    ></iframe>
+                  {:else if file.originalFilename
+                    .toLowerCase()
+                    .match(/\.(jpg|jpeg|png|tif|tiff|webp|heic|heif)$/)}
+                    <img
+                      src="/api/pending-files/{file.id}/file"
+                      alt="Preview de {file.originalFilename}"
+                      class="image-preview"
+                      onerror={() => handleFileLoadError(file.id, file.originalFilename)}
+                    />
+                  {:else}
+                    <div class="preview-error">
+                      <p>Vista previa no disponible</p>
+                      <p class="filename">{file.originalFilename}</p>
+                    </div>
+                  {/if}
+                </div>
 
                 <!-- DATOS COMPARATIVOS -->
                 <div class="file-data">
@@ -981,7 +1036,7 @@
                         class:high={ocrConfidence >= 80}
                       >
                         <span class="metric-label"
-                          >{getExtractionMethodLabel(file.extractionMethod ?? null)}:</span
+                          >{getExtractionMethodLabel(file.extractionMethod)}:</span
                         >
                         <span class="metric-value">{ocrConfidence}%</span>
                       </div>
@@ -1080,16 +1135,8 @@
                           class:missing={!file.extractedDate}
                         >
                           <td class="field-name">Fecha</td>
-                          <td
-                            class="detected-value"
-                            title={getFullDateForTooltip(file.extractedDate)}
-                            >{formatDateShort(file.extractedDate)}</td
-                          >
-                          <td
-                            class="excel-value"
-                            title={getFullDateForTooltip(excelData?.issueDate)}
-                            >{formatDateShort(excelData?.issueDate)}</td
-                          >
+                          <td class="detected-value">{file.extractedDate || '—'}</td>
+                          <td class="excel-value">{excelData?.issueDate || '—'}</td>
                           <td class="status-cell">
                             {#if !file.extractedDate}
                               <span class="status-icon missing" title="No detectado en PDF">❌</span
@@ -1109,45 +1156,35 @@
                           </td>
                         </tr>
 
-                        <!-- Tipo (Origen) -->
-                        {#if true}
-                          {@const detectedType = getInvoiceTypeIcon(file.extractedType)}
-                          {@const excelType = getInvoiceTypeIcon(excelData?.invoiceType)}
-                          <tr
-                            class:match={typeMatch}
-                            class:no-match={file.extractedType &&
-                              excelData?.invoiceType &&
-                              !typeMatch}
-                            class:missing={!file.extractedType}
-                          >
-                            <td class="field-name">Origen</td>
-                            <td class="detected-value icon-cell" title={detectedType.label}
-                              >{detectedType.icon}</td
-                            >
-                            <td class="excel-value icon-cell" title={excelType.label}
-                              >{excelType.icon}</td
-                            >
-                            <td class="status-cell">
-                              {#if !file.extractedType}
-                                <span class="status-icon missing" title="No detectado en PDF"
-                                  >❌</span
-                                >
-                              {:else if !excelData?.invoiceType}
-                                <span class="status-icon no-excel" title="Sin datos de Excel"
-                                  >⚪</span
-                                >
-                              {:else if typeMatch}
-                                <span class="status-icon ok" title="Coincide">✓</span>
-                              {:else}
-                                <span
-                                  class="status-icon error"
-                                  title="No coincide: PDF={file.extractedType}, Excel={excelData.invoiceType}"
-                                  >⚠</span
-                                >
-                              {/if}
-                            </td>
-                          </tr>
-                        {/if}
+                        <!-- Tipo -->
+                        <tr
+                          class:match={typeMatch}
+                          class:no-match={file.extractedType &&
+                            excelData?.invoiceType &&
+                            !typeMatch}
+                          class:missing={!file.extractedType}
+                        >
+                          <td class="field-name">Tipo</td>
+                          <td class="detected-value">{file.extractedType || '—'}</td>
+                          <td class="excel-value">{excelData?.invoiceType || '—'}</td>
+                          <td class="status-cell">
+                            {#if !file.extractedType}
+                              <span class="status-icon missing" title="No detectado en PDF">❌</span
+                              >
+                            {:else if !excelData?.invoiceType}
+                              <span class="status-icon no-excel" title="Sin datos de Excel">⚪</span
+                              >
+                            {:else if typeMatch}
+                              <span class="status-icon ok" title="Coincide">✓</span>
+                            {:else}
+                              <span
+                                class="status-icon error"
+                                title="No coincide: PDF={file.extractedType}, Excel={excelData.invoiceType}"
+                                >⚠</span
+                              >
+                            {/if}
+                          </td>
+                        </tr>
 
                         <!-- Punto de Venta -->
                         <tr
@@ -1157,11 +1194,9 @@
                             !posMatch}
                           class:missing={file.extractedPointOfSale == null}
                         >
-                          <td class="field-name">P.V.</td>
-                          <td class="detected-value numeric-cell"
-                            >{file.extractedPointOfSale ?? '—'}</td
-                          >
-                          <td class="excel-value numeric-cell">{excelData?.pointOfSale ?? '—'}</td>
+                          <td class="field-name">P. Venta</td>
+                          <td class="detected-value">{file.extractedPointOfSale ?? '—'}</td>
+                          <td class="excel-value">{excelData?.pointOfSale ?? '—'}</td>
                           <td class="status-cell">
                             {#if file.extractedPointOfSale == null}
                               <span class="status-icon missing" title="No detectado en PDF">❌</span
@@ -1189,12 +1224,9 @@
                             !numMatch}
                           class:missing={file.extractedInvoiceNumber == null}
                         >
-                          <td class="field-name">Nº</td>
-                          <td class="detected-value numeric-cell"
-                            >{file.extractedInvoiceNumber ?? '—'}</td
-                          >
-                          <td class="excel-value numeric-cell">{excelData?.invoiceNumber ?? '—'}</td
-                          >
+                          <td class="field-name">Número</td>
+                          <td class="detected-value">{file.extractedInvoiceNumber ?? '—'}</td>
+                          <td class="excel-value">{excelData?.invoiceNumber ?? '—'}</td>
                           <td class="status-cell">
                             {#if file.extractedInvoiceNumber == null}
                               <span class="status-icon missing" title="No detectado en PDF">❌</span
@@ -1223,12 +1255,12 @@
                           class:missing={file.extractedTotal == null}
                         >
                           <td class="field-name">Total</td>
-                          <td class="detected-value numeric-cell"
+                          <td class="detected-value"
                             >{file.extractedTotal != null
                               ? `$${file.extractedTotal.toLocaleString('es-AR')}`
                               : '—'}</td
                           >
-                          <td class="excel-value numeric-cell"
+                          <td class="excel-value"
                             >{excelData?.total != null
                               ? `$${excelData.total.toLocaleString('es-AR')}`
                               : '—'}</td
@@ -1583,9 +1615,7 @@
                   </p>
                   <p class="cuit">{invoice.emitterCuit}</p>
                 </div>
-                <div
-                  class="confidence {getConfidenceColorClass(invoice.extractionConfidence ?? null)}"
-                >
+                <div class="confidence {getConfidenceColor(invoice.extractionConfidence)}">
                   {invoice.extractionConfidence?.toFixed(0) || '?'}%
                 </div>
               </div>
@@ -1616,24 +1646,142 @@
           {/each}
         </div>
       {/if}
-    {:else if activeTab === 'revision'}
-      <RevisionTable
-        invoices={knownInvoices}
-        categories={knownCategories}
-        selectedItem={selectedKnown}
-        onSelect={(item: any) => selectKnown(item)}
-        onCategoryChange={({
-          invoiceId,
-          categoryId,
-        }: {
-          invoiceId: number;
-          categoryId: number;
-        }) => {
-          selectedKnownCategoryId = categoryId;
-          // Reusar la función existente
-          saveKnownCategory();
-        }}
-      />
+    {:else if activeTab === 'google'}
+      <!-- GOOGLE SYNC SECTION -->
+      <section class="google-sync-section">
+        <div class="section-header">
+          <h2>☁️ Sincronización con Google Sheets + Drive</h2>
+          <p class="subtitle">
+            Sincroniza datos manualmente entre tu base local (SQLite) y Google Sheets + Drive
+          </p>
+        </div>
+
+        <div class="google-sheets-grid">
+          {#each sheets as sheet}
+            {@const state = syncStates[sheet.type]}
+            {@const result = state.lastResult}
+
+            <div class="google-sheet-card">
+              <!-- Header de la sheet -->
+              <div class="sheet-header">
+                <div class="sheet-info">
+                  <span class="sheet-icon">{sheet.icon}</span>
+                  <div>
+                    <h3>{sheet.name}</h3>
+                    <p class="sheet-description">{sheet.description}</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Botones de sincronización -->
+              <div class="sync-buttons">
+                {#each ['sync', 'push', 'pull'] as mode}
+                  {@const m = mode as SyncMode}
+                  <button
+                    onclick={() => syncSheet(sheet.type, m)}
+                    disabled={state.loading}
+                    class="sync-btn {state.loading ? 'loading' : ''}"
+                    title={getModeDescription(m)}
+                  >
+                    <span class="sync-icon">{getModeIcon(m)}</span>
+                    <span>{getModeLabel(m)}</span>
+                    {#if state.loading && state.lastResult?.mode === m}
+                      <span class="spinner">⏳</span>
+                    {/if}
+                  </button>
+                {/each}
+              </div>
+
+              <!-- Resultado de última sincronización -->
+              {#if result}
+                <div class="sync-result {result.success ? 'success' : 'error'}">
+                  <div class="result-content">
+                    <span class="result-icon">{result.success ? '✅' : '❌'}</span>
+                    <div class="result-details">
+                      <div class="result-title">
+                        {result.success ? 'Sincronización exitosa' : 'Error en sincronización'}
+                        <span class="result-mode">({getModeLabel(result.mode)})</span>
+                      </div>
+
+                      {#if result.success}
+                        <div class="result-stats">
+                          <div class="stat">
+                            <span>⬆️</span>
+                            <span class="stat-value">{result.stats.uploaded}</span>
+                            <span class="stat-label">subidos</span>
+                          </div>
+                          <div class="stat">
+                            <span>⬇️</span>
+                            <span class="stat-value">{result.stats.downloaded}</span>
+                            <span class="stat-label">descargados</span>
+                          </div>
+                          {#if result.stats.errors > 0}
+                            <div class="stat error">
+                              <span>⚠️</span>
+                              <span class="stat-value">{result.stats.errors}</span>
+                              <span class="stat-label">errores</span>
+                            </div>
+                          {/if}
+                        </div>
+                      {:else}
+                        <div class="result-error">{result.error}</div>
+                      {/if}
+
+                      <!-- Detalles expandibles -->
+                      {#if result.details && result.details.length > 0}
+                        <details class="result-details-toggle">
+                          <summary>Ver detalles ({result.details.length} items)</summary>
+                          <div class="details-content">
+                            {#each result.details as detail}
+                              <div class="detail-line">{detail}</div>
+                            {/each}
+                          </div>
+                        </details>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+
+        <!-- Ayuda -->
+        <div class="sync-help">
+          <h3 class="help-title">
+            <span>ℹ️</span>
+            <span>¿Cómo funciona la sincronización?</span>
+          </h3>
+          <div class="help-content">
+            <div class="help-item">
+              <span class="help-label">🔄 Sincronizar:</span>
+              <span
+                >Sube a Google lo que falta allá, baja a local lo que falta acá. Sincronización
+                bidireccional completa.</span
+              >
+            </div>
+            <div class="help-item">
+              <span class="help-label">⬆️ Subir:</span>
+              <span
+                >Solo envía datos locales a Google. No modifica tu base de datos local. Útil para
+                hacer backup.</span
+              >
+            </div>
+            <div class="help-item">
+              <span class="help-label">⬇️ Descargar:</span>
+              <span
+                >Solo trae datos de Google a local. No modifica Google. Útil para importar datos
+                desde otro dispositivo.</span
+              >
+            </div>
+          </div>
+          <div class="help-important">
+            <strong>⚠️ Importante:</strong> La sincronización manual te permite trabajar sin conexión.
+            Usa esta sección cuando quieras sincronizar con Google, pero no es necesario que lo hagas
+            cada vez que procesas facturas.
+          </div>
+        </div>
+      </section>
     {/if}
   </main>
 </div>
@@ -2076,16 +2224,6 @@
     margin-bottom: 1.5rem;
   }
 
-  /* KNOWN INVOICES TABLE (Revisión) */
-  .known-invoices {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  }
-
-  /* Styles for the Revision table moved to component */
-
   .detail {
     display: flex;
     flex-direction: column;
@@ -2405,6 +2543,48 @@
     }
   }
 
+  /* FILE PREVIEW */
+  .file-preview {
+    position: relative;
+    background: #f8fafc;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+    min-height: 500px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .pdf-iframe {
+    width: 100%;
+    height: 600px;
+    border: none;
+    background: white;
+  }
+
+  .image-preview {
+    max-width: 100%;
+    max-height: 600px;
+    object-fit: contain;
+    display: block;
+    margin: 0 auto;
+  }
+
+  .preview-error {
+    text-align: center;
+    padding: 3rem;
+    color: #64748b;
+  }
+
+  .preview-error .filename {
+    font-family: monospace;
+    font-size: 0.9rem;
+    color: #94a3b8;
+    margin-top: 0.5rem;
+    word-break: break-all;
+  }
+
   /* FILE DATA COLUMN */
   .file-data {
     display: flex;
@@ -2585,22 +2765,13 @@
   }
 
   .comparison-table .detected-value {
+    font-family: monospace;
     color: #1e293b;
-    word-break: break-word;
   }
 
   .comparison-table .excel-value {
+    font-family: monospace;
     color: #6366f1;
-    word-break: break-word;
-  }
-
-  .comparison-table .numeric-cell {
-    text-align: right;
-  }
-
-  .comparison-table .icon-cell {
-    text-align: center;
-    font-size: 1.1rem;
   }
 
   .comparison-table .status-cell {
@@ -2715,196 +2886,263 @@
     justify-content: flex-end;
   }
 
-  /* KNOWN INVOICES SECTION */
-  .known-invoices {
+  /* FILE PREVIEW CLEAN (without overlay) */
+  .file-preview.clean {
+    position: relative;
+  }
+
+  /* GOOGLE SYNC SECTION */
+  .google-sync-section {
+    max-width: 1000px;
     margin: 0 auto;
   }
 
-  .section-header {
-    text-align: center;
+  .google-sheets-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
     margin-bottom: 2rem;
   }
 
-  .section-header h2 {
-    font-size: 1.8rem;
-    margin: 0 0 0.5rem 0;
-    color: #1e293b;
-  }
-
-  .section-header .help-text {
-    color: #64748b;
-    font-size: 1rem;
-  }
-
-  /* Estilos de la tabla de Revisión se movieron al componente RevisionTable */
-
-  /* SIDEBAR OVERLAY AND PANEL */
-  .sidebar-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 999;
-    animation: fadeIn 0.2s ease-out;
-  }
-
-  .sidebar-panel {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 400px;
+  .google-sheet-card {
     background: white;
-    box-shadow: -4px 0 12px rgba(0, 0, 0, 0.15);
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    animation: slideInRight 0.3s ease-out;
-    overflow-y: auto;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes slideInRight {
-    from {
-      transform: translateX(100%);
-    }
-    to {
-      transform: translateX(0);
-    }
-  }
-
-  .sidebar-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
     padding: 1.5rem;
-    border-bottom: 1px solid #e2e8f0;
-    background: #f8fafc;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 
-  /* Encabezado de sidebar eliminado junto con la vista previa lateral de Revisión */
+  .sheet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+  }
 
-  .close-btn {
-    background: none;
-    border: none;
+  .sheet-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .sheet-icon {
     font-size: 2rem;
-    color: #94a3b8;
+  }
+
+  .sheet-info h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #1f2937;
+  }
+
+  .sheet-description {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.875rem;
+    color: #6b7280;
+  }
+
+  .sync-buttons {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .sync-btn {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
     cursor: pointer;
-    padding: 0;
-    width: 2rem;
-    height: 2rem;
+    transition: all 0.2s;
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: color 0.2s;
+    gap: 0.5rem;
   }
 
-  .close-btn:hover {
-    color: #475569;
+  .sync-btn:hover:not(:disabled) {
+    background: #1d4ed8;
+    transform: scale(0.98);
   }
 
-  .sidebar-content {
-    padding: 1.5rem;
+  .sync-btn:disabled,
+  .sync-btn.loading {
+    background: #f3f4f6;
+    color: #9ca3af;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+
+  .sync-icon {
+    font-size: 1.125rem;
+  }
+
+  .spinner {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .sync-result {
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 6px;
+  }
+
+  .sync-result.success {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+  }
+
+  .sync-result.error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+  }
+
+  .result-content {
+    display: flex;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .result-icon {
+    font-size: 1.25rem;
+  }
+
+  .result-details {
     flex: 1;
+  }
+
+  .result-title {
+    font-weight: 500;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .result-mode {
+    color: #6b7280;
+    font-weight: 400;
+  }
+
+  .result-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .stat-value {
+    font-weight: 600;
+  }
+
+  .stat-label {
+    color: #6b7280;
+  }
+
+  .result-error {
+    font-size: 0.875rem;
+    color: #991b1b;
+    margin-bottom: 0.5rem;
+  }
+
+  .result-details-toggle {
+    margin-top: 0.5rem;
+  }
+
+  .result-details-toggle summary {
+    cursor: pointer;
+    font-size: 0.875rem;
+    color: #6b7280;
+    user-select: none;
+  }
+
+  .result-details-toggle summary:hover {
+    color: #374151;
+  }
+
+  .details-content {
+    margin-top: 0.5rem;
+    padding: 0.75rem;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 4px;
+    max-height: 240px;
     overflow-y: auto;
   }
 
-  .detail-section {
-    margin-bottom: 2rem;
+  .detail-line {
+    font-size: 0.75rem;
+    font-family: monospace;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #f3f4f6;
   }
 
-  /* Títulos de sección del sidebar removidos; ahora gestionados en el componente */
-
-  .detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid #f1f5f9;
-  }
-
-  .detail-row:last-child {
+  .detail-line:last-child {
     border-bottom: none;
-    margin-bottom: 0;
-    padding-bottom: 0;
   }
 
-  .detail-label {
+  .sync-help {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 1.5rem;
+  }
+
+  .help-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0 0 1rem 0;
+    font-size: 1.125rem;
     font-weight: 600;
-    color: #64748b;
-    min-width: 80px;
-    font-size: 0.9rem;
   }
 
-  .detail-value {
-    color: #1e293b;
-    text-align: right;
-    flex: 1;
-    word-break: break-word;
-  }
-
-  .detail-value.monospace {
-    font-family: 'Courier New', monospace;
-    font-size: 0.9rem;
-  }
-
-  .detail-value.filename {
-    font-size: 0.85rem;
-    color: #64748b;
-    word-break: break-all;
-  }
-
-  .category-form {
+  .help-content {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
   }
 
-  .category-select {
+  .help-item {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    color: #374151;
+  }
+
+  .help-label {
+    font-weight: 600;
+    min-width: 100px;
+  }
+
+  .help-important {
     padding: 0.75rem;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    font-size: 0.95rem;
-    background: white;
-    color: #334155;
+    background: #fefce8;
+    border: 1px solid #fde047;
+    border-radius: 4px;
+    font-size: 0.875rem;
+    color: #713f12;
   }
 
-  .category-select:focus {
-    outline: none;
-    border-color: #2563eb;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-  }
-
-  @media (max-width: 768px) {
-    .sidebar-panel {
-      width: 100%;
-      border-radius: 8px 8px 0 0;
-      bottom: 0;
-      right: 0;
-      left: 0;
-      top: auto;
-      max-height: 80vh;
-    }
-
-    @keyframes slideInRight {
-      from {
-        transform: translateY(100%);
-      }
-      to {
-        transform: translateY(0);
-      }
-    }
+  .help-important strong {
+    font-weight: 600;
   }
 </style>

@@ -1,0 +1,68 @@
+{
+  "directories": {
+    "input": "./data/input",
+    "processed": "./data/processed",
+    "backup": "./data/backup",
+    "exports": "./exports"
+  },
+  "database": {
+    "path": "./data/database.sqlite"
+  },
+  "ocr": {
+    "engine": "tesseract",
+    "language": "spa",
+    "dpi": 300,
+    "preprocessingEnabled": true
+  },
+  "processing": {
+    "autoProcess": false,
+    "watchDirectory": false,
+    "confidenceThreshold": 70,
+    "requireManualValidation": false,
+    "parallelWorkers": 2
+  },
+  "templates": {
+    "autoDetect": true,
+    "maxAttempts": 5,
+    "fallbackToGeneric": true
+  },
+  "files": {
+    "namingFormat": "{CUIT}_{DATE}_{TYPE}-{POS}-{NUM}",
+    "dateFormat": "YYYYMMDD",
+    "moveToProcessed": true,
+    "createBackup": false,
+    "calculateHash": true
+  },
+  "google": {
+    "enabled": false,
+    "credentialsPath": "./google-credentials.json",
+    "sheets": {
+      "spreadsheetId": "REPLACE_WITH_YOUR_SPREADSHEET_ID",
+      "sheets": {
+        "emisores": {
+          "name": "Emisores",
+          "range": "Emisores!A:J"
+        },
+        "facturas": {
+          "name": "Facturas Procesadas",
+          "range": "Facturas Procesadas!A:R"
+        },
+        "esperadas": {
+          "name": "Facturas Esperadas AFIP",
+          "range": "Facturas Esperadas AFIP!A:N"
+        },
+        "logs": {
+          "name": "Logs de Procesamiento",
+          "range": "Logs de Procesamiento!A:G"
+        }
+      }
+    },
+    "drive": {
+      "rootFolderId": "REPLACE_WITH_YOUR_ROOT_FOLDER_ID",
+      "folderStructure": {
+        "originales": "originales",
+        "procesados": "procesados"
+      }
+    }
+  }
+}

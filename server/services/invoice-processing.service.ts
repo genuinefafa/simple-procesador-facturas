@@ -490,11 +490,10 @@ export class InvoiceProcessingService {
       let formattedDate = format(new Date(), 'yyyy-MM-dd');
       if (data.date) {
         try {
-          const parts = data.date.split(/[/-]/);
-          const day = parts[0]!;
-          const month = parts[1]!;
-          const year = parts[2]!;
-          formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          const [day, month, year] = data.date.split(/[/-]/);
+          if (day && month && year) {
+            formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+          }
         } catch {
           // Usar fecha actual si falla el parseo
         }
@@ -607,11 +606,12 @@ export class InvoiceProcessingService {
         // Parsear fecha extraída (formato DD/MM/YYYY o DD-MM-YYYY)
         let date: Date;
         if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(extractedData.date)) {
-          const parts = extractedData.date.split(/[/-]/);
-          const day = parts[0]!;
-          const month = parts[1]!;
-          const year = parts[2]!;
-          date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          const [day, month, year] = extractedData.date.split(/[/-]/);
+          if (day && month && year) {
+            date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          } else {
+            date = new Date(extractedData.date);
+          }
         } else {
           date = new Date(extractedData.date);
         }
@@ -637,8 +637,8 @@ export class InvoiceProcessingService {
       return { type: 'NONE' };
     }
 
-    if (candidates.length === 1) {
-      return { type: 'UNIQUE', match: candidates[0]! };
+    if (candidates.length === 1 && candidates[0]) {
+      return { type: 'UNIQUE', match: candidates[0] };
     }
 
     // Si hay entre 2 y 5 candidatos, devolver para selección manual
