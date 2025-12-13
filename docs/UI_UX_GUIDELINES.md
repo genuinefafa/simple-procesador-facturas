@@ -235,10 +235,142 @@ Si querés usar una librería:
 - Consistencia en espaciado y escala tipográfica; evitar valores hardcoded repetidos.
 - Desktop-first; mobile fuera de alcance por ahora.
 
-## 🧩 Librería de Componentes
-- Adoptar Melt UI (builders ≈ composables de Vue) para componentes headless accesibles.
-- Primitives en `client/src/lib/components/ui`: Button, Input, Dialog, Tabs, Badge, Modal.
-- Reutilizar `FilePreview` y `RevisionTable`; dividir vistas grandes en piezas pequeñas.
+## 🧩 Librería de Componentes (M1)
+
+### Componentes Base Disponibles
+Ubicación: `client/src/lib/components/`
+
+#### Button.svelte
+```svelte
+<script>
+  import { Button } from '$lib/components';
+</script>
+
+<Button variant="primary" size="md" onclick={handleClick}>
+  Acción
+</Button>
+```
+- **Variantes:** primary, secondary, danger, success
+- **Tamaños:** sm, md, lg
+- **Props:** variant, size, disabled, onclick, class
+
+#### Card.svelte
+```svelte
+<script>
+  import { Card } from '$lib/components';
+</script>
+
+<Card>
+  <h3>Contenido de tarjeta</h3>
+  <p>Información</p>
+</Card>
+```
+
+#### PageHeader.svelte
+```svelte
+<script>
+  import { PageHeader } from '$lib/components';
+</script>
+
+<PageHeader 
+  title="📥 Importar Archivos"
+  subtitle="Importa facturas desde PDFs o Excel"
+/>
+```
+
+#### StatsBar.svelte
+```svelte
+<script>
+  import { StatsBar } from '$lib/components';
+</script>
+
+<StatsBar
+  stats={[
+    { value: 150, label: 'Total' },
+    { value: 30, label: 'Pendientes' },
+  ]}
+/>
+```
+
+#### UploadSection.svelte
+```svelte
+<script>
+  import { UploadSection } from '$lib/components';
+
+  async function handleUpload(files: File[]) {
+    // Procesar archivos
+  }
+</script>
+
+<UploadSection onUpload={handleUpload} isLoading={false} />
+```
+
+### Importar Componentes
+```svelte
+import { Button, Card, PageHeader, StatsBar, UploadSection } from '$lib/components';
+```
+
+---
+
+## 🏗️ Arquitectura M1 (Noviembre 2025)
+
+### Nueva Estructura de Rutas
+**Problema resuelto:** +page.svelte monolítica (3148 líneas)
+
+```
+client/src/routes/
+├── +layout.svelte          ← Layout global con sidebar
+├── importar/
+│   └── +page.svelte        ← Importar PDFs + Excel AFIP
+├── revisar/
+│   └── +page.svelte        ← Revisar archivos pendientes
+├── facturas/
+│   └── +page.svelte        ← Listar facturas procesadas
+├── google-sync/
+│   └── +page.svelte        ← Sincronización con Google Sheets
+└── annotate/
+    └── +page.svelte        ← (Existente) Anotar facturas
+```
+
+### Sidebar Global
+- **Ubicación:** `+layout.svelte`
+- **Items:** Importar, Revisar, Facturas, Google Sync
+- **Responsive:** Colapsable en mobile
+- **Navegación activa:** Indica ruta actual
+
+### Flujo de Usuario
+
+1. **📥 /importar**
+   - Tab "Subir PDFs": Drag & drop, upload inmediato, procesamiento automático
+   - Tab "Importar Excel": Importar facturas esperadas de AFIP
+   - Redirige a `/revisar` automáticamente después del upload
+
+2. **✏️ /revisar**
+   - Listar archivos pendientes (pending, reviewing, failed)
+   - Previa del archivo (PDF/imagen)
+   - Datos detectados vs Excel (si existe match)
+   - Edición inline, reprocesamiento, finalización
+   - Filtros: solo pendientes vs todos
+
+3. **📋 /facturas**
+   - Listar facturas procesadas
+   - Selección múltiple
+   - Exportación masiva
+   - Acceso a anotación
+
+4. **☁️ /google-sync**
+   - Sincronización manual (no automática)
+   - Sync/Push/Pull para cada sheet
+   - Botones independientes por hoja
+
+---
+
+---
+
+## 🧩 Librería de Componentes (ANTIGUO - Referencia)
+Adoptar Melt UI (builders ≈ composables de Vue) para componentes headless accesibles.
+Primitives en `client/src/lib/components/ui`: Button, Input, Dialog, Tabs, Badge, Modal.
+Reutilizar `FilePreview` y `RevisionTable`; dividir vistas grandes en piezas pequeñas.
 
 ---
 
