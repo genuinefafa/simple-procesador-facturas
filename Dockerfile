@@ -1,22 +1,7 @@
-# Multi-stage build para optimizar tamaño de imagen
+# Imagen de producción minimalista
 # El código se compila en GitHub Actions antes de docker build
+# SvelteKit adapter-node genera un ejecutable standalone
 
-# Stage 1: Dependencies (solo producción)
-FROM node:22.21.0-alpine AS deps
-
-WORKDIR /app
-
-# Copiar solo package files
-COPY package*.json ./
-COPY server/package*.json ./server/
-COPY client/package*.json ./client/
-
-# Instalar solo dependencias de producción
-RUN npm ci --only=production --ignore-scripts && \
-    cd server && npm ci --only=production --ignore-scripts && \
-    cd ../client && npm ci --only=production --ignore-scripts
-
-# Stage 2: Production
 FROM node:22.21.0-alpine
 
 WORKDIR /app
@@ -31,15 +16,9 @@ RUN apk add --no-cache \
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodejs -u 1001
 
-# Copiar node_modules de producción desde deps stage
-COPY --from=deps --chown=nodejs:nodejs /app/node_modules ./node_modules
-COPY --from=deps --chown=nodejs:nodejs /app/server/node_modules ./server/node_modules
-COPY --from=deps --chown=nodejs:nodejs /app/client/node_modules ./client/node_modules
-
-# Copiar archivos compilados y código fuente
-COPY --chown=nodejs:nodejs /app/package*.json ./
-COPY --chown=nodejs:nodejs /app/server ./server
-COPY --chown=nodejs:nodejs /app/client/build ./client/build
+# Copiar solo lo compilado (client/build/index.js es un servidor Node standalone)
+COPY --chown=nodejs:nodejs client/build ./client/build
+COPY --chown=nodejs:nodejs server ./server
 
 # Crear directorios de datos con permisos apropiados
 RUN mkdir -p data/input data/processed data/backup && \
@@ -56,13 +35,13 @@ ENV NODE_ENV=production \
     PORT=3000 \
     HOST=0.0.0.0
 
-# Healthcheck mejorado
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
     CMD node -e "require('http').get('http://localhost:3000/', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})" || exit 1
 
 # Usar dumb-init para manejar señales correctamente
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]
 
-# Iniciar aplicación compilada directamente con node
+# Iniciar servidor compilado directamente
 WORKDIR /app
 CMD ["node", "client/build/index.js"]
