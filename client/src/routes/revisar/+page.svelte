@@ -48,10 +48,11 @@
       const data = await response.json();
 
       if (data.success) {
+        const list = data.pendingFiles ?? [];
         const filesToShow =
           reviewFilter === 'pending'
-            ? data.files.filter((f: any) => ['pending', 'failed'].includes(f.status))
-            : data.files;
+            ? list.filter((f: any) => ['pending', 'failed'].includes(f.status))
+            : list;
 
         pendingFilesToReview = filesToShow;
         pendingFilesStats = data.stats;
@@ -220,15 +221,15 @@
 </script>
 
 <svelte:head>
-  <title>Revisar - Procesador de Facturas</title>
+  <title>Procesar - Procesador de Facturas</title>
 </svelte:head>
 
 <Toaster position="top-right" richColors />
 
 <div class="review-container">
   <div class="page-header">
-    <h1>✏️ Revisar Archivos</h1>
-    <p class="subtitle">Revisa y corrige los datos detectados antes de confirmar</p>
+    <h1>⚙️ Procesar Archivos</h1>
+    <p class="subtitle">Procesá y corregí los datos detectados antes de confirmar</p>
   </div>
 
   <!-- STATS -->

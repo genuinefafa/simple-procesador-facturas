@@ -5,9 +5,9 @@
 
   const navItems = [
     { href: '/importar', label: 'Importar', icon: '📥' },
-    { href: '/revisar', label: 'Revisar', icon: '✏️' },
-    { href: '/facturas', label: 'Facturas', icon: '📋' },
-    { href: '/google-sync', label: 'Sync', icon: '☁️' },
+    { href: '/revisar', label: 'Procesar', icon: '⚙️' },
+    { href: '/facturas', label: 'Entrenamiento', icon: '📝' },
+    { href: '/invoices', label: 'Facturas', icon: '📋' },
   ];
 
   let sidebarOpen = $state(true);
@@ -26,6 +26,9 @@
 </svelte:head>
 
 <div class="app-container">
+  {#if !sidebarOpen}
+    <button class="global-toggle" onclick={toggleSidebar} aria-label="Abrir menú" title="Abrir menú">→</button>
+  {/if}
   <!-- Sidebar Global -->
   <aside class="sidebar" class:collapsed={!sidebarOpen}>
     <div class="sidebar-header">
@@ -45,6 +48,7 @@
     </nav>
 
     <div class="sidebar-footer">
+      <a href="/google-sync" class="sync-link" title="Sync">☁️</a>
       <p class="version">v0.2.0</p>
     </div>
   </aside>
@@ -74,6 +78,7 @@
   .app-container {
     display: flex;
     min-height: 100vh;
+    position: relative;
   }
 
   /* SIDEBAR */
@@ -179,15 +184,27 @@
 
   /* SIDEBAR FOOTER */
   .sidebar-footer {
-    padding: 1rem;
+    padding: 0.75rem 1rem;
     border-top: 1px solid #334155;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
   }
 
   .version {
     margin: 0;
     font-size: 0.8rem;
     color: #64748b;
+  }
+
+  .sync-link {
+    color: #94a3b8;
+    text-decoration: none;
+    font-size: 1rem;
+  }
+  .sync-link:hover {
+    color: #cbd5e1;
   }
 
   /* MAIN CONTENT */
@@ -232,6 +249,27 @@
     .content-wrapper {
       padding: 1rem;
     }
+  }
+
+  /* Global toggle (always visible to reopen) */
+  .global-toggle {
+    position: fixed;
+    left: 8px;
+    top: 8px;
+    z-index: 2000;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 999px;
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    cursor: pointer;
+  }
+  .global-toggle:hover {
+    background: #1d4ed8;
   }
 
   @media (max-width: 480px) {
