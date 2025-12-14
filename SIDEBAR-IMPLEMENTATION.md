@@ -252,7 +252,7 @@ cb82643 feat: agregar ruta demo de Melt UI
 1. **Migrar sidebars existentes** al nuevo componente
    - Revisar `/google-sync` que tiene su propio sidebar
    - Aplicar patrón en otras páginas
-   
+
 2. **Mejorar el componente**
    - Agregar sub-menús/accordion anidado
    - Collapse inteligente basado en viewport

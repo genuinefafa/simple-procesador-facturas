@@ -3,7 +3,7 @@
   import type { Snippet } from 'svelte';
 
   interface Props {
-    trigger?: Snippet;
+    trigger?: Snippet<[any]>;
     children?: Snippet;
     align?: 'start' | 'center' | 'end';
     class?: string;
@@ -24,11 +24,11 @@
 </script>
 
 <div class="dropdown-container {className}">
-  <div use:melt={$triggerEl}>
-    {#if trigger}
-      {@render trigger()}
-    {/if}
-  </div>
+  {#if trigger}
+    {@render trigger($triggerEl)}
+  {:else}
+    <button use:melt={$triggerEl}>Toggle</button>
+  {/if}
 
   {#if $open}
     <div use:melt={$menu} class="dropdown-menu align-{align}">

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { Dropdown, Dialog, Button, Tabs, Sidebar } from '$lib/components/ui';
+  import { melt } from '@melt-ui/svelte';
 
   const navItems = [
     { href: '/importar', label: 'Importar', icon: '📥' },
@@ -29,8 +30,8 @@
     {#snippet children()}
       <div class="sidebar-options">
         <Dropdown>
-          {#snippet trigger()}
-            <button class="options-trigger">
+          {#snippet trigger(triggerAction)}
+            <button class="options-trigger" use:melt={triggerAction}>
               <span>⚙️</span>
               <span>Opciones</span>
             </button>
@@ -64,8 +65,8 @@
       <div class="topbar-right">
         <Button variant="secondary" size="sm">Nuevo</Button>
         <Dropdown>
-          {#snippet trigger()}
-            <div class="avatar">
+          {#snippet trigger(triggerAction)}
+            <div class="avatar" use:melt={triggerAction}>
               <span>FA</span>
               <span class="chevron">▼</span>
             </div>
@@ -205,6 +206,12 @@
     background: var(--color-neutral-100);
     border: 1px solid var(--color-border);
     font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+  }
+
+  .avatar:hover {
+    background: var(--color-neutral-200);
   }
 
   .avatar .chevron {
