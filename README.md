@@ -51,10 +51,12 @@ simple-procesador-facturas/
 │   │   │   ├── +layout.svelte          # 📌 Layout global con sidebar
 │   │   │   ├── importar/
 │   │   │   │   └── +page.svelte        # 📥 Importar PDFs + Excel AFIP
-│   │   │   ├── revisar/
-│   │   │   │   └── +page.svelte        # ✏️ Revisar archivos pendientes
+│   │   │   ├── procesar/
+│   │   │   │   └── +page.svelte        # ⚙️ Procesar archivos pendientes
+│   │   │   ├── entrenamiento/
+│   │   │   │   └── +page.svelte        # 📝 Entrenamiento / anotaciones
 │   │   │   ├── facturas/
-│   │   │   │   └── +page.svelte        # 📋 Listar facturas procesadas
+│   │   │   │   └── +page.svelte        # 📋 Facturas conocidas (revisión)
 │   │   │   ├── google-sync/
 │   │   │   │   └── +page.svelte        # ☁️ Sync con Google Sheets
 │   │   │   ├── annotate/
@@ -117,24 +119,32 @@ Dos opciones:
 └─ Excel AFIP   → Importar → Crear batch de facturas esperadas
 ```
 
-### 2️⃣ **Revisar** (`/revisar`)
+### 2️⃣ **Procesar** (`/procesar`)
 ```
-Archivos pendientes
+Archivos pendientes (pending_files)
 ├─ Vista previa (PDF/imagen)
 ├─ Datos detectados vs Excel (si existe match)
 ├─ Edición inline
 └─ Confirmar o reprocesar
 ```
 
-### 3️⃣ **Facturas** (`/facturas`)
+### 3️⃣ **Entrenamiento** (`/entrenamiento`)
 ```
-Listado de facturas procesadas
-├─ Búsqueda y filtros
+Facturas para anotación/entrenamiento
 ├─ Selección múltiple
+├─ Exportación para datasets
+└─ Indicadores de confianza
+```
+
+### 4️⃣ **Facturas** (`/facturas`)
+```
+Facturas conocidas / revisión final
+├─ Asignación de categoría
+├─ Búsqueda y filtros
 └─ Exportación masiva
 ```
 
-### 4️⃣ **Google Sync** (`/google-sync`)
+### 5️⃣ **Google Sync** (`/google-sync`)
 ```
 Sincronización manual
 ├─ Emisores (👥)
