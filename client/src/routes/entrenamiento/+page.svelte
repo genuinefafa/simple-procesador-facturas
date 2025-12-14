@@ -102,10 +102,12 @@
 
 <Toaster position="top-right" richColors />
 
-<PageHeader title="📝 Entrenamiento - Anotaciones" subtitle="Gestioná y exportá facturas para entrenamiento" />
+<PageHeader
+  title="📝 Entrenamiento - Anotaciones"
+  subtitle="Gestioná y exportá facturas para entrenamiento"
+/>
 
 <div class="invoices-container">
-
   <!-- STATS -->
   <div class="stats-bar">
     <div class="stat">
