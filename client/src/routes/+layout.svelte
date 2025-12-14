@@ -4,6 +4,10 @@
 
   let { children } = $props();
 
+  const noChromeRoutes = ['/layout-demo', '/ui-demo'];
+
+  const hideChrome = $derived(noChromeRoutes.some((path) => $page.url.pathname.startsWith(path)));
+
   const navItems = [
     { href: '/importar', label: 'Importar', icon: '📥' },
     { href: '/procesar', label: 'Procesar', icon: '⚙️' },
@@ -26,43 +30,47 @@
   <title>Procesador de Facturas</title>
 </svelte:head>
 
-<div class="app-container">
-  {#if !sidebarOpen}
-    <button class="global-toggle" onclick={toggleSidebar} aria-label="Abrir menú" title="Abrir menú"
-      >→</button
-    >
-  {/if}
-  <!-- Sidebar Global -->
-  <aside class="sidebar" class:collapsed={!sidebarOpen}>
-    <div class="sidebar-header">
-      <h1 class="logo">🧾 Facturas</h1>
-      <button class="sidebar-toggle" onclick={toggleSidebar} title="Alternar sidebar">
-        {sidebarOpen ? '←' : '→'}
-      </button>
-    </div>
+{#if hideChrome}
+  {@render children()}
+{:else}
+  <div class="app-container">
+    {#if !sidebarOpen}
+      <button class="global-toggle" onclick={toggleSidebar} aria-label="Abrir menú" title="Abrir menú"
+        >→</button
+      >
+    {/if}
+    <!-- Sidebar Global -->
+    <aside class="sidebar" class:collapsed={!sidebarOpen}>
+      <div class="sidebar-header">
+        <h1 class="logo">🧾 Facturas</h1>
+        <button class="sidebar-toggle" onclick={toggleSidebar} title="Alternar sidebar">
+          {sidebarOpen ? '←' : '→'}
+        </button>
+      </div>
 
-    <nav class="sidebar-nav">
-      {#each navItems as item}
-        <a href={item.href} class="nav-item" class:active={isActive(item.href)} title={item.label}>
-          <span class="nav-icon">{item.icon}</span>
-          <span class="nav-label">{item.label}</span>
-        </a>
-      {/each}
-    </nav>
+      <nav class="sidebar-nav">
+        {#each navItems as item}
+          <a href={item.href} class="nav-item" class:active={isActive(item.href)} title={item.label}>
+            <span class="nav-icon">{item.icon}</span>
+            <span class="nav-label">{item.label}</span>
+          </a>
+        {/each}
+      </nav>
 
-    <div class="sidebar-footer">
-      <a href="/google-sync" class="sync-link" title="Sync">☁️</a>
-      <p class="version">v0.2.0</p>
-    </div>
-  </aside>
+      <div class="sidebar-footer">
+        <a href="/google-sync" class="sync-link" title="Sync">☁️</a>
+        <p class="version">v0.2.0</p>
+      </div>
+    </aside>
 
-  <!-- Main Content -->
-  <main class="main-content">
-    <div class="content-wrapper">
-      {@render children()}
-    </div>
-  </main>
-</div>
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-wrapper">
+        {@render children()}
+      </div>
+    </main>
+  </div>
+{/if}
 
 <style>
   :global(body) {
