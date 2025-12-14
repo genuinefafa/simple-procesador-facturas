@@ -27,27 +27,31 @@
 <div class="app-container">
   <Sidebar {navItems} title="🧾 Facturas" bind:open={sidebarOpen}>
     {#snippet children()}
-      <Dropdown>
-        {#snippet trigger()}
-          <span>⚙️</span>
-          <span class="nav-label">Opciones</span>
-        {/snippet}
-        {#snippet children()}
-          <button class="dropdown-item" onclick={() => (settingsOpen = true)}>
-            <span>⚙️</span>
-            <span>Configuración</span>
-          </button>
-          <a href="/google-sync" class="dropdown-item">
-            <span>☁️</span>
-            <span>Sincronización</span>
-          </a>
-          <div class="dropdown-separator"></div>
-          <button class="dropdown-item">
-            <span>❓</span>
-            <span>Ayuda</span>
-          </button>
-        {/snippet}
-      </Dropdown>
+      <div class="sidebar-options">
+        <Dropdown>
+          {#snippet trigger()}
+            <button class="options-trigger">
+              <span>⚙️</span>
+              <span>Opciones</span>
+            </button>
+          {/snippet}
+          {#snippet children()}
+            <button class="dropdown-item" onclick={() => (settingsOpen = true)}>
+              <span>⚙️</span>
+              <span>Configuración</span>
+            </button>
+            <a href="/google-sync" class="dropdown-item">
+              <span>☁️</span>
+              <span>Sincronización</span>
+            </a>
+            <div class="dropdown-separator"></div>
+            <button class="dropdown-item">
+              <span>❓</span>
+              <span>Ayuda</span>
+            </button>
+          {/snippet}
+        </Dropdown>
+      </div>
       <p class="version">v0.2.0</p>
     {/snippet}
   </Sidebar>
@@ -264,6 +268,31 @@
     margin: var(--spacing-3) 0 0 0;
     font-size: var(--font-size-xs);
     color: var(--color-neutral-500);
+  }
+
+  .sidebar-options {
+    width: 100%;
+  }
+
+  :global(.options-trigger) {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    width: 100%;
+    padding: var(--spacing-3) var(--spacing-4);
+    background: transparent;
+    border: none;
+    color: var(--color-neutral-300);
+    cursor: pointer;
+    border-radius: var(--radius-base);
+    transition: all var(--transition-fast);
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+  }
+
+  :global(.options-trigger:hover) {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-text-inverse);
   }
 
   :global(.nav-label) {
