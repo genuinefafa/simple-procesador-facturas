@@ -3,7 +3,8 @@
    * Layout Example con Melt UI
    * Ejemplo de cómo integrar los componentes UI primitivos en el layout
    */
-  import { page } from '$app/stores';
+  // Svelte 5: usar page desde $app/state (stores está deprecado)
+  import { page } from '$app/state';
   import { Dropdown, Dialog } from '$lib/components/ui';
 
   let { children } = $props();
@@ -23,7 +24,7 @@
   }
 
   function isActive(href: string): boolean {
-    return $page.url.pathname.startsWith(href);
+    return page.url.pathname.startsWith(href);
   }
 </script>
 
