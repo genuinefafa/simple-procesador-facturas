@@ -299,22 +299,6 @@
     max-width: 1000px;
   }
 
-  .page-header {
-    margin-bottom: 2rem;
-    text-align: center;
-  }
-
-  .page-header h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 2rem;
-  }
-
-  .subtitle {
-    margin: 0;
-    color: #666;
-    font-size: 1rem;
-  }
-
   /* TABS */
   .tabs-container {
     margin-bottom: 2rem;
@@ -363,12 +347,6 @@
   }
 
   /* UPLOAD SECTION */
-  .upload-section {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
-  }
-
   /* EXCEL SECTION */
   .excel-section {
     display: flex;
@@ -393,131 +371,6 @@
   }
 
   /* DROPZONE */
-  .dropzone {
-    position: relative;
-    border: 3px dashed #cbd5e1;
-    border-radius: 12px;
-    padding: 4rem 2rem;
-    text-align: center;
-    background: white;
-    transition: all 0.3s;
-    cursor: pointer;
-  }
-
-  .dropzone:hover {
-    border-color: #2563eb;
-    background: #f8fafc;
-  }
-
-  .dropzone.dragover {
-    border-color: #2563eb;
-    background: #eff6ff;
-  }
-
-  .dropzone-icon {
-    font-size: 4rem;
-    margin: 0;
-  }
-
-  .dropzone-text {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: #1e293b;
-    margin: 1rem 0 0.5rem 0;
-  }
-
-  .dropzone-hint {
-    color: #64748b;
-    margin: 0;
-  }
-
-  .dropzone-formats {
-    font-size: 0.9rem;
-    color: #94a3b8;
-    margin-top: 1rem;
-  }
-
-  .file-input {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    opacity: 0;
-    cursor: pointer;
-  }
-
-  /* FILE LIST */
-  .file-list {
-    background: white;
-    border-radius: 12px;
-    padding: 1.5rem;
-  }
-
-  .file-list h3 {
-    margin: 0 0 1rem 0;
-    color: #1e293b;
-  }
-
-  .file-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem;
-    border-bottom: 1px solid #f1f5f9;
-  }
-
-  .file-item:last-child {
-    border-bottom: none;
-  }
-
-  .file-icon {
-    font-size: 1.5rem;
-  }
-
-  .file-name {
-    flex: 1;
-    font-weight: 500;
-    color: #334155;
-  }
-
-  .file-size {
-    color: #64748b;
-    font-size: 0.9rem;
-    font-family: monospace;
-  }
-
-  .btn-remove {
-    background: #fee2e2;
-    color: #dc2626;
-    border: none;
-    width: 2rem;
-    height: 2rem;
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 1.2rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-  }
-
-  .btn-remove:hover {
-    background: #fecaca;
-  }
-
-  /* UPLOAD ACTIONS */
-  .upload-actions {
-    display: flex;
-    gap: 1rem;
-  }
-
-  .btn-large {
-    flex: 1;
-    font-size: 1.1rem;
-    padding: 1rem 2rem;
-  }
-
   /* TEMPLATE SECTION */
   .template-download-section {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -695,20 +548,6 @@
     transition: all 0.2s;
     text-decoration: none;
     display: inline-block;
-  }
-
-  .btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .btn-primary {
-    background: #2563eb;
-    color: white;
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background: #1d4ed8;
   }
 
   .btn-secondary {

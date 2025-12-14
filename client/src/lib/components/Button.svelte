@@ -1,11 +1,13 @@
 <script lang="ts">
+  import type { Snippet } from 'svelte';
+
   interface Props {
     variant?: 'primary' | 'secondary' | 'danger' | 'success';
     size?: 'sm' | 'md' | 'lg';
     disabled?: boolean;
     onclick?: () => void;
     class?: string;
-    children?: any;
+    children?: Snippet;
   }
 
   let {
@@ -14,11 +16,12 @@
     disabled = false,
     onclick,
     class: className = '',
+    children,
   }: Props = $props();
 </script>
 
 <button class="btn btn-{variant} btn-{size} {className}" {disabled} {onclick}>
-  <slot />
+  {@render children?.()}
 </button>
 
 <style>

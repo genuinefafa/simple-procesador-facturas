@@ -49,10 +49,11 @@
       const data = await response.json();
 
       if (data.success) {
+        const list = data.pendingFiles ?? [];
         const filesToShow =
           reviewFilter === 'pending'
-            ? data.files.filter((f: any) => ['pending', 'failed'].includes(f.status))
-            : data.files;
+            ? list.filter((f: any) => ['pending', 'failed'].includes(f.status))
+            : list;
 
         pendingFilesToReview = filesToShow;
         pendingFilesStats = data.stats;
@@ -227,19 +228,6 @@
 <Toaster position="top-right" richColors />
 
 <div class="review-container">
-  <PageHeader title="⚙️ Procesar Archivos" subtitle="Procesá y corregí los datos detectados antes de confirmar" />
-
-  <!-- STATS -->
-  <StatsBar
-    stats={[
-      { value: pendingFilesStats?.total || 0, label: 'Total' },
-      { value: pendingFilesStats?.pending || 0, label: 'Pendientes' },
-      { value: pendingFilesStats?.reviewing || 0, label: 'En Revisión' },
-      { value: pendingFilesStats?.processed || 0, label: 'Procesados' },
-      { value: pendingFilesStats?.failed || 0, label: 'Errores' },
-    ]}
-  />
-
   <!-- FILTROS -->
   <div class="filter-bar">
     <div class="filter-buttons">
@@ -462,22 +450,6 @@
   .review-container {
     max-width: 1200px;
     margin: 0 auto;
-  }
-
-  .page-header {
-    margin-bottom: 2rem;
-    text-align: center;
-  }
-
-  .page-header h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 2rem;
-  }
-
-  .subtitle {
-    margin: 0;
-    color: #666;
-    font-size: 1rem;
   }
 
   /* STATS */
