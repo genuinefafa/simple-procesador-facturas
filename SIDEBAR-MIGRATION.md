@@ -59,7 +59,7 @@ const navItems = [
 ```svelte
 <script>
   import { Sidebar, Dropdown, Button } from '$lib/components/ui';
-  
+
   let sidebarOpen = $state(true);
 </script>
 ```
@@ -75,7 +75,7 @@ const navItems = [
       <p class="version">v1.0.0</p>
     {/snippet}
   </Sidebar>
-  
+
   <main>
     <!-- Contenido principal -->
   </main>
@@ -86,7 +86,7 @@ const navItems = [
     display: flex;
     min-height: 100vh;
   }
-  
+
   main {
     flex: 1;
   }

@@ -24,9 +24,9 @@ El componente `Sidebar` proporciona un patrón de navegación profesional y resp
 ## Uso Básico
 
 ```svelte
-<Sidebar 
-  {navItems} 
-  title="🧾 Facturas" 
+<Sidebar
+  {navItems}
+  title="🧾 Facturas"
   bind:open={sidebarOpen}
 >
   {#snippet children()}
@@ -107,14 +107,14 @@ interface NavItem {
 ## Ejemplo Completo (layout-demo)
 
 ```svelte
-<Sidebar 
+<Sidebar
   navItems={[
     { href: '/importar', label: 'Importar', icon: '📥' },
     { href: '/procesar', label: 'Procesar', icon: '⚙️' },
     { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
     { href: '/facturas', label: 'Facturas', icon: '📋' },
   ]}
-  title="🧾 Facturas" 
+  title="🧾 Facturas"
   bind:open={sidebarOpen}
 >
   {#snippet children()}
