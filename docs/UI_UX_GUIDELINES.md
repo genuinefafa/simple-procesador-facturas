@@ -193,9 +193,10 @@ Si querés usar una librería:
 ---
 
 ## 🧭 Navigation & Layout
-- Sidebar expandida por defecto (desktop-first), persistente entre rutas.
-- Rutas limpias: `/importar`, `/revisar`, `/facturas`, `/sync` (baja prioridad), `/anotar/[id]` (baja prioridad).
-- Evitar navegación por tabs dentro de una sola página; usar rutas SvelteKit.
+- Sidebar expandida por defecto (desktop-first), persistente entre rutas; toggle global siempre visible para reabrir cuando está colapsada.
+- Rutas limpias y actualizadas: `/importar`, `/procesar`, `/entrenamiento`, `/facturas`, `/google-sync` (en footer), `/anotar/[id]` (baja prioridad).
+- Cada página debe usar `PageHeader` con título/subtítulo consistentes en la parte superior.
+- Evitar navegación por tabs dentro de una sola página; preferir rutas de SvelteKit.
 - Topbar minimal con espacio para buscador global.
 - Contenedores full-width; evitar `max-width: 1200px` heredado.
 
