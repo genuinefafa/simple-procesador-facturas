@@ -272,7 +272,7 @@ Ubicación: `client/src/lib/components/`
   import { PageHeader } from '$lib/components';
 </script>
 
-<PageHeader 
+<PageHeader
   title="📥 Importar Archivos"
   subtitle="Importa facturas desde PDFs o Excel"
 />
