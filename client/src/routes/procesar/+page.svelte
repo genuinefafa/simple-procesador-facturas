@@ -221,16 +221,13 @@
 </script>
 
 <svelte:head>
-  <title>Revisar - Procesador de Facturas</title>
+  <title>Procesar - Procesador de Facturas</title>
 </svelte:head>
 
 <Toaster position="top-right" richColors />
 
 <div class="review-container">
-  <PageHeader
-    title="✏️ Revisar Archivos"
-    subtitle="Revisa y corrige los datos detectados antes de confirmar"
-  />
+  <PageHeader title="⚙️ Procesar Archivos" subtitle="Procesá y corregí los datos detectados antes de confirmar" />
 
   <!-- STATS -->
   <StatsBar
