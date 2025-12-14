@@ -27,7 +27,9 @@
 
 <div class="app-container">
   {#if !sidebarOpen}
-    <button class="global-toggle" onclick={toggleSidebar} aria-label="Abrir menú" title="Abrir menú">→</button>
+    <button class="global-toggle" onclick={toggleSidebar} aria-label="Abrir menú" title="Abrir menú"
+      >→</button
+    >
   {/if}
   <!-- Sidebar Global -->
   <aside class="sidebar" class:collapsed={!sidebarOpen}>
@@ -265,7 +267,7 @@
     height: 32px;
     display: grid;
     place-items: center;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
     cursor: pointer;
   }
   .global-toggle:hover {

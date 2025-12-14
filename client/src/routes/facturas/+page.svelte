@@ -1,12 +1,19 @@
 <script lang="ts">
   import RevisionTable from '$lib/components/RevisionTable.svelte';
-  export let data: {
-    items: any[];
-    categories: Array<{ id: number; key: string; description: string }>;
-  };
+  let {
+    data,
+  }: {
+    data: { items: any[]; categories: Array<{ id: number; key: string; description: string }> };
+  } = $props();
   let selected: any | null = $state(null);
 
-  async function onCategoryChange({ invoiceId, categoryId }: { invoiceId: number; categoryId: number }) {
+  async function onCategoryChange({
+    invoiceId,
+    categoryId,
+  }: {
+    invoiceId: number;
+    categoryId: number;
+  }) {
     const res = await fetch('/api/invoices-known/category', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -29,8 +36,8 @@
     invoices={data.items}
     categories={data.categories}
     selectedItem={selected}
-    onSelect={(item) => (selected = item)}
-    onCategoryChange={onCategoryChange}
+    onSelect={(item: any) => (selected = item)}
+    {onCategoryChange}
   />
 </div>
 
