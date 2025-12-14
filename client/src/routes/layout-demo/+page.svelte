@@ -1,6 +1,6 @@
 <script lang="ts">
   import { page } from '$app/state';
-  import { Dropdown, Dialog, Button, Tabs } from '$lib/components/ui';
+  import { Dropdown, Dialog, Button, Tabs, Sidebar } from '$lib/components/ui';
 
   const navItems = [
     { href: '/importar', label: 'Importar', icon: '📥' },
@@ -18,14 +18,6 @@
   let sidebarOpen = $state(true);
   let settingsOpen = $state(false);
   let topTab = $state('resumen');
-
-  function toggleSidebar() {
-    sidebarOpen = !sidebarOpen;
-  }
-
-  function isActive(href: string): boolean {
-    return page.url.pathname.startsWith(href);
-  }
 </script>
 
 <svelte:head>
@@ -33,30 +25,8 @@
 </svelte:head>
 
 <div class="app-container">
-  {#if !sidebarOpen}
-    <button class="global-toggle" onclick={toggleSidebar} aria-label="Abrir menú" title="Abrir menú"
-      >→</button
-    >
-  {/if}
-
-  <aside class="sidebar" class:collapsed={!sidebarOpen}>
-    <div class="sidebar-header">
-      <h1 class="logo">🧾 Facturas</h1>
-      <button class="sidebar-toggle" onclick={toggleSidebar} title="Alternar sidebar">
-        {sidebarOpen ? '←' : '→'}
-      </button>
-    </div>
-
-    <nav class="sidebar-nav">
-      {#each navItems as item}
-        <a href={item.href} class="nav-item" class:active={isActive(item.href)} title={item.label}>
-          <span class="nav-icon">{item.icon}</span>
-          <span class="nav-label">{item.label}</span>
-        </a>
-      {/each}
-    </nav>
-
-    <div class="sidebar-footer">
+  <Sidebar {navItems} title="🧾 Facturas" bind:open={sidebarOpen}>
+    {#snippet children()}
       <Dropdown>
         {#snippet trigger()}
           <span>⚙️</span>
@@ -79,13 +49,12 @@
         {/snippet}
       </Dropdown>
       <p class="version">v0.2.0</p>
-    </div>
-  </aside>
+    {/snippet}
+  </Sidebar>
 
   <main class="main-content">
     <header class="topbar">
       <div class="topbar-left">
-        <button class="ghost" onclick={toggleSidebar} aria-label="Alternar menú">☰</button>
         <h2>Dashboard</h2>
       </div>
       <div class="topbar-right">
@@ -145,12 +114,31 @@
   <Dialog
     bind:open={settingsOpen}
     title="Configuración"
-    description="Ajusta las preferencias de la aplicación"
   >
-    <div style="padding: var(--spacing-4) 0; display: flex; gap: var(--spacing-3); flex-direction: column;">
-      <p>Aquí irían los ajustes de configuración...</p>
-      <Button variant="primary" onclick={() => (settingsOpen = false)}>Cerrar</Button>
-    </div>
+    {#snippet children()}
+      <form class="form-group">
+        <label for="language">
+          <span>Idioma</span>
+          <select id="language" class="form-control">
+            <option value="es">Español</option>
+            <option value="en">Inglés</option>
+            <option value="pt">Portugués</option>
+          </select>
+        </label>
+        <label for="theme">
+          <span>Tema</span>
+          <select id="theme" class="form-control">
+            <option value="light">Claro</option>
+            <option value="dark">Oscuro</option>
+            <option value="auto">Automático</option>
+          </select>
+        </label>
+      </form>
+      <div class="dialog-buttons">
+        <Button variant="secondary" onclick={() => (settingsOpen = false)}>Cancelar</Button>
+        <Button variant="primary" onclick={() => (settingsOpen = false)}>Guardar</Button>
+      </div>
+    {/snippet}
   </Dialog>
 </div>
 
@@ -158,12 +146,6 @@
   :global(body) {
     margin: 0;
     padding: 0;
-    font-family: var(--font-sans);
-    background: var(--color-background);
-    color: var(--color-text-primary);
-  }
-
-  :global(*) {
     box-sizing: border-box;
   }
 
@@ -171,116 +153,6 @@
     display: flex;
     min-height: 100vh;
     position: relative;
-  }
-
-  .sidebar {
-    width: 280px;
-    background: var(--color-neutral-800);
-    color: var(--color-text-inverse);
-    display: flex;
-    flex-direction: column;
-    border-right: 1px solid var(--color-neutral-700);
-    transition: all var(--transition-base);
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow-y: auto;
-  }
-
-  .sidebar.collapsed {
-    width: 80px;
-  }
-
-  .sidebar-header {
-    padding: var(--spacing-6);
-    border-bottom: 1px solid var(--color-neutral-700);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .logo {
-    margin: 0;
-    font-size: var(--font-size-2xl);
-    font-weight: var(--font-weight-bold);
-    white-space: nowrap;
-    transition: opacity var(--transition-base);
-  }
-
-  .sidebar-toggle {
-    background: none;
-    border: none;
-    color: var(--color-text-inverse);
-    font-size: var(--font-size-xl);
-    cursor: pointer;
-    padding: var(--spacing-2);
-    border-radius: var(--radius-base);
-    transition: background var(--transition-fast);
-  }
-
-  .sidebar-toggle:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .sidebar-nav {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2);
-    padding: var(--spacing-4) var(--spacing-3);
-  }
-
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-4);
-    padding: var(--spacing-3) var(--spacing-4);
-    color: var(--color-neutral-300);
-    text-decoration: none;
-    border-radius: var(--radius-base);
-    transition: all var(--transition-fast);
-    white-space: nowrap;
-  }
-
-  .nav-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--color-text-inverse);
-  }
-
-  .nav-item.active {
-    background: var(--color-primary-600);
-    color: var(--color-text-inverse);
-    font-weight: var(--font-weight-semibold);
-  }
-
-  .nav-icon {
-    font-size: var(--font-size-xl);
-    flex-shrink: 0;
-  }
-
-  .nav-label {
-    transition: opacity var(--transition-base);
-  }
-
-  .sidebar.collapsed .nav-label {
-    opacity: 0;
-    width: 0;
-    overflow: hidden;
-  }
-
-  .sidebar-footer {
-    padding: var(--spacing-3) var(--spacing-4);
-    border-top: 1px solid var(--color-neutral-700);
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-    justify-content: space-between;
-  }
-
-  .version {
-    margin: 0;
-    font-size: var(--font-size-xs);
-    color: var(--color-neutral-500);
   }
 
   .main-content {
@@ -318,20 +190,6 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-3);
-  }
-
-  .ghost {
-    border: none;
-    background: transparent;
-    color: var(--color-text-primary);
-    font-size: 1rem;
-    cursor: pointer;
-    padding: var(--spacing-2);
-    border-radius: var(--radius-base);
-  }
-
-  .ghost:hover {
-    background: var(--color-neutral-100);
   }
 
   .avatar {
@@ -402,45 +260,51 @@
     box-shadow: var(--shadow-sm);
   }
 
-  .global-toggle {
-    position: fixed;
-    left: var(--spacing-2);
-    top: var(--spacing-2);
-    z-index: var(--z-fixed);
-    background: var(--color-primary-600);
-    color: var(--color-text-inverse);
-    border: none;
-    border-radius: var(--radius-full);
-    width: 32px;
-    height: 32px;
-    display: grid;
-    place-items: center;
-    box-shadow: var(--shadow-md);
-    cursor: pointer;
-    transition: background var(--transition-fast);
+  .version {
+    margin: var(--spacing-3) 0 0 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-neutral-500);
   }
 
-  .global-toggle:hover {
-    background: var(--color-primary-700);
+  :global(.nav-label) {
+    transition: opacity var(--transition-base);
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+  }
+
+  .form-group label {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .form-control {
+    padding: var(--spacing-2) var(--spacing-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    font-size: var(--font-size-sm);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+  }
+
+  .form-control:focus {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: -2px;
+  }
+
+  .dialog-buttons {
+    display: flex;
+    gap: var(--spacing-3);
+    justify-content: flex-end;
+    margin-top: var(--spacing-6);
   }
 
   @media (max-width: 768px) {
-    .sidebar {
-      width: 70px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      z-index: var(--z-sticky);
-    }
-
-    .main-content {
-      margin-left: 70px;
-    }
-
-    .nav-label {
-      display: none;
-    }
-
     .content-wrapper {
       padding: var(--spacing-4);
     }

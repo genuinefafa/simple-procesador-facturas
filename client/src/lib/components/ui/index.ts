@@ -3,3 +3,4 @@ export { default as Input } from './Input.svelte';
 export { default as Dialog } from './Dialog.svelte';
 export { default as Tabs } from './Tabs.svelte';
 export { default as Dropdown } from './Dropdown.svelte';
+export { default as Sidebar } from './Sidebar.svelte';
