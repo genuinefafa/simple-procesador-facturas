@@ -5,9 +5,9 @@
 
   const navItems = [
     { href: '/importar', label: 'Importar', icon: '📥' },
-    { href: '/revisar', label: 'Procesar', icon: '⚙️' },
-    { href: '/facturas', label: 'Entrenamiento', icon: '📝' },
-    { href: '/invoices', label: 'Facturas', icon: '📋' },
+    { href: '/procesar', label: 'Procesar', icon: '⚙️' },
+    { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
+    { href: '/facturas', label: 'Facturas', icon: '📋' },
   ];
 
   let sidebarOpen = $state(true);
