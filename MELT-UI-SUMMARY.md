@@ -60,6 +60,16 @@ Sistema completo de design tokens CSS:
 - **Accesibilidad**: Focus management
 - **Snippets**: Trigger y children customizables
 
+#### 🧭 Sidebar (`ui/Sidebar.svelte`) **[Patrón Profesional]**
+
+- **Desktop**: Sidebar sticky persistente (280px)
+- **Mobile**: Drawer animado con overlay y hamburguesa FAB
+- **Navigation items**: Con iconos y etiquetas
+- **Custom content**: Área para dropdowns/opciones
+- **Accesibilidad**: ARIA completo, navegación semántica
+- **Responsive**: Breakpoint automático a 768px
+- **Animaciones**: Slide-in smooth, fade overlay
+
 ### 4. **Exportaciones** ✅
 
 📁 `client/src/lib/components/ui/index.ts`
@@ -70,6 +80,7 @@ export { default as Input } from "./Input.svelte";
 export { default as Dialog } from "./Dialog.svelte";
 export { default as Tabs } from "./Tabs.svelte";
 export { default as Dropdown } from "./Dropdown.svelte";
+export { default as Sidebar } from "./Sidebar.svelte";
 ```
 
 ### 5. **Documentación** ✅
@@ -92,11 +103,12 @@ Página interactiva demostrando todos los componentes con:
 ## 🎯 Criterios de Aceptación - Verificación
 
 - ✅ **Melt UI instalado y usable** → v0.86.6, Svelte 5 compatible
-- ✅ **Primitives exportadas** → 5 componentes en `lib/ui`
+- ✅ **Primitives exportadas** → 6 componentes en `lib/ui`
 - ✅ **Estilos coherentes** → Design tokens CSS centralizados
 - ✅ **Dialogs/triggers funcionan** → Focus trap, keyboard, screen reader ready
 - ✅ **Sin Tailwind** → CSS puro con tokens custom
 - ✅ **Accesibilidad** → ARIA completo, focus management, keyboard navigation
+- ✅ **Navegación profesional** → Sidebar responsive con patrón UX estándar
 
 ## 🧪 Testing
 
@@ -108,10 +120,11 @@ cd client && npm run check
 
 # ✅ Dev server funciona
 cd client && npm run dev
-# Server running on http://localhost:5174
+# Server running on http://localhost:5175
 
-# ✅ Demo accesible en
-# http://localhost:5174/ui-demo
+# ✅ Demos accesibles en
+# http://localhost:5175/ui-demo        (componentes individuales)
+# http://localhost:5175/layout-demo    (layout completo con Sidebar)
 ```
 
 ## 📂 Estructura de Archivos
@@ -124,13 +137,19 @@ client/src/lib/components/ui/
 ├── Dialog.svelte           # Melt UI Dialog
 ├── Tabs.svelte             # Melt UI Tabs
 ├── Dropdown.svelte         # Melt UI Dropdown
+├── Sidebar.svelte          # Patrón Sidebar profesional
 ├── index.ts                # Exportaciones
 ├── README.md               # Documentación de uso
 ├── IMPLEMENTATION.md       # Detalles de implementación
 └── layout.example.svelte   # Ejemplo de layout mejorado
 
-client/src/routes/ui-demo/
-└── +page.svelte            # Página de demostración
+client/src/routes/
+├── ui-demo/+page.svelte       # Demostración de componentes
+└── layout-demo/+page.svelte    # Layout completo con Sidebar
+
+Documentación:
+├── MELT-UI-SUMMARY.md      # Este archivo
+└── SIDEBAR-PATTERN.md       # Patrón Sidebar detallado
 ```
 
 ## 🚀 Cómo usar
@@ -145,7 +164,7 @@ import '$lib/components/ui/tokens.css';
 
 ```svelte
 <script>
-  import { Button, Input, Dialog, Tabs, Dropdown } from '$lib/components/ui';
+  import { Button, Input, Dialog, Tabs, Dropdown, Sidebar } from '$lib/components/ui';
 
   let open = $state(false);
   let name = $state('');
