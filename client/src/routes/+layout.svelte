@@ -1,5 +1,6 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import '$lib/components/ui/tokens.css';
 
   let { children } = $props();
 
