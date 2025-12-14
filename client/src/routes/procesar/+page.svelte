@@ -227,6 +227,8 @@
 
 <Toaster position="top-right" richColors />
 
+<PageHeader title="⚙️ Procesar Archivos" subtitle="Revisá y corregí datos antes de finalizar" />
+
 <div class="review-container">
   <!-- FILTROS -->
   <div class="filter-bar">
