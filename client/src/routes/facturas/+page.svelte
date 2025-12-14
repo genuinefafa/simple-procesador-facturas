@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PageHeader } from '$lib/components';
   import RevisionTable from '$lib/components/RevisionTable.svelte';
   let {
     data,
@@ -30,8 +31,9 @@
   <title>Facturas - Procesador de Facturas</title>
 </svelte:head>
 
+<PageHeader title="📋 Facturas" subtitle="Revisá y categorizá facturas conocidas" />
+
 <div class="invoices-page">
-  <h1 style="margin: 0 0 1rem 0">📋 Facturas</h1>
   <RevisionTable
     invoices={data.items}
     categories={data.categories}

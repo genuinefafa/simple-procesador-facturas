@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast, Toaster } from 'svelte-sonner';
+  import { PageHeader, StatsBar, Button, Card } from '$lib/components';
 
   interface PendingFileItem {
     id: number;
@@ -226,36 +227,9 @@
 
 <Toaster position="top-right" richColors />
 
+<PageHeader title="⚙️ Procesar Archivos" subtitle="Revisá y corregí datos antes de finalizar" />
+
 <div class="review-container">
-  <div class="page-header">
-    <h1>⚙️ Procesar Archivos</h1>
-    <p class="subtitle">Procesá y corregí los datos detectados antes de confirmar</p>
-  </div>
-
-  <!-- STATS -->
-  <div class="stats-bar">
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.total || 0}</span>
-      <span class="stat-label">Total</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.pending || 0}</span>
-      <span class="stat-label">Pendientes</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.reviewing || 0}</span>
-      <span class="stat-label">En Revisión</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.processed || 0}</span>
-      <span class="stat-label">Procesados</span>
-    </div>
-    <div class="stat">
-      <span class="stat-value">{pendingFilesStats?.failed || 0}</span>
-      <span class="stat-label">Errores</span>
-    </div>
-  </div>
-
   <!-- FILTROS -->
   <div class="filter-bar">
     <div class="filter-buttons">
@@ -478,22 +452,6 @@
   .review-container {
     max-width: 1200px;
     margin: 0 auto;
-  }
-
-  .page-header {
-    margin-bottom: 2rem;
-    text-align: center;
-  }
-
-  .page-header h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 2rem;
-  }
-
-  .subtitle {
-    margin: 0;
-    color: #666;
-    font-size: 1rem;
   }
 
   /* STATS */

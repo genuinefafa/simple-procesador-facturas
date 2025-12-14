@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { toast, Toaster } from 'svelte-sonner';
+  import { PageHeader } from '$lib/components';
 
   interface Invoice {
     id: number;
@@ -96,17 +97,17 @@
 </script>
 
 <svelte:head>
-  <title>Facturas - Procesador de Facturas</title>
+  <title>Entrenamiento - Procesador de Facturas</title>
 </svelte:head>
 
 <Toaster position="top-right" richColors />
 
-<div class="invoices-container">
-  <div class="page-header">
-    <h1>📋 Facturas Procesadas</h1>
-    <p class="subtitle">Todas las facturas que has procesado exitosamente</p>
-  </div>
+<PageHeader
+  title="📝 Entrenamiento - Anotaciones"
+  subtitle="Gestioná y exportá facturas para entrenamiento"
+/>
 
+<div class="invoices-container">
   <!-- STATS -->
   <div class="stats-bar">
     <div class="stat">
@@ -212,21 +213,7 @@
     margin: 0 auto;
   }
 
-  .page-header {
-    margin-bottom: 2rem;
-    text-align: center;
-  }
-
-  .page-header h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 2rem;
-  }
-
-  .subtitle {
-    margin: 0;
-    color: #666;
-    font-size: 1rem;
-  }
+  /* Page header handled by component */
 
   /* STATS */
   .stats-bar {
