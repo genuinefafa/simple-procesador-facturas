@@ -4,10 +4,10 @@
   let { children } = $props();
 
   const navItems = [
-    { href: '/importar', label: '📥 Importar', icon: '📥' },
-    { href: '/revisar', label: '✏️ Revisar', icon: '✏️' },
-    { href: '/facturas', label: '📋 Facturas', icon: '📋' },
-    { href: '/google-sync', label: '☁️ Sync', icon: '☁️' },
+    { href: '/importar', label: 'Importar', icon: '📥' },
+    { href: '/revisar', label: 'Revisar', icon: '✏️' },
+    { href: '/facturas', label: 'Facturas', icon: '📋' },
+    { href: '/google-sync', label: 'Sync', icon: '☁️' },
   ];
 
   let sidebarOpen = $state(true);
