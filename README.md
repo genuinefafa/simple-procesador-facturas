@@ -41,48 +41,121 @@ Aplicación web que permite procesar facturas en diversos formatos (PDF, JPG, PN
 - **Build:** Vite
 - **DevOps:** Docker, Docker Compose
 
-### Estructura del Proyecto
+### Estructura del Proyecto (M1 - Enero 2026)
 
 ```
 simple-procesador-facturas/
-├── client/                        # 🌐 SVELTEKIT FULLSTACK
+├── client/                              # 🌐 SVELTEKIT FULLSTACK
 │   ├── src/
 │   │   ├── routes/
-│   │   │   ├── +page.svelte      # Frontend UI
-│   │   │   └── api/              # Backend API (SvelteKit endpoints)
-│   │   │       ├── invoices/upload/+server.ts
-│   │   │       ├── invoices/process/+server.ts
-│   │   │       ├── invoices/export/+server.ts
-│   │   │       └── annotations/+server.ts
-│   │   └── lib/components/       # Svelte components
+│   │   │   ├── +layout.svelte          # 📌 Layout global con sidebar
+│   │   │   ├── importar/
+│   │   │   │   └── +page.svelte        # 📥 Importar PDFs + Excel AFIP
+│   │   │   ├── procesar/
+│   │   │   │   └── +page.svelte        # ⚙️ Procesar archivos pendientes
+│   │   │   ├── entrenamiento/
+│   │   │   │   └── +page.svelte        # 📝 Entrenamiento / anotaciones
+│   │   │   ├── facturas/
+│   │   │   │   └── +page.svelte        # 📋 Facturas conocidas (revisión)
+│   │   │   ├── google-sync/
+│   │   │   │   └── +page.svelte        # ☁️ Sync con Google Sheets
+│   │   │   ├── annotate/
+│   │   │   │   └── +page.svelte        # (Existente) Anotar facturas
+│   │   │   └── api/                    # 🔌 Backend API (SvelteKit endpoints)
+│   │   │       ├── invoices/
+│   │   │       ├── pending-files/
+│   │   │       ├── expected-invoices/
+│   │   │       └── google-sync/
+│   │   └── lib/
+│   │       ├── components/             # 🧩 Componentes reutilizables (M1)
+│   │       │   ├── Button.svelte
+│   │       │   ├── Card.svelte
+│   │       │   ├── PageHeader.svelte
+│   │       │   ├── StatsBar.svelte
+│   │       │   ├── UploadSection.svelte
+│   │       │   └── index.ts            # Exports centralizados
+│   │       └── formatters.ts
 │   ├── package.json
-│   └── vite.config.ts            # Alias @server para imports
+│   └── vite.config.ts                  # Alias $server para imports
 │
-├── server/                        # 📚 SHARED LIBRARIES (NO es servidor HTTP)
+├── server/                              # 📚 SHARED LIBRARIES
 │   ├── database/
-│   │   ├── schema.ts             # Drizzle ORM schema
-│   │   ├── db.ts                 # SQLite connection
-│   │   ├── repositories/         # Data access layer
-│   │   └── migrations/           # SQL migrations
-│   ├── services/                 # Business logic
+│   │   ├── schema.ts                   # Drizzle ORM schema
+│   │   ├── db.ts                       # SQLite connection
+│   │   ├── repositories/               # Data access layer
+│   │   └── migrations/
+│   ├── services/
 │   │   ├── invoice-processing.service.ts
-│   │   └── file-export.service.ts
-│   ├── extractors/               # PDF extraction logic
-│   ├── validators/               # CUIT validation
-│   ├── scripts/
-│   │   ├── migrate.ts            # Run migrations
-│   │   └── seed.ts               # Seed test data
+│   │   ├── file-export.service.ts
+│   │   └── excel-import.service.ts
+│   ├── extractors/
+│   │   ├── pdf-extractor.ts
+│   │   └── ocr-extractor.ts
+│   ├── validators/
+│   │   └── cuit.ts
+│   ├── utils/
 │   └── package.json
 │
-├── data/                          # Persistent data
-│   ├── input/                    # Uploaded files
-│   ├── processed/                # Renamed files
-│   └── database.sqlite           # SQLite database
+├── data/                                # 💾 Persistent data
+│   ├── input/                          # Uploaded files
+│   ├── processed/                      # Renamed & processed files
+│   └── database.sqlite
 │
-├── package.json                   # Monorepo orchestrator
-├── Dockerfile
-└── docker-compose.yml
+├── docs/
+│   ├── UI_UX_GUIDELINES.md             # (Actualizado con M1)
+│   └── README.md
+│
+└── package.json                         # Monorepo orchestrator
 ```
+
+---
+
+## 🎯 Flujo de Usuario (M1)
+
+### 1️⃣ **Importar** (`/importar`)
+```
+Dos opciones:
+├─ PDFs/Imágenes → Drag & drop → Upload automático → Procesamiento
+└─ Excel AFIP   → Importar → Crear batch de facturas esperadas
+```
+
+### 2️⃣ **Procesar** (`/procesar`)
+```
+Archivos pendientes (pending_files)
+├─ Vista previa (PDF/imagen)
+├─ Datos detectados vs Excel (si existe match)
+├─ Edición inline
+└─ Confirmar o reprocesar
+```
+
+### 3️⃣ **Entrenamiento** (`/entrenamiento`)
+```
+Facturas para anotación/entrenamiento
+├─ Selección múltiple
+├─ Exportación para datasets
+└─ Indicadores de confianza
+```
+
+### 4️⃣ **Facturas** (`/facturas`)
+```
+Facturas conocidas / revisión final
+├─ Asignación de categoría
+├─ Búsqueda y filtros
+└─ Exportación masiva
+```
+
+### 5️⃣ **Google Sync** (`/google-sync`)
+```
+Sincronización manual
+├─ Emisores (👥)
+├─ Facturas (📋)
+├─ Facturas esperadas (📊)
+└─ Logs (📝)
+
+Modos: Sincronizar (🔄) | Subir (⬆️) | Descargar (⬇️)
+```
+
+---
 
 ## 🚀 Inicio Rápido
 
