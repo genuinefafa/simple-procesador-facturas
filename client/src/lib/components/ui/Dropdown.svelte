@@ -24,11 +24,11 @@
 </script>
 
 <div class="dropdown-container {className}">
-  <button use:melt={$triggerEl} class="dropdown-trigger">
+  <div use:melt={$triggerEl}>
     {#if trigger}
       {@render trigger()}
     {/if}
-  </button>
+  </div>
 
   {#if $open}
     <div use:melt={$menu} class="dropdown-menu align-{align}">
@@ -42,28 +42,6 @@
 <style>
   .dropdown-container {
     position: relative;
-  }
-
-  .dropdown-trigger {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: var(--spacing-2);
-    border-radius: var(--radius-base);
-    transition: background var(--transition-fast);
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-2);
-    color: inherit;
-  }
-
-  .dropdown-trigger:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  .dropdown-trigger:focus-visible {
-    outline: 2px solid var(--color-primary-500);
-    outline-offset: 2px;
   }
 
   .dropdown-menu {
