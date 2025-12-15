@@ -35,8 +35,11 @@
 {:else}
   <div class="app-container">
     {#if !sidebarOpen}
-      <button class="global-toggle" onclick={toggleSidebar} aria-label="Abrir menú" title="Abrir menú"
-        >→</button
+      <button
+        class="global-toggle"
+        onclick={toggleSidebar}
+        aria-label="Abrir menú"
+        title="Abrir menú">→</button
       >
     {/if}
     <!-- Sidebar Global -->
@@ -50,7 +53,12 @@
 
       <nav class="sidebar-nav">
         {#each navItems as item}
-          <a href={item.href} class="nav-item" class:active={isActive(item.href)} title={item.label}>
+          <a
+            href={item.href}
+            class="nav-item"
+            class:active={isActive(item.href)}
+            title={item.label}
+          >
             <span class="nav-icon">{item.icon}</span>
             <span class="nav-label">{item.label}</span>
           </a>

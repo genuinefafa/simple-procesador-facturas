@@ -94,10 +94,7 @@
     </div>
   </main>
 
-  <Dialog
-    bind:open={settingsOpen}
-    title="Configuración"
-  >
+  <Dialog bind:open={settingsOpen} title="Configuración">
     {#snippet children()}
       <form class="form-group">
         <label for="language">

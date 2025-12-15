@@ -69,22 +69,25 @@
   </button>
 
   {#if open}
-    <div bind:this={menuEl} class="dropdown-menu" class:dropdown-menu-up={openUp} class:dropdown-menu-left={openLeft}>
+    <div
+      bind:this={menuEl}
+      class="dropdown-menu"
+      class:dropdown-menu-up={openUp}
+      class:dropdown-menu-left={openLeft}
+    >
       {#each items as entry}
         {#if entry.type === 'separator'}
           <div class="dropdown-separator"></div>
+        {:else if entry.href}
+          <a class="dropdown-item" href={entry.href} onclick={() => handleSelect(entry)}>
+            {#if entry.icon}<span class="icon">{entry.icon}</span>{/if}
+            <span>{entry.label}</span>
+          </a>
         {:else}
-          {#if entry.href}
-            <a class="dropdown-item" href={entry.href} onclick={() => handleSelect(entry)}>
-              {#if entry.icon}<span class="icon">{entry.icon}</span>{/if}
-              <span>{entry.label}</span>
-            </a>
-          {:else}
-            <button class="dropdown-item" onclick={() => handleSelect(entry)}>
-              {#if entry.icon}<span class="icon">{entry.icon}</span>{/if}
-              <span>{entry.label}</span>
-            </button>
-          {/if}
+          <button class="dropdown-item" onclick={() => handleSelect(entry)}>
+            {#if entry.icon}<span class="icon">{entry.icon}</span>{/if}
+            <span>{entry.label}</span>
+          </button>
         {/if}
       {/each}
     </div>
