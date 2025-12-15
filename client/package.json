@@ -29,6 +29,7 @@
   "dependencies": {
     "better-sqlite3": "^11.7.0",
     "date-fns": "^4.1.0",
+    "melt": "^0.42.0",
     "pdfjs-dist": "^5.4.394",
     "svelte-sonner": "^1.0.6"
   },
