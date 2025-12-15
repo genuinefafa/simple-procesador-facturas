@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
+import { PendingFileRepository } from '@server/database/repositories/pending-file';
 
 export type Final = {
   source: 'final';
@@ -64,16 +65,23 @@ export type Comprobante = {
 export async function GET() {
   const invoiceRepo = new InvoiceRepository();
   const expectedRepo = new ExpectedInvoiceRepository();
+  const pendingRepo = new PendingFileRepository();
 
   const invoices = await invoiceRepo.list();
   const expectedInvoices = await expectedRepo.listWithFiles({
     status: ['pending', 'discrepancy', 'manual', 'ignored'],
   });
 
-  // Fetch pending files (reuse existing API data structure)
-  // NOTE: In a real scenario, you'd call a PendingFileRepository
-  // For now, we'll mock this as a fetch would do in the client
-  const pendingFiles: Pending[] = [];
+  const pendingFilesRaw = await pendingRepo.list();
+  const pendingFiles: Pending[] = pendingFilesRaw.map((pf) => ({
+    id: pf.id,
+    originalFilename: pf.originalFilename,
+    filePath: pf.filePath,
+    status: pf.status,
+    extractedCuit: pf.extractedCuit,
+    extractedDate: pf.extractedDate,
+    extractedTotal: pf.extractedTotal,
+  }));
 
   const toISODate = (value: Date | string | null | undefined) => {
     if (!value) return null;

@@ -1,8 +1,8 @@
 <script lang="ts">
-  import Input from '$lib/components/ui/Input.svelte';
   import Button from '$lib/components/ui/Button.svelte';
   import type { PageData } from './$types';
   import type { Comprobante } from '../api/comprobantes/+server';
+  import { FileUpload } from 'melt/builders';
 
   let { data } = $props();
 
@@ -48,6 +48,13 @@
     return '—';
   }
 
+  function getEmitterName(c: Comprobante): string {
+    const name = c.emitterName || c.final?.emitterName || c.expected?.emitterName;
+    if (!name) return '—';
+    // Retornar nombre corto (primeras 20 chars)
+    return name.length > 20 ? name.slice(0, 20) + '...' : name;
+  }
+
   function isVisible(c: Comprobante): boolean {
     switch (activeFilter) {
       case 'procesadas':
@@ -65,12 +72,29 @@
     window.location.href = `/comprobantes/${comprobanteId}`;
   }
 
-  // Dropzone unified
-  let isDropping = $state(false);
+  // Melt Next File Upload
+  const fileUpload = new FileUpload({
+    multiple: true,
+    onAccept: (file: File) => {
+      // Acumular archivos para procesamiento batch
+      pendingUploadFiles.add(file);
+    },
+  });
 
-  async function handleFiles(files: File[]) {
-    const excel = files.filter((f) => /\.(xlsx|xls|csv)$/i.test(f.name));
-    const others = files.filter((f) => !/\.(xlsx|xls|csv)$/i.test(f.name));
+  let pendingUploadFiles = new Set<File>();
+
+  // Cuando cambien los archivos seleccionados, procesarlos
+  $effect(() => {
+    const selected = fileUpload.selected;
+    if (selected && selected instanceof Set && selected.size > 0) {
+      handleFiles(Array.from(selected));
+      fileUpload.clear();
+    }
+  });
+
+  async function handleFiles(uploadedFiles: File[]) {
+    const excel = uploadedFiles.filter((f) => /\.(xlsx|xls|csv)$/i.test(f.name));
+    const others = uploadedFiles.filter((f) => !/\.(xlsx|xls|csv)$/i.test(f.name));
 
     // 1) Excel/CSV -> expected import (one by one)
     for (const f of excel) {
@@ -89,34 +113,6 @@
     // 3) Refresh
     window.location.reload();
   }
-
-  function onDrop(e: DragEvent) {
-    e.preventDefault();
-    isDropping = false;
-    const files = Array.from(e.dataTransfer?.files || []);
-    if (files.length > 0) handleFiles(files);
-  }
-
-  function onDragOver(e: DragEvent) {
-    e.preventDefault();
-    isDropping = true;
-  }
-
-  function onDragLeave(e: DragEvent) {
-    e.preventDefault();
-    isDropping = false;
-  }
-
-  function onPick() {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.addEventListener('change', () => {
-      const files = Array.from(input.files || []);
-      if (files.length > 0) handleFiles(files);
-    });
-    input.click();
-  }
 </script>
 
 <svelte:head>
@@ -131,30 +127,62 @@
   </div>
 </header>
 
-<section
-  class="dropzone"
-  class:dropping={isDropping}
-  ondrop={onDrop}
-  ondragover={onDragOver}
-  ondragleave={onDragLeave}
->
-  <p class="dz-icon">📦</p>
-  <p class="dz-title">Arrastrá cualquier archivo</p>
-  <p class="dz-hint">PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected</p>
-  <Button variant="secondary" onclick={onPick}>Elegir archivos</Button>
-</section>
+<!-- Dropzone discreto que se expande con drag -->
+<div class="dropzone-wrapper">
+  <div
+    {...fileUpload.dropzone}
+    class="dropzone-compact"
+    class:expanded={fileUpload.isDragging}
+  >
+    {#if !fileUpload.isDragging}
+      <span class="dz-compact-hint">📎 Arrastrá archivos aquí o hacé click</span>
+    {:else}
+      <div class="dz-expanded-content">
+        <p class="dz-icon">📦</p>
+        <p class="dz-title">Soltá los archivos</p>
+        <p class="dz-hint">PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected</p>
+      </div>
+    {/if}
+  </div>
+  <input {...fileUpload.input} />
+</div>
 
 <section class="filters">
-  <button class:active={activeFilter === 'all'} onclick={() => (activeFilter = 'all')}>Todos</button>
-  <button class:active={activeFilter === 'pendientes'} onclick={() => (activeFilter = 'pendientes')}>Pendientes</button>
-  <button class:active={activeFilter === 'procesadas'} onclick={() => (activeFilter = 'procesadas')}>Procesadas</button>
-  <button class:active={activeFilter === 'esperadas'} onclick={() => (activeFilter = 'esperadas')}>Esperadas</button>
+  <button
+    class:active={activeFilter === 'all'}
+    onclick={() => (activeFilter = 'all')}
+    type="button"
+  >
+    Todos
+  </button>
+  <button
+    class:active={activeFilter === 'pendientes'}
+    onclick={() => (activeFilter = 'pendientes')}
+    type="button"
+  >
+    Pendientes
+  </button>
+  <button
+    class:active={activeFilter === 'procesadas'}
+    onclick={() => (activeFilter = 'procesadas')}
+    type="button"
+  >
+    Procesadas
+  </button>
+  <button
+    class:active={activeFilter === 'esperadas'}
+    onclick={() => (activeFilter = 'esperadas')}
+    type="button"
+  >
+    Esperadas
+  </button>
 </section>
 
 <section class="list">
   <div class="list-head">
     <span>Tipo</span>
     <span>Comprobante / Archivo</span>
+    <span>Emisor</span>
     <span>CUIT</span>
     <span>Fecha</span>
     <span>Estado</span>
@@ -163,15 +191,23 @@
   </div>
   {#each data.comprobantes as comp}
     {#if isVisible(comp)}
-      <div class="row" onclick={() => navigateToDetail(comp.id)}>
+      <button class="row" onclick={() => navigateToDetail(comp.id)} type="button">
         <span class="col-type">
           {#if comp.final}<span class="tag ok">Factura</span>
           {:else if comp.expected}<span class="tag warn">Expected</span>
           {:else}<span class="tag info">Pending</span>{/if}
         </span>
         <span class="col-cmp">{formatComprobante(comp)}</span>
-        <span class="col-cuit">{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span>
-        <span class="col-date">{comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate || '—'}</span>
+        <span class="col-emisor">{getEmitterName(comp)}</span>
+        <span class="col-cuit"
+          >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
+        >
+        <span class="col-date"
+          >{comp.final?.issueDate ||
+            comp.expected?.issueDate ||
+            comp.pending?.extractedDate ||
+            '—'}</span
+        >
         <span class="col-status">
           {#if comp.final}procesada
           {:else if comp.expected}esperada
@@ -179,7 +215,7 @@
         </span>
         <span class="col-hash">{comp.final?.fileHash ? shortHash(comp.final.fileHash) : '—'}</span>
         <span class="col-actions"><Button size="sm">Ver</Button></span>
-      </div>
+      </button>
     {/if}
   {/each}
 </section>
@@ -203,31 +239,61 @@
     margin: 0;
   }
 
-  .dropzone {
-    border: 2px dashed var(--color-neutral-300);
+  /* Dropzone discreto que se expande */
+  .dropzone-wrapper {
+    margin-bottom: var(--spacing-4);
+  }
+
+  .dropzone-compact {
+    border: 1px solid var(--color-border);
     background: var(--color-surface);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-5);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-2) var(--spacing-3);
     text-align: center;
-    margin-bottom: var(--spacing-5);
-    transition:
-      background var(--transition-fast),
-      border-color var(--transition-fast);
+    cursor: pointer;
+    transition: all var(--transition-fast);
   }
-  .dropzone.dropping {
+
+  .dropzone-compact:hover {
+    border-color: var(--color-primary-300);
     background: var(--color-surface-alt);
-    border-color: var(--color-primary-400);
   }
+
+  .dropzone-compact.expanded {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    border-radius: 0;
+    border: 4px dashed var(--color-primary-400);
+    background: rgba(255, 255, 255, 0.95);
+    padding: var(--spacing-8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dz-compact-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .dz-expanded-content {
+    text-align: center;
+  }
+
   .dz-icon {
-    font-size: 2rem;
-    margin: 0;
+    font-size: 3rem;
+    margin: 0 0 var(--spacing-2);
   }
+
   .dz-title {
     font-weight: var(--font-weight-semibold);
-    margin: 0.25rem 0;
+    font-size: var(--font-size-xl);
+    margin: 0 0 var(--spacing-1);
   }
+
   .dz-hint {
-    margin: 0 0 var(--spacing-3);
+    margin: 0;
     color: var(--color-text-tertiary);
   }
 
@@ -260,7 +326,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 120px 1fr 160px 140px 140px 100px 120px;
+    grid-template-columns: 100px 1fr 140px 140px 110px 100px 80px 100px;
     gap: var(--spacing-2);
     padding: var(--spacing-3);
     align-items: center;
@@ -271,8 +337,12 @@
     color: var(--color-text-secondary);
   }
   .row {
+    border: none;
     border-top: 1px solid var(--color-border);
     cursor: pointer;
+    background: transparent;
+    text-align: left;
+    width: 100%;
   }
   .row:hover {
     background: var(--color-surface-alt);
@@ -298,41 +368,5 @@
     background: var(--color-neutral-100);
     color: var(--color-text-secondary);
     border-color: var(--color-neutral-200);
-  }
-
-  .detail {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0);
-    pointer-events: none;
-    transition: background var(--transition-base);
-  }
-  .detail.open {
-    background: rgba(0, 0, 0, 0.25);
-    pointer-events: auto;
-  }
-  .detail-card {
-    position: absolute;
-    right: 0;
-    top: 0;
-    height: 100%;
-    width: min(420px, 90vw);
-    background: var(--color-surface);
-    border-left: 1px solid var(--color-border);
-    box-shadow: var(--shadow-lg);
-    transform: translateX(100%);
-    transition: transform var(--transition-base);
-    padding: var(--spacing-5);
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-2);
-  }
-  .detail.open .detail-card {
-    transform: translateX(0%);
-  }
-  .detail-actions {
-    margin-top: auto;
-    display: flex;
-    gap: var(--spacing-2);
   }
 </style>

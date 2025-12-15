@@ -92,8 +92,8 @@
       para procesar archivos y revisar pendientes.
     </p>
     <div class="hero-actions">
-      <Button size="lg" onclick={() => goto('/procesar')}>Procesar archivos</Button>
-      <Button variant="ghost" size="lg" onclick={() => goto('/importar')}>Importar AFIP</Button>
+      <Button size="lg" onclick={() => goto('/comprobantes')}>Comprobantes</Button>
+      <Button variant="ghost" size="lg" onclick={() => goto('/emisores')}>Emisores</Button>
     </div>
   </div>
   <div class="hero-card">
