@@ -1,244 +1,385 @@
 <script lang="ts">
   import { page } from '$app/stores';
+  import Input from '$lib/components/ui/Input.svelte';
   import '$lib/components/ui/tokens.css';
+
+  type NavItem = {
+    href: string;
+    label: string;
+    icon: string;
+  };
 
   let { children } = $props();
 
-  const noChromeRoutes = ['/layout-demo', '/ui-demo'];
-
-  const hideChrome = $derived(noChromeRoutes.some((path) => $page.url.pathname.startsWith(path)));
-
-  const navItems = [
+  const navItems: NavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: '🏠' },
     { href: '/procesar', label: 'Procesar', icon: '⚙️' },
     { href: '/importar', label: 'Importar', icon: '📥' },
     { href: '/facturas', label: 'Facturas', icon: '📋' },
-    { href: '/google-sync', label: 'Sync', icon: '☁️' },
     { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
   ];
 
-  let sidebarOpen = $state(true);
-
-  function toggleSidebar() {
-    sidebarOpen = !sidebarOpen;
-  }
+  let railExpanded = $state(false);
+  let searchQuery = $state('');
+  let searchResults = $state<any[]>([]);
+  let searchOpen = $state(false);
 
   function isActive(href: string): boolean {
     return $page.url.pathname.startsWith(href);
   }
+
+  async function handleSearch(e: Event) {
+    const input = e.target as HTMLInputElement;
+    const q = input.value.trim();
+
+    if (!q) {
+      searchResults = [];
+      searchOpen = false;
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/invoices/search?q=${encodeURIComponent(q)}&limit=8`);
+      const json = await res.json();
+      searchResults = json.items ?? [];
+      searchOpen = true;
+    } catch (error) {
+      console.error('Search error:', error);
+      searchResults = [];
+    }
+  }
+
+  function clearSearch() {
+    searchQuery = '';
+    searchResults = [];
+    searchOpen = false;
+  }
 </script>
 
 <svelte:head>
-  <title>Procesador de Facturas</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 </svelte:head>
 
-{#if hideChrome}
-  {@render children()}
-{:else}
-  <div class="app-container">
-    {#if !sidebarOpen}
+<div class="layout">
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <div class="topbar-left">
       <button
-        class="global-toggle"
-        onclick={toggleSidebar}
-        aria-label="Abrir menú"
-        title="Abrir menú">→</button
+        class="rail-toggle"
+        onclick={() => (railExpanded = !railExpanded)}
+        aria-label="Toggle menu"
+        title="Menú"
       >
-    {/if}
-    <!-- Sidebar Global -->
-    <aside class="sidebar" class:collapsed={!sidebarOpen}>
-      <div class="sidebar-header">
-        <h1 class="logo">🧾 Facturas</h1>
-        <button class="sidebar-toggle" onclick={toggleSidebar} title="Alternar sidebar">
-          {sidebarOpen ? '←' : '→'}
-        </button>
-      </div>
+        ☰
+      </button>
+      <h1 class="logo">🧾 Facturas</h1>
+    </div>
 
-      <nav class="sidebar-nav">
+    <div class="topbar-center">
+      <div class="search-wrapper">
+        <Input
+          type="search"
+          placeholder="Buscar facturas, CUIT, comprobante..."
+          bind:value={searchQuery}
+          oninput={handleSearch}
+          class="search-input"
+        />
+        {#if searchOpen && searchResults.length > 0}
+          <ul class="search-dropdown">
+            {#each searchResults as result}
+              <li>
+                <a href={`/facturas?id=${result.id}`} onclick={clearSearch}>
+                  <span class="result-number">{result.fullInvoiceNumber ?? '—'}</span>
+                  <span class="result-cuit">{result.emitterCuit}</span>
+                </a>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <a href="/google-sync" class="topbar-icon" title="Sync Google">☁️</a>
+      <div class="user-avatar">👤</div>
+    </div>
+  </header>
+
+  <div class="main-container">
+    <!-- RAIL (collapsible) -->
+    <aside class="rail" class:expanded={railExpanded}>
+      <nav class="rail-nav">
         {#each navItems as item}
           <a
             href={item.href}
-            class="nav-item"
+            class="rail-item"
             class:active={isActive(item.href)}
             title={item.label}
+            onclick={() => {
+              if (window.innerWidth < 768) railExpanded = false;
+            }}
           >
-            <span class="nav-icon">{item.icon}</span>
-            <span class="nav-label">{item.label}</span>
+            <span class="rail-icon">{item.icon}</span>
+            <span class="rail-label">{item.label}</span>
           </a>
         {/each}
       </nav>
 
-      <div class="sidebar-footer">
-        <a href="/google-sync" class="sync-link" title="Sync">☁️</a>
-        <p class="version">v0.2.0</p>
+      <div class="rail-footer">
+        <p class="rail-version">v0.3.0</p>
       </div>
     </aside>
 
-    <!-- Main Content -->
-    <main class="main-content">
-      <div class="content-wrapper">
+    <!-- CONTENT -->
+    <main class="content">
+      <div class="content-inner">
         {@render children()}
       </div>
     </main>
   </div>
-{/if}
+</div>
 
 <style>
   :global(body) {
     margin: 0;
     padding: 0;
-    font-family:
-      -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: #f5f5f5;
-    color: #333;
+    font-family: var(--font-sans);
+    background: var(--color-background);
+    color: var(--color-text-primary);
   }
 
   :global(*) {
     box-sizing: border-box;
   }
 
-  .app-container {
-    display: flex;
-    min-height: 100vh;
-    position: relative;
-  }
-
-  /* SIDEBAR */
-  .sidebar {
-    width: 280px;
-    background: #1e293b;
-    color: white;
+  .layout {
     display: flex;
     flex-direction: column;
-    border-right: 1px solid #334155;
-    transition: all 0.3s ease;
+    min-height: 100vh;
+  }
+
+  /* TOPBAR */
+  .topbar {
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--spacing-3) var(--spacing-4);
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: var(--spacing-4);
+    align-items: center;
+    box-shadow: var(--shadow-sm);
     position: sticky;
     top: 0;
-    height: 100vh;
-    overflow-y: auto;
+    z-index: var(--z-fixed);
   }
 
-  .sidebar.collapsed {
-    width: 80px;
-  }
-
-  .sidebar-header {
-    padding: 1.5rem;
-    border-bottom: 1px solid #334155;
+  .topbar-left {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: var(--spacing-3);
+  }
+
+  .rail-toggle {
+    display: none;
+    background: transparent;
+    border: none;
+    font-size: var(--font-size-lg);
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: var(--radius-base);
+    color: var(--color-text-primary);
+    transition: background var(--transition-fast);
+  }
+
+  .rail-toggle:hover {
+    background: var(--color-surface-alt);
   }
 
   .logo {
     margin: 0;
-    font-size: 1.5rem;
-    font-weight: 700;
-    white-space: nowrap;
-    transition: opacity 0.3s;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-weight-bold);
+    color: var(--color-text-primary);
   }
 
-  .sidebar.collapsed .logo {
-    font-size: 1.8rem;
-  }
-
-  .sidebar-toggle {
-    background: none;
-    border: none;
-    color: white;
-    font-size: 1.2rem;
-    cursor: pointer;
-    padding: 0.5rem;
-    border-radius: 6px;
-    transition: background 0.2s;
-  }
-
-  .sidebar-toggle:hover {
-    background: rgba(255, 255, 255, 0.1);
-  }
-
-  /* SIDEBAR NAV */
-  .sidebar-nav {
-    flex: 1;
+  .topbar-center {
     display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    padding: 1rem 0.75rem;
-  }
-
-  .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 0.75rem 1rem;
-    color: #cbd5e1;
-    text-decoration: none;
-    border-radius: 6px;
-    transition: all 0.2s;
-    white-space: nowrap;
-  }
-
-  .nav-item:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-  }
-
-  .nav-item.active {
-    background: #2563eb;
-    color: white;
-    font-weight: 600;
-  }
-
-  .nav-icon {
-    font-size: 1.2rem;
-    flex-shrink: 0;
-  }
-
-  .nav-label {
-    transition: opacity 0.3s;
-  }
-
-  .sidebar.collapsed .nav-label {
-    opacity: 0;
-    width: 0;
-    overflow: hidden;
-  }
-
-  /* SIDEBAR FOOTER */
-  .sidebar-footer {
-    padding: 0.75rem 1rem;
-    border-top: 1px solid #334155;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
     justify-content: center;
   }
 
-  .version {
+  .search-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  :global(.search-input) {
+    width: 100%;
+  }
+
+  .search-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-top: none;
+    border-radius: 0 0 var(--radius-base) var(--radius-base);
+    list-style: none;
     margin: 0;
-    font-size: 0.8rem;
-    color: #64748b;
+    padding: 0;
+    max-height: 240px;
+    overflow-y: auto;
+    box-shadow: var(--shadow-md);
+    z-index: 1;
   }
 
-  .sync-link {
-    color: #94a3b8;
+  .search-dropdown li {
+    border-top: 1px solid var(--color-border);
+  }
+
+  .search-dropdown li:first-child {
+    border-top: none;
+  }
+
+  .search-dropdown a {
+    display: flex;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+    color: var(--color-text-primary);
     text-decoration: none;
-    font-size: 1rem;
-  }
-  .sync-link:hover {
-    color: #cbd5e1;
+    transition: background var(--transition-fast);
   }
 
-  /* MAIN CONTENT */
-  .main-content {
+  .search-dropdown a:hover {
+    background: var(--color-surface-alt);
+  }
+
+  .result-number {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-primary-700);
+  }
+
+  .result-cuit {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+  }
+
+  .topbar-icon {
+    font-size: var(--font-size-lg);
+    text-decoration: none;
+    transition: opacity var(--transition-fast);
+  }
+
+  .topbar-icon:hover {
+    opacity: 0.75;
+  }
+
+  .user-avatar {
+    width: 36px;
+    height: 36px;
+    display: grid;
+    place-items: center;
+    border-radius: var(--radius-full);
+    background: var(--color-primary-50);
+    border: 1px solid var(--color-primary-200);
+    font-size: var(--font-size-lg);
+  }
+
+  /* MAIN CONTAINER */
+  .main-container {
+    display: flex;
+    flex: 1;
+  }
+
+  /* RAIL */
+  .rail {
+    width: 60px;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    display: flex;
+    flex-direction: column;
+    transition: width var(--transition-base);
+    position: relative;
+  }
+
+  .rail.expanded {
+    width: 220px;
+  }
+
+  .rail-nav {
     flex: 1;
     display: flex;
     flex-direction: column;
+    padding: var(--spacing-2);
+    gap: var(--spacing-2);
+  }
+
+  .rail-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-3);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border-radius: var(--radius-base);
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+  }
+
+  .rail-item:hover {
+    background: var(--color-surface-alt);
+    color: var(--color-text-primary);
+  }
+
+  .rail-item.active {
+    background: var(--color-primary-50);
+    color: var(--color-primary-700);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  .rail-icon {
+    font-size: var(--font-size-lg);
+    flex-shrink: 0;
+  }
+
+  .rail-label {
+    opacity: 0;
+    transition: opacity var(--transition-base);
+    font-size: var(--font-size-sm);
+  }
+
+  .rail.expanded .rail-label {
+    opacity: 1;
+  }
+
+  .rail-footer {
+    padding: var(--spacing-2) var(--spacing-3);
+    border-top: 1px solid var(--color-border);
+    text-align: center;
+  }
+
+  .rail-version {
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  /* CONTENT */
+  .content {
+    flex: 1;
     overflow: auto;
   }
 
-  .content-wrapper {
-    flex: 1;
-    padding: 2rem;
+  .content-inner {
+    padding: var(--spacing-6);
     max-width: 1400px;
     margin: 0 auto;
     width: 100%;
@@ -246,72 +387,53 @@
 
   /* RESPONSIVE */
   @media (max-width: 768px) {
-    .sidebar {
-      width: 70px;
-      position: fixed;
-      left: 0;
-      top: 0;
-      z-index: 1000;
-      height: 100vh;
+    .topbar {
+      padding: var(--spacing-2) var(--spacing-3);
+      gap: var(--spacing-2);
     }
 
-    .sidebar.collapsed {
-      width: 70px;
+    .topbar-left {
+      gap: var(--spacing-2);
     }
 
-    .main-content {
-      margin-left: 70px;
-    }
-
-    .nav-label {
-      display: none;
-    }
-
-    .content-wrapper {
-      padding: 1rem;
-    }
-  }
-
-  /* Global toggle (always visible to reopen) */
-  .global-toggle {
-    position: fixed;
-    left: 8px;
-    top: 8px;
-    z-index: 2000;
-    background: #2563eb;
-    color: white;
-    border: none;
-    border-radius: 999px;
-    width: 32px;
-    height: 32px;
-    display: grid;
-    place-items: center;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    cursor: pointer;
-  }
-  .global-toggle:hover {
-    background: #1d4ed8;
-  }
-
-  @media (max-width: 480px) {
-    .sidebar {
-      width: 60px;
-    }
-
-    .main-content {
-      margin-left: 60px;
-    }
-
-    .sidebar-header {
-      padding: 1rem;
-    }
-
-    .nav-item {
-      padding: 0.75rem 0.5rem;
+    .rail-toggle {
+      display: block;
     }
 
     .logo {
-      font-size: 1.2rem;
+      font-size: var(--font-size-base);
+    }
+
+    .search-wrapper {
+      max-width: 100%;
+    }
+
+    .topbar-center {
+      order: 3;
+      grid-column: 1 / -1;
+    }
+
+    .rail {
+      position: fixed;
+      left: -220px;
+      top: 0;
+      height: 100vh;
+      width: 220px;
+      z-index: var(--z-modal-backdrop);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .rail.expanded {
+      left: 0;
+      width: 220px;
+    }
+
+    .rail-label {
+      opacity: 1;
+    }
+
+    .content-inner {
+      padding: var(--spacing-4);
     }
   }
 </style>
