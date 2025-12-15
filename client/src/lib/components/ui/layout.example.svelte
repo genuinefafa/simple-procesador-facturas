@@ -3,7 +3,6 @@
    * Layout Example con Melt UI
    * Ejemplo de cómo integrar los componentes UI primitivos en el layout
    */
-  // Svelte 5: usar page desde $app/state (stores está deprecado)
   import { page } from '$app/state';
   import { Dropdown, Dialog } from '$lib/components/ui';
 
@@ -14,6 +13,13 @@
     { href: '/procesar', label: 'Procesar', icon: '⚙️' },
     { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
     { href: '/facturas', label: 'Facturas', icon: '📋' },
+  ];
+
+  const sidebarMenu = [
+    { label: 'Configuración', icon: '⚙️', onSelect: () => (settingsOpen = true) },
+    { label: 'Sincronización', icon: '☁️', href: '/google-sync' },
+    { type: 'separator' } as const,
+    { label: 'Ayuda', icon: '❓' },
   ];
 
   let sidebarOpen = $state(true);
@@ -59,27 +65,7 @@
 
     <div class="sidebar-footer">
       <!-- Dropdown con Melt UI para opciones -->
-      <Dropdown>
-        {#snippet trigger()}
-          <span>⚙️</span>
-          <span class="nav-label">Opciones</span>
-        {/snippet}
-        {#snippet children()}
-          <button class="dropdown-item" onclick={() => (settingsOpen = true)}>
-            <span>⚙️</span>
-            <span>Configuración</span>
-          </button>
-          <a href="/google-sync" class="dropdown-item">
-            <span>☁️</span>
-            <span>Sincronización</span>
-          </a>
-          <div class="dropdown-separator"></div>
-          <button class="dropdown-item">
-            <span>❓</span>
-            <span>Ayuda</span>
-          </button>
-        {/snippet}
-      </Dropdown>
+      <Dropdown label="Opciones" items={sidebarMenu} />
 
       <p class="version">v0.2.0</p>
     </div>

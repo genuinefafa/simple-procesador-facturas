@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createTabs, melt } from '@melt-ui/svelte';
+  import { Tabs as MeltTabs } from 'melt/builders';
   import type { Snippet } from 'svelte';
 
   interface Tab {
@@ -23,32 +23,22 @@
     class: className = '',
   }: Props = $props();
 
-  const {
-    elements: { root, list, trigger, content },
-    states: { value: selectedValue },
-  } = createTabs({
-    defaultValue: value,
-    onValueChange: ({ next }) => {
-      value = next ?? value;
-      onValueChange?.(next ?? value);
-      return next;
+  const tabsBuilder = new MeltTabs({
+    value: () => value,
+    onValueChange: (newValue) => {
+      value = newValue;
+      onValueChange?.(newValue);
     },
-  });
-
-  $effect(() => {
-    if (value) {
-      selectedValue.set(value);
-    }
   });
 </script>
 
-<div use:melt={$root} class="tabs-root {className}">
-  <div use:melt={$list} class="tabs-list" role="tablist">
+<div class="tabs-root {className}">
+  <div {...tabsBuilder.triggerList} class="tabs-list">
     {#each tabs as tab}
       <button
-        use:melt={$trigger(tab.value)}
+        {...tabsBuilder.getTrigger(tab.value)}
         class="tab-trigger"
-        class:active={$selectedValue === tab.value}
+        class:active={tabsBuilder.value === tab.value}
         disabled={tab.disabled}
       >
         {tab.label}
@@ -57,7 +47,7 @@
   </div>
 
   {#each tabs as tab}
-    <div use:melt={$content(tab.value)} class="tab-content">
+    <div {...tabsBuilder.getContent(tab.value)} class="tab-content">
       {#if tab.content}
         {@render tab.content()}
       {/if}

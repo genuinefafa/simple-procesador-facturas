@@ -28,6 +28,13 @@
     { value: 'dialog', label: 'Dialog' },
     { value: 'dropdown', label: 'Dropdown' },
   ];
+
+  const dropdownItems = [
+    { label: 'Perfil', icon: '👤', onSelect: () => alert('Perfil') },
+    { label: 'Configuración', icon: '⚙️', onSelect: () => alert('Configuración') },
+    { type: 'separator' } as const,
+    { label: 'Cerrar sesión', icon: '🚪', onSelect: () => alert('Cerrar sesión') },
+  ];
 </script>
 
 <svelte:head>
@@ -198,41 +205,21 @@
 
         <div class="demo-item">
           <h3>Demo Dropdown</h3>
-          <Dropdown>
-            {#snippet trigger()}
-              <span>⚙️</span>
-              <span>Opciones</span>
-              <span style="margin-left: auto;">▼</span>
-            {/snippet}
-            {#snippet children()}
-              <button class="dropdown-item" onclick={() => alert('Perfil')}>
-                <span>👤</span>
-                <span>Perfil</span>
-              </button>
-              <button class="dropdown-item" onclick={() => alert('Configuración')}>
-                <span>⚙️</span>
-                <span>Configuración</span>
-              </button>
-              <div class="dropdown-separator"></div>
-              <button class="dropdown-item" onclick={() => alert('Cerrar sesión')}>
-                <span>🚪</span>
-                <span>Cerrar sesión</span>
-              </button>
-            {/snippet}
-          </Dropdown>
+          <Dropdown label="Opciones" items={dropdownItems} />
         </div>
 
         <div class="code-example">
           <h4>Ejemplo de código:</h4>
           <pre><code
-              >&lt;Dropdown&gt;
-  &#123;#snippet trigger()&#125;
-    &lt;span&gt;Opciones&lt;/span&gt;
-  &#123;/snippet&#125;
-  &#123;#snippet children()&#125;
-    &lt;button class="dropdown-item"&gt;Item 1&lt;/button&gt;
-  &#123;/snippet&#125;
-&lt;/Dropdown&gt;</code
+              >&lt;Dropdown
+  label="Opciones"
+  items=&#123;[
+    &#123; label: 'Perfil' &#125;,
+    &#123; label: 'Configuración' &#125;,
+    &#123; type: 'separator' &#125;,
+    &#123; label: 'Cerrar sesión' &#125;,
+  ]&#125;
+/&gt;</code
             ></pre>
         </div>
       </section>

@@ -1,13 +1,26 @@
 <script lang="ts">
   import { page } from '$app/state';
   import { Dropdown, Dialog, Button, Tabs, Sidebar } from '$lib/components/ui';
-  import { melt } from '@melt-ui/svelte';
 
   const navItems = [
     { href: '/importar', label: 'Importar', icon: '📥' },
     { href: '/procesar', label: 'Procesar', icon: '⚙️' },
     { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
     { href: '/facturas', label: 'Facturas', icon: '📋' },
+  ];
+
+  const sidebarMenu = [
+    { label: 'Configuración', icon: '⚙️', onSelect: () => (settingsOpen = true) },
+    { label: 'Sincronización', icon: '☁️', href: '/google-sync' },
+    { type: 'separator' } as const,
+    { label: 'Ayuda', icon: '❓' },
+  ];
+
+  const avatarMenu = [
+    { label: 'Perfil' },
+    { label: 'Notificaciones' },
+    { type: 'separator' } as const,
+    { label: 'Cerrar sesión' },
   ];
 
   const topTabs = [
@@ -29,29 +42,7 @@
   <Sidebar {navItems} title="🧾 Facturas" bind:open={sidebarOpen}>
     {#snippet children()}
       <div class="sidebar-options">
-        <Dropdown>
-          {#snippet trigger(triggerAction)}
-            <button class="options-trigger" use:melt={triggerAction}>
-              <span>⚙️</span>
-              <span>Opciones</span>
-            </button>
-          {/snippet}
-          {#snippet children()}
-            <button class="dropdown-item" onclick={() => (settingsOpen = true)}>
-              <span>⚙️</span>
-              <span>Configuración</span>
-            </button>
-            <a href="/google-sync" class="dropdown-item">
-              <span>☁️</span>
-              <span>Sincronización</span>
-            </a>
-            <div class="dropdown-separator"></div>
-            <button class="dropdown-item">
-              <span>❓</span>
-              <span>Ayuda</span>
-            </button>
-          {/snippet}
-        </Dropdown>
+        <Dropdown label="Opciones" items={sidebarMenu} />
       </div>
       <p class="version">v0.2.0</p>
     {/snippet}
@@ -64,20 +55,7 @@
       </div>
       <div class="topbar-right">
         <Button variant="secondary" size="sm">Nuevo</Button>
-        <Dropdown>
-          {#snippet trigger(triggerAction)}
-            <div class="avatar" use:melt={triggerAction}>
-              <span>FA</span>
-              <span class="chevron">▼</span>
-            </div>
-          {/snippet}
-          {#snippet children()}
-            <button class="dropdown-item">Perfil</button>
-            <button class="dropdown-item">Notificaciones</button>
-            <div class="dropdown-separator"></div>
-            <button class="dropdown-item">Cerrar sesión</button>
-          {/snippet}
-        </Dropdown>
+        <Dropdown label="Cuenta" items={avatarMenu} />
       </div>
     </header>
 
@@ -195,28 +173,6 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-3);
-  }
-
-  .avatar {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2);
-    padding: var(--spacing-2) var(--spacing-3);
-    border-radius: var(--radius-full);
-    background: var(--color-neutral-100);
-    border: 1px solid var(--color-border);
-    font-weight: var(--font-weight-medium);
-    cursor: pointer;
-    transition: background var(--transition-fast);
-  }
-
-  .avatar:hover {
-    background: var(--color-neutral-200);
-  }
-
-  .avatar .chevron {
-    font-size: 0.8rem;
-    color: var(--color-text-secondary);
   }
 
   .content-wrapper {
