@@ -157,14 +157,21 @@
   const fileUrl = $derived.by(() => {
     // Para pending files, usar el endpoint de API que maneja HEIC
     if (comprobante.pending?.id) {
-      return `/api/pending-files/${comprobante.pending.id}/file`;
+      const url = `/api/pending-files/${comprobante.pending.id}/file`;
+      console.log('[FilePreview] URL para pending:', url, comprobante.pending);
+      return url;
     }
     if (comprobante.final?.filePath) {
-      return `/api/files/${comprobante.final.filePath}`;
+      const url = `/api/files/${comprobante.final.filePath}`;
+      console.log('[FilePreview] URL para final:', url);
+      return url;
     }
     if (comprobante.expected?.filePath) {
-      return `/api/files/${comprobante.expected.filePath}`;
+      const url = `/api/files/${comprobante.expected.filePath}`;
+      console.log('[FilePreview] URL para expected:', url);
+      return url;
     }
+    console.log('[FilePreview] No hay fileUrl disponible', comprobante);
     return null;
   });
 

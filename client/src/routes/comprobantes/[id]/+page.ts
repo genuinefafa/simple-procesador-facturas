@@ -129,7 +129,8 @@ export const load: PageLoad = async ({ fetch, params }) => {
       // Fetch desde /api/pending-files/:id
       const res = await fetch(`/api/pending-files/${id}`);
       if (res.ok) {
-        const data = await res.json();
+        const response = await res.json();
+        const data = response.pendingFile; // El API retorna { success, pendingFile }
         const pending: Pending = {
           id: data.id,
           originalFilename: data.originalFilename,
