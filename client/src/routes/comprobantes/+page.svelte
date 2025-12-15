@@ -7,7 +7,23 @@
   let { data } = $props();
 
   type FilterKind = 'all' | 'pendientes' | 'procesadas' | 'esperadas';
+
+  // Cargar filtro guardado o defecto 'all'
   let activeFilter = $state<FilterKind>('all');
+
+  $effect.pre(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('comprobantes-filter') as FilterKind | null;
+      if (saved) activeFilter = saved;
+    }
+  });
+
+  // Guardar filtro cuando cambia
+  $effect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('comprobantes-filter', activeFilter);
+    }
+  });
 
   function shortHash(hash?: string | null) {
     if (!hash) return '—';
