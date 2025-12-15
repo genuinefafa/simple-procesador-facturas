@@ -2,7 +2,7 @@
  * Repository para la gestión de facturas (Drizzle ORM)
  */
 
-import { eq, and, count } from 'drizzle-orm';
+import { eq, and, count, or, like } from 'drizzle-orm';
 import { db } from '../db';
 import { facturas, type Factura } from '../schema';
 import type { InvoiceType, Currency, ExtractionMethod } from '../../utils/types';
@@ -226,6 +226,32 @@ export class InvoiceRepository {
 
     const result = await query;
     return result[0]?.count || 0;
+  }
+
+  async search(term: string, limit = 20): Promise<Invoice[]> {
+    const trimmed = term.trim();
+    if (!trimmed) {
+      const rows = await db.select().from(facturas).limit(limit);
+      return rows.map((row) => this.mapDrizzleToInvoice(row));
+    }
+
+    const pattern = `%${trimmed}%`;
+
+    const rows = await db
+      .select()
+      .from(facturas)
+      .where(
+        or(
+          like(facturas.comprobanteCompleto, pattern),
+          like(facturas.emisorCuit, pattern),
+          like(facturas.archivoOriginal, pattern)
+        )
+      )
+      .limit(limit);
+
+    return rows
+      .map((row) => this.mapDrizzleToInvoice(row))
+      .sort((a, b) => b.issueDate.getTime() - a.issueDate.getTime());
   }
 
   async updateLinking(

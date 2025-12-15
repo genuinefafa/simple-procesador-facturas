@@ -9,10 +9,12 @@
   const hideChrome = $derived(noChromeRoutes.some((path) => $page.url.pathname.startsWith(path)));
 
   const navItems = [
-    { href: '/importar', label: 'Importar', icon: '📥' },
+    { href: '/dashboard', label: 'Dashboard', icon: '🏠' },
     { href: '/procesar', label: 'Procesar', icon: '⚙️' },
-    { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
+    { href: '/importar', label: 'Importar', icon: '📥' },
     { href: '/facturas', label: 'Facturas', icon: '📋' },
+    { href: '/google-sync', label: 'Sync', icon: '☁️' },
+    { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
   ];
 
   let sidebarOpen = $state(true);
