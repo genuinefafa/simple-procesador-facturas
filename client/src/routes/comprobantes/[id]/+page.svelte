@@ -1,50 +1,53 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
+  import EmitterCombobox from '$lib/components/EmitterCombobox.svelte';
+  import { Accordion } from 'melt/builders';
   import type { PageData } from './$types';
 
   let { data } = $props();
   let { comprobante } = data;
 
-  // State para emisores (autocomplete)
-  let emisorQuery = $state('');
-  let emisorResults = $state<Array<{ id: number; name: string; cuit: string }>>([]);
-  let showEmisores = $state(false);
-  let selectedEmitterId = $state<number | null>(null);
+  type Emitter = { id: number; name: string; cuit: string };
+
+  let selectedEmitter = $state<Emitter | null>(null);
+  let confirmReprocess = $state(false);
 
   let facuraData = $state({
-    cuit: comprobante.final?.cuit || comprobante.expected?.cuit || comprobante.pending?.extractedCuit || '',
+    cuit:
+      comprobante.final?.cuit ||
+      comprobante.expected?.cuit ||
+      comprobante.pending?.extractedCuit ||
+      '',
     invoiceType: comprobante.final?.invoiceType || comprobante.expected?.invoiceType || '',
     pointOfSale: comprobante.final?.pointOfSale || comprobante.expected?.pointOfSale || null,
     invoiceNumber: comprobante.final?.invoiceNumber || comprobante.expected?.invoiceNumber || null,
-    issueDate: comprobante.final?.issueDate || comprobante.expected?.issueDate || comprobante.pending?.extractedDate || '',
-    total: comprobante.final?.total || comprobante.expected?.total || comprobante.pending?.extractedTotal || null,
+    issueDate:
+      comprobante.final?.issueDate ||
+      comprobante.expected?.issueDate ||
+      comprobante.pending?.extractedDate ||
+      '',
+    total:
+      comprobante.final?.total ||
+      comprobante.expected?.total ||
+      comprobante.pending?.extractedTotal ||
+      null,
   });
 
-  // Buscar emisores
-  async function searchEmisores(query: string) {
-    if (!query || query.length < 3) {
-      emisorResults = [];
-      return;
-    }
-    try {
-      const res = await fetch(`/api/emisores?q=${encodeURIComponent(query)}`);
-      const json = await res.json();
-      emisorResults = json.emitters || [];
-      showEmisores = true;
-    } catch (e) {
-      console.error('Error buscando emisores:', e);
-    }
-  }
+  // Accordion para expected/pending
+  const accordion = new Accordion();
 
-  function selectEmisor(emisor: { id: number; name: string; cuit: string }) {
-    selectedEmitterId = emisor.id;
-    facuraData.cuit = emisor.cuit;
-    emisorQuery = emisor.name;
-    showEmisores = false;
+  function onEmitterSelect(emitter: Emitter | null) {
+    selectedEmitter = emitter;
+    if (emitter) facuraData.cuit = emitter.cuit;
   }
 
   function copyFromSection(source: 'final' | 'expected' | 'pending') {
-    const sourceData = source === 'final' ? comprobante.final : source === 'expected' ? comprobante.expected : comprobante.pending;
+    const sourceData =
+      source === 'final'
+        ? comprobante.final
+        : source === 'expected'
+          ? comprobante.expected
+          : comprobante.pending;
     if (!sourceData) return;
 
     if (source === 'final') {
@@ -89,17 +92,28 @@
     }
 
     // TODO: PATCH /api/invoices/:id con facuraData
-    // TODO: Si selectedEmitterId, también PATCH /api/invoices/:id/emisor
+    // TODO: Si selectedEmitter, también PATCH /api/invoices/:id/emisor
     // TODO: log audit event
-    console.log('Guardar factura:', facuraData, { emitterId: selectedEmitterId });
+    console.log('Guardar factura:', facuraData, { emitterId: selectedEmitter?.id });
   }
 
-  async function reprocess() {
-    if (comprobante.pending) {
-      // TODO: POST /api/pending-files/:id/reprocess
-      // TODO: log audit event
-      console.log('Reprocesar pendiente:', comprobante.pending.id);
+  // Determinar si se procesó alguna vez
+  const wasProcessed = comprobante.final != null;
+
+  async function processPending() {
+    if (!comprobante.pending) return;
+
+    if (wasProcessed && !confirmReprocess) {
+      alert('Marcá el checkbox para confirmar el reprocesamiento');
+      return;
     }
+
+    // TODO: POST /api/pending-files/:id/process (o /reprocess)
+    // TODO: log audit event
+    console.log('Procesar/Reprocesar pendiente:', comprobante.pending.id, {
+      reprocess: wasProcessed,
+    });
+    confirmReprocess = false;
   }
 
   // Obtener ruta del archivo para preview
@@ -140,125 +154,13 @@
       {/if}
     </aside>
 
-    <!-- Columna derecha: Secciones de datos -->
-    <div class="sections">
-      <!-- Sección Expected (SIEMPRE visible) -->
-      <section class="section expected-section">
-        <div class="section-header">
-          <h3>Del Fisco (Expected)</h3>
-          {#if comprobante.expected}
-            <Button size="sm" variant="secondary" onclick={() => copyFromSection('expected')}>
-              Copiar a Factura
-            </Button>
-          {/if}
-        </div>
-        {#if comprobante.expected}
-          <div class="data-list">
-            <div class="data-item">
-              <span class="label">CUIT:</span>
-              <span class="value">{comprobante.expected.cuit}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">Tipo:</span>
-              <span class="value">{comprobante.expected.invoiceType}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">Punto de Venta:</span>
-              <span class="value">{comprobante.expected.pointOfSale}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">Número:</span>
-              <span class="value">{comprobante.expected.invoiceNumber}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">Fecha:</span>
-              <span class="value">{comprobante.expected.issueDate}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">Total:</span>
-              <span class="value">{comprobante.expected.total}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">Estado:</span>
-              <span class="value">{comprobante.expected.status}</span>
-            </div>
-          </div>
-        {:else}
-          <p class="empty-state">No hay factura esperada asociada desde AFIP</p>
-        {/if}
-      </section>
-
-      <!-- Sección Pending (SIEMPRE visible) -->
-      <section class="section pending-section">
-        <div class="section-header">
-          <h3>Documento Subido (OCR Extraído)</h3>
-          <div class="header-actions">
-            {#if comprobante.pending}
-              <Button size="sm" variant="secondary" onclick={() => copyFromSection('pending')}>
-                Copiar a Factura
-              </Button>
-              <Button size="sm" variant="ghost" onclick={reprocess}>
-                Reprocesar
-              </Button>
-            {/if}
-          </div>
-        </div>
-        {#if comprobante.pending}
-          <div class="data-list">
-            <div class="data-item">
-              <span class="label">Archivo:</span>
-              <span class="value">{comprobante.pending.originalFilename}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">CUIT (detectado):</span>
-              <span class="value">{comprobante.pending.extractedCuit || '—'}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">Fecha (detectada):</span>
-              <span class="value">{comprobante.pending.extractedDate || '—'}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">Total (detectado):</span>
-              <span class="value">{comprobante.pending.extractedTotal || '—'}</span>
-            </div>
-            <div class="data-item">
-              <span class="label">Estado:</span>
-              <span class="value">{comprobante.pending.status}</span>
-            </div>
-          </div>
-        {:else}
-          <p class="empty-state">No hay archivo pendiente asociado (no se subió digitalmente)</p>
-        {/if}
-      </section>
-
-      <!-- Sección Factura (SIEMPRE visible - formulario editable) -->
+    <!-- Columna derecha: Formulario + Accordions -->
+    <div {...accordion.root} class="content">
+      <!-- Formulario Factura (ARRIBA, siempre visible) -->
       <section class="section factura-section">
         <h2>Factura Final (Verificada)</h2>
 
-        <!-- Autocomplete Emisor -->
-        <div class="form-group">
-          <label for="emisor-search">Emisor</label>
-          <input
-            id="emisor-search"
-            type="text"
-            placeholder="Buscar por nombre o CUIT..."
-            bind:value={emisorQuery}
-            oninput={() => searchEmisores(emisorQuery)}
-            onfocus={() => (showEmisores = emisorResults.length > 0)}
-          />
-          {#if showEmisores && emisorResults.length > 0}
-            <ul class="autocomplete-results">
-              {#each emisorResults as emisor}
-                <li>
-                  <button type="button" onclick={() => selectEmisor(emisor)}>
-                    <strong>{emisor.name}</strong>
-                    <span class="cuit-hint">{emisor.cuit}</span>
-                  </button>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </div>
+        <EmitterCombobox value={selectedEmitter} onselect={onEmitterSelect} />
 
         <div class="form-group">
           <label for="cuit">CUIT *</label>
@@ -288,6 +190,111 @@
           <Button onclick={saveFactura}>Guardar Factura</Button>
         </div>
       </section>
+
+      <!-- Accordion: Expected -->
+      {#if comprobante.expected}
+        {@const item = accordion.getItem({ id: 'expected' })}
+        <div class="accordion">
+          <h3 {...item.heading}>
+            <button type="button" {...item.trigger} class="accordion-trigger">
+              <span>📋 Del Fisco (Expected)</span>
+              <span class="accordion-icon">▼</span>
+            </button>
+          </h3>
+          <div {...item.content} class="accordion-content">
+            <div class="accordion-header">
+              <Button size="sm" variant="secondary" onclick={() => copyFromSection('expected')}>
+                Copiar a Factura
+              </Button>
+            </div>
+            <div class="data-list">
+              <div class="data-item">
+                <span class="label">CUIT:</span>
+                <span class="value">{comprobante.expected.cuit}</span>
+              </div>
+              <div class="data-item">
+                <span class="label">Tipo:</span>
+                <span class="value">{comprobante.expected.invoiceType}</span>
+              </div>
+              <div class="data-item">
+                <span class="label">Punto de Venta:</span>
+                <span class="value">{comprobante.expected.pointOfSale}</span>
+              </div>
+              <div class="data-item">
+                <span class="label">Número:</span>
+                <span class="value">{comprobante.expected.invoiceNumber}</span>
+              </div>
+              <div class="data-item">
+                <span class="label">Fecha:</span>
+                <span class="value">{comprobante.expected.issueDate}</span>
+              </div>
+              <div class="data-item">
+                <span class="label">Total:</span>
+                <span class="value">{comprobante.expected.total}</span>
+              </div>
+              <div class="data-item">
+                <span class="label">Estado:</span>
+                <span class="value">{comprobante.expected.status}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      {/if}
+
+      <!-- Accordion: Pending -->
+      {#if comprobante.pending}
+        {@const item = accordion.getItem({ id: 'pending' })}
+        <div class="accordion">
+          <h3 {...item.heading}>
+            <button type="button" {...item.trigger} class="accordion-trigger">
+              <span>📦 Documento Subido (OCR Extraído)</span>
+              <span class="accordion-icon">▼</span>
+            </button>
+          </h3>
+          <div {...item.content} class="accordion-content">
+              <div class="accordion-header">
+                <Button size="sm" variant="secondary" onclick={() => copyFromSection('pending')}>
+                  Copiar a Factura
+                </Button>
+                {#if wasProcessed}
+                  <label class="reprocess-confirm">
+                    <input type="checkbox" bind:checked={confirmReprocess} />
+                    <span>Confirmar reprocesamiento</span>
+                  </label>
+                {/if}
+                <Button
+                  size="sm"
+                  variant={wasProcessed ? 'ghost' : 'secondary'}
+                  onclick={processPending}
+                >
+                  {wasProcessed ? '🔄 Reprocesar' : '▶️ Procesar'}
+                </Button>
+              </div>
+              <div class="data-list">
+                <div class="data-item">
+                  <span class="label">Archivo:</span>
+                  <span class="value">{comprobante.pending.originalFilename}</span>
+                </div>
+                <div class="data-item">
+                  <span class="label">CUIT (detectado):</span>
+                  <span class="value">{comprobante.pending.extractedCuit || '—'}</span>
+                </div>
+                <div class="data-item">
+                  <span class="label">Fecha (detectada):</span>
+                  <span class="value">{comprobante.pending.extractedDate || '—'}</span>
+                </div>
+                <div class="data-item">
+                  <span class="label">Total (detectado):</span>
+                  <span class="value">{comprobante.pending.extractedTotal || '—'}</span>
+                </div>
+                <div class="data-item">
+                  <span class="label">Estado:</span>
+                  <span class="value">{comprobante.pending.status}</span>
+                </div>
+              </div>
+            </div>
+        </div>
+      {/if}
     </div>
   </div>
 </div>
@@ -347,8 +354,8 @@
     margin: 0;
   }
 
-  /* Sections */
-  .sections {
+  /* Content */
+  .content {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-4);
@@ -366,34 +373,9 @@
     font-size: var(--font-size-lg);
   }
 
-  .section-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-3);
-  }
-
-  .section-header h3 {
-    margin: 0;
-    font-size: var(--font-size-md);
-  }
-
-  .header-actions {
-    display: flex;
-    gap: var(--spacing-2);
-  }
-
-  .empty-state {
-    color: var(--color-text-tertiary);
-    font-style: italic;
-    text-align: center;
-    padding: var(--spacing-4);
-  }
-
   /* Form */
   .form-group {
     margin-bottom: var(--spacing-2);
-    position: relative;
   }
 
   .form-group label {
@@ -416,50 +398,75 @@
     border-color: var(--color-primary-500);
   }
 
-  /* Autocomplete */
-  .autocomplete-results {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    margin-top: 0.25rem;
-    max-height: 200px;
-    overflow-y: auto;
-    z-index: 10;
-    list-style: none;
-    padding: 0;
-    margin: 0.25rem 0 0;
-    box-shadow: var(--shadow-md);
-  }
-
-  .autocomplete-results li button {
-    width: 100%;
-    padding: 0.5rem;
-    border: none;
-    background: transparent;
-    text-align: left;
-    cursor: pointer;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-  }
-
-  .autocomplete-results li button:hover {
-    background: var(--color-surface-alt);
-  }
-
-  .cuit-hint {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-  }
-
   .actions {
     display: flex;
     gap: var(--spacing-2);
     margin-top: var(--spacing-3);
+  }
+
+  /* Accordion */
+  .accordion {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+    overflow: hidden;
+  }
+
+  .accordion-trigger {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-3) var(--spacing-4);
+    background: var(--color-surface-alt);
+    border: none;
+    cursor: pointer;
+    margin: 0;
+    font-size: var(--font-size-md);
+    font-weight: var(--font-weight-semibold);
+    transition: background var(--transition-fast);
+  }
+
+  .accordion-trigger:hover {
+    background: var(--color-neutral-100);
+  }
+
+  .accordion-trigger[data-state='open'] .accordion-icon {
+    transform: rotate(180deg);
+  }
+
+  .accordion-icon {
+    transition: transform var(--transition-base);
+    font-size: var(--font-size-sm);
+  }
+
+  .accordion-content {
+    padding: var(--spacing-4);
+  }
+
+  .accordion-content[data-state='closed'] {
+    display: none;
+  }
+
+  .accordion-header {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: center;
+    margin-bottom: var(--spacing-3);
+    flex-wrap: wrap;
+  }
+
+  .reprocess-confirm {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .reprocess-confirm input[type='checkbox'] {
+    width: auto;
+    cursor: pointer;
   }
 
   /* Data display */

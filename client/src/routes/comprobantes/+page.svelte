@@ -129,18 +129,16 @@
 
 <!-- Dropzone discreto que se expande con drag -->
 <div class="dropzone-wrapper">
-  <div
-    {...fileUpload.dropzone}
-    class="dropzone-compact"
-    class:expanded={fileUpload.isDragging}
-  >
+  <div {...fileUpload.dropzone} class="dropzone-compact" class:expanded={fileUpload.isDragging}>
     {#if !fileUpload.isDragging}
       <span class="dz-compact-hint">📎 Arrastrá archivos aquí o hacé click</span>
     {:else}
       <div class="dz-expanded-content">
         <p class="dz-icon">📦</p>
         <p class="dz-title">Soltá los archivos</p>
-        <p class="dz-hint">PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected</p>
+        <p class="dz-hint">
+          PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected
+        </p>
       </div>
     {/if}
   </div>
