@@ -5,29 +5,41 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url }) => {
   const emitterRepo = new EmitterRepository();
 
+  const q = url.searchParams.get('q'); // Combined search query
   const cuit = url.searchParams.get('cuit');
   const name = url.searchParams.get('name');
   const limit = parseInt(url.searchParams.get('limit') || '50', 10);
 
   try {
     let emitters: any[] = [];
+    const allEmitters = emitterRepo.list();
 
-    if (cuit) {
+    if (q) {
+      // Búsqueda combinada: por CUIT (sin guiones) o por nombre
+      const qClean = q.replace(/[^\d]/g, ''); // Remove non-digits for CUIT search
+      emitters = allEmitters.filter((e: any) => {
+        const cuitNumeric = (e.cuit || '').replace(/[^\d]/g, '');
+        const cuitMatches = qClean && cuitNumeric.includes(qClean);
+        const nameMatches = (e.name || '').toLowerCase().includes(q.toLowerCase());
+        return cuitMatches || nameMatches;
+      });
+    } else if (cuit) {
       // Búsqueda exacta o parcial por CUIT
       const found = emitterRepo.findByCUIT(cuit);
       if (found) {
         emitters = [found];
       }
     } else if (name) {
-      // Búsqueda por nombre (fuzzy aquí o en repo)
-      // TODO: Implementar búsqueda fuzzy en repo
-      emitters = [];
+      // Búsqueda por nombre
+      emitters = allEmitters.filter((e: any) =>
+        (e.name || '').toLowerCase().includes(name.toLowerCase())
+      );
     } else {
       // Listar todos (limitado)
-      emitters = emitterRepo.list().slice(0, limit);
+      emitters = allEmitters.slice(0, limit);
     }
 
-    return json({ count: emitters.length, emitters });
+    return json({ count: emitters.length, emitters: emitters.slice(0, limit) });
   } catch (e) {
     console.error('Error fetching emitters:', e);
     return json({ error: 'Failed to fetch emitters', message: String(e) }, { status: 500 });

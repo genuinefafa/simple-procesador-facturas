@@ -1,16 +1,25 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
   import EmitterCombobox from '$lib/components/EmitterCombobox.svelte';
+  import FilePreview from '$lib/components/FilePreview.svelte';
   import { Accordion } from 'melt/builders';
   import type { PageData } from './$types';
+  import { toast, Toaster } from 'svelte-sonner';
+  import { invalidateAll } from '$app/navigation';
 
   let { data } = $props();
   let { comprobante } = data;
 
-  type Emitter = { id: number; name: string; cuit: string };
+  type Emitter = {
+    id?: number;
+    name: string;
+    cuit: string;
+    cuitNumeric?: string;
+  };
 
   let selectedEmitter = $state<Emitter | null>(null);
   let confirmReprocess = $state(false);
+  let processing = $state(false);
 
   let facuraData = $state({
     cuit:
@@ -34,7 +43,9 @@
   });
 
   // Accordion para expected/pending
-  const accordion = new Accordion();
+  const accordion = new Accordion({
+    value: comprobante.pending ? 'pending' : undefined,
+  });
 
   function onEmitterSelect(emitter: Emitter | null) {
     selectedEmitter = emitter;
@@ -104,27 +115,71 @@
     if (!comprobante.pending) return;
 
     if (wasProcessed && !confirmReprocess) {
-      alert('Marcá el checkbox para confirmar el reprocesamiento');
+      toast.error('Confirmá el reprocesamiento marcando el checkbox');
       return;
     }
 
-    // TODO: POST /api/pending-files/:id/process (o /reprocess)
-    // TODO: log audit event
-    console.log('Procesar/Reprocesar pendiente:', comprobante.pending.id, {
-      reprocess: wasProcessed,
-    });
-    confirmReprocess = false;
+    processing = true;
+    const toastId = toast.loading(wasProcessed ? 'Reprocesando...' : 'Procesando...');
+
+    try {
+      const endpoint = wasProcessed
+        ? `/api/pending-files/${comprobante.pending.id}/reprocess`
+        : `/api/pending-files/${comprobante.pending.id}/process`;
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        toast.success(
+          `✅ ${wasProcessed ? 'Reprocesado' : 'Procesado'}: ${data.extraction?.confidence || 0}% confianza`,
+          { id: toastId }
+        );
+        // Revalidar los datos de la página sin recargar completamente
+        await invalidateAll();
+      } else {
+        toast.error(data.error || 'Error al procesar', { id: toastId });
+      }
+    } catch (err) {
+      toast.error('Error al procesar archivo', { id: toastId });
+      console.error('Error:', err);
+    } finally {
+      processing = false;
+      confirmReprocess = false;
+    }
   }
 
   // Obtener ruta del archivo para preview
-  function getFileUrl(): string | null {
-    if (comprobante.pending?.filePath) return `/data${comprobante.pending.filePath}`;
-    if (comprobante.final?.file) return `/data${comprobante.final.file}`;
-    if (comprobante.expected?.file) return `/data${comprobante.expected.file}`;
+  const fileUrl = $derived.by(() => {
+    // Para pending files, usar el endpoint de API que maneja HEIC
+    if (comprobante.pending?.id) {
+      return `/api/pending-files/${comprobante.pending.id}/file`;
+    }
+    if (comprobante.final?.filePath) {
+      return `/api/files/${comprobante.final.filePath}`;
+    }
+    if (comprobante.expected?.filePath) {
+      return `/api/files/${comprobante.expected.filePath}`;
+    }
     return null;
-  }
+  });
 
-  const fileUrl = getFileUrl();
+  const previewFilename = $derived.by(() => {
+    if (comprobante.pending?.originalFilename) {
+      return comprobante.pending.originalFilename;
+    }
+    if (comprobante.final?.filePath) {
+      return comprobante.final.filePath.split('/').pop() || 'documento';
+    }
+    if (comprobante.expected?.filePath) {
+      return comprobante.expected.filePath.split('/').pop() || 'documento';
+    }
+    return 'documento';
+  });
 </script>
 
 <svelte:head>
@@ -141,11 +196,12 @@
     <!-- Columna izquierda: Preview -->
     <aside class="preview-panel">
       {#if fileUrl}
-        {#if fileUrl.endsWith('.pdf')}
-          <iframe src={fileUrl} title="Preview PDF" class="pdf-preview"></iframe>
-        {:else}
-          <img src={fileUrl} alt="Preview" class="img-preview" />
-        {/if}
+        <FilePreview
+          src={fileUrl}
+          filename={previewFilename}
+          showZoom={true}
+          maxHeight="calc(100vh - 200px)"
+        />
       {:else}
         <div class="no-preview">
           <p>📄</p>
@@ -252,52 +308,61 @@
             </button>
           </h3>
           <div {...item.content} class="accordion-content">
-              <div class="accordion-header">
-                <Button size="sm" variant="secondary" onclick={() => copyFromSection('pending')}>
-                  Copiar a Factura
-                </Button>
-                {#if wasProcessed}
-                  <label class="reprocess-confirm">
-                    <input type="checkbox" bind:checked={confirmReprocess} />
-                    <span>Confirmar reprocesamiento</span>
-                  </label>
+            <div class="accordion-header">
+              <Button size="sm" variant="secondary" onclick={() => copyFromSection('pending')}>
+                Copiar a Factura
+              </Button>
+              {#if wasProcessed}
+                <label class="reprocess-confirm">
+                  <input type="checkbox" bind:checked={confirmReprocess} />
+                  <span>Confirmar reprocesamiento</span>
+                </label>
+              {/if}
+              <Button
+                size="sm"
+                variant={wasProcessed ? 'ghost' : 'secondary'}
+                onclick={processPending}
+                disabled={processing}
+              >
+                {#if processing}
+                  ⏳ Procesando...
+                {:else if wasProcessed}
+                  🔄 Reprocesar
+                {:else}
+                  ▶️ Procesar
                 {/if}
-                <Button
-                  size="sm"
-                  variant={wasProcessed ? 'ghost' : 'secondary'}
-                  onclick={processPending}
-                >
-                  {wasProcessed ? '🔄 Reprocesar' : '▶️ Procesar'}
-                </Button>
+              </Button>
+            </div>
+            <div class="data-list">
+              <div class="data-item">
+                <span class="label">Archivo:</span>
+                <span class="value">{comprobante.pending.originalFilename}</span>
               </div>
-              <div class="data-list">
-                <div class="data-item">
-                  <span class="label">Archivo:</span>
-                  <span class="value">{comprobante.pending.originalFilename}</span>
-                </div>
-                <div class="data-item">
-                  <span class="label">CUIT (detectado):</span>
-                  <span class="value">{comprobante.pending.extractedCuit || '—'}</span>
-                </div>
-                <div class="data-item">
-                  <span class="label">Fecha (detectada):</span>
-                  <span class="value">{comprobante.pending.extractedDate || '—'}</span>
-                </div>
-                <div class="data-item">
-                  <span class="label">Total (detectado):</span>
-                  <span class="value">{comprobante.pending.extractedTotal || '—'}</span>
-                </div>
-                <div class="data-item">
-                  <span class="label">Estado:</span>
-                  <span class="value">{comprobante.pending.status}</span>
-                </div>
+              <div class="data-item">
+                <span class="label">CUIT (detectado):</span>
+                <span class="value">{comprobante.pending.extractedCuit || '—'}</span>
+              </div>
+              <div class="data-item">
+                <span class="label">Fecha (detectada):</span>
+                <span class="value">{comprobante.pending.extractedDate || '—'}</span>
+              </div>
+              <div class="data-item">
+                <span class="label">Total (detectado):</span>
+                <span class="value">{comprobante.pending.extractedTotal || '—'}</span>
+              </div>
+              <div class="data-item">
+                <span class="label">Estado:</span>
+                <span class="value">{comprobante.pending.status}</span>
               </div>
             </div>
+          </div>
         </div>
       {/if}
     </div>
   </div>
 </div>
+
+<Toaster position="top-right" richColors />
 
 <style>
   .container {

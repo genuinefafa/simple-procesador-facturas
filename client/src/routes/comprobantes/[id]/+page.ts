@@ -12,6 +12,7 @@ export type Final = {
   invoiceNumber: number | null;
   total?: number | null;
   file?: string;
+  filePath?: string;
   fileHash?: string | null;
   categoryId?: number | null;
   pendingFileId?: number | null;
@@ -30,6 +31,7 @@ export type Expected = {
   total?: number | null;
   status?: string;
   file?: string;
+  filePath?: string;
   matchedPendingFileId?: number | null;
 };
 
@@ -77,6 +79,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           invoiceNumber: data.invoiceNumber,
           total: data.total,
           file: data.processedFile,
+          filePath: data.processedFile,
           fileHash: data.fileHash,
           expectedInvoiceId: data.expectedInvoiceId,
           pendingFileId: data.pendingFileId,
@@ -109,6 +112,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
             total: exp.total,
             status: exp.status,
             file: exp.filePath,
+            filePath: exp.filePath,
           };
           comprobante = {
             id: `expected:${expected.id}`,

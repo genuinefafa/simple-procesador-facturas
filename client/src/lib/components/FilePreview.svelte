@@ -59,7 +59,13 @@
         class="image-content"
         style="transform: scale({zoomLevel / 100}); transform-origin: center;"
       >
-        <img {src} alt="Preview de {filename}" class="image-preview" onerror={onError} />
+        <img
+          {src}
+          alt="Preview de {filename}"
+          class="image-preview"
+          loading="lazy"
+          onerror={onError}
+        />
       </div>
     </div>
   {:else}

@@ -68,10 +68,6 @@
     }
   }
 
-  function navigateToDetail(comprobanteId: string) {
-    window.location.href = `/comprobantes/${comprobanteId}`;
-  }
-
   // Melt Next File Upload
   const fileUpload = new FileUpload({
     multiple: true,
@@ -189,7 +185,7 @@
   </div>
   {#each data.comprobantes as comp}
     {#if isVisible(comp)}
-      <button class="row" onclick={() => navigateToDetail(comp.id)} type="button">
+      <a href="/comprobantes/{comp.id}" class="row" data-sveltekit-preload-data>
         <span class="col-type">
           {#if comp.final}<span class="tag ok">Factura</span>
           {:else if comp.expected}<span class="tag warn">Expected</span>
@@ -213,7 +209,7 @@
         </span>
         <span class="col-hash">{comp.final?.fileHash ? shortHash(comp.final.fileHash) : '—'}</span>
         <span class="col-actions"><Button size="sm">Ver</Button></span>
-      </button>
+      </a>
     {/if}
   {/each}
 </section>
@@ -341,6 +337,8 @@
     background: transparent;
     text-align: left;
     width: 100%;
+    text-decoration: none;
+    color: inherit;
   }
   .row:hover {
     background: var(--color-surface-alt);
