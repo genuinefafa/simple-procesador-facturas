@@ -79,7 +79,12 @@
       excelImportResult = data;
 
       if (data.success) {
-        toast.success(`Importadas ${data.imported} facturas`, { id: toastId });
+        const parts = [];
+        if (data.imported > 0) parts.push(`${data.imported} nuevas`);
+        if (data.updated > 0) parts.push(`${data.updated} actualizadas`);
+        if (data.unchanged > 0) parts.push(`${data.unchanged} sin cambios`);
+
+        toast.success(`Facturas: ${parts.join(', ')}`, { id: toastId });
         await loadImportBatches();
       } else {
         toast.error(data.error || 'Error al importar', { id: toastId });
@@ -201,17 +206,32 @@
             {#if excelImportResult.success}
               <div class="alert alert-success">
                 <h3>✅ Importación exitosa</h3>
-                <p>
-                  <strong>{excelImportResult.imported}</strong> facturas importadas
-                  {#if excelImportResult.skipped > 0}
-                    <br /><em>{excelImportResult.skipped} saltadas (duplicadas)</em>
+                <div class="import-summary">
+                  {#if excelImportResult.imported > 0}
+                    <div class="summary-item">
+                      <strong>{excelImportResult.imported}</strong>
+                      <span>nuevas facturas</span>
+                    </div>
+                  {/if}
+                  {#if excelImportResult.updated > 0}
+                    <div class="summary-item">
+                      <strong>{excelImportResult.updated}</strong>
+                      <span>actualizadas</span>
+                    </div>
+                  {/if}
+                  {#if excelImportResult.unchanged > 0}
+                    <div class="summary-item">
+                      <strong>{excelImportResult.unchanged}</strong>
+                      <span>sin cambios</span>
+                    </div>
                   {/if}
                   {#if excelImportResult.errors.length > 0}
-                    <br /><strong class="text-error"
-                      >{excelImportResult.errors.length} errores</strong
-                    >
+                    <div class="summary-item error">
+                      <strong>{excelImportResult.errors.length}</strong>
+                      <span>errores</span>
+                    </div>
                   {/if}
-                </p>
+                </div>
               </div>
 
               {#if excelImportResult.errors.length > 0}
@@ -398,6 +418,33 @@
     margin: 0;
   }
 
+  .import-summary {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+
+  .summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .summary-item strong {
+    font-size: 1.5rem;
+    font-weight: 700;
+  }
+
+  .summary-item span {
+    font-size: 0.875rem;
+    opacity: 0.8;
+  }
+
+  .summary-item.error strong {
+    color: #dc2626;
+  }
+
   .alert-success {
     background: #dcfce7;
     border: 1px solid #bbf7d0;
@@ -408,10 +455,6 @@
     background: #fee2e2;
     border: 1px solid #fecaca;
     color: #991b1b;
-  }
-
-  .text-error {
-    color: #dc2626;
   }
 
   .error-details {

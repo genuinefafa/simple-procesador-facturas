@@ -188,41 +188,84 @@ export class ExpectedInvoiceRepository {
       currency?: string;
     }>,
     batchId: number
-  ): Promise<ExpectedInvoice[]> {
+  ): Promise<{
+    created: ExpectedInvoice[];
+    updated: ExpectedInvoice[];
+    unchanged: ExpectedInvoice[];
+  }> {
     const created: ExpectedInvoice[] = [];
+    const updated: ExpectedInvoice[] = [];
+    const unchanged: ExpectedInvoice[] = [];
 
     for (const invoice of invoices) {
       try {
-        const result = await db
-          .insert(expectedInvoices)
-          .values({
-            importBatchId: batchId,
-            cuit: invoice.cuit,
-            emitterName: invoice.emitterName || null,
-            issueDate: invoice.issueDate,
-            invoiceType: invoice.invoiceType,
-            pointOfSale: invoice.pointOfSale,
-            invoiceNumber: invoice.invoiceNumber,
-            total: invoice.total || null,
-            cae: invoice.cae || null,
-            caeExpiration: invoice.caeExpiration || null,
-            currency: invoice.currency || 'ARS',
-            status: 'pending',
-          })
-          .returning();
+        // Buscar duplicado según reglas de AFIP
+        const duplicate = await this.findDuplicate({
+          cuit: invoice.cuit,
+          cae: invoice.cae,
+          invoiceType: invoice.invoiceType,
+          pointOfSale: invoice.pointOfSale,
+          invoiceNumber: invoice.invoiceNumber,
+        });
 
-        if (result.length > 0) {
-          created.push(this.mapDrizzleToExpectedInvoice(result[0]));
+        if (duplicate) {
+          // Ya existe - verificar si hay datos nuevos para actualizar
+          const hasChanges =
+            (invoice.emitterName && invoice.emitterName !== duplicate.emitterName) ||
+            (invoice.total !== undefined &&
+              invoice.total !== null &&
+              invoice.total !== duplicate.total) ||
+            (invoice.cae && invoice.cae !== duplicate.cae) ||
+            (invoice.caeExpiration && invoice.caeExpiration !== duplicate.caeExpiration) ||
+            (invoice.currency && invoice.currency !== duplicate.currency);
+
+          if (hasChanges) {
+            // Actualizar solo los campos que son diferentes
+            const updatedInvoice = await this.updateInvoice(duplicate.id, {
+              emitterName: invoice.emitterName || duplicate.emitterName || undefined,
+              total: invoice.total !== undefined ? invoice.total : duplicate.total || undefined,
+              cae: invoice.cae || duplicate.cae || undefined,
+              caeExpiration: invoice.caeExpiration || duplicate.caeExpiration || undefined,
+              currency: invoice.currency || duplicate.currency || undefined,
+            });
+            updated.push(updatedInvoice);
+          } else {
+            // No hay cambios, es idéntico
+            unchanged.push(duplicate);
+          }
+        } else {
+          // No existe - crear nuevo
+          const result = await db
+            .insert(expectedInvoices)
+            .values({
+              importBatchId: batchId,
+              cuit: invoice.cuit,
+              emitterName: invoice.emitterName || null,
+              issueDate: invoice.issueDate,
+              invoiceType: invoice.invoiceType,
+              pointOfSale: invoice.pointOfSale,
+              invoiceNumber: invoice.invoiceNumber,
+              total: invoice.total || null,
+              cae: invoice.cae || null,
+              caeExpiration: invoice.caeExpiration || null,
+              currency: invoice.currency || 'ARS',
+              status: 'pending',
+            })
+            .returning();
+
+          if (result.length > 0) {
+            created.push(this.mapDrizzleToExpectedInvoice(result[0]));
+          }
         }
       } catch (error) {
-        console.warn(
-          `Factura duplicada: ${invoice.invoiceType}-${invoice.pointOfSale}-${invoice.invoiceNumber}`,
+        console.error(
+          `Error procesando factura: ${invoice.invoiceType}-${invoice.pointOfSale}-${invoice.invoiceNumber}`,
           error
         );
       }
     }
 
-    return created;
+    return { created, updated, unchanged };
   }
 
   async findById(id: number): Promise<ExpectedInvoice | null> {
@@ -368,6 +411,86 @@ export class ExpectedInvoiceRepository {
       );
 
     return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
+  }
+
+  /**
+   * Busca duplicados según las reglas de AFIP:
+   * - Si existe CAE: busca por emisor (CUIT) + CAE
+   * - Si NO existe CAE: busca por emisor + tipo + sucursal + numero
+   */
+  async findDuplicate(invoice: {
+    cuit: string;
+    cae?: string;
+    invoiceType: string;
+    pointOfSale: number;
+    invoiceNumber: number;
+  }): Promise<ExpectedInvoice | null> {
+    let result;
+
+    if (invoice.cae) {
+      // Búsqueda por CUIT + CAE (clave única)
+      result = await db
+        .select()
+        .from(expectedInvoices)
+        .where(and(eq(expectedInvoices.cuit, invoice.cuit), eq(expectedInvoices.cae, invoice.cae)));
+    } else {
+      // Búsqueda por CUIT + tipo + sucursal + numero
+      result = await db
+        .select()
+        .from(expectedInvoices)
+        .where(
+          and(
+            eq(expectedInvoices.cuit, invoice.cuit),
+            eq(expectedInvoices.invoiceType, invoice.invoiceType),
+            eq(expectedInvoices.pointOfSale, invoice.pointOfSale),
+            eq(expectedInvoices.invoiceNumber, invoice.invoiceNumber)
+          )
+        );
+    }
+
+    return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
+  }
+
+  /**
+   * Actualiza un registro existente con nuevos datos (solo campos no-clave)
+   */
+  async updateInvoice(
+    id: number,
+    data: {
+      emitterName?: string;
+      total?: number;
+      cae?: string;
+      caeExpiration?: string;
+      currency?: string;
+      notes?: string;
+    }
+  ): Promise<ExpectedInvoice> {
+    const updates: Record<string, string | number | null> = {};
+
+    if (data.emitterName !== undefined) updates.emitterName = data.emitterName;
+    if (data.total !== undefined) updates.total = data.total;
+    if (data.cae !== undefined) updates.cae = data.cae;
+    if (data.caeExpiration !== undefined) updates.caeExpiration = data.caeExpiration;
+    if (data.currency !== undefined) updates.currency = data.currency;
+    if (data.notes !== undefined) updates.notes = data.notes;
+
+    if (Object.keys(updates).length === 0) {
+      const found = await this.findById(id);
+      if (!found) throw new Error('Expected invoice not found');
+      return found;
+    }
+
+    const result = await db
+      .update(expectedInvoices)
+      .set(updates)
+      .where(eq(expectedInvoices.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error('Expected invoice not found after update');
+    }
+
+    return this.mapDrizzleToExpectedInvoice(result[0]);
   }
 
   async findPartialMatches(criteria: {

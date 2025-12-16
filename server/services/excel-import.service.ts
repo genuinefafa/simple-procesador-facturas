@@ -49,7 +49,8 @@ export interface ImportResult {
   filename: string;
   totalRows: number;
   imported: number;
-  skipped: number;
+  updated: number;
+  unchanged: number;
   errors: Array<{ row: number; error: string }>;
 }
 
@@ -233,15 +234,17 @@ export class ExcelImportService {
 
     console.info(`   📦 Lote creado - ID: ${batch.id}`);
 
-    // Insertar facturas en la base de datos
-    const imported = await this.repo.createManyInvoices(rows, batch.id);
+    // Insertar/actualizar facturas en la base de datos
+    const result = await this.repo.createManyInvoices(rows, batch.id);
 
-    console.info(`   ✅ Facturas importadas: ${imported.length}`);
+    console.info(`   ✅ Facturas creadas: ${result.created.length}`);
+    console.info(`   🔄 Facturas actualizadas: ${result.updated.length}`);
+    console.info(`   ⏭️  Facturas sin cambios: ${result.unchanged.length}`);
 
     // Actualizar estadísticas del lote
     await this.repo.updateBatch(batch.id, {
-      importedRows: imported.length,
-      skippedRows: rowCount - imported.length,
+      importedRows: result.created.length,
+      skippedRows: result.updated.length + result.unchanged.length,
     });
 
     console.info(`\n✨ [EXCEL-IMPORT] Importación completada exitosamente`);
@@ -251,8 +254,9 @@ export class ExcelImportService {
       batchId: batch.id,
       filename,
       totalRows: rowCount + errors.length,
-      imported: imported.length,
-      skipped: rowCount - imported.length,
+      imported: result.created.length,
+      updated: result.updated.length,
+      unchanged: result.unchanged.length,
       errors,
     };
   }
