@@ -106,6 +106,30 @@
     return true;
   }
 
+  /**
+   * Actualiza la categoría de una factura procesada
+   */
+  async function updateCategory(invoiceId: number, categoryId: number | null | undefined) {
+    try {
+      const res = await fetch(`/api/invoices/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId: categoryId === undefined ? null : categoryId }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Error actualizando categoría');
+      }
+
+      toast.success('Categoría actualizada');
+      await invalidateAll();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Error al actualizar categoría');
+      console.error(e);
+    }
+  }
+
   // Melt Next File Upload
   const fileUpload = new FileUpload({
     multiple: true,
@@ -290,12 +314,13 @@
             '—'}</span
         >
         <span class="col-category">
-          {#if comp.final?.categoryId}
-            {#each categories as cat}
-              {#if cat.id === comp.final.categoryId}
-                {cat.description}
-              {/if}
-            {/each}
+          {#if comp.final}
+            <CategoryPills
+              {categories}
+              selected={comp.final?.categoryId ?? null}
+              onselect={(id) => comp.final && updateCategory(comp.final.id, id)}
+              mode="single"
+            />
           {:else}
             —
           {/if}
