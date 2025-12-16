@@ -458,6 +458,7 @@ Sistema completo de tokens CSS en `tokens.css`:
 
 **Prohibido:**
 - ❌ `alert()`, `confirm()`, `prompt()`
+- ❌ `window.location.href`, `window.location.replace()` (rompe SPA)
 - ❌ Valores CSS hardcoded (usar tokens)
 - ❌ Tailwind classes
 - ❌ Stores para estado local (usar runes)
@@ -465,9 +466,25 @@ Sistema completo de tokens CSS en `tokens.css`:
 **Requerido:**
 - ✅ Toast notifications (`svelte-sonner`)
 - ✅ Dialog component para confirmaciones
+- ✅ `goto()` de `$app/navigation` para navegación programática
+- ✅ `invalidateAll()` de `$app/navigation` para refresh de datos
 - ✅ Indicadores visuales (✓ ⚠ ❌ ⚪)
 - ✅ Tooltips informativos
 - ✅ Accesibilidad ARIA completa
+
+**Navegación programática:**
+```typescript
+// ❌ MAL - Rompe SPA, recarga toda la página
+window.location.href = '/comprobantes';
+
+// ✅ BIEN - Mantiene SPA
+import { goto } from '$app/navigation';
+goto('/comprobantes');
+
+// Para refresh de datos después de mutaciones:
+import { invalidateAll } from '$app/navigation';
+await invalidateAll(); // Re-ejecuta load functions
+```
 
 ### 7.3 Git Workflow
 
