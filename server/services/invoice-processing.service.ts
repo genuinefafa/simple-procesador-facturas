@@ -17,7 +17,7 @@ import {
   ExpectedInvoiceRepository,
   type ExpectedInvoice,
 } from '../database/repositories/expected-invoice.js';
-import { format, subDays, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { extname } from 'path';
 import type { Invoice, DocumentType, ExtractionMethod } from '../utils/types.js';
 
@@ -652,7 +652,7 @@ export class InvoiceProcessingService {
 
     if (bestScore >= 80 && topCandidates.length === 1) {
       console.info(`   ✅ Match único encontrado (score=${bestScore}%)`);
-      return { type: 'UNIQUE', match: topCandidates[0] };
+      return { type: 'UNIQUE', match: topCandidates[0]! };
     }
 
     // Si hay entre 1 y 5 candidatos viables, devolver para selección manual
