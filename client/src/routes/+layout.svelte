@@ -13,9 +13,8 @@
 
   const navItems: NavItem[] = [
     { href: '/dashboard', label: 'Dashboard', icon: '🏠' },
-    { href: '/procesar', label: 'Procesar', icon: '⚙️' },
-    { href: '/importar', label: 'Importar', icon: '📥' },
-    { href: '/facturas', label: 'Facturas', icon: '📋' },
+    { href: '/comprobantes', label: 'Comprobantes', icon: '📋' },
+    { href: '/emisores', label: 'Emisores', icon: '👥' },
     { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
   ];
 
@@ -129,7 +128,7 @@
       </nav>
 
       <div class="rail-footer">
-        <p class="rail-version">v0.3.0</p>
+        <p class="rail-version">v0.4.0</p>
       </div>
     </aside>
 
