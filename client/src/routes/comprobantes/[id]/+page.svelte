@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
+  import CategoryPills from '$lib/components/CategoryPills.svelte';
   import EmitterCombobox from '$lib/components/EmitterCombobox.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
   import { Accordion } from 'melt/builders';
@@ -7,7 +8,6 @@
   import { toast, Toaster } from 'svelte-sonner';
   import { invalidateAll, goto } from '$app/navigation';
   import { formatDateTime, formatDateISO } from '$lib/formatters';
-  // Using native select for categories to keep things simple and accessible
 
   let { data } = $props();
   let comprobante = $derived(data.comprobante);
@@ -508,20 +508,13 @@
               {/if}
             </div>
           {:else}
-            <select
-              value={categorySelectValue}
-              oninput={(e) => {
-                const val = (e.target as HTMLSelectElement).value;
-                selectedCategoryId = val === '' ? null : Number(val);
-              }}
-            >
-              <option value="">— Sin categoría —</option>
-              {#each categories as cat}
-                <option value={String(cat.id)}>
-                  {cat.description}
-                </option>
-              {/each}
-            </select>
+            <CategoryPills
+              {categories}
+              selected={selectedCategoryId}
+              onselect={(id) => (selectedCategoryId = id as number | null)}
+              mode="single"
+              disabled={isReadOnly}
+            />
           {/if}
         </div>
 

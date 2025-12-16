@@ -39,7 +39,7 @@
 
   let {
     categories = [],
-    selected = $bindable<number | null | undefined>(),
+    selected = $bindable(),
     onselect,
     mode = 'single',
     disabled = false,
