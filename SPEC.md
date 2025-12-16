@@ -444,6 +444,13 @@ Sistema completo de tokens CSS en `tokens.css`:
 
 ### 7.3 Git Workflow
 
+**Idioma:**
+- ✅ **Commits**: Inglés técnico (convención estándar internacional)
+- ✅ **Pull Requests**: Español argentino formal (título y descripción)
+- ✅ **Issues**: Español argentino formal
+- ✅ **Documentación**: Español argentino formal
+- ✅ **Código y comentarios**: Inglés
+
 **Branches:**
 - `main` - Producción
 - `feat/*` - Nuevas features
@@ -451,7 +458,7 @@ Sistema completo de tokens CSS en `tokens.css`:
 - `docs/*` - Solo documentación
 - `refactor/*` - Refactoring sin cambios funcionales
 
-**Commits:**
+**Commits (inglés):**
 ```
 feat(comprobantes): add category filter
 fix(ocr): improve CUIT detection with fallback
@@ -460,11 +467,34 @@ refactor: archive legacy routes to /legacy
 chore: update dependencies
 ```
 
-**Pull Requests:**
+**Pull Requests (español argentino formal):**
+- Título y descripción en español argentino formal
 - Asociar a milestone correspondiente
-- Incluir descripción detallada
+- Incluir descripción detallada con:
+  - Resumen de cambios
+  - Cambios específicos (bullet points)
+  - Issues que cierra
+  - Verificaciones realizadas
 - Screenshots si hay cambios visuales
 - Tests si hay lógica nueva
+
+**Ejemplo de PR:**
+```markdown
+## 📋 Resumen
+
+Consolida la documentación y archiva las rutas deprecadas.
+
+## ✅ Cambios Realizados
+
+- ✅ Creado SPEC.md completo
+- ✅ Consolidados docs en /docs
+- ✅ Archivadas rutas legacy
+
+## 🎯 Cierra
+
+- Cierra #45
+- Cierra #46
+```
 
 ---
 
