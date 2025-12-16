@@ -132,12 +132,11 @@ export const GET: RequestHandler = async ({ params }) => {
 
     // 2. Buscar matches parciales con los campos disponibles
     // IMPORTANTE: NO pasar CUIT ni cuitPartial para evitar filtrar en SQL
-    // El scoring evaluará el CUIT pero el SQL traerá TODOS los pending sin asignar
+    // El repository usará el CUIT para scoring pero sin filtrar en SQL
     const searchCriteria = {
-      // NO incluir CUIT en prefilter - puede estar completamente incorrecto
-      // cuit: normalizedCuit, // ❌ Filtra con WHERE cuit = 'X'
-      // cuitPartial, // ❌ Filtra con WHERE cuit LIKE '%X%' (también descarta si digits diferentes)
-      cuit: normalizedCuit, // ✅ Solo para scoring, NO se usa en SQL if undefined
+      // NO pasar cuit ni cuitPartial para que SQL no filtre
+      // El scoring INTERNO del repository evaluará el CUIT extrayendo
+      // los dígitos de cada candidato vs criteria (que NO tiene cuit)
       invoiceType: pendingFile.extractedType || undefined,
       pointOfSale: pendingFile.extractedPointOfSale ?? undefined,
       invoiceNumber: pendingFile.extractedInvoiceNumber ?? undefined,
