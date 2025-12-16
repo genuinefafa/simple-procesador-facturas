@@ -2,7 +2,7 @@
  * Repository para la gestión de facturas esperadas (Drizzle ORM)
  */
 
-import { eq, inArray, and, desc, gte, lte } from 'drizzle-orm';
+import { eq, inArray, and, desc, gte, lte, isNull, like } from 'drizzle-orm';
 import { db } from '../db';
 import {
   expectedInvoices,
@@ -372,6 +372,7 @@ export class ExpectedInvoiceRepository {
 
   async findPartialMatches(criteria: {
     cuit?: string;
+    cuitPartial?: string; // middle-8 digits or any stable core segment
     invoiceType?: string;
     pointOfSale?: number;
     invoiceNumber?: number;
@@ -383,17 +384,29 @@ export class ExpectedInvoiceRepository {
       ExpectedInvoice & { matchScore: number; matchedFields: string[]; totalFieldsCompared: number }
     >
   > {
-    const conditions: ReturnType<typeof eq>[] = [eq(expectedInvoices.status, 'pending')];
+    // Prefiltrar inteligentemente para no perder candidatos por el límite
+    const conditions: any[] = [
+      eq(expectedInvoices.status, 'pending'),
+      isNull(expectedInvoices.matchedPendingFileId),
+    ];
 
     if (criteria.cuit) {
       conditions.push(eq(expectedInvoices.cuit, criteria.cuit));
-    } else if (criteria.invoiceNumber !== undefined || criteria.pointOfSale !== undefined) {
-      if (criteria.invoiceNumber !== undefined) {
-        conditions.push(eq(expectedInvoices.invoiceNumber, criteria.invoiceNumber));
-      }
-      if (criteria.pointOfSale !== undefined) {
-        conditions.push(eq(expectedInvoices.pointOfSale, criteria.pointOfSale));
-      }
+    } else if (criteria.cuitPartial) {
+      conditions.push(like(expectedInvoices.cuit, `%${criteria.cuitPartial}%`));
+    }
+
+    if (criteria.invoiceType) {
+      conditions.push(eq(expectedInvoices.invoiceType, criteria.invoiceType));
+    }
+
+    if (typeof criteria.pointOfSale === 'number') {
+      conditions.push(eq(expectedInvoices.pointOfSale, criteria.pointOfSale));
+    }
+
+    if (typeof criteria.invoiceNumber === 'number') {
+      conditions.push(gte(expectedInvoices.invoiceNumber, criteria.invoiceNumber - 10));
+      conditions.push(lte(expectedInvoices.invoiceNumber, criteria.invoiceNumber + 10));
     }
 
     const result = await db
@@ -401,18 +414,31 @@ export class ExpectedInvoiceRepository {
       .from(expectedInvoices)
       .where(and(...conditions))
       .orderBy(desc(expectedInvoices.issueDate))
-      .limit(criteria.limit || 20);
+      .limit(Math.max(criteria.limit || 10, 50)); // asegurar set amplio para scoring
 
     return result
       .map((row) => {
         const invoice = this.mapDrizzleToExpectedInvoice(row);
         const matchedFields: string[] = [];
         let fieldsCompared = 0;
+        let totalScore = 0; // Para scoring ponderado
 
-        if (criteria.cuit !== undefined) {
+        // Helpers de normalización de CUIT
+        const onlyDigits = (v?: string | null) => (v ? v.replace(/\D/g, '') : '');
+        const middle8 = (digits: string) => (digits.length >= 11 ? digits.slice(2, 10) : '');
+
+        if (criteria.cuit !== undefined || criteria.cuitPartial !== undefined) {
           fieldsCompared++;
-          if (invoice.cuit === criteria.cuit) {
+          const invDigits = onlyDigits(invoice.cuit);
+          const critDigits = onlyDigits(criteria.cuit);
+          const critMiddle = criteria.cuitPartial || middle8(critDigits);
+
+          if (invDigits && critDigits && invDigits === critDigits) {
             matchedFields.push('cuit');
+            totalScore += 100; // CUIT exacto
+          } else if (invDigits && critMiddle && middle8(invDigits) === critMiddle) {
+            matchedFields.push('cuit~8');
+            totalScore += 70; // match parcial por 8 del medio
           }
         }
 
@@ -420,6 +446,7 @@ export class ExpectedInvoiceRepository {
           fieldsCompared++;
           if (invoice.invoiceType === criteria.invoiceType) {
             matchedFields.push('invoiceType');
+            totalScore += 100;
           }
         }
 
@@ -427,6 +454,7 @@ export class ExpectedInvoiceRepository {
           fieldsCompared++;
           if (invoice.pointOfSale === criteria.pointOfSale) {
             matchedFields.push('pointOfSale');
+            totalScore += 100;
           }
         }
 
@@ -434,6 +462,15 @@ export class ExpectedInvoiceRepository {
           fieldsCompared++;
           if (invoice.invoiceNumber === criteria.invoiceNumber) {
             matchedFields.push('invoiceNumber');
+            totalScore += 100;
+          } else {
+            // Números cercanos también suman (rango ±10)
+            const diff = Math.abs(invoice.invoiceNumber - criteria.invoiceNumber);
+            if (diff <= 10) {
+              const proximityScore = Math.max(0, 100 - diff * 10); // -10% por cada número de diferencia
+              matchedFields.push('invoiceNumber~');
+              totalScore += proximityScore;
+            }
           }
         }
 
@@ -441,19 +478,26 @@ export class ExpectedInvoiceRepository {
           fieldsCompared++;
           if (invoice.issueDate === criteria.issueDate) {
             matchedFields.push('issueDate');
+            totalScore += 100;
           }
         }
 
         if (criteria.total !== undefined && invoice.total !== null) {
           fieldsCompared++;
-          const tolerance = criteria.total * 0.01;
-          if (Math.abs(invoice.total - criteria.total) <= tolerance) {
+          const tolerance = Math.max(criteria.total * 0.05, 10); // 5% o $10 mínimo
+          const diff = Math.abs(invoice.total - criteria.total);
+          if (diff <= tolerance) {
             matchedFields.push('total');
+            totalScore += 100;
+          } else if (diff <= tolerance * 3) {
+            // Total cercano suma parcial
+            const proximityScore = Math.max(0, 100 - (diff / tolerance) * 20);
+            matchedFields.push('total~');
+            totalScore += proximityScore;
           }
         }
 
-        const matchScore =
-          fieldsCompared > 0 ? Math.round((matchedFields.length / fieldsCompared) * 100) : 0;
+        const matchScore = fieldsCompared > 0 ? Math.round(totalScore / fieldsCompared) : 0;
 
         return {
           ...invoice,
