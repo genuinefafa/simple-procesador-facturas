@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
 import { PendingFileRepository } from '@server/database/repositories/pending-file';
+import { EmitterRepository } from '@server/database/repositories/emitter';
 
 export type Final = {
   source: 'final';
@@ -66,6 +67,7 @@ export async function GET() {
   const invoiceRepo = new InvoiceRepository();
   const expectedRepo = new ExpectedInvoiceRepository();
   const pendingRepo = new PendingFileRepository();
+  const emitterRepo = new EmitterRepository();
 
   const invoices = await invoiceRepo.list();
   const expectedInvoices = await expectedRepo.listWithFiles({
@@ -91,12 +93,20 @@ export async function GET() {
 
   const comprobantesMap = new Map<string, Comprobante>();
 
+  // Resolver nombres de emisor en batch para finales
+  const uniqueCuits = new Set<string>(invoices.map((i) => i.emitterCuit).filter(Boolean));
+  const emitterCache = new Map<string, string | null>();
+  for (const cuit of uniqueCuits) {
+    const emitter = emitterRepo.findByCUIT(cuit);
+    emitterCache.set(cuit, emitter?.name || null);
+  }
+
   // 1) Agregar facturas como comprobantes principales
   const finals: Final[] = invoices.map((inv) => ({
     source: 'final',
     id: inv.id,
     cuit: inv.emitterCuit,
-    emitterName: undefined,
+    emitterName: emitterCache.get(inv.emitterCuit) || undefined,
     issueDate: toISODate(inv.issueDate),
     invoiceType: inv.invoiceType,
     pointOfSale: inv.pointOfSale,

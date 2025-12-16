@@ -50,6 +50,9 @@ export const GET: RequestHandler = async ({ params }) => {
         extractionConfidence: invoice.extractionConfidence,
         requiresReview: invoice.requiresReview,
         manuallyValidated: invoice.manuallyValidated,
+        expectedInvoiceId: invoice.expectedInvoiceId ?? null,
+        pendingFileId: invoice.pendingFileId ?? null,
+        processedAt: invoice.processedAt,
       },
       extractedValues: {
         cuit: invoice.emitterCuit,
@@ -96,6 +99,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       invoiceNumber: number;
       total: number;
       issueDate: string;
+      expectedInvoiceId: number | null;
     }>;
 
     const invoiceRepo = new InvoiceRepository();
@@ -169,6 +173,12 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     }
     if (updates.issueDate) {
       invoice.issueDate = new Date(updates.issueDate);
+    }
+
+    // Vincular/desvincular expected
+    if (updates.expectedInvoiceId !== undefined) {
+      invoice.expectedInvoiceId =
+        updates.expectedInvoiceId === null ? undefined : updates.expectedInvoiceId;
     }
 
     // Marcar como validada manualmente
