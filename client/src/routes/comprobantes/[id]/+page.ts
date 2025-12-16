@@ -81,6 +81,18 @@ export const load: PageLoad = async ({ fetch, params }) => {
   const id = parseInt(idVal, 10);
 
   let comprobante: Comprobante | null = null;
+  let categories: Array<{ id: number; key: string; description: string }> = [];
+
+  // Cargar categorías para dropdown/visualización
+  try {
+    const catRes = await fetch('/api/categories');
+    if (catRes.ok) {
+      const catData = await catRes.json();
+      categories = (catData.items || []) as Array<{ id: number; key: string; description: string }>;
+    }
+  } catch {
+    // ignore
+  }
 
   try {
     if (idType === 'factura') {
@@ -234,8 +246,8 @@ export const load: PageLoad = async ({ fetch, params }) => {
               ...additional.filter((m: any) => !matches.find((e) => e.id === m.id)),
             ];
           }
-        } catch (e) {
-          console.warn('No se pudieron cargar matches:', e);
+        } catch (err) {
+          console.warn('No se pudieron cargar matches:', err);
         }
 
         comprobante = {
@@ -257,5 +269,5 @@ export const load: PageLoad = async ({ fetch, params }) => {
     throw new Error(`Comprobante no encontrado: ${params.id}`);
   }
 
-  return { comprobante };
+  return { comprobante, categories };
 };

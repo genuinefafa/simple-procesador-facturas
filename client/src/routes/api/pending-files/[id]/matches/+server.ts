@@ -160,13 +160,17 @@ export const GET: RequestHandler = async ({ params }) => {
     const bestMatch =
       partialMatches.length > 0 && partialMatches[0].matchScore >= 75 ? partialMatches[0] : null;
 
+    // Devolver TODOS los matches como candidatos (incluso con score bajo)
+    // Esto permite al usuario seleccionar cualquier expected invoice sin asignar
+    const allCandidates = partialMatches; // Ya ordenados por score descendente
+
     return json({
       success: true,
       hasExactMatch: false,
       exactMatch: null,
       bestMatch, // Mejor candidato (>= 75% coincidencia)
-      candidates: partialMatches.slice(0, 5), // Top 5 candidatos
-      partialMatches, // Todos los matches parciales
+      candidates: allCandidates, // TODOS los candidatos sin asignar
+      partialMatches, // Mantener por compatibilidad
       ocrConfidence,
       detectedFields,
     });

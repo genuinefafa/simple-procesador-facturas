@@ -390,31 +390,22 @@ export class ExpectedInvoiceRepository {
       isNull(expectedInvoices.matchedPendingFileId),
     ];
 
+    // Aplicar SOLO prefilter de CUIT si disponible (más laxo)
     if (criteria.cuit) {
       conditions.push(eq(expectedInvoices.cuit, criteria.cuit));
     } else if (criteria.cuitPartial) {
       conditions.push(like(expectedInvoices.cuit, `%${criteria.cuitPartial}%`));
     }
 
-    if (criteria.invoiceType) {
-      conditions.push(eq(expectedInvoices.invoiceType, criteria.invoiceType));
-    }
-
-    if (typeof criteria.pointOfSale === 'number') {
-      conditions.push(eq(expectedInvoices.pointOfSale, criteria.pointOfSale));
-    }
-
-    if (typeof criteria.invoiceNumber === 'number') {
-      conditions.push(gte(expectedInvoices.invoiceNumber, criteria.invoiceNumber - 10));
-      conditions.push(lte(expectedInvoices.invoiceNumber, criteria.invoiceNumber + 10));
-    }
+    // NO filtrar por tipo, punto de venta, ni número en SQL
+    // Así incluimos TODAS las facturas sin asignar de ese CUIT (o todas si no hay CUIT)
 
     const result = await db
       .select()
       .from(expectedInvoices)
       .where(and(...conditions))
       .orderBy(desc(expectedInvoices.issueDate))
-      .limit(Math.max(criteria.limit || 10, 50)); // asegurar set amplio para scoring
+      .limit(Math.max(criteria.limit || 10, 100)); // aumentar límite para incluir más fallbacks
 
     return result
       .map((row) => {

@@ -7,6 +7,8 @@
   import { page } from '$app/stores';
 
   let { data } = $props();
+  let categories = $derived(data.categories || []);
+  let activeCategoryId = $state<number | null>(null);
 
   type FilterKind = 'all' | 'pendientes' | 'reconocidas' | 'esperadas';
 
@@ -77,15 +79,24 @@
     switch (activeFilter) {
       case 'reconocidas':
         // Incluir facturas finalizadas y pendientes ya reconocidos (OCR)
-        return !!c.final || c.pending?.status === 'reviewing' || c.pending?.status === 'processed';
+        if (!(!!c.final || c.pending?.status === 'reviewing' || c.pending?.status === 'processed'))
+          return false;
+        break;
       case 'esperadas':
-        return !!c.expected && !c.final;
+        if (!(!!c.expected && !c.final)) return false;
+        break;
       case 'pendientes':
         // Solo pendientes en espera de reconocimiento o con error
-        return c.pending?.status === 'pending' || c.pending?.status === 'failed';
+        if (!(c.pending?.status === 'pending' || c.pending?.status === 'failed')) return false;
+        break;
       default:
-        return true;
+        break;
     }
+    // Filtro por categoría (solo aplica a facturas finales)
+    if (activeCategoryId != null) {
+      return (c.final?.categoryId ?? null) === activeCategoryId;
+    }
+    return true;
   }
 
   // Melt Next File Upload
@@ -192,6 +203,17 @@
   </button>
 </section>
 
+<!-- Filtro por categoría -->
+<section class="filters">
+  <label>Categoría:</label>
+  <select bind:value={activeCategoryId}>
+    <option value={null}>Todas</option>
+    {#each categories as cat}
+      <option value={cat.id}>{cat.description}</option>
+    {/each}
+  </select>
+</section>
+
 <section class="list">
   <div class="list-head">
     <span>Tipo</span>
@@ -199,6 +221,7 @@
     <span>Emisor</span>
     <span>CUIT</span>
     <span>Fecha</span>
+    <span>Categoría</span>
     <span>Estado</span>
     <span>Hash</span>
     <span></span>
@@ -222,6 +245,17 @@
             comp.pending?.extractedDate ||
             '—'}</span
         >
+        <span class="col-category">
+          {#if comp.final?.categoryId}
+            {#each categories as cat}
+              {#if cat.id === comp.final.categoryId}
+                {cat.description}
+              {/if}
+            {/each}
+          {:else}
+            —
+          {/if}
+        </span>
         <span class="col-status">
           {#if comp.final}procesada
           {:else if comp.expected}esperada
@@ -340,7 +374,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 100px 1fr 140px 140px 110px 100px 80px 100px;
+    grid-template-columns: 100px 1fr 140px 140px 110px 140px 100px 80px 100px;
     gap: var(--spacing-2);
     padding: var(--spacing-3);
     align-items: center;

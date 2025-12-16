@@ -10,6 +10,7 @@
 
   let { data } = $props();
   let comprobante = $derived(data.comprobante);
+  let categories = $derived(data.categories || []);
 
   type Emitter = {
     id?: number;
@@ -24,6 +25,7 @@
   let selectedExpectedId = $state<number | null>(null);
   let lastCopiedEmitterName = $state<string | null>(null);
   let editMode = $state(false);
+  let selectedCategoryId = $state<number | null>(null);
 
   let facuraData = $state({
     cuit: '',
@@ -59,6 +61,9 @@
       selectedExpectedId = comprobante.expected.id;
       lastCopiedEmitterName = comprobante.expected.emitterName || lastCopiedEmitterName;
     }
+
+    // Preseleccionar categoría desde la factura final si existe
+    selectedCategoryId = comprobante.final?.categoryId ?? selectedCategoryId;
 
     // Preseleccionar emisor SOLO en modo lectura
     if (!editMode && !selectedEmitter && comprobante.final?.cuit) {
@@ -258,6 +263,26 @@
           // Si se actualizó, recargar datos
           await invalidateAll();
         }
+
+        // Actualizar categoría si corresponde y estamos en factura final
+        if (comprobante.kind === 'factura' && comprobante.final?.id && selectedCategoryId != null) {
+          try {
+            const catRes = await fetch(`/api/invoices/${comprobante.final.id}/category`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ categoryId: selectedCategoryId }),
+            });
+            const catData = await catRes.json();
+            if (!catRes.ok || !catData.ok) {
+              toast.error(catData.error || 'No se pudo actualizar la categoría');
+            } else {
+              toast.success('📌 Categoría actualizada');
+            }
+          } catch (e) {
+            console.error('Error actualizando categoría', e);
+            toast.error('Error actualizando categoría');
+          }
+        }
       } else {
         const data = await response?.json();
         toast.error(data?.error || 'Error al guardar factura', { id: toastId });
@@ -445,6 +470,31 @@
         {/if}
 
         <EmitterCombobox value={selectedEmitter} onselect={onEmitterSelect} disabled={isReadOnly} />
+
+        <!-- Categoría -->
+        <div class="form-group">
+          <label for="categoria">Categoría</label>
+          {#if isReadOnly}
+            <div class="readonly-value">
+              {#if selectedCategoryId}
+                {#each categories as cat}
+                  {#if cat.id === selectedCategoryId}
+                    {cat.description}
+                  {/if}
+                {/each}
+              {:else}
+                —
+              {/if}
+            </div>
+          {:else}
+            <select id="categoria" bind:value={selectedCategoryId}>
+              <option value={null}>Sin categoría</option>
+              {#each categories as cat}
+                <option value={cat.id}>{cat.description}</option>
+              {/each}
+            </select>
+          {/if}
+        </div>
 
         <!-- Indicador de expected vinculado -->
         <div class="form-group">
