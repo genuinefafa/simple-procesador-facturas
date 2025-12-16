@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
+  import CategoryPills from '$lib/components/CategoryPills.svelte';
   import type { PageData } from './$types';
   import type { Comprobante } from '../api/comprobantes/+server';
   import { FileUpload } from 'melt/builders';
@@ -248,22 +249,13 @@
 
 <!-- Filtro por categoría -->
 <section class="filters">
-  <label for="flt-cat">Categoría:</label>
-  <select
-    id="flt-cat"
-    oninput={(e) => {
-      const v = (e.target as HTMLSelectElement).value;
-      if (v === 'ALL') activeCategoryId = undefined;
-      else if (v === 'NONE') activeCategoryId = null;
-      else activeCategoryId = Number(v);
-    }}
-  >
-    <option value="ALL" selected={activeCategoryId === undefined}>Todas</option>
-    <option value="NONE" selected={activeCategoryId === null}>Sin categoría</option>
-    {#each categories as cat}
-      <option value={cat.id} selected={activeCategoryId === cat.id}>{cat.description}</option>
-    {/each}
-  </select>
+  <label for="category-filter">Categoría:</label>
+  <CategoryPills
+    {categories}
+    selected={activeCategoryId}
+    onselect={(id) => (activeCategoryId = id)}
+    mode="filter"
+  />
 </section>
 
 <section class="list">
