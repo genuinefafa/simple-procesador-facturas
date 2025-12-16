@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh issue list:*)",
+      "Bash(gh api:*)",
+      "Bash(gh issue view:*)",
+      "Bash(git checkout:*)",
+      "Bash(npm run check:*)",
+      "Bash(ls:*)",
+      "Bash(npm run dev:*)",
+      "Bash(curl -X POST http://localhost:5175/api/expected-invoices/import  -F \"file=@examples/facturas/facturas-afip.xlsx\" )",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(gh pr create --title \"fix: prevent duplicate expected invoice records on reimport\" --body \"$(cat <<''EOF''\n## Resumen\nSoluciona el issue #42 sobre duplicación de registros al importar el mismo archivo Excel múltiples veces.\n\n## Cambios implementados\n\n### 🔍 Detección de duplicados según reglas de AFIP\n- **Si existe CAE**: usa `emisor (CUIT) + CAE` como clave única\n- **Si NO existe CAE**: usa `emisor + tipo + sucursal + numero` como clave única\n\n### 🔄 Lógica de actualización inteligente\n- Detecta registros existentes antes de insertar\n- Actualiza solo los campos no-clave que cambiaron\n- No modifica registros si los datos son idénticos\n- Contabiliza: nuevos, actualizados y sin cambios\n\n### 📊 UI mejorada\n- Muestra 3 contadores separados: nuevas, actualizadas, sin cambios\n- Toast informativo con el resumen de la importación\n- Vista detallada de resultados por categoría\n\n### ✅ Normalización de CUIT\nLa normalización ya existía en el código (convierte `nn-mmmmmmmm-o` → `nnmmmmmmmmo`)\n\n## Archivos modificados\n- `server/database/repositories/expected-invoice.ts`: métodos `findDuplicate()` y `updateInvoice()`\n- `server/services/excel-import.service.ts`: actualizado `ImportResult` interface\n- `client/src/routes/api/expected-invoices/import/+server.ts`: retorna nuevos campos\n- `client/src/routes/importar/+page.svelte`: UI actualizada con 3 contadores\n- `server/services/google/google-sync.service.ts`: compatibilidad con nuevo formato\n\n## Cómo probar\n1. Importar un archivo Excel desde `/importar`\n2. Ver que se importan X facturas nuevas\n3. Importar el MISMO archivo nuevamente\n4. Verificar que:\n   - No se crean duplicados\n   - Se muestran como \"sin cambios\"\n   - Si se modifican datos en el Excel, se actualizan correctamente\n\nCierra #42\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\nEOF\n)\")",
+      "Bash(gh pr view:*)",
+      "Bash(gh issue create:*)",
+      "Bash(gh label list:*)",
+      "Bash(gh label create:*)",
+      "Bash(gh label delete:*)",
+      "Bash(gh issue edit:*)",
+      "Bash(gh issue close:*)",
+      "Bash(gh issue comment:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr edit:*)",
+      "Bash(gh milestone create:*)",
+      "Bash(sqlite3:*)",
+      "Bash(gh run list:*)",
+      "Bash(git config:*)",
+      "Bash(git tag --sort=-v:refname)",
+      "Bash(git pull:*)",
+      "Bash(gh release create:*)",
+      "Bash(gh milestone:*)"
+    ]
+  }
+}

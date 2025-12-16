@@ -19,7 +19,7 @@
 
   $effect.pre(() => {
     if (typeof window !== 'undefined') {
-      const rawParam = new URL(window.location.href).searchParams.get('f');
+      const rawParam = $page.url.searchParams.get('f');
       // Mapear alias legacy 'procesadas' -> 'reconocidas'
       const urlParam = (rawParam === 'procesadas' ? 'reconocidas' : rawParam) as FilterKind | null;
       let saved = localStorage.getItem('comprobantes-filter');

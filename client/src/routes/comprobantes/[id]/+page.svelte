@@ -402,7 +402,7 @@
         toast.success('✅ Factura creada correctamente', { id: toastId });
         // Navegar a la factura creada
         if (data.invoice?.id) {
-          window.location.href = `/comprobantes/factura:${data.invoice.id}`;
+          goto(`/comprobantes/factura:${data.invoice.id}`);
         } else {
           await invalidateAll();
         }
