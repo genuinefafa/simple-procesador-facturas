@@ -5,7 +5,6 @@
 
   let activeTab = $state<'excel' | 'upload'>('upload');
   let uploading = $state(false);
-  let processing = $state(false);
   let excelImportResult = $state<any>(null);
   let importBatches = $state<any[]>([]);
 
@@ -33,7 +32,7 @@
     const uploadToastId = toast.loading(`Subiendo ${files.length} archivo(s)...`);
 
     try {
-      // 1. Upload files
+      // 1. Upload files (NO auto-process)
       const formData = new FormData();
       files.forEach((file) => {
         formData.append('files', file);
@@ -49,47 +48,18 @@
         throw new Error(uploadData.error || 'Error al subir archivos');
       }
 
-      toast.success('Archivos subidos correctamente', { id: uploadToastId });
-
-      // 2. Process uploaded files
-      processing = true;
-      const processToastId = toast.loading('Procesando facturas...');
-
-      const pendingFileIds = uploadData.files.map((f: any) => f.pendingFileId);
-      const processResponse = await fetch('/api/invoices/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pendingFileIds }),
+      toast.success(`${uploadData.files?.length || 0} archivo(s) subidos correctamente`, {
+        id: uploadToastId,
       });
-      const processData = await processResponse.json();
 
-      if (!processData.success) {
-        throw new Error(processData.error || 'Error al procesar facturas');
-      }
-
-      const { stats } = processData;
-
-      if (stats.processed > 0) {
-        toast.success(`${stats.processed} factura(s) procesada(s) automáticamente`, {
-          id: processToastId,
-        });
-      } else {
-        toast.dismiss(processToastId);
-      }
-
-      if (stats.pending > 0) {
-        toast.info(`${stats.pending} archivo(s) requieren revisión manual`);
-      }
-
-      // Redirect to revisar
-      window.location.href = '/revisar';
+      // Redirect to Comprobantes hub
+      window.location.href = '/comprobantes';
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error desconocido', {
         id: uploadToastId,
       });
     } finally {
       uploading = false;
-      processing = false;
     }
   }
 
@@ -156,7 +126,7 @@
   <div class="tab-content">
     {#if activeTab === 'upload'}
       <!-- UPLOAD TAB -->
-      <UploadSection onUpload={uploadAndProcess} isLoading={uploading || processing} />
+      <UploadSection onUpload={uploadAndProcess} isLoading={uploading} />
     {:else if activeTab === 'excel'}
       <!-- EXCEL TAB -->
       <div class="excel-section">

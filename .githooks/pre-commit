@@ -3,25 +3,25 @@
 
 set -e
 
-# Auto-formatear archivos TypeScript con Prettier
+# Auto-formatear archivos TypeScript y Svelte con Prettier
 echo "🎨 Formateando código con Prettier..."
 
-# Obtener archivos .ts en staging (excluyendo node_modules)
-TS_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.ts$' | grep -v 'node_modules' || true)
+# Obtener archivos .ts y .svelte en staging (excluyendo node_modules)
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(ts|svelte)$' | grep -v 'node_modules' || true)
 
-if [ -n "$TS_FILES" ]; then
-  echo "📝 Formateando archivos TypeScript:"
-  echo "$TS_FILES" | sed 's/^/  - /'
+if [ -n "$STAGED_FILES" ]; then
+  echo "📝 Formateando archivos TypeScript y Svelte:"
+  echo "$STAGED_FILES" | sed 's/^/  - /'
 
   # Formatear archivos en staging
-  echo "$TS_FILES" | xargs npx prettier --write
+  echo "$STAGED_FILES" | xargs npx prettier --write
 
   # Re-agregar archivos formateados al staging
-  echo "$TS_FILES" | xargs git add
+  echo "$STAGED_FILES" | xargs git add
 
   echo "✅ Archivos formateados"
 else
-  echo "✅ No hay archivos TypeScript para formatear"
+  echo "✅ No hay archivos TypeScript o Svelte para formatear"
 fi
 
 echo ""

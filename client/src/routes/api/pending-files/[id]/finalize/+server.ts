@@ -38,19 +38,26 @@ export const POST: RequestHandler = async ({ params, request }) => {
       return json({ success: false, error: 'Archivo pendiente no encontrado' }, { status: 404 });
     }
 
-    // Si ya está procesado, retornar error
-    if (pendingFile.status === 'processed') {
-      return json({ success: false, error: 'Este archivo ya fue procesado' }, { status: 400 });
+    // Permitir consolidación incluso si ya está procesado: seguiremos vinculando si corresponde
+
+    // Leer overrides del body (permitir que el formulario reemplace los datos extraídos)
+    let overrides: any = {};
+    try {
+      overrides = await request.json();
+    } catch {
+      overrides = {};
     }
 
-    // Validar datos requeridos
-    const {
-      extractedCuit,
-      extractedDate,
-      extractedType,
-      extractedPointOfSale,
-      extractedInvoiceNumber,
-    } = pendingFile;
+    const extractedCuit = (overrides.emitterCuit as string) ?? pendingFile.extractedCuit;
+    const extractedDate = (overrides.issueDate as string) ?? pendingFile.extractedDate;
+    const extractedType = (overrides.invoiceType as string) ?? pendingFile.extractedType;
+    const extractedPointOfSale =
+      (overrides.pointOfSale as number) ?? pendingFile.extractedPointOfSale;
+    const extractedInvoiceNumber =
+      (overrides.invoiceNumber as number) ?? pendingFile.extractedInvoiceNumber;
+    const overriddenTotal = (overrides.total as number | undefined) ?? pendingFile.extractedTotal;
+    const requestedExpectedId = overrides.expectedInvoiceId as number | undefined;
+    const providedEmitterName = overrides.emitterName as string | undefined;
 
     if (
       !extractedCuit ||
@@ -87,15 +94,25 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const emitterRepo = new EmitterRepository();
     let emitter = await emitterRepo.findByCUIT(normalizedCuit);
 
+    // Buscar expected antes para obtener nombre si no vino en body
+    const expectedInvoiceRepo = new ExpectedInvoiceRepository();
+    let expectedInvoice = null as Awaited<ReturnType<typeof expectedInvoiceRepo.findById>> | null;
+    if (requestedExpectedId) {
+      expectedInvoice = await expectedInvoiceRepo.findById(requestedExpectedId);
+    }
+
     if (!emitter) {
       console.info(`➕ Creando nuevo emisor para ${normalizedCuit}`);
       const cuitNumeric = normalizedCuit.replace(/-/g, '');
       const personType = getPersonType(normalizedCuit);
 
+      const nameToUse =
+        providedEmitterName || expectedInvoice?.emitterName || `Emisor ${normalizedCuit}`;
+
       emitter = await emitterRepo.create({
         cuit: normalizedCuit,
         cuitNumeric: cuitNumeric,
-        name: `Emisor ${normalizedCuit}`,
+        name: nameToUse,
         aliases: [],
         personType: personType || undefined,
       });
@@ -135,13 +152,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
     await copyFile(pendingFile.filePath, processedFilePath);
 
     // Buscar expectedInvoice match exacto ANTES de crear factura
-    const expectedInvoiceRepo = new ExpectedInvoiceRepository();
-    const expectedInvoice = await expectedInvoiceRepo.findExactMatch(
-      normalizedCuit,
-      invoiceType,
-      extractedPointOfSale,
-      extractedInvoiceNumber
-    );
+    // Resolver expectedInvoice: prioridad a ID provisto; sino buscar match exacto
+    if (!expectedInvoice) {
+      expectedInvoice = await expectedInvoiceRepo.findExactMatch(
+        normalizedCuit,
+        invoiceType,
+        extractedPointOfSale,
+        extractedInvoiceNumber
+      );
+    }
 
     console.info(
       expectedInvoice
@@ -149,24 +168,51 @@ export const POST: RequestHandler = async ({ params, request }) => {
         : `⚠️ No encontrado expectedInvoice match`
     );
 
-    // Crear factura en BD con FKs si existe match
-    console.info(`💾 Creando factura en BD...`);
-    const invoice = await invoiceRepo.create({
-      emitterCuit: normalizedCuit,
-      issueDate: extractedDate,
-      invoiceType: invoiceType,
-      pointOfSale: extractedPointOfSale,
-      invoiceNumber: extractedInvoiceNumber,
-      total: pendingFile.extractedTotal || undefined,
-      originalFile: pendingFile.filePath,
-      processedFile: processedFilePath,
-      fileType: 'PDF_DIGITAL', // TODO: detectar tipo real
-      extractionMethod: 'MANUAL', // Fue corregido manualmente
-      extractionConfidence: 100, // 100% porque fue validado manualmente
-      requiresReview: false,
-      expectedInvoiceId: expectedInvoice?.id || undefined,
-      pendingFileId: id,
-    });
+    // Antes de crear, intentar consolidar: si ya existe la factura, actualizar links
+    let existing = await invoiceRepo.findByInvoiceNumber(
+      normalizedCuit,
+      invoiceType,
+      extractedPointOfSale,
+      extractedInvoiceNumber
+    );
+
+    let invoice;
+    if (existing) {
+      console.info(`🔗 Consolidando con factura existente ${existing.id}`);
+      // Actualizar archivo procesado y links
+      await invoiceRepo.updateProcessedFile(existing.id, processedFilePath);
+      invoice = await invoiceRepo.updateLinking(existing.id, {
+        expectedInvoiceId: expectedInvoice?.id ?? null,
+        pendingFileId: id,
+      });
+      // También actualizar fecha/total si vinieron overrides
+      // Nota: Mantener simple por ahora, el repositorio no tiene update general
+    } else {
+      // Crear factura en BD con FKs si existe match
+      console.info(`💾 Creando factura en BD...`);
+      invoice = await invoiceRepo.create({
+        emitterCuit: normalizedCuit,
+        issueDate: extractedDate,
+        invoiceType: invoiceType,
+        pointOfSale: extractedPointOfSale,
+        invoiceNumber: extractedInvoiceNumber,
+        total: overriddenTotal || undefined,
+        originalFile: pendingFile.filePath,
+        processedFile: processedFilePath,
+        fileType: 'PDF_DIGITAL', // TODO: detectar tipo real
+        extractionMethod: 'MANUAL', // Fue corregido manualmente
+        extractionConfidence: 100, // 100% porque fue validado manualmente
+        requiresReview: false,
+        expectedInvoiceId: expectedInvoice?.id || undefined,
+        pendingFileId: id,
+      });
+    }
+
+    // Validar que invoice fue creada/actualizada correctamente
+    if (!invoice) {
+      console.error('❌ Invoice creation failed or returned null');
+      return json({ success: false, error: 'Invoice creation failed' }, { status: 500 });
+    }
 
     // Actualizar pending file: vincular con factura y marcar como processed
     console.info(`🔗 Vinculando pending file ${id} con factura ${invoice.id}`);
@@ -193,6 +239,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         processedFile: invoice.processedFile,
         linkedToExpectedInvoice: !!expectedInvoice,
       },
+      invoiceId: invoice.id,
     });
   } catch (error) {
     console.error('❌ [FINALIZE] Error:', error);

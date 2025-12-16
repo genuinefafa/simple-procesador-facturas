@@ -28,6 +28,7 @@ type FinalInvoice = {
   invoiceNumber: number | null;
   total?: number | null;
   file?: string;
+  fileHash?: string | null;
   categoryId?: number | null;
   pendingFileId?: number | null;
   expectedInvoiceId?: number | null;
@@ -59,6 +60,7 @@ export async function GET() {
     invoiceNumber: inv.invoiceNumber,
     total: inv.total ?? null,
     file: inv.processedFile || inv.originalFile,
+    fileHash: (inv as any).fileHash ?? null,
     categoryId: inv.categoryId ?? null,
     pendingFileId: inv.pendingFileId ?? null,
     expectedInvoiceId: inv.expectedInvoiceId ?? null,

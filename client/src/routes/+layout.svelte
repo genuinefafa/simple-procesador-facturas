@@ -72,7 +72,10 @@
       >
         ☰
       </button>
-      <h1 class="logo">🧾 Facturas</h1>
+      <a href="/dashboard" class="logo app-logo" aria-label="Ir al dashboard">
+        <img src="/favicon.svg" alt="Logo" class="logo-icon" />
+        <span>Simple procesador de facturas</span>
+      </a>
     </div>
 
     <div class="topbar-center">
@@ -200,6 +203,22 @@
     font-size: var(--font-size-lg);
     font-weight: var(--font-weight-bold);
     color: var(--color-text-primary);
+  }
+
+  .app-logo {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    text-decoration: none;
+    color: var(--color-text-primary);
+    height: 28px;
+  }
+
+  .logo-icon {
+    height: 24px;
+    width: auto;
+    display: block;
+    object-fit: contain;
   }
 
   .topbar-center {
@@ -402,6 +421,14 @@
 
     .logo {
       font-size: var(--font-size-base);
+    }
+
+    .app-logo {
+      height: 24px;
+    }
+
+    .logo-icon {
+      height: 20px;
     }
 
     .search-wrapper {

@@ -21,6 +21,7 @@ export interface Invoice {
   currency: Currency;
   originalFile: string;
   processedFile: string;
+  fileHash?: string;
   fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
   extractionMethod: ExtractionMethod;
   extractionConfidence?: number;
@@ -47,6 +48,7 @@ export class InvoiceRepository {
       currency: row.moneda || 'ARS',
       originalFile: row.archivoOriginal,
       processedFile: row.archivoProcesado,
+      fileHash: row.fileHash || undefined,
       fileType: row.tipoArchivo,
       extractionMethod: row.metodoExtraccion as ExtractionMethod,
       extractionConfidence: row.confianzaExtraccion || undefined,

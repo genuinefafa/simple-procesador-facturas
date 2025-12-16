@@ -92,8 +92,8 @@
       para procesar archivos y revisar pendientes.
     </p>
     <div class="hero-actions">
-      <Button size="lg" onclick={() => goto('/procesar')}>Procesar archivos</Button>
-      <Button variant="ghost" size="lg" onclick={() => goto('/importar')}>Importar AFIP</Button>
+      <Button size="lg" onclick={() => goto('/comprobantes')}>Comprobantes</Button>
+      <Button variant="ghost" size="lg" onclick={() => goto('/emisores')}>Emisores</Button>
     </div>
   </div>
   <div class="hero-card">
@@ -139,7 +139,13 @@
     </div>
   </div>
 
-  <form class="search-form" on:submit|preventDefault={runSearch}>
+  <form
+    class="search-form"
+    onsubmit={() => {
+      runSearch();
+      return false;
+    }}
+  >
     <Input
       type="search"
       placeholder="Ej: 30-12345678-9, A-0001-00001234, contrato.pdf"

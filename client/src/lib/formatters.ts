@@ -99,6 +99,40 @@ export function getFullDateForTooltip(dateStr: string | null | undefined): strin
 }
 
 /**
+ * Formatea fecha y hora amigable en español (local AR)
+ * Acepta Date o string ISO (YYYY-MM-DDTHH:mm:ss)
+ */
+export function formatDateTime(value: string | Date | null | undefined): string {
+  if (!value) return '—';
+  try {
+    const date = typeof value === 'string' ? new Date(value) : value;
+    if (!(date instanceof Date) || isNaN(date.getTime())) return String(value);
+    const dd = String(date.getDate()).padStart(2, '0');
+    const months = [
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
+    ];
+    const mmm = months[date.getMonth()];
+    const yyyy = String(date.getFullYear());
+    const HH = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    return `${dd}-${mmm}-${yyyy} ${HH}:${mm}`;
+  } catch {
+    return String(value);
+  }
+}
+
+/**
  * Retorna ícono y etiqueta legible para tipos de comprobante
  * @param type Tipo de comprobante (ej: "Factura A", "Nota de Crédito")
  * @returns Objeto con {icon, label}

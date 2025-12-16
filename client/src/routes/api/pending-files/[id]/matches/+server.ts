@@ -55,12 +55,24 @@ export const GET: RequestHandler = async ({ params }) => {
 
     // Normalizar CUIT si está disponible
     let normalizedCuit: string | undefined;
+    let cuitPartial: string | undefined;
     if (pendingFile.extractedCuit && validateCUIT(pendingFile.extractedCuit)) {
       try {
         normalizedCuit = normalizeCUIT(pendingFile.extractedCuit);
       } catch {
         // CUIT inválido, continuar sin él
         console.warn(`⚠️  [MATCHES] CUIT inválido: ${pendingFile.extractedCuit}`);
+      }
+    }
+
+    // Derivar CUIT parcial (8 del medio) para matching laxo
+    if (pendingFile.extractedCuit) {
+      const digits = pendingFile.extractedCuit.replace(/\D/g, '');
+      if (digits.length >= 11) {
+        cuitPartial = digits.slice(2, 10);
+      } else if (digits.length >= 8) {
+        // fallback: usar los últimos 8 si no hay 11 dígitos
+        cuitPartial = digits.slice(-8);
       }
     }
 
@@ -83,25 +95,6 @@ export const GET: RequestHandler = async ({ params }) => {
     console.info(
       `📊 [MATCHES] Campos detectados: ${detectedFields.join(', ')} (${ocrConfidence}%)`
     );
-
-    // Si no hay ningún campo útil para buscar, retornar vacío
-    if (
-      !normalizedCuit &&
-      pendingFile.extractedPointOfSale === null &&
-      pendingFile.extractedInvoiceNumber === null
-    ) {
-      console.info('⚠️  [MATCHES] Sin campos suficientes para buscar matches');
-      return json({
-        success: true,
-        hasExactMatch: false,
-        exactMatch: null,
-        candidates: [],
-        partialMatches: [],
-        ocrConfidence,
-        detectedFields,
-        message: 'Sin campos suficientes para buscar matches',
-      });
-    }
 
     // 1. Buscar match exacto (si tenemos los 4 campos clave)
     let exactMatch = null;
@@ -138,29 +131,46 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     // 2. Buscar matches parciales con los campos disponibles
-    const partialMatches = await expectedInvoiceRepo.findPartialMatches({
+    const searchCriteria = {
       cuit: normalizedCuit,
+      cuitPartial,
       invoiceType: pendingFile.extractedType || undefined,
       pointOfSale: pendingFile.extractedPointOfSale ?? undefined,
       invoiceNumber: pendingFile.extractedInvoiceNumber ?? undefined,
       issueDate: normalizedDate || undefined,
       total: pendingFile.extractedTotal ?? undefined,
       limit: 10,
-    });
+    };
+
+    console.info(`🔍 [MATCHES] Buscando con criterios:`, searchCriteria);
+
+    const partialMatches = await expectedInvoiceRepo.findPartialMatches(searchCriteria);
 
     console.info(`🔍 [MATCHES] ${partialMatches.length} matches parciales encontrados`);
+
+    if (partialMatches.length > 0) {
+      partialMatches.slice(0, 3).forEach((m, i) => {
+        console.info(
+          `  ${i + 1}. ID ${m.id}: ${m.invoiceType}-${m.pointOfSale}-${m.invoiceNumber} (${m.matchScore}%)`
+        );
+      });
+    }
 
     // El mejor match parcial (si tiene score >= 75%) se considera como "mejor candidato"
     const bestMatch =
       partialMatches.length > 0 && partialMatches[0].matchScore >= 75 ? partialMatches[0] : null;
+
+    // Devolver TODOS los matches como candidatos (incluso con score bajo)
+    // Esto permite al usuario seleccionar cualquier expected invoice sin asignar
+    const allCandidates = partialMatches; // Ya ordenados por score descendente
 
     return json({
       success: true,
       hasExactMatch: false,
       exactMatch: null,
       bestMatch, // Mejor candidato (>= 75% coincidencia)
-      candidates: partialMatches.slice(0, 5), // Top 5 candidatos
-      partialMatches, // Todos los matches parciales
+      candidates: allCandidates, // TODOS los candidatos sin asignar
+      partialMatches, // Mantener por compatibilidad
       ocrConfidence,
       detectedFields,
     });

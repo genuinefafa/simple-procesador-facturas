@@ -11,6 +11,16 @@
 
   let zoomLevel = $state(100);
 
+  // Debug
+  $effect(() => {
+    console.log('[FilePreview] Recibido:', {
+      src,
+      filename,
+      isPdf: filename.toLowerCase().endsWith('.pdf'),
+      isImage: filename.toLowerCase().match(/\.(jpg|jpeg|png|tif|tiff|webp|heic|heif)$/),
+    });
+  });
+
   function zoomIn() {
     zoomLevel = Math.min(zoomLevel + 25, 200);
   }
@@ -59,7 +69,13 @@
         class="image-content"
         style="transform: scale({zoomLevel / 100}); transform-origin: center;"
       >
-        <img {src} alt="Preview de {filename}" class="image-preview" onerror={onError} />
+        <img
+          {src}
+          alt="Preview de {filename}"
+          class="image-preview"
+          loading="lazy"
+          onerror={onError}
+        />
       </div>
     </div>
   {:else}
