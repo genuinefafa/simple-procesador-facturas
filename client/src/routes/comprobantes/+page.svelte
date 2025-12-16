@@ -3,27 +3,43 @@
   import type { PageData } from './$types';
   import type { Comprobante } from '../api/comprobantes/+server';
   import { FileUpload } from 'melt/builders';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/stores';
 
   let { data } = $props();
 
-  type FilterKind = 'all' | 'pendientes' | 'procesadas' | 'esperadas';
+  type FilterKind = 'all' | 'pendientes' | 'reconocidas' | 'esperadas';
 
-  // Cargar filtro guardado o defecto 'all'
+  // Cargar filtro desde la URL (?f=...) o localStorage; por defecto 'all'
   let activeFilter = $state<FilterKind>('all');
 
   $effect.pre(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('comprobantes-filter') as FilterKind | null;
-      if (saved) activeFilter = saved;
+      const rawParam = new URL(window.location.href).searchParams.get('f');
+      // Mapear alias legacy 'procesadas' -> 'reconocidas'
+      const urlParam = (rawParam === 'procesadas' ? 'reconocidas' : rawParam) as FilterKind | null;
+      let saved = localStorage.getItem('comprobantes-filter') as FilterKind | null;
+      if (saved === 'procesadas') saved = 'reconocidas' as FilterKind;
+      const valid = ['all', 'pendientes', 'reconocidas', 'esperadas'];
+      const initial =
+        urlParam && valid.includes(urlParam) ? (urlParam as FilterKind) : saved || 'all';
+      activeFilter = initial as FilterKind;
     }
   });
 
-  // Guardar filtro cuando cambia
-  $effect(() => {
+  // Sincronizar cambios de filtro con URL y localStorage (SPA)
+  async function updateUrlForFilter(kind: FilterKind) {
+    const current = $state.snapshot(activeFilter);
+    if (current === kind) return;
+    activeFilter = kind;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('comprobantes-filter', activeFilter);
+      localStorage.setItem('comprobantes-filter', kind);
+      const base = '/comprobantes';
+      const target = kind === 'all' ? base : `${base}?f=${kind}`;
+      // Reemplazar estado para no ensuciar el historial al alternar filtros
+      await goto(target, { replaceState: true, noScroll: true, keepFocus: true });
     }
-  });
+  }
 
   function shortHash(hash?: string | null) {
     if (!hash) return '—';
@@ -57,12 +73,14 @@
 
   function isVisible(c: Comprobante): boolean {
     switch (activeFilter) {
-      case 'procesadas':
-        return !!c.final;
+      case 'reconocidas':
+        // Incluir facturas finalizadas y pendientes ya reconocidos (OCR)
+        return !!c.final || c.pending?.status === 'reviewing' || c.pending?.status === 'processed';
       case 'esperadas':
         return !!c.expected && !c.final;
       case 'pendientes':
-        return !!c.pending || (!!c.expected && !c.final);
+        // Solo pendientes en espera de reconocimiento o con error
+        return c.pending?.status === 'pending' || c.pending?.status === 'failed';
       default:
         return true;
     }
@@ -144,28 +162,28 @@
 <section class="filters">
   <button
     class:active={activeFilter === 'all'}
-    onclick={() => (activeFilter = 'all')}
+    onclick={() => updateUrlForFilter('all')}
     type="button"
   >
     Todos
   </button>
   <button
     class:active={activeFilter === 'pendientes'}
-    onclick={() => (activeFilter = 'pendientes')}
+    onclick={() => updateUrlForFilter('pendientes')}
     type="button"
   >
     Pendientes
   </button>
   <button
-    class:active={activeFilter === 'procesadas'}
-    onclick={() => (activeFilter = 'procesadas')}
+    class:active={activeFilter === 'reconocidas'}
+    onclick={() => updateUrlForFilter('reconocidas')}
     type="button"
   >
-    Procesadas
+    Reconocidas
   </button>
   <button
     class:active={activeFilter === 'esperadas'}
-    onclick={() => (activeFilter = 'esperadas')}
+    onclick={() => updateUrlForFilter('esperadas')}
     type="button"
   >
     Esperadas
