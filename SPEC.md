@@ -523,6 +523,93 @@ Consolida la documentación y archiva las rutas deprecadas.
 - Cierra #46
 ```
 
+### 7.4 Validaciones y CI/CD
+
+**Git Hooks (Pre-commit):**
+
+El proyecto usa un hook personalizado en `.githooks/pre-commit` que se ejecuta automáticamente antes de cada commit:
+
+```bash
+# Configurar hook (necesario en primera instalación)
+git config core.hooksPath .githooks
+```
+
+**Qué hace el pre-commit hook:**
+1. 🎨 **Auto-formateo con Prettier**: Formatea archivos `.ts` y `.svelte` en staging
+2. 🔍 **Validación sintaxis Svelte**: Detecta errores comunes (etiquetas mal cerradas, etc.)
+3. 🔬 **svelte-check**: Valida tipos TypeScript en componentes Svelte (opcional con confirmación)
+
+**Importante**: Si no se ejecutó el hook, verificar:
+```bash
+# Ver configuración actual
+git config core.hooksPath
+
+# Debería mostrar: .githooks
+# Si no, configurar manualmente:
+git config core.hooksPath .githooks
+```
+
+**GitHub Actions CI:**
+
+El proyecto tiene workflows configurados en `.github/workflows/`:
+
+**`ci.yml` - Ejecuta en:**
+- Push a `main` o `master`
+- Pull Requests hacia `main` o `master`
+
+**Jobs del CI:**
+1. **Code Quality** (ESLint + Prettier check)
+   - `npm run lint` - ESLint en todo el workspace
+   - `npm run format:check` - Verificar formato Prettier
+
+2. **TypeScript Validation**
+   - `tsc --noEmit` en client/ y server/
+   - Detecta errores de tipos sin generar archivos
+
+3. **Build Frontend**
+   - `npm run build` - Build completo de SvelteKit
+   - Sube artifacts del build
+
+4. **Tests & Coverage** (opcional, `continue-on-error: true`)
+   - `npm run test:coverage` - Ejecuta tests con coverage
+   - Sube reporte de cobertura
+
+5. **Security Audit**
+   - `npm audit` con diferentes niveles (high/critical)
+   - No bloquea el merge (informativo)
+
+6. **CI Summary**
+   - Agrega resumen visual al PR
+   - Falla si jobs críticos (quality, typescript, build) fallan
+
+**Comandos locales equivalentes al CI:**
+```bash
+# Validación completa (igual que CI)
+npm run check          # TypeScript check (client + server)
+npm run lint           # ESLint
+npm run format:check   # Prettier check
+npm run build          # Build completo
+
+# Autofix
+npm run format         # Auto-formatear todo
+```
+
+**Troubleshooting común:**
+
+| Problema | Causa | Solución |
+|----------|-------|----------|
+| Hook no se ejecuta | `core.hooksPath` no configurado | `git config core.hooksPath .githooks` |
+| CI no corre en PR | PR no apunta a `main`/`master` | Cambiar base del PR |
+| Falla lint en CI pero no local | Imports sin usar, tipos incorrectos | Ejecutar `npm run lint` localmente |
+| Falla build en CI | Dependencias faltantes | Verificar `package.json` sincronizado |
+
+**Convención de errores de lint permitidos:**
+
+- ❌ **NO permitido**: Variables sin usar sin prefijo `_`
+- ✅ **Permitido**: Variables con prefijo `_` (ej. `_unusedVar`)
+- ❌ **NO permitido**: `any` sin justificación
+- ❌ **NO permitido**: Imports sin usar
+
 ---
 
 ## 8. Testing

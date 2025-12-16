@@ -17,7 +17,7 @@ import {
   ExpectedInvoiceRepository,
   type ExpectedInvoice,
 } from '../database/repositories/expected-invoice.js';
-import { format, subDays, addDays } from 'date-fns';
+import { format } from 'date-fns';
 import { extname } from 'path';
 import type { Invoice, DocumentType, ExtractionMethod } from '../utils/types.js';
 
@@ -592,15 +592,9 @@ export class InvoiceProcessingService {
       }
     }
 
-    // 2. Buscar por CUIT + fecha + total
-    const criteria: {
-      cuit: string;
-      dateRange?: [string, string];
-      totalRange?: [number, number];
-      status?: import('../database/repositories/expected-invoice.js').ExpectedInvoiceStatus[];
-    } = { cuit, status: ['pending'] };
-
-    // Agregar rango de fechas (±7 días)
+    // 2. Buscar candidatos usando matching inteligente (no requiere CUIT exacto)
+    // Parseamos la fecha para pasarla en formato correcto
+    let issueDate: string | undefined;
     if (extractedData.date) {
       try {
         // Parsear fecha extraída (formato DD/MM/YYYY o DD-MM-YYYY)
@@ -615,43 +609,63 @@ export class InvoiceProcessingService {
         } else {
           date = new Date(extractedData.date);
         }
-
-        const dateFrom = format(subDays(date, 7), 'yyyy-MM-dd');
-        const dateTo = format(addDays(date, 7), 'yyyy-MM-dd');
-        criteria.dateRange = [dateFrom, dateTo];
+        issueDate = format(date, 'yyyy-MM-dd');
       } catch {
-        // Si falla el parseo de fecha, no usar criterio de fecha
         console.warn(`   ⚠️  No se pudo parsear fecha para matching: ${extractedData.date}`);
       }
     }
 
-    // Agregar rango de total (±10%)
-    if (extractedData.total && extractedData.total > 0) {
-      const margin = extractedData.total * 0.1;
-      criteria.totalRange = [extractedData.total - margin, extractedData.total + margin];
+    // Usar findPartialMatches que hace scoring sin requerir CUIT exacto
+    const candidatesWithScore = await this.expectedInvoiceRepo.findPartialMatches({
+      cuit, // Puede estar incorrecto, el scoring lo maneja
+      invoiceType: extractedData.invoiceType,
+      pointOfSale: extractedData.pointOfSale,
+      invoiceNumber: extractedData.invoiceNumber,
+      issueDate,
+      total: extractedData.total,
+      limit: 10, // Buscar hasta 10 candidatos
+    });
+
+    // Filtrar solo candidatos con score mínimo de 50% (al menos mitad de campos coinciden)
+    const viableCandidates = candidatesWithScore.filter((c) => c.matchScore >= 50);
+
+    console.info(
+      `   🔍 Matching parcial: ${candidatesWithScore.length} candidatos encontrados, ${viableCandidates.length} con score ≥50`
+    );
+
+    if (viableCandidates.length > 0) {
+      // Loguear top 3 para debugging
+      viableCandidates.slice(0, 3).forEach((c) => {
+        console.info(
+          `      - ID ${c.id}: score=${c.matchScore}%, campos=[${c.matchedFields.join(', ')}]`
+        );
+      });
     }
 
-    const candidates = await this.expectedInvoiceRepo.findCandidates(criteria);
-
-    if (candidates.length === 0) {
+    if (viableCandidates.length === 0) {
       return { type: 'NONE' };
     }
 
-    if (candidates.length === 1 && candidates[0]) {
-      return { type: 'UNIQUE', match: candidates[0] };
+    // Si el mejor candidato tiene score ≥80% y es único con ese score, considerarlo match único
+    const bestScore = viableCandidates[0]!.matchScore;
+    const topCandidates = viableCandidates.filter((c) => c.matchScore === bestScore);
+
+    if (bestScore >= 80 && topCandidates.length === 1) {
+      console.info(`   ✅ Match único encontrado (score=${bestScore}%)`);
+      return { type: 'UNIQUE', match: topCandidates[0]! };
     }
 
-    // Si hay entre 2 y 5 candidatos, devolver para selección manual
-    if (candidates.length <= 5) {
-      return { type: 'AMBIGUOUS', candidates };
+    // Si hay entre 1 y 5 candidatos viables, devolver para selección manual
+    if (viableCandidates.length <= 5) {
+      console.info(
+        `   ⚠️  ${viableCandidates.length} candidatos ambiguos - requiere selección manual`
+      );
+      return { type: 'AMBIGUOUS', candidates: viableCandidates };
     }
 
-    // Si hay más de 5, intentar refinar con más criterios
-    // Por ahora, devolver sin match para evitar ambigüedad
-    console.warn(
-      `   ⚠️  Demasiados candidatos (${candidates.length}) - Se necesitan más datos para matching`
-    );
-    return { type: 'NONE' };
+    // Si hay más de 5 candidatos viables, tomar solo top 5
+    console.warn(`   ⚠️  Demasiados candidatos (${viableCandidates.length}) - mostrando top 5`);
+    return { type: 'AMBIGUOUS', candidates: viableCandidates.slice(0, 5) };
   }
 
   /**
