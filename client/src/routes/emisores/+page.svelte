@@ -1,9 +1,15 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
+  import type { PageData } from './$types';
 
-  let emisores = $state<Array<{ id: number; name: string; cuit: string }>>([]);
+  let { data } = $props();
+
+  let emisores = $state<Array<{ id: number; name: string; cuit: string }>>(
+    data.recentEmitters || []
+  );
   let searchQuery = $state('');
   let loading = $state(false);
+  let showingRecent = $state(true);
 
   // Nuevo emisor
   let showForm = $state(false);
@@ -11,9 +17,13 @@
 
   async function searchEmisores() {
     if (!searchQuery || searchQuery.length < 2) {
-      emisores = [];
+      // Si se borra la búsqueda, volver a mostrar los recientes
+      emisores = data.recentEmitters || [];
+      showingRecent = true;
       return;
     }
+
+    showingRecent = false;
     loading = true;
     try {
       const res = await fetch(`/api/emisores?q=${encodeURIComponent(searchQuery)}`);
@@ -101,7 +111,7 @@
 
   {#if emisores.length > 0}
     <section class="results">
-      <h2>Resultados ({emisores.length})</h2>
+      <h2>{showingRecent ? '📌 Últimos emisores agregados' : `Resultados (${emisores.length})`}</h2>
       <div class="list">
         {#each emisores as emisor}
           <div class="emisor-card">
@@ -118,6 +128,8 @@
     </section>
   {:else if searchQuery && !loading}
     <p class="empty-state">No se encontraron emisores con "{searchQuery}"</p>
+  {:else if !showingRecent && emisores.length === 0 && !loading}
+    <p class="empty-state">No hay emisores registrados</p>
   {/if}
 </div>
 
