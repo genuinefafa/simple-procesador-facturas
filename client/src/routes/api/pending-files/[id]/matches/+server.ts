@@ -131,9 +131,12 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     // 2. Buscar matches parciales con los campos disponibles
+    // IMPORTANTE: NO pasar CUIT si está incorrecto para evitar filtrar en SQL
+    // El scoring evaluará el CUIT pero sin descartar candidatos
     const searchCriteria = {
-      cuit: normalizedCuit,
-      cuitPartial,
+      // NO incluir CUIT en prefilter si puede estar incorrecto
+      // cuit: normalizedCuit, // ❌ Esto filtra en SQL y descarta todo si CUIT es incorrecto
+      cuitPartial, // ✅ Esto hace LIKE y es más permisivo
       invoiceType: pendingFile.extractedType || undefined,
       pointOfSale: pendingFile.extractedPointOfSale ?? undefined,
       invoiceNumber: pendingFile.extractedInvoiceNumber ?? undefined,
@@ -143,6 +146,7 @@ export const GET: RequestHandler = async ({ params }) => {
     };
 
     console.info(`🔍 [MATCHES] Buscando con criterios:`, searchCriteria);
+    console.info(`   💡 CUIT detectado (${normalizedCuit}) se evalúa en scoring, no en filtro SQL`);
 
     const partialMatches = await expectedInvoiceRepo.findPartialMatches(searchCriteria);
 
