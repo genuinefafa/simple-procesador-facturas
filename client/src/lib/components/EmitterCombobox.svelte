@@ -11,15 +11,21 @@
   type Props = {
     value?: Emitter | null;
     onselect?: (emitter: Emitter | null) => void;
+    disabled?: boolean;
   };
 
-  let { value = null, onselect }: Props = $props();
+  let { value = null, onselect, disabled = false }: Props = $props();
 
   let items = $state<Emitter[]>([]);
   let loading = $state(false);
   let selectedEmitter = $state<Emitter | null>(value);
 
   const combobox = new ComboboxBuilder<Emitter>();
+
+  // Sincronizar selección cuando cambia el valor externo
+  $effect(() => {
+    selectedEmitter = value || null;
+  });
 
   // Buscar emisores cuando cambia el input
   $effect(() => {
@@ -70,14 +76,16 @@
         <strong>{selectedEmitter.name}</strong>
         <span class="cuit-hint">{formatCuitPlain(selectedEmitter.cuit)}</span>
       </div>
-      <button
-        type="button"
-        class="chip-remove"
-        onclick={clearSelection}
-        aria-label="Limpiar selección"
-      >
-        ✕
-      </button>
+      {#if !disabled}
+        <button
+          type="button"
+          class="chip-remove"
+          onclick={clearSelection}
+          aria-label="Limpiar selección"
+        >
+          ✕
+        </button>
+      {/if}
     </div>
   {:else}
     <!-- Modo búsqueda -->
@@ -91,13 +99,15 @@
         aria-label="Buscar emisores"
         aria-autocomplete="list"
         aria-controls={combobox.ids.content}
+        readonly={disabled}
+        disabled={disabled}
       />
 
-      {#if loading}
+      {#if loading && !disabled}
         <span class="loading-indicator">Buscando...</span>
       {/if}
 
-      {#if combobox.open && items.length > 0}
+      {#if !disabled && combobox.open && items.length > 0}
         <div
           {...combobox.content}
           id={combobox.ids.content}
@@ -122,7 +132,7 @@
         </div>
       {/if}
 
-      {#if combobox.open && items.length === 0 && combobox.inputValue.length >= 3}
+      {#if !disabled && combobox.open && items.length === 0 && combobox.inputValue.length >= 3}
         <div class="combobox-listbox">
           <span class="no-results">No se encontraron emisores</span>
         </div>
@@ -201,9 +211,11 @@
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 
-  .combobox-input:read-only {
+  .combobox-input:read-only,
+  .combobox-input[disabled] {
     background-color: var(--color-surface-alt);
-    cursor: default;
+    cursor: not-allowed;
+    opacity: 0.8;
   }
 
   .combobox-listbox {
@@ -253,7 +265,6 @@
   .cuit-hint {
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
-    font-family: monospace;
   }
 
   .checkmark {
