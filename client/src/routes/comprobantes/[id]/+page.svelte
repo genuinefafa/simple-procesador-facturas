@@ -7,6 +7,7 @@
   import { toast, Toaster } from 'svelte-sonner';
   import { invalidateAll, goto } from '$app/navigation';
   import { formatDateTime, formatDateISO } from '$lib/formatters';
+  // Using native select for categories to keep things simple and accessible
 
   let { data } = $props();
   let comprobante = $derived(data.comprobante);
@@ -26,6 +27,16 @@
   let lastCopiedEmitterName = $state<string | null>(null);
   let editMode = $state(false);
   let selectedCategoryId = $state<number | null>(null);
+  let categorySelectValue = $derived.by(() => {
+    const val = selectedCategoryId === null ? '' : String(selectedCategoryId);
+    console.log(
+      '[DERIVED] categorySelectValue:',
+      val,
+      'from selectedCategoryId:',
+      selectedCategoryId
+    );
+    return val;
+  });
 
   let facuraData = $state({
     cuit: '',
@@ -62,8 +73,14 @@
       lastCopiedEmitterName = comprobante.expected.emitterName || lastCopiedEmitterName;
     }
 
-    // Preseleccionar categoría desde la factura final si existe
-    selectedCategoryId = comprobante.final?.categoryId ?? selectedCategoryId;
+    // Preseleccionar categoría desde la factura final si existe (solo en modo lectura)
+    console.log('[EFFECT] comprobante.final?.categoryId:', comprobante.final?.categoryId);
+    if (!editMode) {
+      selectedCategoryId = comprobante.final?.categoryId ?? null;
+      console.log('[EFFECT] selectedCategoryId set to:', selectedCategoryId);
+    } else {
+      console.log('[EFFECT] editMode=true, no se pisa selectedCategoryId');
+    }
 
     // Preseleccionar emisor SOLO en modo lectura
     if (!editMode && !selectedEmitter && comprobante.final?.cuit) {
@@ -256,18 +273,12 @@
       if (response && response.ok) {
         toast.success('✅ Factura guardada correctamente', { id: toastId });
 
-        // Si se creó una nueva factura, navegar a ella con SPA
-        if (newInvoiceId) {
-          await goto(`/comprobantes/factura:${newInvoiceId}`);
-        } else {
-          // Si se actualizó, recargar datos
-          await invalidateAll();
-        }
-
-        // Actualizar categoría si corresponde y estamos en factura final
-        if (comprobante.kind === 'factura' && comprobante.final?.id && selectedCategoryId != null) {
-          try {
-            const catRes = await fetch(`/api/invoices/${comprobante.final.id}/category`, {
+        // Actualizar categoría ANTES de refrescar navegación/datos
+        try {
+          // Si se creó una nueva factura desde expected/pending, actualizar esa
+          const targetInvoiceId = newInvoiceId ?? comprobante.final?.id;
+          if (targetInvoiceId !== undefined) {
+            const catRes = await fetch(`/api/invoices/${targetInvoiceId}/category`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ categoryId: selectedCategoryId }),
@@ -276,12 +287,25 @@
             if (!catRes.ok || !catData.ok) {
               toast.error(catData.error || 'No se pudo actualizar la categoría');
             } else {
+              // Actualizar estado local para evitar que el efecto lo pise al cancelar
+              if (!newInvoiceId && comprobante.final) {
+                comprobante.final.categoryId = selectedCategoryId;
+              }
               toast.success('📌 Categoría actualizada');
             }
-          } catch (e) {
-            console.error('Error actualizando categoría', e);
-            toast.error('Error actualizando categoría');
           }
+        } catch (e) {
+          console.error('Error actualizando categoría', e);
+          toast.error('Error actualizando categoría');
+        }
+
+        // Navegación / recarga después de actualizar categoría
+        // Salir de modo edición para evitar confusiones
+        editMode = false;
+        if (newInvoiceId) {
+          await goto(`/comprobantes/factura:${newInvoiceId}`);
+        } else {
+          await invalidateAll();
         }
       } else {
         const data = await response?.json();
@@ -476,21 +500,26 @@
           <label for="categoria">Categoría</label>
           {#if isReadOnly}
             <div class="readonly-value">
-              {#if selectedCategoryId}
-                {#each categories as cat}
-                  {#if cat.id === selectedCategoryId}
-                    {cat.description}
-                  {/if}
-                {/each}
+              {#if selectedCategoryId === null}
+                — Sin categoría —
               {:else}
-                —
+                {categories.find((c) => c.id === selectedCategoryId)?.description ??
+                  '— Sin categoría —'}
               {/if}
             </div>
           {:else}
-            <select id="categoria" bind:value={selectedCategoryId}>
-              <option value={null}>Sin categoría</option>
+            <select
+              value={categorySelectValue}
+              oninput={(e) => {
+                const val = (e.target as HTMLSelectElement).value;
+                selectedCategoryId = val === '' ? null : Number(val);
+              }}
+            >
+              <option value="">— Sin categoría —</option>
               {#each categories as cat}
-                <option value={cat.id}>{cat.description}</option>
+                <option value={String(cat.id)}>
+                  {cat.description}
+                </option>
               {/each}
             </select>
           {/if}

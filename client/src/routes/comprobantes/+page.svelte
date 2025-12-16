@@ -8,7 +8,8 @@
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
-  let activeCategoryId = $state<number | null>(null);
+  // null => Sin categoría; undefined => todas; number => específica
+  let activeCategoryId = $state<number | undefined | null>(undefined);
 
   type FilterKind = 'all' | 'pendientes' | 'reconocidas' | 'esperadas';
 
@@ -93,7 +94,11 @@
         break;
     }
     // Filtro por categoría (solo aplica a facturas finales)
-    if (activeCategoryId != null) {
+    if (activeCategoryId === null) {
+      // Filtrar facturas sin categoría
+      return (c.final?.categoryId ?? null) === null;
+    }
+    if (activeCategoryId !== undefined) {
       return (c.final?.categoryId ?? null) === activeCategoryId;
     }
     return true;
@@ -205,11 +210,20 @@
 
 <!-- Filtro por categoría -->
 <section class="filters">
-  <label>Categoría:</label>
-  <select bind:value={activeCategoryId}>
-    <option value={null}>Todas</option>
+  <label for="flt-cat">Categoría:</label>
+  <select
+    id="flt-cat"
+    oninput={(e) => {
+      const v = (e.target as HTMLSelectElement).value;
+      if (v === 'ALL') activeCategoryId = undefined;
+      else if (v === 'NONE') activeCategoryId = null;
+      else activeCategoryId = Number(v);
+    }}
+  >
+    <option value="ALL" selected={activeCategoryId === undefined}>Todas</option>
+    <option value="NONE" selected={activeCategoryId === null}>Sin categoría</option>
     {#each categories as cat}
-      <option value={cat.id}>{cat.description}</option>
+      <option value={cat.id} selected={activeCategoryId === cat.id}>{cat.description}</option>
     {/each}
   </select>
 </section>
@@ -363,6 +377,9 @@
     border-color: var(--color-primary-300);
     color: var(--color-primary-700);
     background: var(--color-primary-50);
+  }
+  .clear-filter {
+    margin-left: 0.5rem;
   }
 
   .list {

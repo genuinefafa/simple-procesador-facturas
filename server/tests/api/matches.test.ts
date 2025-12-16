@@ -1,13 +1,13 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { PendingFileRepository } from '../../database/repositories/pending-file.js';
 import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice.js';
 
 describe('Matches API - findPartialMatches', () => {
-  let pendingRepo: PendingFileRepository;
+  let _pendingRepo: PendingFileRepository;
   let expectedRepo: ExpectedInvoiceRepository;
 
   beforeEach(() => {
-    pendingRepo = new PendingFileRepository();
+    _pendingRepo = new PendingFileRepository();
     expectedRepo = new ExpectedInvoiceRepository();
   });
 

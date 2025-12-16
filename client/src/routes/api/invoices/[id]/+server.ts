@@ -50,6 +50,7 @@ export const GET: RequestHandler = async ({ params }) => {
         extractionConfidence: invoice.extractionConfidence,
         requiresReview: invoice.requiresReview,
         manuallyValidated: invoice.manuallyValidated,
+        categoryId: invoice.categoryId ?? null,
         expectedInvoiceId: invoice.expectedInvoiceId ?? null,
         pendingFileId: invoice.pendingFileId ?? null,
         processedAt: invoice.processedAt,

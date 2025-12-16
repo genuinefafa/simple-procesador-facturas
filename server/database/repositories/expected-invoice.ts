@@ -2,7 +2,7 @@
  * Repository para la gestión de facturas esperadas (Drizzle ORM)
  */
 
-import { eq, inArray, and, desc, gte, lte, isNull, like } from 'drizzle-orm';
+import { eq, inArray, and, desc, gte, lte, isNull, like, SQL } from 'drizzle-orm';
 import { db } from '../db';
 import {
   expectedInvoices,
@@ -385,7 +385,7 @@ export class ExpectedInvoiceRepository {
     >
   > {
     // Prefiltrar inteligentemente para no perder candidatos por el límite
-    const conditions: any[] = [
+    const conditions: (SQL | undefined)[] = [
       eq(expectedInvoices.status, 'pending'),
       isNull(expectedInvoices.matchedPendingFileId),
     ];
@@ -403,7 +403,7 @@ export class ExpectedInvoiceRepository {
     const result = await db
       .select()
       .from(expectedInvoices)
-      .where(and(...conditions))
+      .where(and(...conditions.filter((c): c is SQL => c !== undefined)))
       .orderBy(desc(expectedInvoices.issueDate))
       .limit(Math.max(criteria.limit || 10, 100)); // aumentar límite para incluir más fallbacks
 
@@ -415,8 +415,9 @@ export class ExpectedInvoiceRepository {
         let totalScore = 0; // Para scoring ponderado
 
         // Helpers de normalización de CUIT
-        const onlyDigits = (v?: string | null) => (v ? v.replace(/\D/g, '') : '');
-        const middle8 = (digits: string) => (digits.length >= 11 ? digits.slice(2, 10) : '');
+        const onlyDigits = (v?: string | null): string => (v ? v.replace(/\D/g, '') : '');
+        const middle8 = (digits: string): string =>
+          digits.length >= 11 ? digits.slice(2, 10) : '';
 
         if (criteria.cuit !== undefined || criteria.cuitPartial !== undefined) {
           fieldsCompared++;

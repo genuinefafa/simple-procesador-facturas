@@ -100,6 +100,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
       if (res.ok) {
         const data = await res.json();
         const base = data.invoice || data;
+        console.log('[LOADER] API response base:', { id: base.id, categoryId: base.categoryId });
 
         const final: Final = {
           source: 'final',
@@ -115,9 +116,11 @@ export const load: PageLoad = async ({ fetch, params }) => {
           file: base.processedFile,
           filePath: base.processedFile,
           fileHash: base.fileHash,
+          categoryId: base.categoryId ?? null,
           expectedInvoiceId: base.expectedInvoiceId,
           pendingFileId: base.pendingFileId,
         };
+        console.log('[LOADER] final object:', { id: final.id, categoryId: final.categoryId });
 
         let expected: Expected | null = null;
         if (final.expectedInvoiceId) {
