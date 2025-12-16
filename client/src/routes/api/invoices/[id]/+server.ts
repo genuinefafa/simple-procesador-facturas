@@ -101,6 +101,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       total: number;
       issueDate: string;
       expectedInvoiceId: number | null;
+      categoryId: number | null;
     }>;
 
     const invoiceRepo = new InvoiceRepository();
@@ -140,6 +141,11 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       values.push(updates.issueDate);
     }
 
+    if (updates.categoryId !== undefined) {
+      fields.push('category_id = ?');
+      values.push(updates.categoryId);
+    }
+
     // Si se actualizó tipo, pv o número, recalcular comprobante completo
     if (
       updates.invoiceType ||
@@ -174,6 +180,9 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     }
     if (updates.issueDate) {
       invoice.issueDate = new Date(updates.issueDate);
+    }
+    if (updates.categoryId !== undefined) {
+      invoice.categoryId = updates.categoryId === null ? undefined : updates.categoryId;
     }
 
     // Vincular/desvincular expected
