@@ -208,6 +208,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
       });
     }
 
+    // Validar que invoice fue creada/actualizada correctamente
+    if (!invoice) {
+      console.error('❌ Invoice creation failed or returned null');
+      return json({ success: false, error: 'Invoice creation failed' }, { status: 500 });
+    }
+
     // Actualizar pending file: vincular con factura y marcar como processed
     console.info(`🔗 Vinculando pending file ${id} con factura ${invoice.id}`);
     await pendingFileRepo.updateStatus(id, 'processed');

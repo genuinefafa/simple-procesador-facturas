@@ -18,11 +18,13 @@
       const rawParam = new URL(window.location.href).searchParams.get('f');
       // Mapear alias legacy 'procesadas' -> 'reconocidas'
       const urlParam = (rawParam === 'procesadas' ? 'reconocidas' : rawParam) as FilterKind | null;
-      let saved = localStorage.getItem('comprobantes-filter') as FilterKind | null;
-      if (saved === 'procesadas') saved = 'reconocidas' as FilterKind;
+      let saved = localStorage.getItem('comprobantes-filter');
+      if (saved === 'procesadas') saved = 'reconocidas';
       const valid = ['all', 'pendientes', 'reconocidas', 'esperadas'];
       const initial =
-        urlParam && valid.includes(urlParam) ? (urlParam as FilterKind) : saved || 'all';
+        urlParam && valid.includes(urlParam)
+          ? (urlParam as FilterKind)
+          : (saved as FilterKind | null) || 'all';
       activeFilter = initial as FilterKind;
     }
   });

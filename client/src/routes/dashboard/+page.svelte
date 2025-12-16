@@ -139,7 +139,13 @@
     </div>
   </div>
 
-  <form class="search-form" on:submit|preventDefault={runSearch}>
+  <form
+    class="search-form"
+    onsubmit={() => {
+      runSearch();
+      return false;
+    }}
+  >
     <Input
       type="search"
       placeholder="Ej: 30-12345678-9, A-0001-00001234, contrato.pdf"
