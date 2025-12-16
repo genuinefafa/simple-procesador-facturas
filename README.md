@@ -1,519 +1,269 @@
-# 📄 Procesador Inteligente de Facturas
+# 📄 Simple Procesador de Facturas
 
 [![CI](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml/badge.svg)](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.21.0-brightgreen.svg)](https://nodejs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
-[![Code Style: Prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg)](https://prettier.io/)
 
-Sistema web para procesamiento, extracción y gestión de facturas argentinas con reconocimiento automático y aprendizaje de patrones.
-
-## 🎯 Descripción
-
-Aplicación web que permite procesar facturas en diversos formatos (PDF, JPG, PNG) extrayendo automáticamente información clave como CUIT, razón social, fecha, número de comprobante y totales. El flujo completo se gestiona desde el navegador: upload, procesamiento, revisión y export.
-
-## ✨ Características Principales
-
-- 🌐 **100% Web**: Interfaz completa en el navegador, sin CLI
-- 📤 **Drag & Drop**: Sube archivos arrastrándolos
-- 🔍 **Extracción Automática**: PDFs digitales procesados con regex avanzado
-- ✏️ **Anotación Manual**: Editor visual para corregir datos no reconocidos
-- ✔️ **Validación CUIT**: Algoritmo módulo 11 para CUITs argentinos
-- 📊 **Base de Datos**: SQLite con migraciones automáticas (Drizzle ORM)
-- 📁 **Export Automático**: Renombrado con formato `{CUIT}_{FECHA}_{TIPO}-{PV}-{NUM}.pdf`
-- 🐳 **Docker Ready**: Dockerfile y docker-compose incluidos
-
-## 🏗️ Arquitectura
-
-**Monorepo con npm workspaces:**
-- `client/` = SvelteKit fullstack (Frontend UI + Backend API)
-- `server/` = Shared libraries (Database, Services, Extractors)
-- `package.json` root = Orquestador
-
-**Importante:** No hay servidor HTTP separado. Todo corre dentro de SvelteKit. Los servicios en `server/` son importados por los API endpoints en `client/src/routes/api/`.
-
-### Stack Tecnológico
-
-- **Runtime:** Node.js 22.21.0+, TypeScript 5.7
-- **Framework:** SvelteKit 2 (fullstack)
-- **Database:** SQLite (better-sqlite3) + Drizzle ORM
-- **PDF Processing:** pdf-parse, pdf-lib
-- **Build:** Vite
-- **DevOps:** Docker, Docker Compose
-
-### Estructura del Proyecto (M1 - Enero 2026)
-
-```
-simple-procesador-facturas/
-├── client/                              # 🌐 SVELTEKIT FULLSTACK
-│   ├── src/
-│   │   ├── routes/
-│   │   │   ├── +layout.svelte          # 📌 Layout global con sidebar
-│   │   │   ├── importar/
-│   │   │   │   └── +page.svelte        # 📥 Importar PDFs + Excel AFIP
-│   │   │   ├── procesar/
-│   │   │   │   └── +page.svelte        # ⚙️ Procesar archivos pendientes
-│   │   │   ├── entrenamiento/
-│   │   │   │   └── +page.svelte        # 📝 Entrenamiento / anotaciones
-│   │   │   ├── facturas/
-│   │   │   │   └── +page.svelte        # 📋 Facturas conocidas (revisión)
-│   │   │   ├── google-sync/
-│   │   │   │   └── +page.svelte        # ☁️ Sync con Google Sheets
-│   │   │   ├── annotate/
-│   │   │   │   └── +page.svelte        # (Existente) Anotar facturas
-│   │   │   └── api/                    # 🔌 Backend API (SvelteKit endpoints)
-│   │   │       ├── invoices/
-│   │   │       ├── pending-files/
-│   │   │       ├── expected-invoices/
-│   │   │       └── google-sync/
-│   │   └── lib/
-│   │       ├── components/             # 🧩 Componentes reutilizables (M1)
-│   │       │   ├── Button.svelte
-│   │       │   ├── Card.svelte
-│   │       │   ├── PageHeader.svelte
-│   │       │   ├── StatsBar.svelte
-│   │       │   ├── UploadSection.svelte
-│   │       │   └── index.ts            # Exports centralizados
-│   │       └── formatters.ts
-│   ├── package.json
-│   └── vite.config.ts                  # Alias $server para imports
-│
-├── server/                              # 📚 SHARED LIBRARIES
-│   ├── database/
-│   │   ├── schema.ts                   # Drizzle ORM schema
-│   │   ├── db.ts                       # SQLite connection
-│   │   ├── repositories/               # Data access layer
-│   │   └── migrations/
-│   ├── services/
-│   │   ├── invoice-processing.service.ts
-│   │   ├── file-export.service.ts
-│   │   └── excel-import.service.ts
-│   ├── extractors/
-│   │   ├── pdf-extractor.ts
-│   │   └── ocr-extractor.ts
-│   ├── validators/
-│   │   └── cuit.ts
-│   ├── utils/
-│   └── package.json
-│
-├── data/                                # 💾 Persistent data
-│   ├── input/                          # Uploaded files
-│   ├── processed/                      # Renamed & processed files
-│   └── database.sqlite
-│
-├── docs/
-│   ├── UI_UX_GUIDELINES.md             # (Actualizado con M1)
-│   └── README.md
-│
-└── package.json                         # Monorepo orchestrator
-```
+**Sistema web para procesamiento, extracción y gestión de facturas argentinas con reconocimiento automático OCR y matching con datos AFIP.**
 
 ---
 
-## 🎯 Flujo de Usuario (M1)
+## 🎯 ¿Qué es esto?
 
-### 1️⃣ **Importar** (`/importar`)
-```
-Dos opciones:
-├─ PDFs/Imágenes → Drag & drop → Upload automático → Procesamiento
-└─ Excel AFIP   → Importar → Crear batch de facturas esperadas
-```
+Aplicación fullstack que permite gestionar comprobantes fiscales de manera eficiente:
 
-### 2️⃣ **Procesar** (`/procesar`)
-```
-Archivos pendientes (pending_files)
-├─ Vista previa (PDF/imagen)
-├─ Datos detectados vs Excel (si existe match)
-├─ Edición inline
-└─ Confirmar o reprocesar
-```
+- ✅ Sube archivos (PDF, JPG, PNG, HEIC)
+- ✅ Extrae datos automáticamente (PDF_TEXT + Tesseract OCR)
+- ✅ Valida con datos AFIP desde Excel
+- ✅ Revisión manual en interfaz visual
+- ✅ Gestiona emisores y categorías
+- ✅ Dashboard con métricas
 
-### 3️⃣ **Entrenamiento** (`/entrenamiento`)
-```
-Facturas para anotación/entrenamiento
-├─ Selección múltiple
-├─ Exportación para datasets
-└─ Indicadores de confianza
-```
-
-### 4️⃣ **Facturas** (`/facturas`)
-```
-Facturas conocidas / revisión final
-├─ Asignación de categoría
-├─ Búsqueda y filtros
-└─ Exportación masiva
-```
-
-### 5️⃣ **Google Sync** (`/google-sync`)
-```
-Sincronización manual
-├─ Emisores (👥)
-├─ Facturas (📋)
-├─ Facturas esperadas (📊)
-└─ Logs (📝)
-
-Modos: Sincronizar (🔄) | Subir (⬆️) | Descargar (⬇️)
-```
+> **Filosofía**: La intervención humana es el núcleo, no un fallback. El sistema ayuda pero no decide.
 
 ---
 
-## 🚀 Inicio Rápido
+## 🚀 Quick Start
 
-### Prerequisitos
-
-- Node.js >= 22.21.0
-- npm >= 10.0.0
-
-### Instalación Local
+### Desarrollo Local
 
 ```bash
-# 1. Clonar repositorio
+# 1. Clonar el repositorio
 git clone https://github.com/genuinefafa/simple-procesador-facturas.git
 cd simple-procesador-facturas
 
-# 2. Instalar dependencias (workspaces: root, client, server)
+# 2. Instalar dependencias
 npm install
 
-# 3. Configurar archivo de configuración
-cp server/config.json.example server/config.json
-# Editar server/config.json si necesitas cambiar rutas o configuración
-
-# 4. (Opcional) Configurar puerto personalizado
-cd client
-cp .env.example .env
-# Editar .env y cambiar VITE_PORT si querés usar otro puerto
-cd ..
-
-# 5. Ejecutar migraciones de BD
+# 3. Inicializar base de datos
 npm run db:migrate
 
-# 6. (Opcional) Cargar datos de prueba
-npm run db:seed
-
-# 7. Iniciar servidor de desarrollo
+# 4. Levantar servidor de desarrollo
 npm run dev
-```
 
-La aplicación estará disponible en `http://localhost:5173` (o el puerto configurado en `client/.env`)
+# 5. Abrir navegador
+# http://localhost:5173
+```
 
 ### Con Docker
 
 ```bash
-# 1. Copiar archivo de configuración
-cp .env.example .env
+# Build y run
+docker compose up -d
 
-# 2. Construir y levantar contenedores
-docker-compose up -d
-
-# 3. Ver logs
-docker-compose logs -f app
+# Acceder en http://localhost:5173
 ```
 
-La aplicación estará disponible en `http://localhost:3000`
+---
 
-### Integración con Google Sheets + Drive (Opcional)
+## 📁 Estructura del Proyecto
 
-El sistema puede usar **Google Sheets** como base de datos y **Google Drive** para almacenar archivos, eliminando la necesidad de una base de datos local y facilitando la colaboración.
+```
+simple-procesador-facturas/
+├── client/                    # 🎨 Frontend (SvelteKit)
+│   ├── src/
+│   │   ├── lib/
+│   │   │   ├── components/ui/ # Componentes Melt UI
+│   │   │   └── stores/
+│   │   └── routes/
+│   │       ├── +layout.svelte # Layout con rail navigation
+│   │       ├── dashboard/     # Dashboard principal
+│   │       ├── comprobantes/  # Hub unificado
+│   │       ├── emisores/      # Gestión de emisores
+│   │       ├── entrenamiento/ # Templates (futuro)
+│   │       ├── google-sync/   # Integración Google
+│   │       ├── annotate/      # Anotaciones manuales
+│   │       └── api/           # API endpoints
+│   └── vite.config.ts
+│
+├── server/                    # ⚙️ Backend (Services + DB)
+│   ├── database/
+│   │   ├── schema.ts          # Drizzle ORM schema
+│   │   ├── repositories/      # Data access layer
+│   │   └── migrations/
+│   ├── services/
+│   │   ├── invoice-processing.service.ts
+│   │   ├── excel-import.service.ts
+│   │   └── file-export.service.ts
+│   ├── extractors/
+│   │   ├── pdf-extractor.ts   # PDF_TEXT extraction
+│   │   └── ocr-extractor.ts   # Tesseract OCR
+│   └── validators/
+│       └── cuit.ts            # Validación módulo 11
+│
+├── docs/                      # 📚 Documentación
+│   ├── ARCHITECTURE.md
+│   ├── MELT-UI.md
+│   ├── SIDEBAR.md
+│   └── UI_UX.md
+│
+├── legacy/                    # 🔴 Rutas deprecadas (solo dev)
+│
+├── SPEC.md                    # Especificación técnica completa
+├── ROADMAP.md                 # Roadmap de desarrollo
+└── CHANGELOG.md
+```
 
-**Ventajas:**
-- ✅ Sin infraestructura: No necesitas servidor ni base de datos
-- ✅ Colaboración: Múltiples usuarios pueden ver/editar
-- ✅ Auditoría: Google mantiene historial de cambios automáticamente
-- ✅ Búsqueda: Motor nativo de Google en sheets y archivos
-- ✅ Backup: Versionado automático de Google Drive
+---
 
-**Setup rápido:**
+## 🏗️ Stack Tecnológico
+
+### Frontend
+- **Framework**: SvelteKit 2.x
+- **UI Library**: Svelte 5.41.0 (runes: $state, $derived)
+- **Components**: Melt UI Next v0.42 (beta) + @melt-ui/svelte v0.86
+- **Styling**: CSS puro con design tokens (no Tailwind)
+- **Notifications**: svelte-sonner
+
+### Backend
+- **Runtime**: Node.js 22.x
+- **Database**: SQLite + Drizzle ORM
+- **PDF Processing**: pdf-parse
+- **OCR**: Tesseract.js
+- **Image Processing**: sharp, heic-convert
+
+---
+
+## 🎯 Rutas Principales
+
+| Ruta | Descripción |
+|------|-------------|
+| `/` | Redirect a `/dashboard` |
+| `/dashboard` | Vista principal con métricas |
+| `/comprobantes` | **Hub principal** - Listado unificado con filtros |
+| `/comprobantes/[id]` | Detalle individual del comprobante |
+| `/emisores` | Gestión de emisores (CRUD) |
+| `/google-sync` | Integración con Google Drive/Sheets |
+| `/entrenamiento` | Templates de extracción (futuro) |
+| `/annotate` | Anotaciones manuales |
+
+**Rutas legacy** (archivadas en `/legacy`, solo visibles en dev):
+- `/importar`, `/procesar`, `/facturas`, `/pending-files`
+- Estas fueron reemplazadas por el **Comprobantes Hub**
+
+---
+
+## 📊 Flujo de Usuario
+
+```
+1. Usuario accede a /dashboard
+2. Navega a /comprobantes
+3. Sube archivo PDF/imagen (drag & drop)
+   └─ Sistema guarda en pending_files con status "pending"
+4. Clickea "Reconocer" en el comprobante
+   └─ Sistema extrae texto (PDF_TEXT o OCR)
+   └─ Busca match en expected_invoices (si existe Excel AFIP)
+5. Usuario revisa detalle (/comprobantes/[id])
+   └─ Corrige campos si es necesario
+   └─ Asigna categoría (opcional)
+   └─ Clickea "Confirmar y procesar"
+6. Factura creada en invoices con status "processed"
+```
+
+---
+
+## 🔧 Comandos Disponibles
+
+### Desarrollo
 
 ```bash
-# 1. Configurar credenciales de Google Cloud
-# Ver GOOGLE_SETUP.md para instrucciones detalladas
-
-# 2. Activar en config.json
-nano server/config.json
-# Cambiar "enabled": true y agregar spreadsheetId y rootFolderId
-
-# 3. Verificar configuración
-npm run test:google
-
-# 4. ¡Listo! Ahora las facturas se guardan en Google Sheets + Drive
-npm run dev
+npm run dev              # Servidor de desarrollo (http://localhost:5173)
+npm run build            # Build de producción
+npm run preview          # Preview del build
 ```
 
-📚 **Documentación completa:** Ver [GOOGLE_SETUP.md](./GOOGLE_SETUP.md) para instrucciones paso a paso.
-
-## 📖 Uso
-
-### Flujo Completo
-
-1. **Upload**: Arrastra archivos PDF/JPG/PNG a la zona de drop
-2. **Procesamiento Automático**: El sistema extrae datos usando regex
-3. **Revisión**:
-   - ✅ Verde: Alta confianza (≥90%)
-   - ⚠️ Amarillo: Requiere revisión (70-89%)
-   - ❌ Rojo: Baja confianza (<70%)
-4. **Anotación**: Corrige datos manualmente si es necesario
-5. **Export**: Descarga archivos renombrados o genera Excel
-
-### Matching con Excel AFIP (Nuevo)
-
-El sistema permite importar el Excel de AFIP con facturas recibidas para validación cruzada:
-
-1. **Importar Excel**: Tab "Importar Excel" → Drag & drop del archivo AFIP
-2. **Matching automático**: Al procesar PDFs, el sistema busca coincidencias por CUIT
-3. **Comparación visual**: Tab "Revisar" muestra tabla comparativa PDF vs Excel
-4. **Indicadores**:
-   - ✓ (verde): Dato coincide con Excel
-   - ⚠ (rojo): Dato difiere del Excel
-   - ❌ (amarillo): No detectado en PDF
-   - ⚪ (gris): Sin datos de Excel
-
-**Beneficios:**
-- Auto-completado de campos desde Excel (datos validados por AFIP)
-- Detecta discrepancias entre PDF y registros oficiales
-- Reduce trabajo manual de transcripción
-
-### Comandos NPM
-
-**Desde la raíz del proyecto** (usa npm workspaces):
+### Base de Datos
 
 ```bash
-# Desarrollo
-npm run dev                    # Inicia SvelteKit (http://localhost:5173)
-npm run build                  # Build de producción
-npm run preview                # Preview del build
-
-# CI/CD
-npm run test                   # Tests (server workspace)
-npm run lint                   # ESLint en todos los workspaces
-npm run format:check           # Prettier check en todos los workspaces
-
-# Base de datos
-npm run db:migrate             # Aplicar migraciones
-npm run db:seed                # Cargar datos de prueba
-npm run db:studio              # Drizzle Studio GUI
-
-# Docker
-npm run docker:build           # Construir imagen
-npm run docker:up              # Levantar contenedores
-npm run docker:down            # Detener contenedores
-npm run docker:logs            # Ver logs
+npm run db:migrate       # Aplicar migraciones
+npm run db:push          # Push schema sin migración
+npm run db:studio        # Abrir Drizzle Studio (GUI)
+npm run db:generate      # Generar nueva migración
+npm run db:reset         # ⚠️ Resetear BD (borra todo)
 ```
 
-**Dentro de cada workspace:**
+### Testing y Calidad
 
 ```bash
-# En server/ - solo si necesitás operaciones específicas
-cd server
-npm run db:generate            # Generar nueva migración
-npm run db:push                # Push directo (dev only)
-npm run test:unit              # Tests unitarios
-npm run test:coverage          # Reporte de cobertura
-npm run lint:fix               # Fix linting issues
-npm run format                 # Format code
-
-# En client/ - rara vez necesario
-cd client
-npm run check                  # SvelteKit type check
-npm run lint                   # Lint frontend
+npm run check            # Type checking
+npm run format           # Formatear código (Prettier)
+npm run test:extraction  # Tests de extracción de archivos
 ```
 
-### Variables de Entorno
-
-El proyecto usa dos archivos `.env` separados:
-
-**1. `client/.env` - Configuración de Vite (desarrollo)**
+### Docker
 
 ```bash
-cd client
-cp .env.example .env
+docker compose up -d     # Levantar contenedor
+docker compose down      # Detener contenedor
+docker compose logs -f   # Ver logs
 ```
 
-Variables disponibles:
-- `VITE_PORT=5173` - Puerto del dev server
-- `VITE_PREVIEW_PORT=4173` - Puerto del preview
-- `VITE_HOST=localhost` - Host (usar `0.0.0.0` para LAN)
+---
 
-**2. `.env` (root) - Configuración de Docker (producción)**
+## 📚 Documentación
 
-```bash
-cp .env.example .env
-```
+Para más detalles técnicos, consulta:
 
-Variables disponibles:
-- `APP_PORT=3000` - Puerto mapeado en Docker
-- `NODE_ENV=production` - Modo de ejecución
+- **[SPEC.md](./SPEC.md)** - Especificación técnica completa
+- **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Arquitectura del sistema
+- **[docs/MELT-UI.md](./docs/MELT-UI.md)** - Componentes UI
+- **[docs/UI_UX.md](./docs/UI_UX.md)** - Guías de UI/UX
+- **[ROADMAP.md](./ROADMAP.md)** - Roadmap de desarrollo
+- **[CHANGELOG.md](./CHANGELOG.md)** - Historial de cambios
 
-**Nota:** Las variables con prefijo `VITE_` solo se usan en `vite.config.ts` para configurar el servidor de desarrollo, NO se exponen al código del cliente por razones de seguridad.
+---
 
-## 🗄️ Base de Datos
+## 🐛 Issues y Milestones
 
-### Migraciones con Drizzle ORM
+El proyecto usa GitHub Issues para tracking de tareas:
 
-```bash
-# 1. Modificar server/database/schema.ts
-# 2. Generar migración SQL
-cd server && npm run db:generate
+- **[Issues](https://github.com/genuinefafa/simple-procesador-facturas/issues)**
+- **[Milestones](https://github.com/genuinefafa/simple-procesador-facturas/milestones)**
 
-# 3. Aplicar migraciones
-npm run db:migrate  # (desde root)
+### Milestones Activos
 
-# 4. (Opcional) Cargar datos de prueba
-npm run db:seed
-```
+- **M0.5**: Documentation & Cleanup (Due: 2025-12-20)
+- **M3**: Emisores management (Due: 2026-01-15)
+- **M4**: Dashboard features (Due: 2026-02-01)
+- **M5**: Mejoras secundarias y nice-to-have
 
-### Schema Principal
-
-**Tablas:**
-- `templates_extraccion`: Templates reutilizables de extracción
-- `emisores`: Entidades que emiten facturas
-- `facturas`: Comprobantes procesados
-- `facturas_zonas_anotadas`: Zonas dibujadas por usuarios (para entrenar OCR)
-- `facturas_correcciones`: Log de correcciones manuales
-- `emisor_templates_historial`: Tracking de qué template funciona mejor
-
-**Features:**
-- Foreign keys con CASCADE
-- Triggers para actualizar estadísticas
-- Vistas para queries comunes
-- Índices optimizados
-
-## 🔧 Configuración
-
-### Variables de Entorno
-
-**Frontend (client/.env):**
-```bash
-VITE_PORT=5173              # Puerto dev server
-VITE_PREVIEW_PORT=4173      # Puerto preview
-VITE_HOST=localhost         # Host (usar 0.0.0.0 para red local)
-```
-
-**Docker (.env):**
-```bash
-APP_PORT=3000               # Puerto expuesto
-NODE_ENV=production
-```
-
-## 🧪 Testing
-
-```bash
-# Ejecutar todos los tests
-npm run test
-
-# Modo watch
-npm run test:watch
-
-# Con cobertura
-npm run test:coverage
-```
-
-Los tests cubren:
-- ✅ Validación de CUIT
-- ✅ Extracción de datos de PDFs
-- ✅ Servicios de procesamiento
-- ✅ Endpoints de API
-- ✅ Repositorios de BD
-
-## 📊 API Endpoints
-
-### Upload
-```http
-POST /api/invoices/upload
-Content-Type: multipart/form-data
-
-{
-  "files": [File, File, ...]
-}
-```
-
-### Process
-```http
-POST /api/invoices/process
-Content-Type: application/json
-
-{
-  "files": [
-    { "name": "factura.pdf", "path": "/app/data/input/factura.pdf" }
-  ]
-}
-```
-
-### Export
-```http
-POST /api/invoices/export
-Content-Type: application/json
-
-{
-  "invoiceIds": [1, 2, 3]
-}
-```
-
-### Update
-```http
-PATCH /api/invoices/:id
-Content-Type: application/json
-
-{
-  "invoiceType": "A",
-  "pointOfSale": 1,
-  "invoiceNumber": 123,
-  "total": 1000.50,
-  "issueDate": "2024-01-15"
-}
-```
-
-### Delete
-```http
-DELETE /api/invoices/:id
-```
-
-## 🐳 Docker
-
-### Build Manual
-
-```bash
-docker build -t procesador-facturas .
-docker run -p 3000:3000 -v $(pwd)/data:/app/data procesador-facturas
-```
-
-### Docker Compose
-
-```bash
-# Iniciar
-docker-compose up -d
-
-# Ver logs
-docker-compose logs -f
-
-# Detener
-docker-compose down
-
-# Reconstruir
-docker-compose up -d --build
-```
+---
 
 ## 🤝 Contribuir
 
 1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
-3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push a la rama (`git push origin feature/AmazingFeature`)
+2. Crea una rama feature (`git checkout -b feat/amazing-feature`)
+3. Commit tus cambios (`git commit -m 'feat: add amazing feature'`)
+4. Push a la rama (`git push origin feat/amazing-feature`)
 5. Abre un Pull Request
 
-## 📜 Licencia
-
-Este proyecto está bajo la Licencia MIT. Ver archivo `LICENSE` para más detalles.
-
-## 🔗 Enlaces
-
-- [Documentación Drizzle ORM](https://orm.drizzle.team/)
-- [SvelteKit Docs](https://kit.svelte.dev/)
-- [Guía de AFIP](https://www.afip.gob.ar/)
-
-## 📝 Roadmap
-
-Ver [ROADMAP.md](./ROADMAP.md) para planes futuros.
+**Convenciones de commits**:
+```
+feat(scope): descripción
+fix(scope): descripción
+docs: descripción
+refactor: descripción
+chore: descripción
+```
 
 ---
 
-Desarrollado con ❤️ para simplificar la gestión de facturas argentinas
+## 📝 Licencia
+
+Este proyecto está bajo la licencia MIT. Ver [LICENSE](./LICENSE) para más detalles.
+
+---
+
+## 🙏 Agradecimientos
+
+- [SvelteKit](https://kit.svelte.dev/) - Framework fullstack
+- [Melt UI](https://melt-ui.com/) - Componentes accesibles
+- [Drizzle ORM](https://orm.drizzle.team/) - ORM TypeScript
+- [Tesseract.js](https://tesseract.projectnaptha.com/) - OCR en JavaScript
+
+---
+
+**Versión actual**: v0.4.0
+**Última actualización**: 2025-12-16
+**Mantenedor**: [@fcaldera](https://github.com/fcaldera)
