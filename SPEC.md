@@ -141,6 +141,33 @@ simple-procesador-facturas/
 
 ### 2.3 Base de Datos (Drizzle Schema)
 
+**Motor**: SQLite
+**ORM**: Drizzle ORM
+**Ubicación del archivo**: `data/database.sqlite` (desde root del proyecto)
+
+**Configuración**:
+- **Drizzle config**: `server/drizzle.config.ts`
+- **Conexión**: `server/database/db.ts`
+- **Schema**: `server/database/schema.ts`
+- **Migraciones**: `server/database/migrations/`
+
+**Comandos útiles**:
+```bash
+# Drizzle Studio (GUI)
+npm run db:studio
+# Conecta a: data/database.sqlite
+
+# SQLite CLI directo
+sqlite3 data/database.sqlite
+
+# Aplicar migraciones
+npm run db:migrate
+```
+
+**IMPORTANTE**: La base de datos NO está en `server/database/invoices.db` (archivo legacy vacío). Siempre usar `data/database.sqlite`.
+
+---
+
 **Tabla principal: `invoices`**
 ```typescript
 {
