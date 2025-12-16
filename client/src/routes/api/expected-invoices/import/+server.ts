@@ -68,7 +68,8 @@ export const POST: RequestHandler = async ({ request }) => {
     console.info(`   ✅ Importación completada:`);
     console.info(`      Lote ID: ${result.batchId}`);
     console.info(`      Importadas: ${result.imported}`);
-    console.info(`      Saltadas: ${result.skipped}`);
+    console.info(`      Actualizadas: ${result.updated}`);
+    console.info(`      Sin cambios: ${result.unchanged}`);
     console.info(`      Errores: ${result.errors.length}`);
 
     return json({
@@ -77,7 +78,8 @@ export const POST: RequestHandler = async ({ request }) => {
       filename: result.filename,
       totalRows: result.totalRows,
       imported: result.imported,
-      skipped: result.skipped,
+      updated: result.updated,
+      unchanged: result.unchanged,
       errors: result.errors,
     });
   } catch (error) {

@@ -469,12 +469,13 @@ export class GoogleSyncService {
           errorRows: 0,
         });
 
-        const created = await this.expectedInvoiceRepo.createManyInvoices(newInvoices, batch.id);
-        stats.downloaded = created.length;
+        const result = await this.expectedInvoiceRepo.createManyInvoices(newInvoices, batch.id);
+        stats.downloaded = result.created.length + result.updated.length;
 
         // Actualizar estadísticas del lote
         await this.expectedInvoiceRepo.updateBatch(batch.id, {
-          importedRows: created.length,
+          importedRows: result.created.length,
+          skippedRows: result.updated.length + result.unchanged.length,
           errorRows: stats.errors,
         });
       }

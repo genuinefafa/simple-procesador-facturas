@@ -3,8 +3,9 @@
   import type { PageData } from './$types';
   import type { Comprobante } from '../api/comprobantes/+server';
   import { FileUpload } from 'melt/builders';
-  import { goto } from '$app/navigation';
+  import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
+  import { toast, Toaster } from 'svelte-sonner';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -132,7 +133,42 @@
     for (const f of excel) {
       const fd = new FormData();
       fd.append('file', f);
-      await fetch('/api/expected-invoices/import', { method: 'POST', body: fd });
+      const toastId = toast.loading(`Importando ${f.name}...`);
+
+      try {
+        const response = await fetch('/api/expected-invoices/import', { method: 'POST', body: fd });
+        const data = await response.json();
+
+        if (data.success) {
+          const parts = [];
+          if (data.imported > 0) parts.push(`${data.imported} nuevas`);
+          if (data.updated > 0) parts.push(`${data.updated} actualizadas`);
+          if (data.unchanged > 0) parts.push(`${data.unchanged} sin cambios`);
+
+          // Importación completamente exitosa: 100% nuevas, sin errores
+          const isCleanImport =
+            data.imported > 0 &&
+            data.updated === 0 &&
+            data.unchanged === 0 &&
+            data.errors?.length === 0;
+          const message = `${f.name}: ${parts.join(', ')}`;
+
+          if (isCleanImport) {
+            // Auto-cierre: importación limpia, todo nuevo
+            toast.success(message, { id: toastId, duration: 3000 });
+          } else {
+            // Cierre manual: hay algo que requiere atención
+            toast.success(message, { id: toastId, duration: Infinity });
+          }
+        } else {
+          toast.error(`Error al importar ${f.name}: ${data.error}`, {
+            id: toastId,
+            duration: Infinity,
+          });
+        }
+      } catch (err) {
+        toast.error(`Error al importar ${f.name}`, { id: toastId, duration: Infinity });
+      }
     }
 
     // 2) Otros -> upload pending (batch)
@@ -142,14 +178,16 @@
       await fetch('/api/invoices/upload', { method: 'POST', body: fd });
     }
 
-    // 3) Refresh
-    window.location.reload();
+    // 3) Refresh reactivo
+    await invalidateAll();
   }
 </script>
 
 <svelte:head>
   <title>Comprobantes</title>
 </svelte:head>
+
+<Toaster position="top-right" richColors />
 
 <header class="header">
   <div>
