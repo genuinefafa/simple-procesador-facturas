@@ -145,15 +145,20 @@
           if (data.updated > 0) parts.push(`${data.updated} actualizadas`);
           if (data.unchanged > 0) parts.push(`${data.unchanged} sin cambios`);
 
-          const hasDetails = data.updated > 0 || data.unchanged > 0 || data.errors?.length > 0;
+          // Importación completamente exitosa: 100% nuevas, sin errores
+          const isCleanImport =
+            data.imported > 0 &&
+            data.updated === 0 &&
+            data.unchanged === 0 &&
+            data.errors?.length === 0;
           const message = `${f.name}: ${parts.join(', ')}`;
 
-          if (hasDetails) {
-            // Requiere cierre manual
-            toast.success(message, { id: toastId, duration: Infinity });
-          } else {
-            // Auto-cierre: todo nuevo, sin problemas
+          if (isCleanImport) {
+            // Auto-cierre: importación limpia, todo nuevo
             toast.success(message, { id: toastId, duration: 3000 });
+          } else {
+            // Cierre manual: hay algo que requiere atención
+            toast.success(message, { id: toastId, duration: Infinity });
           }
         } else {
           toast.error(`Error al importar ${f.name}: ${data.error}`, {
