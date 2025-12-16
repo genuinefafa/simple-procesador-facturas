@@ -108,7 +108,20 @@ export function formatDateTime(value: string | Date | null | undefined): string 
     const date = typeof value === 'string' ? new Date(value) : value;
     if (!(date instanceof Date) || isNaN(date.getTime())) return String(value);
     const dd = String(date.getDate()).padStart(2, '0');
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const months = [
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
+    ];
     const mmm = months[date.getMonth()];
     const yyyy = String(date.getFullYear());
     const HH = String(date.getHours()).padStart(2, '0');

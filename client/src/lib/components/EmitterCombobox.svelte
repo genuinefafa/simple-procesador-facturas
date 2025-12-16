@@ -100,7 +100,7 @@
         aria-autocomplete="list"
         aria-controls={combobox.ids.content}
         readonly={disabled}
-        disabled={disabled}
+        {disabled}
       />
 
       {#if loading && !disabled}
