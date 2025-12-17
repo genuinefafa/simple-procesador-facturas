@@ -13,6 +13,9 @@
   // null => Sin categoría; undefined => todas; number => específica
   let activeCategoryId = $state<number | undefined | null>(undefined);
 
+  // Track which invoice is being edited for category
+  let editingCategoryId = $state<number | null>(null);
+
   type FilterKind = 'all' | 'pendientes' | 'reconocidas' | 'esperadas';
 
   // Cargar filtro desde la URL (?f=...) o localStorage; por defecto 'all'
@@ -123,6 +126,7 @@
       }
 
       toast.success('Categoría actualizada');
+      editingCategoryId = null; // Cerrar modo edición
       await invalidateAll();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Error al actualizar categoría');
@@ -315,12 +319,33 @@
         >
         <span class="col-category">
           {#if comp.final}
-            <CategoryPills
-              {categories}
-              selected={comp.final?.categoryId ?? null}
-              onselect={(id) => comp.final && updateCategory(comp.final.id, id)}
-              mode="single"
-            />
+            {#if editingCategoryId === comp.final.id}
+              <!-- Modo edición: mostrar pills -->
+              <CategoryPills
+                {categories}
+                selected={comp.final?.categoryId ?? null}
+                onselect={(id) => comp.final && updateCategory(comp.final.id, id)}
+                mode="single"
+              />
+            {:else}
+              <!-- Modo readonly: mostrar categoría actual -->
+              <button
+                type="button"
+                class="category-display"
+                onclick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  editingCategoryId = comp.final?.id ?? null;
+                }}
+                title="Click para editar categoría"
+              >
+                {#if comp.final?.categoryId}
+                  {categories.find((c) => c.id === comp.final?.categoryId)?.description ?? '—'}
+                {:else}
+                  <span class="no-category">Sin categoría</span>
+                {/if}
+              </button>
+            {/if}
           {:else}
             —
           {/if}
@@ -490,5 +515,31 @@
     background: var(--color-neutral-100);
     color: var(--color-text-secondary);
     border-color: var(--color-neutral-200);
+  }
+
+  /* Category display button (readonly mode) */
+  .category-display {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+    transition: all var(--transition-base);
+  }
+
+  .category-display:hover {
+    background: var(--color-neutral-100);
+  }
+
+  .category-display .no-category {
+    color: var(--color-text-tertiary);
+    font-style: italic;
+  }
+
+  /* Ajustar tamaño de columna para pills */
+  .col-category {
+    min-width: 200px;
   }
 </style>
