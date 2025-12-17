@@ -108,6 +108,9 @@ server/config.json
 .local-invoice-categories.json
 categorias.json
 
+# Claude Code settings
+.claude/settings.local.json
+
 # Archivos de prueba generados
 test-output/
 test-results/
