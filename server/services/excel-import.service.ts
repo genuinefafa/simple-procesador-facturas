@@ -58,7 +58,7 @@ export interface ParsedInvoice {
   cuit: string;
   emitterName?: string;
   issueDate: string;
-  invoiceType: string;
+  invoiceType: number; // Código ARCA numérico (1, 6, 11, etc.)
   pointOfSale: number;
   invoiceNumber: number;
   total?: number;
@@ -354,30 +354,52 @@ export class ExcelImportService {
       }
     }
 
-    // Extraer tipo de factura
-    let invoiceType = getCellStringValue(row[mapping.invoiceType]).trim().toUpperCase();
+    // Extraer tipo de factura como código ARCA numérico
+    const invoiceTypeRaw = getCellStringValue(row[mapping.invoiceType]).trim().toUpperCase();
 
     // Manejar formatos comunes:
-    // - "11 - Factura C" o "1 - Factura A" (formato AFIP/ARCA)
+    // - "11 - Factura C" o "1 - Factura A" (formato AFIP/ARCA con código)
     // - "Factura A", "Factura B", etc.
     // - Solo la letra: "A", "B", "C", etc.
 
-    // Estrategia: buscar la letra DESPUÉS de "FACTURA" o "FC" o "NC", o al final del string
-    let typeMatch = invoiceType.match(/(?:FACTURA|FC|NC)\s+([ABCEMX])/);
-    if (typeMatch && typeMatch[1]) {
-      invoiceType = typeMatch[1];
+    let invoiceTypeCode: number | null = null;
+
+    // Primero intentar extraer código numérico del formato "11 - Factura C"
+    const codeMatch = invoiceTypeRaw.match(/^(\d{1,3})\s*[-–]\s*/);
+    if (codeMatch && codeMatch[1]) {
+      // Tenemos código ARCA explícito
+      invoiceTypeCode = parseInt(codeMatch[1], 10);
     } else {
-      // Si no hay "Factura X", buscar letra sola o al final
-      typeMatch = invoiceType.match(/\b([ABCEMX])\b/);
+      // Intentar extraer letra y mapear a código ARCA (asumiendo Factura)
+      // Estrategia: buscar la letra DESPUÉS de "FACTURA" o "FC" o "NC", o al final del string
+      let typeMatch = invoiceTypeRaw.match(/(?:FACTURA|FC|NC)\s+([ABCEMX])/);
+      let letter: string | null = null;
+
       if (typeMatch && typeMatch[1]) {
-        invoiceType = typeMatch[1];
+        letter = typeMatch[1];
       } else {
-        throw new Error(`No se pudo detectar tipo de factura en: "${invoiceType}"`);
+        // Si no hay "Factura X", buscar letra sola o al final
+        typeMatch = invoiceTypeRaw.match(/\b([ABCEMX])\b/);
+        if (typeMatch && typeMatch[1]) {
+          letter = typeMatch[1];
+        }
+      }
+
+      // Mapear letra a código ARCA (asumiendo Factura)
+      if (letter) {
+        const letterToCode: Record<string, number> = {
+          A: 1, // Factura A
+          B: 6, // Factura B
+          C: 11, // Factura C
+          E: 19, // Factura E
+          M: 51, // Factura M
+        };
+        invoiceTypeCode = letterToCode[letter] ?? null;
       }
     }
 
-    if (!['A', 'B', 'C', 'E', 'M', 'X'].includes(invoiceType)) {
-      throw new Error(`Tipo de factura inválido: ${invoiceType}`);
+    if (invoiceTypeCode === null) {
+      throw new Error(`No se pudo detectar tipo de factura en: "${invoiceTypeRaw}"`);
     }
 
     // Extraer punto de venta
@@ -414,7 +436,7 @@ export class ExcelImportService {
       cuit: normalizedCuit,
       emitterName,
       issueDate,
-      invoiceType,
+      invoiceType: invoiceTypeCode,
       pointOfSale,
       invoiceNumber,
       total,

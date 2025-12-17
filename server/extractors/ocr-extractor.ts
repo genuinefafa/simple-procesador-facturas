@@ -13,7 +13,7 @@ import { existsSync, readFileSync } from 'fs';
 import { extname } from 'path';
 import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
 import { extractCUITsWithContext } from '../validators/cuit';
-import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
+import { extractInvoiceTypeWithAFIP, convertLetterToARCACode } from '../utils/afip-codes';
 import { pdf } from 'pdf-to-img';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - no type definitions available for heic-convert
@@ -697,6 +697,15 @@ export class OCRExtractor {
       if (!invoiceNumber) errors.push('Número de factura no detectado');
       if (!total) errors.push('Total no detectado');
 
+      // Convertir invoiceType de letra a código ARCA (TEMPORAL)
+      // TODO: Eliminar cuando extractores lean códigos ARCA nativamente (Issue en M5)
+      let invoiceTypeCode: number | null = null;
+      if (typeof invoiceType === 'string') {
+        invoiceTypeCode = convertLetterToARCACode(invoiceType);
+      } else if (typeof invoiceType === 'number') {
+        invoiceTypeCode = invoiceType;
+      }
+
       return {
         success: confidence >= 50,
         confidence,
@@ -704,7 +713,7 @@ export class OCRExtractor {
           cuit,
           date,
           total: parsedTotal,
-          invoiceType,
+          invoiceType: invoiceTypeCode,
           documentKind,
           pointOfSale,
           invoiceNumber,

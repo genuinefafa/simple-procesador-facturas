@@ -6,7 +6,7 @@ import pdf from 'pdf-parse';
 import { readFileSync } from 'fs';
 import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
 import { extractCUITsWithContext } from '../validators/cuit';
-import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
+import { extractInvoiceTypeWithAFIP, convertLetterToARCACode } from '../utils/afip-codes';
 
 export class PDFExtractor {
   /**
@@ -458,6 +458,15 @@ export class PDFExtractor {
       parsedTotal = parseFloat(normalized);
     }
 
+    // Convertir invoiceType de letra a código ARCA (TEMPORAL)
+    // TODO: Eliminar cuando extractores lean códigos ARCA nativamente (Issue en M5)
+    let invoiceTypeCode: number | null = null;
+    if (typeof invoiceType === 'string') {
+      invoiceTypeCode = convertLetterToARCACode(invoiceType);
+    } else if (typeof invoiceType === 'number') {
+      invoiceTypeCode = invoiceType;
+    }
+
     return {
       success: confidence > 50,
       confidence,
@@ -465,7 +474,7 @@ export class PDFExtractor {
         cuit,
         date,
         total: parsedTotal,
-        invoiceType,
+        invoiceType: invoiceTypeCode,
         documentKind,
         pointOfSale,
         invoiceNumber,

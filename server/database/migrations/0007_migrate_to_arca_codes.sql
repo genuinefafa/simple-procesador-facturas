@@ -1,83 +1,217 @@
 -- Migración a códigos numéricos ARCA para tipos de comprobante
--- Convierte invoice_type de VARCHAR (A/B/C/E/M/X) a INTEGER (códigos ARCA)
--- Mapeo: A→1, B→6, C→11, E→19, M→51, X→NULL
+-- SQLite requiere recrear tablas para cambiar tipo de columna
 
 -- ============================================================================
 -- TABLA: facturas
 -- ============================================================================
 
--- Crear nueva columna temporal para códigos ARCA
-ALTER TABLE `facturas` ADD COLUMN `tipo_comprobante_new` integer;
+PRAGMA foreign_keys=OFF;
 
--- Migrar datos existentes
-UPDATE `facturas` SET `tipo_comprobante_new` = 1 WHERE `tipo_comprobante` = 'A';
-UPDATE `facturas` SET `tipo_comprobante_new` = 6 WHERE `tipo_comprobante` = 'B';
-UPDATE `facturas` SET `tipo_comprobante_new` = 11 WHERE `tipo_comprobante` = 'C';
-UPDATE `facturas` SET `tipo_comprobante_new` = 19 WHERE `tipo_comprobante` = 'E';
-UPDATE `facturas` SET `tipo_comprobante_new` = 51 WHERE `tipo_comprobante` = 'M';
-UPDATE `facturas` SET `tipo_comprobante_new` = NULL WHERE `tipo_comprobante` = 'X';
+-- Crear tabla temporal con nueva estructura
+CREATE TABLE facturas_new (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  emisor_cuit TEXT NOT NULL REFERENCES emisores(cuit) ON DELETE CASCADE,
+  template_usado_id INTEGER REFERENCES templates_extraccion(id) ON DELETE SET NULL,
+  fecha_emision TEXT NOT NULL,
+  tipo_comprobante INTEGER, -- CÓDIGO ARCA
+  punto_venta INTEGER NOT NULL,
+  numero_comprobante INTEGER NOT NULL,
+  comprobante_completo TEXT NOT NULL,
+  total REAL,
+  moneda TEXT DEFAULT 'ARS',
+  archivo_original TEXT NOT NULL,
+  archivo_procesado TEXT NOT NULL UNIQUE,
+  tipo_archivo TEXT NOT NULL,
+  file_hash TEXT,
+  metodo_extraccion TEXT NOT NULL,
+  confianza_extraccion REAL,
+  validado_manualmente INTEGER DEFAULT 0,
+  requiere_revision INTEGER DEFAULT 0,
+  expected_invoice_id INTEGER REFERENCES expected_invoices(id) ON DELETE SET NULL,
+  pending_file_id INTEGER REFERENCES pending_files(id) ON DELETE SET NULL,
+  category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+  procesado_en TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
--- Eliminar columna antigua y renombrar
-ALTER TABLE `facturas` DROP COLUMN `tipo_comprobante`;
-ALTER TABLE `facturas` RENAME COLUMN `tipo_comprobante_new` TO `tipo_comprobante`;
+-- Copiar datos convirtiendo tipos
+INSERT INTO facturas_new SELECT
+  id,
+  emisor_cuit,
+  template_usado_id,
+  fecha_emision,
+  CASE tipo_comprobante
+    WHEN 'A' THEN 1
+    WHEN 'B' THEN 6
+    WHEN 'C' THEN 11
+    WHEN 'E' THEN 19
+    WHEN 'M' THEN 51
+    ELSE NULL
+  END as tipo_comprobante,
+  punto_venta,
+  numero_comprobante,
+  -- Actualizar comprobante_completo al nuevo formato
+  CASE tipo_comprobante
+    WHEN 'A' THEN 'FACA ' || substr(comprobante_completo, 3)
+    WHEN 'B' THEN 'FACB ' || substr(comprobante_completo, 3)
+    WHEN 'C' THEN 'FACC ' || substr(comprobante_completo, 3)
+    WHEN 'E' THEN 'FACE ' || substr(comprobante_completo, 3)
+    WHEN 'M' THEN 'FACM ' || substr(comprobante_completo, 3)
+    ELSE comprobante_completo
+  END as comprobante_completo,
+  total,
+  moneda,
+  archivo_original,
+  archivo_procesado,
+  tipo_archivo,
+  file_hash,
+  metodo_extraccion,
+  confianza_extraccion,
+  validado_manualmente,
+  requiere_revision,
+  expected_invoice_id,
+  pending_file_id,
+  category_id,
+  procesado_en
+FROM facturas;
 
--- Actualizar comprobante_completo para usar friendlyType
--- Formato anterior: "A-0001-00000123"
--- Formato nuevo: "FACA 0001-00000123"
-UPDATE `facturas` SET `comprobante_completo` =
-  'FACA ' || substr(`comprobante_completo`, 3)
-  WHERE `tipo_comprobante` = 1;
+-- Eliminar tabla vieja y renombrar
+DROP TABLE facturas;
+ALTER TABLE facturas_new RENAME TO facturas;
 
-UPDATE `facturas` SET `comprobante_completo` =
-  'FACB ' || substr(`comprobante_completo`, 3)
-  WHERE `tipo_comprobante` = 6;
-
-UPDATE `facturas` SET `comprobante_completo` =
-  'FACC ' || substr(`comprobante_completo`, 3)
-  WHERE `tipo_comprobante` = 11;
-
-UPDATE `facturas` SET `comprobante_completo` =
-  'FACE ' || substr(`comprobante_completo`, 3)
-  WHERE `tipo_comprobante` = 19;
-
-UPDATE `facturas` SET `comprobante_completo` =
-  'FACM ' || substr(`comprobante_completo`, 3)
-  WHERE `tipo_comprobante` = 51;
+-- Recrear índices
+CREATE INDEX idx_facturas_emisor ON facturas(emisor_cuit);
+CREATE INDEX idx_facturas_fecha ON facturas(fecha_emision);
+CREATE INDEX idx_facturas_comprobante ON facturas(comprobante_completo);
+CREATE INDEX idx_facturas_total ON facturas(total);
+CREATE INDEX idx_facturas_template ON facturas(template_usado_id);
+CREATE INDEX idx_facturas_hash ON facturas(file_hash);
+CREATE INDEX idx_facturas_revision ON facturas(requiere_revision);
+CREATE INDEX idx_facturas_expected_invoice ON facturas(expected_invoice_id);
+CREATE INDEX idx_facturas_pending_file ON facturas(pending_file_id);
+CREATE INDEX idx_facturas_category ON facturas(category_id);
+CREATE UNIQUE INDEX unique_factura ON facturas(emisor_cuit, tipo_comprobante, punto_venta, numero_comprobante);
 
 -- ============================================================================
 -- TABLA: expected_invoices
 -- ============================================================================
 
--- Crear nueva columna temporal
-ALTER TABLE `expected_invoices` ADD COLUMN `invoice_type_new` integer;
+CREATE TABLE expected_invoices_new (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  import_batch_id INTEGER REFERENCES import_batches(id) ON DELETE CASCADE,
+  cuit TEXT NOT NULL,
+  emitter_name TEXT,
+  issue_date TEXT NOT NULL,
+  invoice_type INTEGER, -- CÓDIGO ARCA
+  point_of_sale INTEGER NOT NULL,
+  invoice_number INTEGER NOT NULL,
+  total REAL,
+  cae TEXT,
+  cae_expiration TEXT,
+  currency TEXT DEFAULT 'ARS',
+  status TEXT DEFAULT 'pending',
+  matched_pending_file_id INTEGER REFERENCES pending_files(id) ON DELETE SET NULL,
+  match_confidence REAL,
+  import_date TEXT DEFAULT CURRENT_TIMESTAMP,
+  notes TEXT
+);
 
--- Migrar datos existentes
-UPDATE `expected_invoices` SET `invoice_type_new` = 1 WHERE `invoice_type` = 'A';
-UPDATE `expected_invoices` SET `invoice_type_new` = 6 WHERE `invoice_type` = 'B';
-UPDATE `expected_invoices` SET `invoice_type_new` = 11 WHERE `invoice_type` = 'C';
-UPDATE `expected_invoices` SET `invoice_type_new` = 19 WHERE `invoice_type` = 'E';
-UPDATE `expected_invoices` SET `invoice_type_new` = 51 WHERE `invoice_type` = 'M';
-UPDATE `expected_invoices` SET `invoice_type_new` = NULL WHERE `invoice_type` = 'X';
+-- Copiar datos convirtiendo tipos
+INSERT INTO expected_invoices_new SELECT
+  id,
+  import_batch_id,
+  cuit,
+  emitter_name,
+  issue_date,
+  CASE invoice_type
+    WHEN 'A' THEN 1
+    WHEN 'B' THEN 6
+    WHEN 'C' THEN 11
+    WHEN 'E' THEN 19
+    WHEN 'M' THEN 51
+    ELSE NULL
+  END as invoice_type,
+  point_of_sale,
+  invoice_number,
+  total,
+  cae,
+  cae_expiration,
+  currency,
+  status,
+  matched_pending_file_id,
+  match_confidence,
+  import_date,
+  notes
+FROM expected_invoices;
 
--- Eliminar columna antigua y renombrar
-ALTER TABLE `expected_invoices` DROP COLUMN `invoice_type`;
-ALTER TABLE `expected_invoices` RENAME COLUMN `invoice_type_new` TO `invoice_type`;
+-- Eliminar tabla vieja y renombrar
+DROP TABLE expected_invoices;
+ALTER TABLE expected_invoices_new RENAME TO expected_invoices;
+
+-- Recrear índices
+CREATE INDEX idx_expected_invoices_cuit ON expected_invoices(cuit);
+CREATE INDEX idx_expected_invoices_status ON expected_invoices(status);
+CREATE INDEX idx_expected_invoices_batch ON expected_invoices(import_batch_id);
+CREATE INDEX idx_expected_invoices_date ON expected_invoices(issue_date);
+CREATE INDEX unique_expected_invoice ON expected_invoices(cuit, invoice_type, point_of_sale, invoice_number);
 
 -- ============================================================================
 -- TABLA: pending_files
 -- ============================================================================
 
--- Crear nueva columna temporal
-ALTER TABLE `pending_files` ADD COLUMN `extracted_type_new` integer;
+CREATE TABLE pending_files_new (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  original_filename TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  file_size INTEGER,
+  upload_date TEXT DEFAULT CURRENT_TIMESTAMP,
+  extracted_cuit TEXT,
+  extracted_date TEXT,
+  extracted_total REAL,
+  extracted_type INTEGER, -- CÓDIGO ARCA
+  extracted_point_of_sale INTEGER,
+  extracted_invoice_number INTEGER,
+  extraction_confidence INTEGER,
+  extraction_method TEXT,
+  extraction_errors TEXT,
+  status TEXT DEFAULT 'pending',
+  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
--- Migrar datos existentes
-UPDATE `pending_files` SET `extracted_type_new` = 1 WHERE `extracted_type` = 'A';
-UPDATE `pending_files` SET `extracted_type_new` = 6 WHERE `extracted_type` = 'B';
-UPDATE `pending_files` SET `extracted_type_new` = 11 WHERE `extracted_type` = 'C';
-UPDATE `pending_files` SET `extracted_type_new` = 19 WHERE `extracted_type` = 'E';
-UPDATE `pending_files` SET `extracted_type_new` = 51 WHERE `extracted_type` = 'M';
-UPDATE `pending_files` SET `extracted_type_new` = NULL WHERE `extracted_type` = 'X' OR `extracted_type` IS NULL;
+-- Copiar datos convirtiendo tipos
+INSERT INTO pending_files_new SELECT
+  id,
+  original_filename,
+  file_path,
+  file_size,
+  upload_date,
+  extracted_cuit,
+  extracted_date,
+  extracted_total,
+  CASE extracted_type
+    WHEN 'A' THEN 1
+    WHEN 'B' THEN 6
+    WHEN 'C' THEN 11
+    WHEN 'E' THEN 19
+    WHEN 'M' THEN 51
+    ELSE NULL
+  END as extracted_type,
+  extracted_point_of_sale,
+  extracted_invoice_number,
+  extraction_confidence,
+  extraction_method,
+  extraction_errors,
+  status,
+  created_at,
+  updated_at
+FROM pending_files;
 
--- Eliminar columna antigua y renombrar
-ALTER TABLE `pending_files` DROP COLUMN `extracted_type`;
-ALTER TABLE `pending_files` RENAME COLUMN `extracted_type_new` TO `extracted_type`;
+-- Eliminar tabla vieja y renombrar
+DROP TABLE pending_files;
+ALTER TABLE pending_files_new RENAME TO pending_files;
+
+-- Recrear índices
+CREATE INDEX idx_pending_status ON pending_files(status);
+CREATE INDEX idx_pending_upload_date ON pending_files(upload_date);
+
+PRAGMA foreign_keys=ON;
