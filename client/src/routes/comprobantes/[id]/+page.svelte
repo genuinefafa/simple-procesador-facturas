@@ -1,5 +1,6 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
+  import CategoryPills from '$lib/components/CategoryPills.svelte';
   import EmitterCombobox from '$lib/components/EmitterCombobox.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
   import { Accordion } from 'melt/builders';
@@ -7,7 +8,6 @@
   import { toast, Toaster } from 'svelte-sonner';
   import { invalidateAll, goto } from '$app/navigation';
   import { formatDateTime, formatDateISO } from '$lib/formatters';
-  // Using native select for categories to keep things simple and accessible
 
   let { data } = $props();
   let comprobante = $derived(data.comprobante);
@@ -52,6 +52,11 @@
     if (value === null || value === undefined) return '—';
     return value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
   };
+
+  // Determinar si es una expected sin archivo (no permite crear factura directamente)
+  const isExpectedWithoutFile = $derived(
+    comprobante.kind === 'expected' && !comprobante.pending && !comprobante.final
+  );
 
   // Sincronizar facturaData con comprobante cuando cambie
   $effect(() => {
@@ -188,6 +193,43 @@
     }
   }
 
+  /**
+   * Actualiza la categoría de la factura
+   * Si la factura ya existe (final), persiste en servidor
+   * Si está en creación, solo actualiza estado local
+   */
+  async function updateCategory(categoryId: number | null | undefined) {
+    const normalizedId = categoryId === undefined ? null : categoryId;
+    selectedCategoryId = normalizedId;
+
+    // Si la factura no existe aún (pending/expected en creación), solo actualizar estado local
+    if (!comprobante.final) {
+      return;
+    }
+
+    // Si existe factura, persistir en servidor
+    try {
+      const res = await fetch(`/api/invoices/${comprobante.final.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId: normalizedId }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Error actualizando categoría');
+      }
+
+      toast.success('Categoría actualizada');
+      await invalidateAll();
+    } catch (error) {
+      console.error('Error updating category:', error);
+      toast.error(error instanceof Error ? error.message : 'Error actualizando categoría');
+      // Revertir cambio local si falló el guardado
+      selectedCategoryId = comprobante.final.categoryId ?? null;
+    }
+  }
+
   function validateFactura(): string[] {
     const errors: string[] = [];
     if (!facuraData.cuit?.trim()) errors.push('CUIT es requerido');
@@ -199,6 +241,14 @@
   }
 
   async function saveFactura() {
+    // Bloquear creación desde expected sin archivo
+    if (isExpectedWithoutFile) {
+      toast.error(
+        'No se puede crear factura directamente desde una expected sin archivo.\nPrimero debés subir el comprobante digital.'
+      );
+      return;
+    }
+
     const errors = validateFactura();
     if (errors.length > 0) {
       toast.error('Errores de validación:\n' + errors.join('\n'));
@@ -247,26 +297,6 @@
         const data = await response.json();
         if (data.success && data.invoiceId) {
           newInvoiceId = data.invoiceId;
-        }
-      } else if (comprobante.kind === 'expected' && comprobante.expected) {
-        // Crear factura desde expected
-        response = await fetch('/api/invoices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            emitterCuit: facuraData.cuit,
-            invoiceType: facuraData.invoiceType,
-            pointOfSale: facuraData.pointOfSale,
-            invoiceNumber: facuraData.invoiceNumber,
-            issueDate: facuraData.issueDate,
-            total: facuraData.total,
-            expectedInvoiceId: comprobante.expected.id,
-          }),
-        });
-
-        const data = await response.json();
-        if (data.success && data.invoice) {
-          newInvoiceId = data.invoice.id;
         }
       }
 
@@ -322,7 +352,9 @@
     comprobante.pending?.status === 'reviewing' || comprobante.pending?.status === 'processed'
   );
   const wasProcessed = $derived(comprobante.final != null);
-  const isReadOnly = $derived(comprobante.kind === 'factura' && !editMode);
+  const isReadOnly = $derived(
+    (comprobante.kind === 'factura' && !editMode) || isExpectedWithoutFile
+  );
 
   async function processPending() {
     if (!comprobante.pending) return;
@@ -402,7 +434,7 @@
         toast.success('✅ Factura creada correctamente', { id: toastId });
         // Navegar a la factura creada
         if (data.invoice?.id) {
-          window.location.href = `/comprobantes/factura:${data.invoice.id}`;
+          goto(`/comprobantes/factura:${data.invoice.id}`);
         } else {
           await invalidateAll();
         }
@@ -487,6 +519,23 @@
       <section class="section factura-section">
         <h2>Factura Final (Verificada)</h2>
 
+        {#if isExpectedWithoutFile}
+          <div class="alert alert-info">
+            <strong>📋 Factura esperada sin archivo</strong>
+            <p>
+              Esta factura está registrada en el sistema pero aún no tiene un comprobante digital
+              asociado.
+            </p>
+            <p class="workflow-hint">
+              <strong>Workflow:</strong> Para crear la factura, primero debés subir el comprobante digital.
+              Luego el sistema lo vinculará automáticamente con esta expected y podrás finalizarla.
+            </p>
+            <Button size="sm" variant="secondary" onclick={() => goto('/comprobantes')}>
+              ← Ir a Comprobantes
+            </Button>
+          </div>
+        {/if}
+
         {#if comprobante.final}
           <div class="meta-row small">
             <span class="meta">Creada: {formatDateTime(comprobante.final.processedAt)}</span>
@@ -498,30 +547,17 @@
         <!-- Categoría -->
         <div class="form-group">
           <label for="categoria">Categoría</label>
-          {#if isReadOnly}
-            <div class="readonly-value">
-              {#if selectedCategoryId === null}
-                — Sin categoría —
-              {:else}
-                {categories.find((c) => c.id === selectedCategoryId)?.description ??
-                  '— Sin categoría —'}
-              {/if}
-            </div>
+          {#if isReadOnly && isExpectedWithoutFile}
+            <!-- Readonly solo para expected sin archivo (no se puede asignar aún) -->
+            <div class="readonly-value">— Sin categoría —</div>
           {:else}
-            <select
-              value={categorySelectValue}
-              oninput={(e) => {
-                const val = (e.target as HTMLSelectElement).value;
-                selectedCategoryId = val === '' ? null : Number(val);
-              }}
-            >
-              <option value="">— Sin categoría —</option>
-              {#each categories as cat}
-                <option value={String(cat.id)}>
-                  {cat.description}
-                </option>
-              {/each}
-            </select>
+            <!-- Siempre mostrar pills para facturas, pending y expected con archivo -->
+            <CategoryPills
+              {categories}
+              selected={selectedCategoryId}
+              onselect={(id) => updateCategory(id)}
+              mode="single"
+            />
           {/if}
         </div>
 
@@ -623,14 +659,16 @@
             </button>
           </div>
         {/if}
-        <div class="actions">
-          {#if comprobante.kind === 'factura'}
-            <Button variant="secondary" onclick={() => (editMode = !editMode)}>
-              {editMode ? 'Cancelar edición' : 'Editar'}
-            </Button>
-          {/if}
-          <Button onclick={saveFactura} disabled={isReadOnly}>Guardar Factura</Button>
-        </div>
+        {#if !isExpectedWithoutFile}
+          <div class="actions">
+            {#if comprobante.kind === 'factura'}
+              <Button variant="secondary" onclick={() => (editMode = !editMode)}>
+                {editMode ? 'Cancelar edición' : 'Editar'}
+              </Button>
+            {/if}
+            <Button onclick={saveFactura} disabled={isReadOnly}>Guardar Factura</Button>
+          </div>
+        {/if}
       </section>
 
       <!-- Accordion: Expected -->
@@ -937,6 +975,38 @@
   }
   .meta-row.small {
     font-size: var(--font-size-sm);
+  }
+
+  /* Alert box for expected without file */
+  .alert {
+    padding: var(--spacing-3);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-3);
+  }
+
+  .alert-info {
+    background: var(--color-primary-50);
+    border: 1px solid var(--color-primary-200);
+    color: var(--color-primary-900);
+  }
+
+  .alert strong {
+    display: block;
+    margin-bottom: var(--spacing-2);
+    font-size: var(--font-size-md);
+  }
+
+  .alert p {
+    margin: 0 0 var(--spacing-2);
+    font-size: var(--font-size-sm);
+    line-height: 1.5;
+  }
+
+  .alert .workflow-hint {
+    padding: var(--spacing-2);
+    background: white;
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--color-primary-600);
   }
 
   /* Form */

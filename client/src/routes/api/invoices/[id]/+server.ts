@@ -101,6 +101,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       total: number;
       issueDate: string;
       expectedInvoiceId: number | null;
+      categoryId: number | null;
     }>;
 
     const invoiceRepo = new InvoiceRepository();
@@ -111,33 +112,35 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       return json({ success: false, error: 'Factura no encontrada' }, { status: 404 });
     }
 
-    // Construir query de actualización
-    const fields: string[] = [];
-    const values: unknown[] = [];
+    // Preparar datos para actualización
+    const updateData: Record<string, any> = {};
 
     if (updates.invoiceType) {
-      fields.push('tipo_comprobante = ?');
-      values.push(updates.invoiceType);
+      updateData.tipoComprobante = updates.invoiceType;
     }
 
     if (updates.pointOfSale !== undefined) {
-      fields.push('punto_venta = ?');
-      values.push(updates.pointOfSale);
+      updateData.puntoVenta = updates.pointOfSale;
     }
 
     if (updates.invoiceNumber !== undefined) {
-      fields.push('numero_comprobante = ?');
-      values.push(updates.invoiceNumber);
+      updateData.numeroComprobante = updates.invoiceNumber;
     }
 
     if (updates.total !== undefined) {
-      fields.push('total = ?');
-      values.push(updates.total);
+      updateData.total = updates.total;
     }
 
     if (updates.issueDate) {
-      fields.push('fecha_emision = ?');
-      values.push(updates.issueDate);
+      updateData.fechaEmision = updates.issueDate;
+    }
+
+    if (updates.categoryId !== undefined) {
+      updateData.categoryId = updates.categoryId;
+    }
+
+    if (updates.expectedInvoiceId !== undefined) {
+      updateData.expectedInvoiceId = updates.expectedInvoiceId;
     }
 
     // Si se actualizó tipo, pv o número, recalcular comprobante completo
@@ -151,46 +154,30 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       const newNum =
         updates.invoiceNumber !== undefined ? updates.invoiceNumber : invoice.invoiceNumber;
       const fullNumber = `${newType}-${String(newPV).padStart(5, '0')}-${String(newNum).padStart(8, '0')}`;
-      fields.push('comprobante_completo = ?');
-      values.push(fullNumber);
+      updateData.comprobanteCompleto = fullNumber;
     }
 
-    if (fields.length === 0) {
+    if (Object.keys(updateData).length === 0) {
       return json({ success: false, error: 'No hay campos para actualizar' }, { status: 400 });
     }
 
-    // Actualizar usando el repositorio en lugar de query directa
-    if (updates.invoiceType) {
-      invoice.invoiceType = updates.invoiceType as any;
-    }
-    if (updates.pointOfSale !== undefined) {
-      invoice.pointOfSale = updates.pointOfSale;
-    }
-    if (updates.invoiceNumber !== undefined) {
-      invoice.invoiceNumber = updates.invoiceNumber;
-    }
-    if (updates.total !== undefined) {
-      invoice.total = updates.total;
-    }
-    if (updates.issueDate) {
-      invoice.issueDate = new Date(updates.issueDate);
-    }
+    // Actualizar en la base de datos
+    const updated = await invoiceRepo.update(invoiceId, updateData);
 
-    // Vincular/desvincular expected
-    if (updates.expectedInvoiceId !== undefined) {
-      invoice.expectedInvoiceId =
-        updates.expectedInvoiceId === null ? undefined : updates.expectedInvoiceId;
+    if (!updated) {
+      return json({ success: false, error: 'Error al actualizar la factura' }, { status: 500 });
     }
 
     // Marcar como validada manualmente
     await invoiceRepo.markAsValidated(invoiceId);
 
-    const updated = await invoiceRepo.findById(invoiceId);
+    // Refrescar datos
+    const final = await invoiceRepo.findById(invoiceId);
 
     return json({
       success: true,
       message: 'Factura actualizada correctamente',
-      invoice: updated,
+      invoice: final,
     });
   } catch (error) {
     console.error('Error updating invoice:', error);

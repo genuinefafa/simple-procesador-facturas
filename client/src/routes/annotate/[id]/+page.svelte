@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
+  import { goto } from '$app/navigation';
   import { toast, Toaster } from 'svelte-sonner';
   import * as pdfjsLib from 'pdfjs-dist';
 
@@ -307,7 +308,7 @@
         toast.success('Anotaciones guardadas correctamente', { id: toastId });
         // Redirect back to main page
         setTimeout(() => {
-          window.location.href = '/';
+          goto('/');
         }, 1000);
       } else {
         toast.error(data.error || 'Error al guardar anotaciones', { id: toastId });

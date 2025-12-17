@@ -447,6 +447,16 @@ Sistema completo de tokens CSS en `tokens.css`:
 **Svelte 5:**
 - Usar runes: `$state`, `$derived`, `$effect`, `$bindable`
 - NO usar stores (`writable`, `derived`) salvo para casos específicos
+
+**Formatters (`client/src/lib/formatters.ts`):**
+- Usar funciones centralizadas para formateo consistente
+- `formatCurrency(value)` → $1.234,56
+- `formatNumber(value)` → 1.234,56
+- `formatCuit(cuit)` → 30‑12345678‑9
+- `formatDateISO(date)` → 15-dic-2025
+- `formatDateShort(date)` → 15/dic
+- `formatDateTime(date)` → 15-dic-2025 14:30
+- ❌ **NO duplicar** lógica de formateo inline
 - Snippets en lugar de slots
 
 **Estilos:**
@@ -458,6 +468,7 @@ Sistema completo de tokens CSS en `tokens.css`:
 
 **Prohibido:**
 - ❌ `alert()`, `confirm()`, `prompt()`
+- ❌ `window.location.href`, `window.location.replace()` (rompe SPA)
 - ❌ Valores CSS hardcoded (usar tokens)
 - ❌ Tailwind classes
 - ❌ Stores para estado local (usar runes)
@@ -465,9 +476,25 @@ Sistema completo de tokens CSS en `tokens.css`:
 **Requerido:**
 - ✅ Toast notifications (`svelte-sonner`)
 - ✅ Dialog component para confirmaciones
+- ✅ `goto()` de `$app/navigation` para navegación programática
+- ✅ `invalidateAll()` de `$app/navigation` para refresh de datos
 - ✅ Indicadores visuales (✓ ⚠ ❌ ⚪)
 - ✅ Tooltips informativos
 - ✅ Accesibilidad ARIA completa
+
+**Navegación programática:**
+```typescript
+// ❌ MAL - Rompe SPA, recarga toda la página
+window.location.href = '/comprobantes';
+
+// ✅ BIEN - Mantiene SPA
+import { goto } from '$app/navigation';
+goto('/comprobantes');
+
+// Para refresh de datos después de mutaciones:
+import { invalidateAll } from '$app/navigation';
+await invalidateAll(); // Re-ejecuta load functions
+```
 
 ### 7.3 Git Workflow
 
@@ -484,6 +511,45 @@ Sistema completo de tokens CSS en `tokens.css`:
 - `fix/*` - Bugfixes
 - `docs/*` - Solo documentación
 - `refactor/*` - Refactoring sin cambios funcionales
+
+### 7.4 Gestión de Issues y Prioridades
+
+**Labels de Severidad:**
+- 🔴 `critical` - Bloqueante, sistema no funcional o pérdida de datos
+- 🟠 `bug` - Funcionalidad rota pero hay workaround
+- 🟡 `enhancement` - Mejora o nueva funcionalidad
+- 🔵 `documentation` - Solo documentación
+- 🟣 `refactor` - Refactoring/tech-debt
+
+**Labels de Prioridad:**
+- `P0` - Inmediato (resolver HOY) - Color: rojo oscuro (#b60205)
+- `P1` - Alto (resolver esta semana) - Color: naranja (#d93f0b)
+- `P2` - Medio (resolver este mes) - Color: amarillo (#fbca04)
+- `P3` - Bajo (cuando haya tiempo) - Color: verde (#0e8a16)
+
+**Workflow de Priorización:**
+
+1. **Bug crítico detectado**:
+   - Crear issue con título descriptivo (ej: "bug: no se pueden guardar facturas editadas")
+   - Asignar labels: `bug` + `critical` y/o `P0`/`P1` según severidad
+   - Agregar a milestone `Hotfixes` si es P0/crítico
+   - **Resolver ANTES que cualquier feature nueva**
+
+2. **Feature/Enhancement**:
+   - Asignar label: `enhancement` + prioridad (`P2`/`P3` típicamente)
+   - Agregar a milestone correspondiente (ej: M3.6, M4.0)
+   - Planificar en backlog
+
+3. **Orden de ejecución**:
+   ```
+   P0/critical > P1/bug > P2/enhancement > P3
+   ```
+
+**Ejemplos:**
+- `bug` + `P0` → Factura editada no se guarda (bloqueante) - Resolver HOY
+- `bug` + `P1` → Tipo de comprobante parseado mal en import - Resolver esta semana
+- `enhancement` + `P2` → Nuevo filtro de categorías - Resolver este mes
+- `enhancement` + `P3` → Exportar a PDF - Backlog
 
 **Commits (inglés):**
 ```

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
   import { toast, Toaster } from 'svelte-sonner';
   import { PageHeader, UploadSection } from '$lib/components';
 
@@ -53,7 +54,7 @@
       });
 
       // Redirect to Comprobantes hub
-      window.location.href = '/comprobantes';
+      goto('/comprobantes');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Error desconocido', {
         id: uploadToastId,

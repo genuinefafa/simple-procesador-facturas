@@ -277,4 +277,43 @@ export class InvoiceRepository {
 
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
   }
+
+  /**
+   * Update invoice fields
+   */
+  async update(
+    id: number,
+    data: Partial<{
+      emisorCuit: string;
+      tipoComprobante: InvoiceType;
+      puntoVenta: number;
+      numeroComprobante: number;
+      comprobanteCompleto: string;
+      total: number;
+      fechaEmision: string;
+      categoryId: number | null;
+      expectedInvoiceId: number | null;
+    }>
+  ): Promise<Invoice | null> {
+    const updates: Record<string, any> = {};
+
+    if (data.emisorCuit !== undefined) updates.emisorCuit = data.emisorCuit;
+    if (data.tipoComprobante !== undefined) updates.tipoComprobante = data.tipoComprobante;
+    if (data.puntoVenta !== undefined) updates.puntoVenta = data.puntoVenta;
+    if (data.numeroComprobante !== undefined) updates.numeroComprobante = data.numeroComprobante;
+    if (data.comprobanteCompleto !== undefined)
+      updates.comprobanteCompleto = data.comprobanteCompleto;
+    if (data.total !== undefined) updates.total = data.total;
+    if (data.fechaEmision !== undefined) updates.fechaEmision = data.fechaEmision;
+    if (data.categoryId !== undefined) updates.categoryId = data.categoryId;
+    if (data.expectedInvoiceId !== undefined) updates.expectedInvoiceId = data.expectedInvoiceId;
+
+    if (Object.keys(updates).length === 0) {
+      return this.findById(id);
+    }
+
+    const result = await db.update(facturas).set(updates).where(eq(facturas.id, id)).returning();
+
+    return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
+  }
 }
