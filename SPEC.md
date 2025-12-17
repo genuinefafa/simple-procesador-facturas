@@ -447,6 +447,16 @@ Sistema completo de tokens CSS en `tokens.css`:
 **Svelte 5:**
 - Usar runes: `$state`, `$derived`, `$effect`, `$bindable`
 - NO usar stores (`writable`, `derived`) salvo para casos específicos
+
+**Formatters (`client/src/lib/formatters.ts`):**
+- Usar funciones centralizadas para formateo consistente
+- `formatCurrency(value)` → $1.234,56
+- `formatNumber(value)` → 1.234,56
+- `formatCuit(cuit)` → 30‑12345678‑9
+- `formatDateISO(date)` → 15-dic-2025
+- `formatDateShort(date)` → 15/dic
+- `formatDateTime(date)` → 15-dic-2025 14:30
+- ❌ **NO duplicar** lógica de formateo inline
 - Snippets en lugar de slots
 
 **Estilos:**

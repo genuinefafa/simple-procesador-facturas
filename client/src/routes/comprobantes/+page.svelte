@@ -7,6 +7,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { toast, Toaster } from 'svelte-sonner';
+  import { formatCurrency } from '$lib/formatters';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -74,11 +75,12 @@
     return '—';
   }
 
-  function getEmitterName(c: Comprobante): string {
+  function getEmitterName(c: Comprobante): { short: string; full: string } {
     const name = c.emitterName || c.final?.emitterName || c.expected?.emitterName;
-    if (!name) return '—';
-    // Retornar nombre corto (primeras 20 chars)
-    return name.length > 20 ? name.slice(0, 20) + '...' : name;
+    if (!name) return { short: '—', full: '' };
+    // Retornar nombre corto (primeras 20 chars) y nombre completo para tooltip
+    const short = name.length > 20 ? name.slice(0, 20) + '...' : name;
+    return { short, full: name };
   }
 
   function isVisible(c: Comprobante): boolean {
@@ -218,30 +220,37 @@
 
 <Toaster position="top-right" richColors />
 
-<header class="header">
-  <div>
-    <p class="eyebrow">Centro unificado</p>
-    <h1>Comprobantes</h1>
-    <p class="hint">Consolida Expected, Pending y Facturas. Subí archivos o importá Excel aquí.</p>
-  </div>
-</header>
-
-<!-- Dropzone discreto que se expande con drag -->
-<div class="dropzone-wrapper">
-  <div {...fileUpload.dropzone} class="dropzone-compact" class:expanded={fileUpload.isDragging}>
-    {#if !fileUpload.isDragging}
-      <span class="dz-compact-hint">📎 Arrastrá archivos aquí o hacé click</span>
-    {:else}
-      <div class="dz-expanded-content">
-        <p class="dz-icon">📦</p>
-        <p class="dz-title">Soltá los archivos</p>
-        <p class="dz-hint">
-          PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected
-        </p>
+<!-- Global dropzone overlay cuando se arrastra -->
+<div class="global-dropzone-wrapper">
+  <div {...fileUpload.dropzone} class="global-dropzone" class:active={fileUpload.isDragging}>
+    {#if fileUpload.isDragging}
+      <div class="dropzone-overlay">
+        <div class="dropzone-content">
+          <p class="dz-icon">📦</p>
+          <p class="dz-title">Soltá los archivos</p>
+          <p class="dz-hint">
+            PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected
+          </p>
+        </div>
       </div>
     {/if}
+    <input {...fileUpload.input} />
+
+    <header class="header">
+      <div>
+        <p class="eyebrow">Centro unificado</p>
+        <h1>Comprobantes</h1>
+        <p class="hint">
+          Consolida Expected, Pending y Facturas. Subí archivos o importá Excel aquí.
+        </p>
+      </div>
+    </header>
+
+    <!-- Dropzone hint compacto -->
+    <div class="dropzone-hint-compact">
+      <span>📎 Arrastrá archivos a cualquier parte de la página</span>
+    </div>
   </div>
-  <input {...fileUpload.input} />
 </div>
 
 <section class="filters">
@@ -293,6 +302,7 @@
     <span>Emisor</span>
     <span>CUIT</span>
     <span>Fecha</span>
+    <span class="align-right">Total</span>
     <span>Categoría</span>
     <span>Estado</span>
     <span>Hash</span>
@@ -307,7 +317,9 @@
           {:else}<span class="tag info">Pending</span>{/if}
         </span>
         <span class="col-cmp">{formatComprobante(comp)}</span>
-        <span class="col-emisor">{getEmitterName(comp)}</span>
+        <span class="col-emisor" title={getEmitterName(comp).full || undefined}
+          >{getEmitterName(comp).short}</span
+        >
         <span class="col-cuit"
           >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
         >
@@ -316,6 +328,11 @@
             comp.expected?.issueDate ||
             comp.pending?.extractedDate ||
             '—'}</span
+        >
+        <span class="col-total align-right"
+          >{formatCurrency(
+            comp.final?.total ?? comp.expected?.total ?? comp.pending?.extractedTotal
+          )}</span
         >
         <span class="col-category">
           {#if comp.final}
@@ -381,46 +398,59 @@
     margin: 0;
   }
 
-  /* Dropzone discreto que se expande */
-  .dropzone-wrapper {
-    margin-bottom: var(--spacing-4);
+  /* Global dropzone */
+  .global-dropzone-wrapper {
+    position: relative;
   }
 
-  .dropzone-compact {
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-2) var(--spacing-3);
-    text-align: center;
-    cursor: pointer;
-    transition: all var(--transition-fast);
+  .global-dropzone {
+    position: relative;
+    min-height: 100vh;
   }
 
-  .dropzone-compact:hover {
-    border-color: var(--color-primary-300);
-    background: var(--color-surface-alt);
-  }
-
-  .dropzone-compact.expanded {
+  /* Overlay que aparece cuando se arrastra */
+  .dropzone-overlay {
     position: fixed;
     inset: 0;
     z-index: 50;
-    border-radius: 0;
-    border: 4px dashed var(--color-primary-400);
-    background: rgba(255, 255, 255, 0.95);
-    padding: var(--spacing-8);
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
+    border: 4px dashed var(--color-primary-500);
+    animation: fadeIn var(--transition-fast);
   }
 
-  .dz-compact-hint {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
 
-  .dz-expanded-content {
+  .dropzone-content {
     text-align: center;
+  }
+
+  /* Hint compacto visible siempre */
+  .dropzone-hint-compact {
+    text-align: center;
+    padding: var(--spacing-2);
+    margin-bottom: var(--spacing-4);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-alt);
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-sm);
+    transition: all var(--transition-base);
+  }
+
+  .dropzone-hint-compact:hover {
+    border-color: var(--color-primary-300);
+    color: var(--color-text-secondary);
   }
 
   .dz-icon {
@@ -471,7 +501,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 100px 1fr 140px 140px 110px 140px 100px 80px 100px;
+    grid-template-columns: 100px 1fr 140px 140px 110px 120px 140px 100px 80px 100px;
     gap: var(--spacing-2);
     padding: var(--spacing-3);
     align-items: center;
@@ -541,5 +571,9 @@
   /* Ajustar tamaño de columna para pills */
   .col-category {
     min-width: 200px;
+  }
+
+  .align-right {
+    text-align: right;
   }
 </style>
