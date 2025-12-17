@@ -220,37 +220,33 @@
 
 <Toaster position="top-right" richColors />
 
-<!-- Global dropzone overlay cuando se arrastra -->
-<div class="global-dropzone-wrapper">
-  <div {...fileUpload.dropzone} class="global-dropzone" class:active={fileUpload.isDragging}>
-    {#if fileUpload.isDragging}
-      <div class="dropzone-overlay">
-        <div class="dropzone-content">
-          <p class="dz-icon">📦</p>
-          <p class="dz-title">Soltá los archivos</p>
-          <p class="dz-hint">
-            PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected
-          </p>
-        </div>
-      </div>
-    {/if}
-    <input {...fileUpload.input} />
-
-    <header class="header">
-      <div>
-        <p class="eyebrow">Centro unificado</p>
-        <h1>Comprobantes</h1>
-        <p class="hint">
-          Consolida Expected, Pending y Facturas. Subí archivos o importá Excel aquí.
+<!-- Global dropzone (solo overlay visible cuando se arrastra) -->
+<div {...fileUpload.dropzone} class="global-dropzone">
+  {#if fileUpload.isDragging}
+    <div class="dropzone-overlay">
+      <div class="dropzone-content">
+        <p class="dz-icon">📦</p>
+        <p class="dz-title">Soltá los archivos</p>
+        <p class="dz-hint">
+          PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected
         </p>
       </div>
-    </header>
-
-    <!-- Dropzone hint compacto -->
-    <div class="dropzone-hint-compact">
-      <span>📎 Arrastrá archivos a cualquier parte de la página</span>
     </div>
+  {/if}
+</div>
+<input {...fileUpload.input} />
+
+<header class="header">
+  <div>
+    <p class="eyebrow">Centro unificado</p>
+    <h1>Comprobantes</h1>
+    <p class="hint">Consolida Expected, Pending y Facturas. Subí archivos o importá Excel aquí.</p>
   </div>
+</header>
+
+<!-- Dropzone hint compacto -->
+<div class="dropzone-hint-compact">
+  <span>📎 Arrastrá archivos a cualquier parte de la página</span>
 </div>
 
 <section class="filters">
@@ -399,13 +395,11 @@
   }
 
   /* Global dropzone */
-  .global-dropzone-wrapper {
-    position: relative;
-  }
-
   .global-dropzone {
-    position: relative;
-    min-height: 100vh;
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
   }
 
   /* Overlay que aparece cuando se arrastra */
@@ -420,6 +414,7 @@
     justify-content: center;
     border: 4px dashed var(--color-primary-500);
     animation: fadeIn var(--transition-fast);
+    pointer-events: auto;
   }
 
   @keyframes fadeIn {
