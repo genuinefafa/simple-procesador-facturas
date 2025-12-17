@@ -358,14 +358,22 @@ export class ExcelImportService {
     let invoiceType = getCellStringValue(row[mapping.invoiceType]).trim().toUpperCase();
 
     // Manejar formatos comunes:
-    // - "11 - Factura C" o "1 - Factura A" (formato AFIP)
+    // - "11 - Factura C" o "1 - Factura A" (formato AFIP/ARCA)
     // - "Factura A", "Factura B", etc.
     // - Solo la letra: "A", "B", "C", etc.
-    const typeMatch = invoiceType.match(/[ABCEMX]/);
-    if (typeMatch) {
-      invoiceType = typeMatch[0];
+
+    // Estrategia: buscar la letra DESPUÉS de "FACTURA" o "FC" o "NC", o al final del string
+    let typeMatch = invoiceType.match(/(?:FACTURA|FC|NC)\s+([ABCEMX])/);
+    if (typeMatch && typeMatch[1]) {
+      invoiceType = typeMatch[1];
     } else {
-      throw new Error(`No se pudo detectar tipo de factura en: "${invoiceType}"`);
+      // Si no hay "Factura X", buscar letra sola o al final
+      typeMatch = invoiceType.match(/\b([ABCEMX])\b/);
+      if (typeMatch && typeMatch[1]) {
+        invoiceType = typeMatch[1];
+      } else {
+        throw new Error(`No se pudo detectar tipo de factura en: "${invoiceType}"`);
+      }
     }
 
     if (!['A', 'B', 'C', 'E', 'M', 'X'].includes(invoiceType)) {
