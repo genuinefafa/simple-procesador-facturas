@@ -147,6 +147,10 @@
 
   let pendingUploadFiles = new Set<File>();
 
+  // Estado para drag & drop global
+  let isDraggingOverPage = $state(false);
+  let dragCounter = $state(0);
+
   // Cuando cambien los archivos seleccionados, procesarlos
   $effect(() => {
     const selected = fileUpload.selected;
@@ -154,6 +158,56 @@
       handleFiles(Array.from(selected));
       fileUpload.clear();
     }
+  });
+
+  // Global drag & drop handlers
+  $effect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleDragEnter = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter++;
+      if (e.dataTransfer?.types.includes('Files')) {
+        isDraggingOverPage = true;
+      }
+    };
+
+    const handleDragOver = (e: DragEvent) => {
+      e.preventDefault();
+      if (e.dataTransfer) {
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    };
+
+    const handleDragLeave = () => {
+      dragCounter--;
+      if (dragCounter === 0) {
+        isDraggingOverPage = false;
+      }
+    };
+
+    const handleDrop = (e: DragEvent) => {
+      e.preventDefault();
+      dragCounter = 0;
+      isDraggingOverPage = false;
+
+      const files = e.dataTransfer?.files;
+      if (files && files.length > 0) {
+        handleFiles(Array.from(files));
+      }
+    };
+
+    document.body.addEventListener('dragenter', handleDragEnter);
+    document.body.addEventListener('dragover', handleDragOver);
+    document.body.addEventListener('dragleave', handleDragLeave);
+    document.body.addEventListener('drop', handleDrop);
+
+    return () => {
+      document.body.removeEventListener('dragenter', handleDragEnter);
+      document.body.removeEventListener('dragover', handleDragOver);
+      document.body.removeEventListener('dragleave', handleDragLeave);
+      document.body.removeEventListener('drop', handleDrop);
+    };
   });
 
   async function handleFiles(uploadedFiles: File[]) {
@@ -220,21 +274,16 @@
 
 <Toaster position="top-right" richColors />
 
-<!-- Global dropzone (solo overlay visible cuando se arrastra) -->
-<div {...fileUpload.dropzone} class="global-dropzone">
-  {#if fileUpload.isDragging}
-    <div class="dropzone-overlay">
-      <div class="dropzone-content">
-        <p class="dz-icon">📦</p>
-        <p class="dz-title">Soltá los archivos</p>
-        <p class="dz-hint">
-          PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected
-        </p>
-      </div>
+<!-- Overlay que aparece cuando se arrastra sobre la página -->
+{#if isDraggingOverPage}
+  <div class="dropzone-overlay">
+    <div class="dropzone-content">
+      <p class="dz-icon">📦</p>
+      <p class="dz-title">Soltá los archivos</p>
+      <p class="dz-hint">PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected</p>
     </div>
-  {/if}
-</div>
-<input {...fileUpload.input} />
+  </div>
+{/if}
 
 <header class="header">
   <div>
@@ -244,9 +293,12 @@
   </div>
 </header>
 
-<!-- Dropzone hint compacto -->
-<div class="dropzone-hint-compact">
-  <span>📎 Arrastrá archivos a cualquier parte de la página</span>
+<!-- Dropzone compacto clickeable -->
+<div class="dropzone-wrapper">
+  <div {...fileUpload.dropzone} class="dropzone-compact">
+    <span class="dz-compact-hint">📎 Click para subir archivos o arrastrá a cualquier parte</span>
+  </div>
+  <input {...fileUpload.input} />
 </div>
 
 <section class="filters">
@@ -394,15 +446,32 @@
     margin: 0;
   }
 
-  /* Global dropzone */
-  .global-dropzone {
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 1;
+  /* Dropzone compacto clickeable */
+  .dropzone-wrapper {
+    margin-bottom: var(--spacing-4);
   }
 
-  /* Overlay que aparece cuando se arrastra */
+  .dropzone-compact {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-2) var(--spacing-3);
+    text-align: center;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .dropzone-compact:hover {
+    border-color: var(--color-primary-300);
+    background: var(--color-surface-alt);
+  }
+
+  .dz-compact-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  /* Overlay que aparece cuando se arrastra sobre la página */
   .dropzone-overlay {
     position: fixed;
     inset: 0;
@@ -414,7 +483,6 @@
     justify-content: center;
     border: 4px dashed var(--color-primary-500);
     animation: fadeIn var(--transition-fast);
-    pointer-events: auto;
   }
 
   @keyframes fadeIn {
@@ -428,24 +496,6 @@
 
   .dropzone-content {
     text-align: center;
-  }
-
-  /* Hint compacto visible siempre */
-  .dropzone-hint-compact {
-    text-align: center;
-    padding: var(--spacing-2);
-    margin-bottom: var(--spacing-4);
-    border: 1px dashed var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface-alt);
-    color: var(--color-text-tertiary);
-    font-size: var(--font-size-sm);
-    transition: all var(--transition-base);
-  }
-
-  .dropzone-hint-compact:hover {
-    border-color: var(--color-primary-300);
-    color: var(--color-text-secondary);
   }
 
   .dz-icon {
