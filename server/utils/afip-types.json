@@ -1,0 +1,258 @@
+{
+  "1": {
+    "code": 1,
+    "invoiceType": "A",
+    "documentKind": "FAC",
+    "friendlyType": "FACA",
+    "description": "Factura A",
+    "descriptionLong": "Factura A (Responsable Inscripto a Responsable Inscripto)"
+  },
+  "2": {
+    "code": 2,
+    "invoiceType": "A",
+    "documentKind": "NDB",
+    "friendlyType": "NDBA",
+    "description": "Nota de Débito A",
+    "descriptionLong": "Nota de Débito A (Responsable Inscripto a Responsable Inscripto)"
+  },
+  "3": {
+    "code": 3,
+    "invoiceType": "A",
+    "documentKind": "NCR",
+    "friendlyType": "NCRA",
+    "description": "Nota de Crédito A",
+    "descriptionLong": "Nota de Crédito A (Responsable Inscripto a Responsable Inscripto)"
+  },
+  "4": {
+    "code": 4,
+    "invoiceType": "A",
+    "documentKind": "FAC",
+    "friendlyType": "RECA",
+    "description": "Recibo A",
+    "descriptionLong": "Recibo A"
+  },
+  "5": {
+    "code": 5,
+    "invoiceType": "A",
+    "documentKind": "FAC",
+    "friendlyType": "NVCA",
+    "description": "Nota de Venta al Contado A",
+    "descriptionLong": "Nota de Venta al Contado A"
+  },
+  "6": {
+    "code": 6,
+    "invoiceType": "B",
+    "documentKind": "FAC",
+    "friendlyType": "FACB",
+    "description": "Factura B",
+    "descriptionLong": "Factura B (Responsable Inscripto a Consumidor Final/Exento)"
+  },
+  "7": {
+    "code": 7,
+    "invoiceType": "B",
+    "documentKind": "NDB",
+    "friendlyType": "NDBB",
+    "description": "Nota de Débito B",
+    "descriptionLong": "Nota de Débito B (Responsable Inscripto a Consumidor Final/Exento)"
+  },
+  "8": {
+    "code": 8,
+    "invoiceType": "B",
+    "documentKind": "NCR",
+    "friendlyType": "NCRB",
+    "description": "Nota de Crédito B",
+    "descriptionLong": "Nota de Crédito B (Responsable Inscripto a Consumidor Final/Exento)"
+  },
+  "9": {
+    "code": 9,
+    "invoiceType": "B",
+    "documentKind": "FAC",
+    "friendlyType": "RECB",
+    "description": "Recibo B",
+    "descriptionLong": "Recibo B"
+  },
+  "10": {
+    "code": 10,
+    "invoiceType": "B",
+    "documentKind": "FAC",
+    "friendlyType": "NVCB",
+    "description": "Nota de Venta al Contado B",
+    "descriptionLong": "Nota de Venta al Contado B"
+  },
+  "11": {
+    "code": 11,
+    "invoiceType": "C",
+    "documentKind": "FAC",
+    "friendlyType": "FACC",
+    "description": "Factura C",
+    "descriptionLong": "Factura C (Monotributista)"
+  },
+  "12": {
+    "code": 12,
+    "invoiceType": "C",
+    "documentKind": "NDB",
+    "friendlyType": "NDBC",
+    "description": "Nota de Débito C",
+    "descriptionLong": "Nota de Débito C (Monotributista)"
+  },
+  "13": {
+    "code": 13,
+    "invoiceType": "C",
+    "documentKind": "NCR",
+    "friendlyType": "NCRC",
+    "description": "Nota de Crédito C",
+    "descriptionLong": "Nota de Crédito C (Monotributista)"
+  },
+  "15": {
+    "code": 15,
+    "invoiceType": "C",
+    "documentKind": "FAC",
+    "friendlyType": "RECC",
+    "description": "Recibo C",
+    "descriptionLong": "Recibo C"
+  },
+  "19": {
+    "code": 19,
+    "invoiceType": "E",
+    "documentKind": "FAC",
+    "friendlyType": "FACE",
+    "description": "Factura E",
+    "descriptionLong": "Factura E (Exportación)"
+  },
+  "20": {
+    "code": 20,
+    "invoiceType": "E",
+    "documentKind": "NDB",
+    "friendlyType": "NDBE",
+    "description": "Nota de Débito E",
+    "descriptionLong": "Nota de Débito E (Exportación)"
+  },
+  "21": {
+    "code": 21,
+    "invoiceType": "E",
+    "documentKind": "NCR",
+    "friendlyType": "NCRE",
+    "description": "Nota de Crédito E",
+    "descriptionLong": "Nota de Crédito E (Exportación)"
+  },
+  "51": {
+    "code": 51,
+    "invoiceType": "M",
+    "documentKind": "FAC",
+    "friendlyType": "FACM",
+    "description": "Factura M",
+    "descriptionLong": "Factura M (con CAI)"
+  },
+  "52": {
+    "code": 52,
+    "invoiceType": "M",
+    "documentKind": "NDB",
+    "friendlyType": "NDBM",
+    "description": "Nota de Débito M",
+    "descriptionLong": "Nota de Débito M (con CAI)"
+  },
+  "53": {
+    "code": 53,
+    "invoiceType": "M",
+    "documentKind": "NCR",
+    "friendlyType": "NCRM",
+    "description": "Nota de Crédito M",
+    "descriptionLong": "Nota de Crédito M (con CAI)"
+  },
+  "60": {
+    "code": 60,
+    "invoiceType": "A",
+    "documentKind": "FAC",
+    "friendlyType": "TQFA",
+    "description": "Tique Factura A",
+    "descriptionLong": "Tique Factura A"
+  },
+  "63": {
+    "code": 63,
+    "invoiceType": "B",
+    "documentKind": "FAC",
+    "friendlyType": "TQFB",
+    "description": "Tique Factura B",
+    "descriptionLong": "Tique Factura B"
+  },
+  "81": {
+    "code": 81,
+    "invoiceType": "C",
+    "documentKind": "FAC",
+    "friendlyType": "TQFC",
+    "description": "Tique Factura C",
+    "descriptionLong": "Tique Factura C"
+  },
+  "201": {
+    "code": 201,
+    "invoiceType": "A",
+    "documentKind": "FAC",
+    "friendlyType": "FCMA",
+    "description": "Factura de Crédito MiPyME A",
+    "descriptionLong": "Factura de Crédito Electrónica MiPyME A"
+  },
+  "202": {
+    "code": 202,
+    "invoiceType": "A",
+    "documentKind": "NDB",
+    "friendlyType": "NDMA",
+    "description": "Nota de Débito MiPyME A",
+    "descriptionLong": "Nota de Débito Electrónica MiPyME A"
+  },
+  "203": {
+    "code": 203,
+    "invoiceType": "A",
+    "documentKind": "NCR",
+    "friendlyType": "NCMA",
+    "description": "Nota de Crédito MiPyME A",
+    "descriptionLong": "Nota de Crédito Electrónica MiPyME A"
+  },
+  "206": {
+    "code": 206,
+    "invoiceType": "B",
+    "documentKind": "FAC",
+    "friendlyType": "FCMB",
+    "description": "Factura de Crédito MiPyME B",
+    "descriptionLong": "Factura de Crédito Electrónica MiPyME B"
+  },
+  "207": {
+    "code": 207,
+    "invoiceType": "B",
+    "documentKind": "NDB",
+    "friendlyType": "NDMB",
+    "description": "Nota de Débito MiPyME B",
+    "descriptionLong": "Nota de Débito Electrónica MiPyME B"
+  },
+  "208": {
+    "code": 208,
+    "invoiceType": "B",
+    "documentKind": "NCR",
+    "friendlyType": "NCMB",
+    "description": "Nota de Crédito MiPyME B",
+    "descriptionLong": "Nota de Crédito Electrónica MiPyME B"
+  },
+  "211": {
+    "code": 211,
+    "invoiceType": "C",
+    "documentKind": "FAC",
+    "friendlyType": "FCMC",
+    "description": "Factura de Crédito MiPyME C",
+    "descriptionLong": "Factura de Crédito Electrónica MiPyME C"
+  },
+  "212": {
+    "code": 212,
+    "invoiceType": "C",
+    "documentKind": "NDB",
+    "friendlyType": "NDMC",
+    "description": "Nota de Débito MiPyME C",
+    "descriptionLong": "Nota de Débito Electrónica MiPyME C"
+  },
+  "213": {
+    "code": 213,
+    "invoiceType": "C",
+    "documentKind": "NCR",
+    "friendlyType": "NCMC",
+    "description": "Nota de Crédito MiPyME C",
+    "descriptionLong": "Nota de Crédito Electrónica MiPyME C"
+  }
+}

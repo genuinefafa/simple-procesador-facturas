@@ -9,6 +9,7 @@
  */
 
 import type { Emitter, InvoiceType } from './types';
+import { getFriendlyType } from './afip-codes.js';
 import path from 'path';
 
 /**
@@ -17,15 +18,17 @@ import path from 'path';
 export type DocumentKind = 'FAC' | 'NCR' | 'NDB';
 
 /**
- * Genera el código del tipo de comprobante
- * Combina el tipo de documento (FAC, NCR, NDB) con la letra (A, B, C, etc.)
+ * Genera el código del tipo de comprobante (friendlyType)
+ * Usa el mapeo de códigos ARCA para obtener el tipo amigable de 4 letras
  *
- * @param kind - Tipo de documento (FAC, NCR, NDB)
- * @param invoiceType - Letra del comprobante (A, B, C, etc.)
- * @returns Código completo (FACA, NCRB, etc.)
+ * @param arcaCode - Código ARCA numérico (1, 6, 11, etc.)
+ * @returns Código amigable (FACA, FACB, FACC, NCRA, etc.) o "UNKN" si no se encuentra
  */
-export function getDocumentTypeCode(kind: DocumentKind, invoiceType: InvoiceType): string {
-  return `${kind}${invoiceType}`;
+export function getDocumentTypeCode(arcaCode: InvoiceType): string {
+  if (arcaCode === null || arcaCode === undefined) {
+    return 'UNKN'; // Unknown type
+  }
+  return getFriendlyType(arcaCode) || 'UNKN';
 }
 
 /**
@@ -49,13 +52,20 @@ export function inferDocumentKind(
 
 /**
  * Obtiene el nombre más corto para usar en archivos
- * Compara el nombre del emisor con todos sus aliases y retorna el más corto
+ * Compara nombre, razón social y aliases del emisor, retorna el más corto
  *
  * @param emitter - Emisor
  * @returns Nombre más corto (sanitizado para usar en archivos)
  */
 export function getShortestName(emitter: Emitter): string {
-  const candidates = [emitter.name, ...emitter.aliases];
+  // Incluir nombre, razón social (legalName) y todos los aliases
+  const candidates = [emitter.name];
+
+  if (emitter.legalName) {
+    candidates.push(emitter.legalName);
+  }
+
+  candidates.push(...emitter.aliases);
 
   // Encontrar el más corto
   const shortest = candidates.reduce((prev, current) =>
@@ -129,17 +139,17 @@ export function generateSubdirectory(date: Date): string {
 }
 
 /**
- * Genera el nombre de archivo procesado según el nuevo formato
- * Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV NUM.ext
- * Ejemplo: 2024-01-15 Mi_Empresa 30-12345678-9 FACA 00001 00000123.pdf
+ * Genera el nombre de archivo procesado según el nuevo formato con códigos ARCA
+ * Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV-NUM [CATEGORIA].ext
+ * Ejemplo: 2025-11-18 Movistar 30678814357 FACA 02468-00663200 [3f].pdf
  *
  * @param issueDate - Fecha de emisión de la factura
  * @param emitter - Emisor de la factura
- * @param invoiceType - Tipo de comprobante (A, B, C, etc.)
+ * @param invoiceType - Código ARCA del comprobante (1, 6, 11, etc.)
  * @param pointOfSale - Punto de venta (se formateará con 5 dígitos)
  * @param invoiceNumber - Número de comprobante (se formateará con 8 dígitos)
  * @param originalFile - Archivo original (para obtener la extensión)
- * @param documentKind - Tipo de documento (FAC, NCR, NDB). Default: FAC
+ * @param categoryKey - Key de la categoría (opcional, ej: "3f", "sw", etc.)
  * @returns Nombre de archivo procesado
  */
 export function generateProcessedFilename(
@@ -149,17 +159,20 @@ export function generateProcessedFilename(
   pointOfSale: number,
   invoiceNumber: number,
   originalFile: string,
-  documentKind: DocumentKind = 'FAC'
+  categoryKey?: string | null
 ): string {
   const dateFormatted = formatDateForFilename(issueDate);
   const emitterName = getShortestName(emitter);
-  const typeCode = getDocumentTypeCode(documentKind, invoiceType);
+  const typeCode = getDocumentTypeCode(invoiceType);
   const pvFormatted = padNumber(pointOfSale, 5);
   const numFormatted = padNumber(invoiceNumber, 8);
   const extension = path.extname(originalFile);
 
-  // Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV NUM.ext
-  return `${dateFormatted} ${emitterName} ${emitter.cuit} ${typeCode} ${pvFormatted} ${numFormatted}${extension}`;
+  // Categoría: [key] si existe, [] si no
+  const category = categoryKey ? `[${categoryKey}]` : '[]';
+
+  // Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV-NUM [CATEGORIA].ext
+  return `${dateFormatted} ${emitterName} ${emitter.cuit} ${typeCode} ${pvFormatted}-${numFormatted} ${category}${extension}`;
 }
 
 /**
@@ -168,11 +181,11 @@ export function generateProcessedFilename(
  * @param baseDir - Directorio base de salida
  * @param issueDate - Fecha de emisión
  * @param emitter - Emisor
- * @param invoiceType - Tipo de comprobante
+ * @param invoiceType - Código ARCA del comprobante
  * @param pointOfSale - Punto de venta
  * @param invoiceNumber - Número de comprobante
  * @param originalFile - Archivo original
- * @param documentKind - Tipo de documento (FAC, NCR, NDB)
+ * @param categoryKey - Key de la categoría (opcional)
  * @returns Ruta completa: baseDir/yyyy-mm/nombre.ext
  */
 export function generateProcessedPath(
@@ -183,7 +196,7 @@ export function generateProcessedPath(
   pointOfSale: number,
   invoiceNumber: number,
   originalFile: string,
-  documentKind: DocumentKind = 'FAC'
+  categoryKey?: string | null
 ): string {
   const subdir = generateSubdirectory(issueDate);
   const filename = generateProcessedFilename(
@@ -193,7 +206,7 @@ export function generateProcessedPath(
     pointOfSale,
     invoiceNumber,
     originalFile,
-    documentKind
+    categoryKey
   );
 
   return path.join(baseDir, subdir, filename);

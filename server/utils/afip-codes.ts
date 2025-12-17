@@ -1,134 +1,146 @@
 /**
- * Mapeo de códigos AFIP para tipos de comprobantes
+ * Mapeo de códigos AFIP/ARCA para tipos de comprobantes
  *
  * Basado en la codificación oficial de AFIP para archivos del fisco.
  * Los códigos pueden aparecer en facturas electrónicas y sirven para
  * identificar el tipo de documento de manera más confiable.
+ *
+ * IMPORTANTE: Este archivo usa afip-types.json como fuente de verdad.
+ * El JSON es editable y puede evolucionar cuando ARCA cree nuevos tipos.
  */
 
-import type { InvoiceType, DocumentKind } from './types';
+import afipTypesData from './afip-types.json';
 
-export type { DocumentKind };
+export type DocumentKind = 'FAC' | 'NCR' | 'NDB';
 
 export interface AFIPDocumentType {
-  code: string;
-  invoiceType: InvoiceType;
+  code: number;
+  invoiceType: string;
   documentKind: DocumentKind;
+  friendlyType: string;
   description: string;
+  descriptionLong: string;
 }
 
 /**
- * Mapeo completo de códigos AFIP a tipos de comprobante
- * Códigos más comunes en facturas argentinas
+ * Mapeo completo de códigos AFIP/ARCA cargado desde JSON
+ * La clave es el código numérico como string
  */
-export const AFIP_CODES: Record<string, AFIPDocumentType> = {
-  // Tipo A (Responsable Inscripto a Responsable Inscripto)
-  '001': { code: '001', invoiceType: 'A', documentKind: 'FAC', description: 'Factura A' },
-  '01': { code: '01', invoiceType: 'A', documentKind: 'FAC', description: 'Factura A' },
-  '1': { code: '1', invoiceType: 'A', documentKind: 'FAC', description: 'Factura A' },
-  '002': { code: '002', invoiceType: 'A', documentKind: 'NDB', description: 'Nota de Débito A' },
-  '02': { code: '02', invoiceType: 'A', documentKind: 'NDB', description: 'Nota de Débito A' },
-  '2': { code: '2', invoiceType: 'A', documentKind: 'NDB', description: 'Nota de Débito A' },
-  '003': { code: '003', invoiceType: 'A', documentKind: 'NCR', description: 'Nota de Crédito A' },
-  '03': { code: '03', invoiceType: 'A', documentKind: 'NCR', description: 'Nota de Crédito A' },
-  '3': { code: '3', invoiceType: 'A', documentKind: 'NCR', description: 'Nota de Crédito A' },
-
-  // Tipo B (Responsable Inscripto a Consumidor Final/Exento)
-  '006': { code: '006', invoiceType: 'B', documentKind: 'FAC', description: 'Factura B' },
-  '06': { code: '06', invoiceType: 'B', documentKind: 'FAC', description: 'Factura B' },
-  '6': { code: '6', invoiceType: 'B', documentKind: 'FAC', description: 'Factura B' },
-  '007': { code: '007', invoiceType: 'B', documentKind: 'NDB', description: 'Nota de Débito B' },
-  '07': { code: '07', invoiceType: 'B', documentKind: 'NDB', description: 'Nota de Débito B' },
-  '7': { code: '7', invoiceType: 'B', documentKind: 'NDB', description: 'Nota de Débito B' },
-  '008': { code: '008', invoiceType: 'B', documentKind: 'NCR', description: 'Nota de Crédito B' },
-  '08': { code: '08', invoiceType: 'B', documentKind: 'NCR', description: 'Nota de Crédito B' },
-  '8': { code: '8', invoiceType: 'B', documentKind: 'NCR', description: 'Nota de Crédito B' },
-
-  // Tipo C (Monotributista)
-  '011': { code: '011', invoiceType: 'C', documentKind: 'FAC', description: 'Factura C' },
-  '11': { code: '11', invoiceType: 'C', documentKind: 'FAC', description: 'Factura C' },
-  '012': { code: '012', invoiceType: 'C', documentKind: 'NDB', description: 'Nota de Débito C' },
-  '12': { code: '12', invoiceType: 'C', documentKind: 'NDB', description: 'Nota de Débito C' },
-  '013': { code: '013', invoiceType: 'C', documentKind: 'NCR', description: 'Nota de Crédito C' },
-  '13': { code: '13', invoiceType: 'C', documentKind: 'NCR', description: 'Nota de Crédito C' },
-
-  // Tipo E (Exportación)
-  '019': { code: '019', invoiceType: 'E', documentKind: 'FAC', description: 'Factura E' },
-  '19': { code: '19', invoiceType: 'E', documentKind: 'FAC', description: 'Factura E' },
-  '020': { code: '020', invoiceType: 'E', documentKind: 'NDB', description: 'Nota de Débito E' },
-  '20': { code: '20', invoiceType: 'E', documentKind: 'NDB', description: 'Nota de Débito E' },
-  '021': { code: '021', invoiceType: 'E', documentKind: 'NCR', description: 'Nota de Crédito E' },
-  '21': { code: '21', invoiceType: 'E', documentKind: 'NCR', description: 'Nota de Crédito E' },
-
-  // Tipo M (con CAI)
-  '051': { code: '051', invoiceType: 'M', documentKind: 'FAC', description: 'Factura M' },
-  '51': { code: '51', invoiceType: 'M', documentKind: 'FAC', description: 'Factura M' },
-  '052': { code: '052', invoiceType: 'M', documentKind: 'NDB', description: 'Nota de Débito M' },
-  '52': { code: '52', invoiceType: 'M', documentKind: 'NDB', description: 'Nota de Débito M' },
-  '053': { code: '053', invoiceType: 'M', documentKind: 'NCR', description: 'Nota de Crédito M' },
-  '53': { code: '53', invoiceType: 'M', documentKind: 'NCR', description: 'Nota de Crédito M' },
-};
+export const AFIP_TYPES: Record<string, AFIPDocumentType> = afipTypesData as Record<
+  string,
+  AFIPDocumentType
+>;
 
 /**
- * Obtiene el tipo de documento a partir de un código AFIP
- * @param code - Código AFIP (ej: "011", "11", "1", "201")
+ * Mapeo inverso: friendlyType → código ARCA
+ * Útil para búsquedas y conversiones desde el tipo amigable
+ */
+export const FRIENDLY_TYPE_TO_CODE: Record<string, number> = Object.values(AFIP_TYPES).reduce(
+  (acc, type) => {
+    acc[type.friendlyType] = type.code;
+    return acc;
+  },
+  {} as Record<string, number>
+);
+
+/**
+ * Obtiene el tipo de documento a partir de un código ARCA
+ *
+ * @param code - Código ARCA (puede ser número o string)
  * @returns Información del tipo de documento o undefined si no se encuentra
  *
- * Códigos 201-299: Facturas electrónicas AFIP (se restan 200)
- * Ejemplo: 201 → 1 (Factura A), 206 → 6 (Factura B), 211 → 11 (Factura C)
+ * @example
+ * getDocumentTypeFromARCACode(1) // { code: 1, invoiceType: "A", friendlyType: "FACA", ... }
+ * getDocumentTypeFromARCACode("11") // { code: 11, invoiceType: "C", friendlyType: "FACC", ... }
  */
-export function getDocumentTypeFromAFIPCode(code: string): AFIPDocumentType | undefined {
-  // Normalizar: quitar espacios y ceros a la izquierda para búsqueda flexible
-  const normalizedCode = code.trim();
-
-  // Primero intentar con el código exacto
-  if (AFIP_CODES[normalizedCode]) {
-    return AFIP_CODES[normalizedCode];
-  }
-
-  // Intentar sin ceros a la izquierda
-  const withoutLeadingZeros = normalizedCode.replace(/^0+/, '') || '0';
-  if (AFIP_CODES[withoutLeadingZeros]) {
-    return AFIP_CODES[withoutLeadingZeros];
-  }
-
-  // Códigos 201-299: Facturas electrónicas (restar 200)
-  const codeNum = parseInt(normalizedCode, 10);
-  if (codeNum >= 201 && codeNum <= 299) {
-    const baseCode = (codeNum - 200).toString();
-    const basePadded = baseCode.padStart(3, '0');
-
-    // Intentar con el código base (ej: 201 → 001)
-    if (AFIP_CODES[basePadded]) {
-      return {
-        ...AFIP_CODES[basePadded],
-        code: normalizedCode, // Mantener código original
-        description: `${AFIP_CODES[basePadded].description} (Electrónica)`,
-      };
-    }
-
-    // Intentar sin ceros (ej: 201 → 1)
-    if (AFIP_CODES[baseCode]) {
-      return {
-        ...AFIP_CODES[baseCode],
-        code: normalizedCode,
-        description: `${AFIP_CODES[baseCode].description} (Electrónica)`,
-      };
-    }
-  }
-
-  return undefined;
+export function getDocumentTypeFromARCACode(code: number | string): AFIPDocumentType | undefined {
+  const codeStr = typeof code === 'number' ? code.toString() : code.trim();
+  return AFIP_TYPES[codeStr];
 }
 
 /**
- * Extrae el código AFIP y tipo de documento del texto de una factura
+ * Obtiene el friendlyType (4 letras) a partir de un código ARCA
+ *
+ * @param code - Código ARCA
+ * @returns FriendlyType (ej: "FACA", "NCRB") o undefined
+ *
+ * @example
+ * getFriendlyType(1) // "FACA"
+ * getFriendlyType(11) // "FACC"
+ * getFriendlyType(3) // "NCRA"
+ */
+export function getFriendlyType(code: number | null | undefined): string | undefined {
+  if (code === null || code === undefined) return undefined;
+  return getDocumentTypeFromARCACode(code)?.friendlyType;
+}
+
+/**
+ * Obtiene la descripción corta a partir de un código ARCA
+ *
+ * @param code - Código ARCA
+ * @returns Descripción (ej: "Factura A") o undefined
+ *
+ * @example
+ * getDescription(1) // "Factura A"
+ * getDescription(11) // "Factura C"
+ */
+export function getDescription(code: number | null | undefined): string | undefined {
+  if (code === null || code === undefined) return undefined;
+  return getDocumentTypeFromARCACode(code)?.description;
+}
+
+/**
+ * Obtiene la descripción larga a partir de un código ARCA
+ *
+ * @param code - Código ARCA
+ * @returns Descripción larga o undefined
+ *
+ * @example
+ * getDescriptionLong(1) // "Factura A (Responsable Inscripto a Responsable Inscripto)"
+ */
+export function getDescriptionLong(code: number | null | undefined): string | undefined {
+  if (code === null || code === undefined) return undefined;
+  return getDocumentTypeFromARCACode(code)?.descriptionLong;
+}
+
+/**
+ * Obtiene el código ARCA a partir de un friendlyType
+ *
+ * @param friendlyType - Tipo amigable (ej: "FACA", "NCRB")
+ * @returns Código ARCA o undefined
+ *
+ * @example
+ * getARCACodeFromFriendlyType("FACA") // 1
+ * getARCACodeFromFriendlyType("FACC") // 11
+ */
+export function getARCACodeFromFriendlyType(friendlyType: string): number | undefined {
+  return FRIENDLY_TYPE_TO_CODE[friendlyType.toUpperCase()];
+}
+
+/**
+ * Valida si un código es un código ARCA válido
+ *
+ * @param code - Código a validar
+ * @returns true si el código existe en el mapeo ARCA
+ *
+ * @example
+ * isValidARCACode(1) // true
+ * isValidARCACode(9999) // false
+ */
+export function isValidARCACode(code: number | null | undefined): boolean {
+  if (code === null || code === undefined) return false;
+  return AFIP_TYPES[code.toString()] !== undefined;
+}
+
+/**
+ * Extrae el código ARCA y tipo de documento del texto de una factura
  * Busca patrones comunes donde aparece el código numérico
  *
  * @param text - Texto extraído de la factura
  * @returns Información del tipo de documento o undefined si no se encuentra
  */
-export function extractAFIPCodeFromText(text: string): AFIPDocumentType | undefined {
-  // Patrones donde puede aparecer el código AFIP
+export function extractARCACodeFromText(text: string): AFIPDocumentType | undefined {
+  // Patrones donde puede aparecer el código ARCA
   const patterns = [
     // Patrón más específico primero: letra del comprobante seguida de "Código:"
     // Ejemplo: "A\nCódigo: 01" o "B Código: 06"
@@ -160,110 +172,202 @@ export function extractAFIPCodeFromText(text: string): AFIPDocumentType | undefi
     if (match) {
       // El primer patrón captura la letra del comprobante Y el código
       if (i === 0 && match[1] && match[2]) {
-        // match[1] = letra (A, B, C, etc), match[2] = código AFIP
-        const docType = getDocumentTypeFromAFIPCode(match[2]);
+        // match[1] = letra (A, B, C, etc), match[2] = código ARCA
+        const docType = getDocumentTypeFromARCACode(match[2]);
         if (docType) {
-          // Verificar que la letra detectada coincida con el código AFIP
+          // Verificar que la letra detectada coincida con el código ARCA
           const detectedLetter = match[1].toUpperCase();
           if (docType.invoiceType === detectedLetter) {
             console.info(
-              `   🏛️ Código AFIP detectado: ${detectedLetter} + código ${match[2]} → ${docType.description}`
+              `   🏛️ Código ARCA detectado: ${detectedLetter} + código ${match[2]} → ${docType.description}`
             );
             return docType;
           } else {
             console.warn(
               `   ⚠️ Inconsistencia: letra ${detectedLetter} no coincide con código ${match[2]} (${docType.invoiceType})`
             );
-            // Confiar en el código AFIP de todos modos
-            console.info(`   🏛️ Usando código AFIP: ${match[2]} → ${docType.description}`);
+            // Confiar en el código ARCA de todos modos
+            console.info(`   🏛️ Usando código ARCA: ${match[2]} → ${docType.description}`);
             return docType;
           }
         }
       }
       // Para el resto de los patrones, el código está en match[1]
       else if (match[1]) {
-        const docType = getDocumentTypeFromAFIPCode(match[1]);
+        const docType = getDocumentTypeFromARCACode(match[1]);
         if (docType) {
-          console.info(`   🏛️ Código AFIP detectado: ${match[1]} → ${docType.description}`);
+          console.info(`   🏛️ Código ARCA detectado: ${match[1]} → ${docType.description}`);
           return docType;
         } else {
           console.debug(
-            `   ⚠️ Código encontrado (${match[1]}) pero no coincide con códigos AFIP conocidos`
+            `   ⚠️ Código encontrado (${match[1]}) pero no coincide con códigos ARCA conocidos`
           );
         }
       }
     }
   }
 
-  console.debug('   ℹ️ No se encontró código AFIP en el texto');
+  console.debug('   ℹ️ No se encontró código ARCA en el texto');
   return undefined;
 }
 
 /**
- * Determina el tipo de letra (A, B, C, E, M) del documento
- * Combina detección por código AFIP y por texto
+ * Determina el tipo de letra y documento del comprobante
+ * Combina detección por código ARCA y por texto
  *
  * @param text - Texto extraído de la factura
- * @returns Tipo de comprobante (A, B, C, E, M) o undefined
+ * @returns Tipo de comprobante con método de detección o undefined
  */
-export function extractInvoiceTypeWithAFIP(text: string):
+export function extractInvoiceTypeWithARCA(text: string):
   | {
-      invoiceType: InvoiceType;
+      code: number;
+      invoiceType: string;
       documentKind: DocumentKind;
-      method: 'AFIP_CODE' | 'TEXT_PATTERN';
+      friendlyType: string;
+      method: 'ARCA_CODE' | 'TEXT_PATTERN';
     }
   | undefined {
-  // Primero intentar con código AFIP (más confiable)
-  const afipType = extractAFIPCodeFromText(text);
-  if (afipType) {
+  // Primero intentar con código ARCA (más confiable)
+  const arcaType = extractARCACodeFromText(text);
+  if (arcaType) {
     return {
-      invoiceType: afipType.invoiceType,
-      documentKind: afipType.documentKind,
-      method: 'AFIP_CODE',
+      code: arcaType.code,
+      invoiceType: arcaType.invoiceType,
+      documentKind: arcaType.documentKind,
+      friendlyType: arcaType.friendlyType,
+      method: 'ARCA_CODE',
     };
   }
 
   // Fallback a patrones de texto tradicionales
   const textPatterns: {
     pattern: RegExp;
-    type: InvoiceType;
-    kind: DocumentKind;
+    friendlyType: string;
   }[] = [
     // TEXTO PEGADO SIN ESPACIOS (alta prioridad) - formato común en PDFs mal parseados
-    // Ejemplos: "AFACTURA", "BFACTURA", "CFACTURA", "A001", "C001", "B006"
-    { pattern: /\b([A-CEM])(FACTURA|001|011|006|019|201|206|211)\b/i, type: 'A', kind: 'FAC' },
+    { pattern: /\b([A-CEM])(FACTURA|001|011|006|019|201|206|211)\b/i, friendlyType: 'FACA' },
+    { pattern: /\bCFACTURA/i, friendlyType: 'FACC' },
+    { pattern: /\bBFACTURA/i, friendlyType: 'FACB' },
 
     // CODIGO: seguido de letra en otra línea (formato AFIP electrónico)
-    { pattern: /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*([A-CEM])\s*[\r\n]/i, type: 'A', kind: 'FAC' },
+    { pattern: /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*A\s*[\r\n]/i, friendlyType: 'FACA' },
+    { pattern: /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*B\s*[\r\n]/i, friendlyType: 'FACB' },
+    { pattern: /CODIGO:\s*[\r\n]+\s*-?\s*[\r\n]+\s*C\s*[\r\n]/i, friendlyType: 'FACC' },
 
-    // Letra seguida de número de código pegado: "C001NRO" (sin espacios)
-    { pattern: /\b([A-CEM])(001|011|006|019|201|206|211)(?:NRO|N°|Nº)?/i, type: 'A', kind: 'FAC' },
+    // Letra seguida de número de código pegado
+    { pattern: /\bA001(?:NRO|N°|Nº)?/i, friendlyType: 'FACA' },
+    { pattern: /\bB006(?:NRO|N°|Nº)?/i, friendlyType: 'FACB' },
+    { pattern: /\bC011(?:NRO|N°|Nº)?/i, friendlyType: 'FACC' },
 
     // Facturas con espacios normales
-    { pattern: /(?:^|\s)Factura\s+([A-CEM])(?:\s|$|[^a-z])/im, type: 'A', kind: 'FAC' },
-    { pattern: /\bFACTURA\s+([A-CEM])\b/i, type: 'A', kind: 'FAC' },
-    { pattern: /\bComprobante\s+([A-CEM])(?:\s|$|-)/i, type: 'A', kind: 'FAC' },
+    { pattern: /(?:^|\s)Factura\s+A(?:\s|$|[^a-z])/im, friendlyType: 'FACA' },
+    { pattern: /(?:^|\s)Factura\s+B(?:\s|$|[^a-z])/im, friendlyType: 'FACB' },
+    { pattern: /(?:^|\s)Factura\s+C(?:\s|$|[^a-z])/im, friendlyType: 'FACC' },
+    { pattern: /(?:^|\s)Factura\s+E(?:\s|$|[^a-z])/im, friendlyType: 'FACE' },
+    { pattern: /(?:^|\s)Factura\s+M(?:\s|$|[^a-z])/im, friendlyType: 'FACM' },
 
     // Notas de Crédito
-    { pattern: /\bNota\s+de\s+Cr[eé]dito\s+([A-CEM])\b/i, type: 'A', kind: 'NCR' },
-    { pattern: /\bNC\s+([A-CEM])\b/i, type: 'A', kind: 'NCR' },
+    { pattern: /\bNota\s+de\s+Cr[eé]dito\s+A\b/i, friendlyType: 'NCRA' },
+    { pattern: /\bNota\s+de\s+Cr[eé]dito\s+B\b/i, friendlyType: 'NCRB' },
+    { pattern: /\bNota\s+de\s+Cr[eé]dito\s+C\b/i, friendlyType: 'NCRC' },
+    { pattern: /\bNC\s+A\b/i, friendlyType: 'NCRA' },
+    { pattern: /\bNC\s+B\b/i, friendlyType: 'NCRB' },
+    { pattern: /\bNC\s+C\b/i, friendlyType: 'NCRC' },
 
     // Notas de Débito
-    { pattern: /\bNota\s+de\s+D[eé]bito\s+([A-CEM])\b/i, type: 'A', kind: 'NDB' },
-    { pattern: /\bND\s+([A-CEM])\b/i, type: 'A', kind: 'NDB' },
+    { pattern: /\bNota\s+de\s+D[eé]bito\s+A\b/i, friendlyType: 'NDBA' },
+    { pattern: /\bNota\s+de\s+D[eé]bito\s+B\b/i, friendlyType: 'NDBB' },
+    { pattern: /\bNota\s+de\s+D[eé]bito\s+C\b/i, friendlyType: 'NDBC' },
+    { pattern: /\bND\s+A\b/i, friendlyType: 'NDBA' },
+    { pattern: /\bND\s+B\b/i, friendlyType: 'NDBB' },
+    { pattern: /\bND\s+C\b/i, friendlyType: 'NDBC' },
   ];
 
-  for (const { pattern, kind } of textPatterns) {
+  for (const { pattern, friendlyType } of textPatterns) {
     const match = text.match(pattern);
-    if (match && match[1]) {
-      const extractedType = match[1].toUpperCase() as InvoiceType;
-      return {
-        invoiceType: extractedType,
-        documentKind: kind,
-        method: 'TEXT_PATTERN',
-      };
+    if (match) {
+      const code = getARCACodeFromFriendlyType(friendlyType);
+      if (code) {
+        const arcaType = getDocumentTypeFromARCACode(code);
+        if (arcaType) {
+          return {
+            code: arcaType.code,
+            invoiceType: arcaType.invoiceType,
+            documentKind: arcaType.documentKind,
+            friendlyType: arcaType.friendlyType,
+            method: 'TEXT_PATTERN',
+          };
+        }
+      }
     }
   }
 
   return undefined;
+}
+
+// ============================================================================
+// CONVERSIÓN TEMPORAL: Letra → Código ARCA
+// TODO: Eliminar cuando extractores lean códigos ARCA nativamente (Issue en M5)
+// ============================================================================
+
+/**
+ * Convierte una letra de tipo de comprobante a código ARCA
+ * TEMPORAL: Asume que siempre es Factura (FAC), no distingue NC/ND
+ *
+ * @param letter - Letra del comprobante (A, B, C, E, M)
+ * @returns Código ARCA correspondiente a Factura, o null si no se reconoce
+ *
+ * @example
+ * convertLetterToARCACode('A') // 1 (Factura A)
+ * convertLetterToARCACode('C') // 11 (Factura C)
+ *
+ * @deprecated Usar extracción nativa de códigos ARCA cuando esté implementado
+ */
+export function convertLetterToARCACode(letter: string): number | null {
+  const letterUpper = letter.toUpperCase();
+  const letterToCode: Record<string, number> = {
+    A: 1, // Factura A
+    B: 6, // Factura B
+    C: 11, // Factura C
+    E: 19, // Factura E
+    M: 51, // Factura M
+  };
+  return letterToCode[letterUpper] ?? null;
+}
+
+// ============================================================================
+// LEGACY: Funciones para compatibilidad con código anterior
+// ============================================================================
+
+/**
+ * @deprecated Usar getDocumentTypeFromARCACode en su lugar
+ */
+export function getDocumentTypeFromAFIPCode(code: string): AFIPDocumentType | undefined {
+  return getDocumentTypeFromARCACode(code);
+}
+
+/**
+ * @deprecated Usar extractARCACodeFromText en su lugar
+ */
+export function extractAFIPCodeFromText(text: string): AFIPDocumentType | undefined {
+  return extractARCACodeFromText(text);
+}
+
+/**
+ * @deprecated Usar extractInvoiceTypeWithARCA en su lugar
+ */
+export function extractInvoiceTypeWithAFIP(text: string):
+  | {
+      invoiceType: string;
+      documentKind: DocumentKind;
+      method: 'AFIP_CODE' | 'TEXT_PATTERN';
+    }
+  | undefined {
+  const result = extractInvoiceTypeWithARCA(text);
+  if (!result) return undefined;
+  return {
+    invoiceType: result.invoiceType,
+    documentKind: result.documentKind,
+    method: result.method === 'ARCA_CODE' ? 'AFIP_CODE' : 'TEXT_PATTERN',
+  };
 }
