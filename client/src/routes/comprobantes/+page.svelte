@@ -274,160 +274,172 @@
 
 <Toaster position="top-right" richColors />
 
-<!-- Overlay que aparece cuando se arrastra sobre la página -->
-{#if isDraggingOverPage}
-  <div class="dropzone-overlay">
-    <div class="dropzone-content">
-      <p class="dz-icon">📦</p>
-      <p class="dz-title">Soltá los archivos</p>
-      <p class="dz-hint">PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected</p>
+<div class="page-container">
+  <!-- Overlay que aparece cuando se arrastra sobre la página -->
+  {#if isDraggingOverPage}
+    <div class="dropzone-overlay">
+      <div class="dropzone-content">
+        <p class="dz-icon">📦</p>
+        <p class="dz-title">Soltá los archivos</p>
+        <p class="dz-hint">
+          PDF/Imágenes quedarán como pendientes; Excel/CSV se importan a expected
+        </p>
+      </div>
     </div>
-  </div>
-{/if}
+  {/if}
 
-<header class="header">
-  <div>
-    <p class="eyebrow">Centro unificado</p>
-    <h1>Comprobantes</h1>
-    <p class="hint">Consolida Expected, Pending y Facturas. Subí archivos o importá Excel aquí.</p>
-  </div>
-</header>
+  <header class="header">
+    <div>
+      <p class="eyebrow">Centro unificado</p>
+      <h1>Comprobantes</h1>
+      <p class="hint">
+        Consolida Expected, Pending y Facturas. Subí archivos o importá Excel aquí.
+      </p>
+    </div>
+  </header>
 
-<!-- Dropzone compacto clickeable -->
-<div class="dropzone-wrapper">
-  <div {...fileUpload.dropzone} class="dropzone-compact">
-    <span class="dz-compact-hint">📎 Click para subir archivos o arrastrá a cualquier parte</span>
+  <!-- Dropzone compacto clickeable -->
+  <div class="dropzone-wrapper">
+    <div {...fileUpload.dropzone} class="dropzone-compact">
+      <span class="dz-compact-hint">📎 Click para subir archivos o arrastrá a cualquier parte</span>
+    </div>
+    <input {...fileUpload.input} />
   </div>
-  <input {...fileUpload.input} />
+
+  <section class="filters">
+    <button
+      class:active={activeFilter === 'all'}
+      onclick={() => updateUrlForFilter('all')}
+      type="button"
+    >
+      Todos
+    </button>
+    <button
+      class:active={activeFilter === 'pendientes'}
+      onclick={() => updateUrlForFilter('pendientes')}
+      type="button"
+    >
+      Pendientes
+    </button>
+    <button
+      class:active={activeFilter === 'reconocidas'}
+      onclick={() => updateUrlForFilter('reconocidas')}
+      type="button"
+    >
+      Reconocidas
+    </button>
+    <button
+      class:active={activeFilter === 'esperadas'}
+      onclick={() => updateUrlForFilter('esperadas')}
+      type="button"
+    >
+      Esperadas
+    </button>
+  </section>
+
+  <!-- Filtro por categoría -->
+  <section class="filters">
+    <label for="category-filter">Categoría:</label>
+    <CategoryPills
+      {categories}
+      selected={activeCategoryId}
+      onselect={(id) => (activeCategoryId = id)}
+      mode="filter"
+    />
+  </section>
+
+  <section class="list">
+    <div class="list-head">
+      <span>Tipo</span>
+      <span>Comprobante / Archivo</span>
+      <span>Emisor</span>
+      <span>CUIT</span>
+      <span>Fecha</span>
+      <span class="align-right">Total</span>
+      <span>Categoría</span>
+      <span>Estado</span>
+      <span>Hash</span>
+      <span></span>
+    </div>
+    {#each data.comprobantes as comp}
+      {#if isVisible(comp)}
+        <a href="/comprobantes/{comp.id}" class="row" data-sveltekit-preload-data>
+          <span class="col-type">
+            {#if comp.final}<span class="tag ok">Factura</span>
+            {:else if comp.expected}<span class="tag warn">Expected</span>
+            {:else}<span class="tag info">Pending</span>{/if}
+          </span>
+          <span class="col-cmp">{formatComprobante(comp)}</span>
+          <span class="col-emisor" title={getEmitterName(comp).full || undefined}
+            >{getEmitterName(comp).short}</span
+          >
+          <span class="col-cuit"
+            >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
+          >
+          <span class="col-date"
+            >{comp.final?.issueDate ||
+              comp.expected?.issueDate ||
+              comp.pending?.extractedDate ||
+              '—'}</span
+          >
+          <span class="col-total align-right"
+            >{formatCurrency(
+              comp.final?.total ?? comp.expected?.total ?? comp.pending?.extractedTotal
+            )}</span
+          >
+          <span class="col-category">
+            {#if comp.final}
+              {#if editingCategoryId === comp.final.id}
+                <!-- Modo edición: mostrar pills -->
+                <CategoryPills
+                  {categories}
+                  selected={comp.final?.categoryId ?? null}
+                  onselect={(id) => comp.final && updateCategory(comp.final.id, id)}
+                  mode="single"
+                />
+              {:else}
+                <!-- Modo readonly: mostrar categoría actual -->
+                <button
+                  type="button"
+                  class="category-display"
+                  onclick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    editingCategoryId = comp.final?.id ?? null;
+                  }}
+                  title="Click para editar categoría"
+                >
+                  {#if comp.final?.categoryId}
+                    {categories.find((c) => c.id === comp.final?.categoryId)?.description ?? '—'}
+                  {:else}
+                    <span class="no-category">Sin categoría</span>
+                  {/if}
+                </button>
+              {/if}
+            {:else}
+              —
+            {/if}
+          </span>
+          <span class="col-status">
+            {#if comp.final}procesada
+            {:else if comp.expected}esperada
+            {:else}{comp.pending?.status || '—'}{/if}
+          </span>
+          <span class="col-hash">{comp.final?.fileHash ? shortHash(comp.final.fileHash) : '—'}</span
+          >
+          <span class="col-actions"><Button size="sm">Ver</Button></span>
+        </a>
+      {/if}
+    {/each}
+  </section>
 </div>
 
-<section class="filters">
-  <button
-    class:active={activeFilter === 'all'}
-    onclick={() => updateUrlForFilter('all')}
-    type="button"
-  >
-    Todos
-  </button>
-  <button
-    class:active={activeFilter === 'pendientes'}
-    onclick={() => updateUrlForFilter('pendientes')}
-    type="button"
-  >
-    Pendientes
-  </button>
-  <button
-    class:active={activeFilter === 'reconocidas'}
-    onclick={() => updateUrlForFilter('reconocidas')}
-    type="button"
-  >
-    Reconocidas
-  </button>
-  <button
-    class:active={activeFilter === 'esperadas'}
-    onclick={() => updateUrlForFilter('esperadas')}
-    type="button"
-  >
-    Esperadas
-  </button>
-</section>
-
-<!-- Filtro por categoría -->
-<section class="filters">
-  <label for="category-filter">Categoría:</label>
-  <CategoryPills
-    {categories}
-    selected={activeCategoryId}
-    onselect={(id) => (activeCategoryId = id)}
-    mode="filter"
-  />
-</section>
-
-<section class="list">
-  <div class="list-head">
-    <span>Tipo</span>
-    <span>Comprobante / Archivo</span>
-    <span>Emisor</span>
-    <span>CUIT</span>
-    <span>Fecha</span>
-    <span class="align-right">Total</span>
-    <span>Categoría</span>
-    <span>Estado</span>
-    <span>Hash</span>
-    <span></span>
-  </div>
-  {#each data.comprobantes as comp}
-    {#if isVisible(comp)}
-      <a href="/comprobantes/{comp.id}" class="row" data-sveltekit-preload-data>
-        <span class="col-type">
-          {#if comp.final}<span class="tag ok">Factura</span>
-          {:else if comp.expected}<span class="tag warn">Expected</span>
-          {:else}<span class="tag info">Pending</span>{/if}
-        </span>
-        <span class="col-cmp">{formatComprobante(comp)}</span>
-        <span class="col-emisor" title={getEmitterName(comp).full || undefined}
-          >{getEmitterName(comp).short}</span
-        >
-        <span class="col-cuit"
-          >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
-        >
-        <span class="col-date"
-          >{comp.final?.issueDate ||
-            comp.expected?.issueDate ||
-            comp.pending?.extractedDate ||
-            '—'}</span
-        >
-        <span class="col-total align-right"
-          >{formatCurrency(
-            comp.final?.total ?? comp.expected?.total ?? comp.pending?.extractedTotal
-          )}</span
-        >
-        <span class="col-category">
-          {#if comp.final}
-            {#if editingCategoryId === comp.final.id}
-              <!-- Modo edición: mostrar pills -->
-              <CategoryPills
-                {categories}
-                selected={comp.final?.categoryId ?? null}
-                onselect={(id) => comp.final && updateCategory(comp.final.id, id)}
-                mode="single"
-              />
-            {:else}
-              <!-- Modo readonly: mostrar categoría actual -->
-              <button
-                type="button"
-                class="category-display"
-                onclick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  editingCategoryId = comp.final?.id ?? null;
-                }}
-                title="Click para editar categoría"
-              >
-                {#if comp.final?.categoryId}
-                  {categories.find((c) => c.id === comp.final?.categoryId)?.description ?? '—'}
-                {:else}
-                  <span class="no-category">Sin categoría</span>
-                {/if}
-              </button>
-            {/if}
-          {:else}
-            —
-          {/if}
-        </span>
-        <span class="col-status">
-          {#if comp.final}procesada
-          {:else if comp.expected}esperada
-          {:else}{comp.pending?.status || '—'}{/if}
-        </span>
-        <span class="col-hash">{comp.final?.fileHash ? shortHash(comp.final.fileHash) : '—'}</span>
-        <span class="col-actions"><Button size="sm">Ver</Button></span>
-      </a>
-    {/if}
-  {/each}
-</section>
-
 <style>
+  .page-container {
+    position: relative;
+    width: 100%;
+  }
+
   .header {
     margin-bottom: var(--spacing-4);
   }
@@ -473,7 +485,7 @@
 
   /* Overlay que aparece cuando se arrastra sobre la página */
   .dropzone-overlay {
-    position: fixed;
+    position: absolute;
     inset: 0;
     z-index: 50;
     background: rgba(255, 255, 255, 0.97);
@@ -482,6 +494,7 @@
     align-items: center;
     justify-content: center;
     border: 4px dashed var(--color-primary-500);
+    border-radius: var(--radius-lg);
     animation: fadeIn var(--transition-fast);
   }
 

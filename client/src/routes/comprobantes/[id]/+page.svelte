@@ -193,6 +193,43 @@
     }
   }
 
+  /**
+   * Actualiza la categoría de la factura
+   * Si la factura ya existe (final), persiste en servidor
+   * Si está en creación, solo actualiza estado local
+   */
+  async function updateCategory(categoryId: number | null | undefined) {
+    const normalizedId = categoryId === undefined ? null : categoryId;
+    selectedCategoryId = normalizedId;
+
+    // Si la factura no existe aún (pending/expected en creación), solo actualizar estado local
+    if (!comprobante.final) {
+      return;
+    }
+
+    // Si existe factura, persistir en servidor
+    try {
+      const res = await fetch(`/api/invoices/${comprobante.final.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId: normalizedId }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Error actualizando categoría');
+      }
+
+      toast.success('Categoría actualizada');
+      await invalidateAll();
+    } catch (error) {
+      console.error('Error updating category:', error);
+      toast.error(error instanceof Error ? error.message : 'Error actualizando categoría');
+      // Revertir cambio local si falló el guardado
+      selectedCategoryId = comprobante.final.categoryId ?? null;
+    }
+  }
+
   function validateFactura(): string[] {
     const errors: string[] = [];
     if (!facuraData.cuit?.trim()) errors.push('CUIT es requerido');
@@ -510,22 +547,16 @@
         <!-- Categoría -->
         <div class="form-group">
           <label for="categoria">Categoría</label>
-          {#if isReadOnly}
-            <div class="readonly-value">
-              {#if selectedCategoryId === null}
-                — Sin categoría —
-              {:else}
-                {categories.find((c) => c.id === selectedCategoryId)?.description ??
-                  '— Sin categoría —'}
-              {/if}
-            </div>
+          {#if isReadOnly && isExpectedWithoutFile}
+            <!-- Readonly solo para expected sin archivo (no se puede asignar aún) -->
+            <div class="readonly-value">— Sin categoría —</div>
           {:else}
+            <!-- Siempre mostrar pills para facturas, pending y expected con archivo -->
             <CategoryPills
               {categories}
               selected={selectedCategoryId}
-              onselect={(id) => (selectedCategoryId = id as number | null)}
+              onselect={(id) => updateCategory(id)}
               mode="single"
-              disabled={isReadOnly}
             />
           {/if}
         </div>
