@@ -20,7 +20,7 @@ export interface ExpectedInvoice {
   cuit: string;
   emitterName: string | null;
   issueDate: string;
-  invoiceType: string;
+  invoiceType: number | null; // Código ARCA numérico (1, 6, 11, etc.)
   pointOfSale: number;
   invoiceNumber: number;
   total: number | null;
@@ -179,7 +179,7 @@ export class ExpectedInvoiceRepository {
       cuit: string;
       emitterName?: string;
       issueDate: string;
-      invoiceType: string;
+      invoiceType: number; // Código ARCA numérico
       pointOfSale: number;
       invoiceNumber: number;
       total?: number;
@@ -393,7 +393,7 @@ export class ExpectedInvoiceRepository {
 
   async findExactMatch(
     cuit: string,
-    type: string,
+    type: number | null,
     pointOfSale: number,
     invoiceNumber: number
   ): Promise<ExpectedInvoice | null> {
@@ -421,7 +421,7 @@ export class ExpectedInvoiceRepository {
   async findDuplicate(invoice: {
     cuit: string;
     cae?: string;
-    invoiceType: string;
+    invoiceType: number; // Código ARCA numérico
     pointOfSale: number;
     invoiceNumber: number;
   }): Promise<ExpectedInvoice | null> {
@@ -496,7 +496,7 @@ export class ExpectedInvoiceRepository {
   async findPartialMatches(criteria: {
     cuit?: string;
     cuitPartial?: string; // middle-8 digits or any stable core segment
-    invoiceType?: string;
+    invoiceType?: number | null; // Código ARCA numérico
     pointOfSale?: number;
     invoiceNumber?: number;
     issueDate?: string;
