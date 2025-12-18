@@ -66,7 +66,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       extractedCuit?: string;
       extractedDate?: string;
       extractedTotal?: number;
-      extractedType?: string;
+      extractedType?: number | null; // Código ARCA numérico
       extractedPointOfSale?: number;
       extractedInvoiceNumber?: number;
       extractionConfidence?: number;

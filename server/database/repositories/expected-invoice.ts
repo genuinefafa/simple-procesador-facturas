@@ -397,18 +397,22 @@ export class ExpectedInvoiceRepository {
     pointOfSale: number,
     invoiceNumber: number
   ): Promise<ExpectedInvoice | null> {
+    const conditions = [
+      eq(expectedInvoices.cuit, cuit),
+      eq(expectedInvoices.pointOfSale, pointOfSale),
+      eq(expectedInvoices.invoiceNumber, invoiceNumber),
+      eq(expectedInvoices.status, 'pending'),
+    ];
+
+    // Solo agregar condición de tipo si no es null
+    if (type !== null) {
+      conditions.push(eq(expectedInvoices.invoiceType, type));
+    }
+
     const result = await db
       .select()
       .from(expectedInvoices)
-      .where(
-        and(
-          eq(expectedInvoices.cuit, cuit),
-          eq(expectedInvoices.invoiceType, type),
-          eq(expectedInvoices.pointOfSale, pointOfSale),
-          eq(expectedInvoices.invoiceNumber, invoiceNumber),
-          eq(expectedInvoices.status, 'pending')
-        )
-      );
+      .where(and(...conditions));
 
     return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
   }

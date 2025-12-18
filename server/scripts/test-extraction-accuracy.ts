@@ -8,6 +8,7 @@ import { OCRExtractor } from '../extractors/ocr-extractor.js';
 import { readFileSync, readdirSync } from 'fs';
 import { join, extname } from 'path';
 import { parse as parseYAML } from 'yaml';
+import { convertLetterToARCACode } from '../utils/afip-codes.js';
 
 const EXAMPLES_DIR = join(process.cwd(), '..', 'examples', 'facturas');
 
@@ -96,7 +97,9 @@ async function testExtractionAccuracy() {
             return false;
           })()
         : false;
-    const tipoMatch = detected.invoiceType === expected.factura.tipo;
+    // Convertir tipo esperado (letra) a código ARCA para comparar
+    const expectedTypeCode = convertLetterToARCACode(expected.factura.tipo);
+    const tipoMatch = detected.invoiceType === expectedTypeCode;
     const pvMatch = detected.pointOfSale === expected.factura.punto_venta;
     const numeroMatch = detected.invoiceNumber === expected.factura.numero;
     const totalMatch =

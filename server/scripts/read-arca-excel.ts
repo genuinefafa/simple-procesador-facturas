@@ -7,6 +7,9 @@ async function readARCAExcel() {
   );
 
   const worksheet = workbook.worksheets[0];
+  if (!worksheet) {
+    throw new Error('No se encontró ninguna hoja de cálculo en el archivo');
+  }
 
   // Buscar fila de headers (puede no ser la primera si hay títulos)
   let headerRowNum = 1;

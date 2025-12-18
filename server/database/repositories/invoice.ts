@@ -132,17 +132,21 @@ export class InvoiceRepository {
     pointOfSale: number,
     number: number
   ): Promise<Invoice | null> {
+    const conditions = [
+      eq(facturas.emisorCuit, emitterCuit),
+      eq(facturas.puntoVenta, pointOfSale),
+      eq(facturas.numeroComprobante, number),
+    ];
+
+    // Solo agregar condición de tipo si no es null
+    if (type !== null) {
+      conditions.push(eq(facturas.tipoComprobante, type));
+    }
+
     const result = await db
       .select()
       .from(facturas)
-      .where(
-        and(
-          eq(facturas.emisorCuit, emitterCuit),
-          eq(facturas.tipoComprobante, type),
-          eq(facturas.puntoVenta, pointOfSale),
-          eq(facturas.numeroComprobante, number)
-        )
-      )
+      .where(and(...conditions))
       .limit(1);
 
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;

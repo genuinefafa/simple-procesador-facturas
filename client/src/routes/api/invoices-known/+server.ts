@@ -8,7 +8,7 @@ type ExpectedInvoice = {
   cuit: string;
   emitterName?: string | null;
   issueDate: string;
-  invoiceType: string;
+  invoiceType: number | null; // Código ARCA numérico
   pointOfSale: number;
   invoiceNumber: number;
   total?: number | null;
@@ -23,7 +23,7 @@ type FinalInvoice = {
   cuit: string;
   emitterName?: string | null;
   issueDate: string | null;
-  invoiceType: string | null;
+  invoiceType: number | null; // Código ARCA numérico
   pointOfSale: number | null;
   invoiceNumber: number | null;
   total?: number | null;

@@ -41,7 +41,7 @@ export interface ProcessingResult {
     cuit?: string;
     date?: string;
     total?: number;
-    invoiceType?: string;
+    invoiceType?: number | null; // Código ARCA numérico
     pointOfSale?: number;
     invoiceNumber?: number;
   };
@@ -563,7 +563,7 @@ export class InvoiceProcessingService {
     extractedData: {
       date?: string;
       total?: number;
-      invoiceType?: string;
+      invoiceType?: number | null; // Código ARCA numérico
       pointOfSale?: number;
       invoiceNumber?: number;
     }

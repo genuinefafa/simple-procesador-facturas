@@ -9,8 +9,9 @@ import { InvoiceRepository } from '../../database/repositories/invoice.js';
 import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice.js';
 import { getConfig } from '../../utils/config-loader.js';
 import type { InvoiceData } from './google-integration.service.js';
-import type { InvoiceType, Currency } from '../../utils/types.js';
+import type { Currency } from '../../utils/types.js';
 import { format } from 'date-fns';
+import { getARCACodeFromFriendlyType, getFriendlyType } from '../../utils/afip-codes.js';
 
 export type SyncMode = 'sync' | 'push' | 'pull';
 export type SheetType = 'emisores' | 'facturas' | 'esperadas' | 'logs';
@@ -207,9 +208,17 @@ export class GoogleSyncService {
       for (const invoice of localInvoices) {
         try {
           // Verificar si ya existe en Google
+          const friendlyType = getFriendlyType(invoice.invoiceType);
+          if (!friendlyType) {
+            console.warn(
+              `⚠️  Tipo de comprobante desconocido para factura ${invoice.id}, se omitirá`
+            );
+            stats.errors++;
+            continue;
+          }
           const existing = await this.googleService.findExistingInvoice(
             invoice.emitterCuit,
-            invoice.invoiceType,
+            friendlyType,
             invoice.pointOfSale,
             invoice.invoiceNumber
           );
@@ -229,7 +238,7 @@ export class GoogleSyncService {
             const invoiceData: InvoiceData = {
               cuit: invoice.emitterCuit,
               fechaEmision,
-              tipoComprobante: invoice.invoiceType,
+              tipoComprobante: getFriendlyType(invoice.invoiceType) || 'UNKN', // Convertir número ARCA a friendlyType para Google
               puntoVenta: invoice.pointOfSale,
               numeroComprobante: invoice.invoiceNumber,
               total: invoice.total || 0,
@@ -273,9 +282,13 @@ export class GoogleSyncService {
       for (const googleInvoice of googleInvoices) {
         try {
           // Verificar si ya existe localmente
+          // Convertir friendlyType de Google (FACA, FACB) a código ARCA numérico
+          const invoiceTypeCode =
+            getARCACodeFromFriendlyType(googleInvoice.tipoComprobante) ?? null;
+
           const existing = await this.invoiceRepo.findByEmitterAndNumber(
             googleInvoice.emisorCuit,
-            googleInvoice.tipoComprobante as InvoiceType,
+            invoiceTypeCode,
             googleInvoice.puntoVenta,
             googleInvoice.numeroComprobante
           );
@@ -308,7 +321,7 @@ export class GoogleSyncService {
             await this.invoiceRepo.create({
               emitterCuit: googleInvoice.emisorCuit,
               issueDate,
-              invoiceType: googleInvoice.tipoComprobante as InvoiceType,
+              invoiceType: invoiceTypeCode,
               pointOfSale: googleInvoice.puntoVenta,
               invoiceNumber: googleInvoice.numeroComprobante,
               total: googleInvoice.total,
@@ -372,7 +385,7 @@ export class GoogleSyncService {
             cuit: expected.cuit,
             nombreEmisor: expected.emitterName || '',
             fechaEmision,
-            tipoComprobante: expected.invoiceType,
+            tipoComprobante: getFriendlyType(expected.invoiceType) || 'UNKN', // Convertir número ARCA a friendlyType para Google
             puntoVenta: expected.pointOfSale,
             numeroComprobante: expected.invoiceNumber,
             total: expected.total || 0,
@@ -407,7 +420,7 @@ export class GoogleSyncService {
         cuit: string;
         emitterName?: string;
         issueDate: string;
-        invoiceType: string;
+        invoiceType: number | null; // Código ARCA numérico (puede ser null si no se reconoce)
         pointOfSale: number;
         invoiceNumber: number;
         total?: number;
@@ -417,9 +430,12 @@ export class GoogleSyncService {
       for (const googleEsp of googleExpected) {
         try {
           // Verificar si ya existe localmente
+          // Convertir friendlyType de Google (FACA, FACB) a código ARCA numérico
+          const invoiceTypeCode = getARCACodeFromFriendlyType(googleEsp.tipoComprobante) ?? null;
+
           const existing = await this.expectedInvoiceRepo.findExactMatch(
             googleEsp.cuit,
-            googleEsp.tipoComprobante,
+            invoiceTypeCode,
             googleEsp.puntoVenta,
             googleEsp.numeroComprobante
           );
@@ -440,7 +456,7 @@ export class GoogleSyncService {
               cuit: googleEsp.cuit,
               emitterName: googleEsp.nombreEmisor || undefined,
               issueDate,
-              invoiceType: googleEsp.tipoComprobante,
+              invoiceType: invoiceTypeCode,
               pointOfSale: googleEsp.puntoVenta,
               invoiceNumber: googleEsp.numeroComprobante,
               total: googleEsp.total,
@@ -460,7 +476,19 @@ export class GoogleSyncService {
       }
 
       // Crear lote e importar facturas nuevas
-      if (newInvoices.length > 0) {
+      // Filtrar facturas sin tipo (null) antes de importar
+      const validInvoices = newInvoices.filter((inv) => inv.invoiceType !== null) as Array<{
+        cuit: string;
+        emitterName?: string;
+        issueDate: string;
+        invoiceType: number; // Garantizado que no es null después del filtro
+        pointOfSale: number;
+        invoiceNumber: number;
+        total?: number;
+        cae?: string;
+      }>;
+
+      if (validInvoices.length > 0) {
         const batch = await this.expectedInvoiceRepo.createBatch({
           filename: `google-sync-${format(new Date(), 'yyyy-MM-dd-HH-mm-ss')}.json`,
           totalRows: googleExpected.length,
@@ -469,7 +497,7 @@ export class GoogleSyncService {
           errorRows: 0,
         });
 
-        const result = await this.expectedInvoiceRepo.createManyInvoices(newInvoices, batch.id);
+        const result = await this.expectedInvoiceRepo.createManyInvoices(validInvoices, batch.id);
         stats.downloaded = result.created.length + result.updated.length;
 
         // Actualizar estadísticas del lote

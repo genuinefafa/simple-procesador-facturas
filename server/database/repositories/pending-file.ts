@@ -17,7 +17,7 @@ export interface PendingFile {
   extractedCuit: string | null;
   extractedDate: string | null;
   extractedTotal: number | null;
-  extractedType: string | null;
+  extractedType: number | null; // Código ARCA numérico (1, 6, 11, etc.)
   extractedPointOfSale: number | null;
   extractedInvoiceNumber: number | null;
   extractionConfidence: number | null;
@@ -61,7 +61,7 @@ export class PendingFileRepository {
     extractedCuit?: string;
     extractedDate?: string;
     extractedTotal?: number;
-    extractedType?: string;
+    extractedType?: number | null; // Código ARCA numérico
     extractedPointOfSale?: number;
     extractedInvoiceNumber?: number;
     extractionConfidence?: number;
@@ -145,7 +145,7 @@ export class PendingFileRepository {
       extractedCuit?: string;
       extractedDate?: string;
       extractedTotal?: number;
-      extractedType?: string;
+      extractedType?: number | null; // Código ARCA numérico
       extractedPointOfSale?: number;
       extractedInvoiceNumber?: number;
       extractionConfidence?: number;
