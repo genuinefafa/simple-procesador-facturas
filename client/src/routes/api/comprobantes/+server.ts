@@ -10,7 +10,7 @@ export type Final = {
   cuit: string;
   emitterName?: string | null;
   issueDate: string | null;
-  invoiceType: string | null;
+  invoiceType: number | null; // Código ARCA numérico (1, 6, 11, etc.)
   pointOfSale: number | null;
   invoiceNumber: number | null;
   total?: number | null;
@@ -27,7 +27,7 @@ export type Expected = {
   cuit: string;
   emitterName?: string | null;
   issueDate: string;
-  invoiceType: string;
+  invoiceType: number | null; // Código ARCA numérico (1, 6, 11, etc.)
   pointOfSale: number;
   invoiceNumber: number;
   total?: number | null;
