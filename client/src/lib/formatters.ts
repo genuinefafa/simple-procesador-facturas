@@ -133,9 +133,56 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 }
 
 /**
+ * Mapeo de códigos ARCA a información de tipo de comprobante
+ * Basado en los códigos numéricos oficiales de AFIP/ARCA
+ */
+const ARCA_CODE_MAP: Record<number, { friendlyType: string; icon: string; description: string }> = {
+  1: { friendlyType: 'FACA', icon: '📄', description: 'Factura A' },
+  6: { friendlyType: 'FACB', icon: '📋', description: 'Factura B' },
+  11: { friendlyType: 'FACC', icon: '📑', description: 'Factura C' },
+  19: { friendlyType: 'FACE', icon: '📄', description: 'Factura E' },
+  51: { friendlyType: 'FACM', icon: '📄', description: 'Factura M' },
+  3: { friendlyType: 'NCRA', icon: '↩️', description: 'Nota de Crédito A' },
+  8: { friendlyType: 'NCRB', icon: '↩️', description: 'Nota de Crédito B' },
+  13: { friendlyType: 'NCRC', icon: '↩️', description: 'Nota de Crédito C' },
+  2: { friendlyType: 'NDBA', icon: '➡️', description: 'Nota de Débito A' },
+  7: { friendlyType: 'NDBB', icon: '➡️', description: 'Nota de Débito B' },
+  12: { friendlyType: 'NDBC', icon: '➡️', description: 'Nota de Débito C' },
+};
+
+/**
+ * Obtiene el tipo amigable (friendlyType) a partir de un código ARCA
+ * @param arcaCode Código ARCA numérico (1, 6, 11, etc.)
+ * @returns FriendlyType de 4 letras (FACA, FACB, etc.) o "UNKN" si no se encuentra
+ */
+export function getFriendlyType(arcaCode: number | null | undefined): string {
+  if (arcaCode === null || arcaCode === undefined) return 'UNKN';
+  return ARCA_CODE_MAP[arcaCode]?.friendlyType || 'UNKN';
+}
+
+/**
+ * Obtiene información completa del tipo de comprobante a partir del código ARCA
+ * @param arcaCode Código ARCA numérico (1, 6, 11, etc.)
+ * @returns Objeto con {friendlyType, icon, description}
+ */
+export function getInvoiceTypeFromARCA(arcaCode: number | null | undefined): {
+  friendlyType: string;
+  icon: string;
+  description: string;
+} {
+  if (arcaCode === null || arcaCode === undefined) {
+    return { friendlyType: 'UNKN', icon: '❓', description: 'Desconocido' };
+  }
+  return (
+    ARCA_CODE_MAP[arcaCode] || { friendlyType: 'UNKN', icon: '❓', description: 'Desconocido' }
+  );
+}
+
+/**
  * Retorna ícono y etiqueta legible para tipos de comprobante
  * @param type Tipo de comprobante (ej: "Factura A", "Nota de Crédito")
  * @returns Objeto con {icon, label}
+ * @deprecated Usar getInvoiceTypeFromARCA con códigos numéricos ARCA
  */
 export function getInvoiceTypeIcon(type: string | null | undefined): {
   icon: string;
