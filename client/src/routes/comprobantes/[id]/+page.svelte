@@ -7,7 +7,13 @@
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
   import { invalidateAll, goto } from '$app/navigation';
-  import { formatDateTime, formatDateISO } from '$lib/formatters';
+  import {
+    formatDateTime,
+    formatDateISO,
+    getFriendlyType,
+    getInvoiceTypeFromARCA,
+  } from '$lib/formatters';
+  import { ARCA_INVOICE_TYPES } from '$lib/constants/arca-codes';
 
   let { data } = $props();
   let comprobante = $derived(data.comprobante);
@@ -40,7 +46,7 @@
 
   let facuraData = $state({
     cuit: '',
-    invoiceType: '',
+    invoiceType: null as number | null, // Código ARCA numérico
     pointOfSale: null as number | null,
     invoiceNumber: null as number | null,
     issueDate: '',
@@ -233,7 +239,7 @@
   function validateFactura(): string[] {
     const errors: string[] = [];
     if (!facuraData.cuit?.trim()) errors.push('CUIT es requerido');
-    if (!facuraData.invoiceType?.trim()) errors.push('Tipo de comprobante es requerido');
+    if (facuraData.invoiceType === null) errors.push('Tipo de comprobante es requerido');
     if (!facuraData.pointOfSale) errors.push('Punto de venta es requerido');
     if (!facuraData.invoiceNumber) errors.push('Número de factura es requerido');
     if (!facuraData.issueDate) errors.push('Fecha es requerida');
@@ -575,14 +581,27 @@
         </div>
         <div class="form-group">
           <label for="tipo">Tipo *</label>
-          <input
-            id="tipo"
-            type="text"
-            bind:value={facuraData.invoiceType}
-            required
-            readonly={isReadOnly}
-            class:view-only={isReadOnly}
-          />
+          {#if isReadOnly}
+            <input
+              id="tipo"
+              type="text"
+              value={facuraData.invoiceType
+                ? `${getInvoiceTypeFromARCA(facuraData.invoiceType).description} (${facuraData.invoiceType})`
+                : ''}
+              readonly
+              class="view-only"
+            />
+          {:else}
+            <select id="tipo" bind:value={facuraData.invoiceType} required>
+              <option value={null}>Seleccionar tipo...</option>
+              {#each ARCA_INVOICE_TYPES as type}
+                <option value={type.code}>
+                  {type.icon}
+                  {type.description} ({type.code})
+                </option>
+              {/each}
+            </select>
+          {/if}
         </div>
         <div class="form-group">
           <label for="pv">Punto de Venta *</label>
@@ -694,7 +713,15 @@
               </div>
               <div class="data-item">
                 <span class="label">Tipo:</span>
-                <span class="value">{comprobante.expected.invoiceType}</span>
+                <span class="value">
+                  {#if comprobante.expected.invoiceType}
+                    {getInvoiceTypeFromARCA(comprobante.expected.invoiceType).icon}
+                    {getInvoiceTypeFromARCA(comprobante.expected.invoiceType).description}
+                    ({comprobante.expected.invoiceType})
+                  {:else}
+                    —
+                  {/if}
+                </span>
               </div>
               <div class="data-item">
                 <span class="label">Punto de Venta:</span>
@@ -795,7 +822,15 @@
               </div>
               <div class="data-item">
                 <span class="label">Tipo:</span>
-                <span class="value">{comprobante.pending.extractedType || '—'}</span>
+                <span class="value">
+                  {#if comprobante.pending.extractedType}
+                    {getInvoiceTypeFromARCA(comprobante.pending.extractedType).icon}
+                    {getInvoiceTypeFromARCA(comprobante.pending.extractedType).description}
+                    ({comprobante.pending.extractedType})
+                  {:else}
+                    —
+                  {/if}
+                </span>
               </div>
               <div class="data-item">
                 <span class="label">P.V.:</span>
@@ -838,7 +873,8 @@
                     <div class="match-card">
                       <div class="match-header">
                         <span class="match-title">
-                          {match.invoiceType}-{String(match.pointOfSale).padStart(4, '0')}-{String(
+                          {getFriendlyType(match.invoiceType)}
+                          {String(match.pointOfSale).padStart(4, '0')}-{String(
                             match.invoiceNumber
                           ).padStart(8, '0')}
                         </span>

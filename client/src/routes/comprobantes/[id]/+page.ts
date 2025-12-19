@@ -8,7 +8,7 @@ export type Final = {
   emitterName?: string | null;
   issueDate: string | null;
   processedAt?: string | null;
-  invoiceType: string | null;
+  invoiceType: number | null; // Código ARCA numérico
   pointOfSale: number | null;
   invoiceNumber: number | null;
   total?: number | null;
@@ -26,7 +26,7 @@ export type Expected = {
   cuit: string;
   emitterName?: string | null;
   issueDate: string;
-  invoiceType: string;
+  invoiceType: number | null; // Código ARCA numérico
   pointOfSale: number;
   invoiceNumber: number;
   total?: number | null;
@@ -44,7 +44,7 @@ export type Pending = {
   extractedCuit?: string | null;
   extractedDate?: string | null;
   extractedTotal?: number | null;
-  extractedType?: string | null;
+  extractedType?: number | null; // Código ARCA numérico
   extractedPointOfSale?: number | null;
   extractedInvoiceNumber?: number | null;
   extractionConfidence?: number | null;
@@ -57,7 +57,7 @@ export type Match = {
   cuit: string;
   emitterName?: string | null;
   issueDate: string;
-  invoiceType: string;
+  invoiceType: number | null; // Código ARCA numérico
   pointOfSale: number;
   invoiceNumber: number;
   total?: number | null;
