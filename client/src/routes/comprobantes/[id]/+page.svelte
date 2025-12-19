@@ -353,6 +353,45 @@
     }
   }
 
+  async function deleteInvoice() {
+    if (!comprobante.final) {
+      toast.error('Solo se pueden eliminar facturas finalizadas');
+      return;
+    }
+
+    const confirmed = confirm(
+      '¿Estás seguro de que querés eliminar esta factura?\n\n' +
+        'La factura será eliminada pero:\n' +
+        '• Los archivos se mantendrán\n' +
+        '• Si tiene factura esperada vinculada, volverá a estado "pendiente"\n' +
+        '• Si tiene archivo pendiente vinculado, volverá a "en revisión"\n\n' +
+        'Esta acción no se puede deshacer.'
+    );
+
+    if (!confirmed) return;
+
+    const toastId = toast.loading('Eliminando factura...');
+
+    try {
+      const response = await fetch(`/api/invoices/${comprobante.final.id}`, {
+        method: 'DELETE',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast.success(data.message, { id: toastId });
+        // Redirigir a la lista de comprobantes
+        await goto('/comprobantes');
+      } else {
+        toast.error(data.error || 'Error al eliminar factura', { id: toastId });
+      }
+    } catch (err) {
+      console.error('Error al eliminar factura:', err);
+      toast.error('Error al eliminar factura', { id: toastId });
+    }
+  }
+
   // Determinar si se procesó alguna vez (tiene datos de extracción)
   const hasExtraction = $derived(
     comprobante.pending?.status === 'reviewing' || comprobante.pending?.status === 'processed'
@@ -684,6 +723,7 @@
               <Button variant="secondary" onclick={() => (editMode = !editMode)}>
                 {editMode ? 'Cancelar edición' : 'Editar'}
               </Button>
+              <Button variant="danger" onclick={deleteInvoice}>🗑️ Eliminar Factura</Button>
             {/if}
             <Button onclick={saveFactura} disabled={isReadOnly}>Guardar Factura</Button>
           </div>
