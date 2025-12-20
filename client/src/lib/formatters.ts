@@ -48,10 +48,10 @@ export function formatDateISO(dateStr?: string): string {
 }
 
 /**
- * Formatea una fecha a formato corto dd/mmm (sin año)
+ * Formatea una fecha a formato corto dd/mmm (sin año si es del año actual)
  * Ideal para tablas compactas
  * @param dateStr Fecha en formato ISO (YYYY-MM-DD)
- * @returns Fecha corta (ej: 15/dic)
+ * @returns Fecha corta (ej: 15/dic o 15/dic/2024)
  */
 export function formatDateShort(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';
@@ -74,7 +74,16 @@ export function formatDateShort(dateStr: string | null | undefined): string {
       'dic',
     ];
     const monthIdx = Number(m) - 1;
-    return `${d}/${months[monthIdx] || m}`;
+    const currentYear = new Date().getFullYear();
+    const dateYear = Number(y);
+
+    // Si es del año actual, no mostrar el año
+    if (dateYear === currentYear) {
+      return `${d}/${months[monthIdx] || m}`;
+    }
+
+    // Si es de otro año, mostrar dd/mmm/yyyy
+    return `${d}/${months[monthIdx] || m}/${y}`;
   } catch {
     return dateStr;
   }

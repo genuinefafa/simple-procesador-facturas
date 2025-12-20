@@ -7,7 +7,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { toast, Toaster } from 'svelte-sonner';
-  import { formatCurrency, getFriendlyType } from '$lib/formatters';
+  import { formatCurrency, getFriendlyType, formatDateShort } from '$lib/formatters';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -378,10 +378,9 @@
             >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
           >
           <span class="col-date"
-            >{comp.final?.issueDate ||
-              comp.expected?.issueDate ||
-              comp.pending?.extractedDate ||
-              '—'}</span
+            >{formatDateShort(
+              comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate
+            )}</span
           >
           <span class="col-total align-right"
             >{formatCurrency(

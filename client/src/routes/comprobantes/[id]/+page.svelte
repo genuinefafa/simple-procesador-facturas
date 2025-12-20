@@ -1,8 +1,10 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
+  import Dialog from '$lib/components/ui/Dialog.svelte';
   import CategoryPills from '$lib/components/CategoryPills.svelte';
   import EmitterCombobox from '$lib/components/EmitterCombobox.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
+  import InvoiceTypeSelect from '$lib/components/InvoiceTypeSelect.svelte';
   import { Accordion } from 'melt/builders';
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
@@ -10,10 +12,10 @@
   import {
     formatDateTime,
     formatDateISO,
+    formatDateShort,
     getFriendlyType,
     getInvoiceTypeFromARCA,
   } from '$lib/formatters';
-  import { ARCA_INVOICE_TYPES } from '$lib/constants/arca-codes';
 
   let { data } = $props();
   let comprobante = $derived(data.comprobante);
@@ -33,6 +35,8 @@
   let lastCopiedEmitterName = $state<string | null>(null);
   let editMode = $state(false);
   let selectedCategoryId = $state<number | null>(null);
+  let deleteDialogOpen = $state(false);
+
   let categorySelectValue = $derived.by(() => {
     const val = selectedCategoryId === null ? '' : String(selectedCategoryId);
     console.log(
@@ -353,22 +357,18 @@
     }
   }
 
-  async function deleteInvoice() {
+  function openDeleteDialog() {
     if (!comprobante.final) {
       toast.error('Solo se pueden eliminar facturas finalizadas');
       return;
     }
+    deleteDialogOpen = true;
+  }
 
-    const confirmed = confirm(
-      '¿Estás seguro de que querés eliminar esta factura?\n\n' +
-        'La factura será eliminada pero:\n' +
-        '• Los archivos se mantendrán\n' +
-        '• Si tiene factura esperada vinculada, volverá a estado "pendiente"\n' +
-        '• Si tiene archivo pendiente vinculado, volverá a "en revisión"\n\n' +
-        'Esta acción no se puede deshacer.'
-    );
+  async function confirmDelete() {
+    deleteDialogOpen = false;
 
-    if (!confirmed) return;
+    if (!comprobante.final) return;
 
     const toastId = toast.loading('Eliminando factura...');
 
@@ -381,7 +381,6 @@
 
       if (response.ok && data.success) {
         toast.success(data.message, { id: toastId });
-        // Redirigir a la lista de comprobantes
         await goto('/comprobantes');
       } else {
         toast.error(data.error || 'Error al eliminar factura', { id: toastId });
@@ -619,28 +618,7 @@
           />
         </div>
         <div class="form-group">
-          <label for="tipo">Tipo *</label>
-          {#if isReadOnly}
-            <input
-              id="tipo"
-              type="text"
-              value={facuraData.invoiceType
-                ? `${getInvoiceTypeFromARCA(facuraData.invoiceType).description} (${facuraData.invoiceType})`
-                : ''}
-              readonly
-              class="view-only"
-            />
-          {:else}
-            <select id="tipo" bind:value={facuraData.invoiceType} required>
-              <option value={null}>Seleccionar tipo...</option>
-              {#each ARCA_INVOICE_TYPES as type}
-                <option value={type.code}>
-                  {type.icon}
-                  {type.description} ({type.code})
-                </option>
-              {/each}
-            </select>
-          {/if}
+          <InvoiceTypeSelect bind:value={facuraData.invoiceType} readonly={isReadOnly} />
         </div>
         <div class="form-group">
           <label for="pv">Punto de Venta *</label>
@@ -723,7 +701,7 @@
               <Button variant="secondary" onclick={() => (editMode = !editMode)}>
                 {editMode ? 'Cancelar edición' : 'Editar'}
               </Button>
-              <Button variant="danger" onclick={deleteInvoice}>🗑️ Eliminar Factura</Button>
+              <Button variant="danger" onclick={openDeleteDialog}>🗑️ Eliminar Factura</Button>
             {/if}
             <Button onclick={saveFactura} disabled={isReadOnly}>Guardar Factura</Button>
           </div>
@@ -882,7 +860,7 @@
               </div>
               <div class="data-item">
                 <span class="label">Fecha (detectada):</span>
-                <span class="value">{comprobante.pending.extractedDate || '—'}</span>
+                <span class="value">{formatDateShort(comprobante.pending.extractedDate)}</span>
               </div>
               <div class="data-item">
                 <span class="label">Total (detectado):</span>
@@ -961,6 +939,31 @@
 </div>
 
 <Toaster position="top-right" richColors />
+
+<!-- Dialog de confirmación de eliminación -->
+<Dialog
+  bind:open={deleteDialogOpen}
+  title="⚠️ Eliminar Factura"
+  description="Esta acción no se puede deshacer"
+>
+  <div class="delete-dialog-content">
+    <p>¿Estás seguro de que querés eliminar esta factura?</p>
+
+    <div class="delete-info">
+      <p><strong>La factura será eliminada pero:</strong></p>
+      <ul>
+        <li>• Los archivos se mantendrán</li>
+        <li>• Si tiene factura esperada vinculada, volverá a estado "pendiente"</li>
+        <li>• Si tiene archivo pendiente vinculado, volverá a "en revisión"</li>
+      </ul>
+    </div>
+
+    <div class="dialog-actions">
+      <Button variant="secondary" onclick={() => (deleteDialogOpen = false)}>Cancelar</Button>
+      <Button variant="danger" onclick={confirmDelete}>Eliminar</Button>
+    </div>
+  </div>
+</Dialog>
 
 <style>
   .container {
@@ -1356,5 +1359,42 @@
     gap: var(--spacing-3);
     font-size: var(--font-size-xs);
     color: var(--color-text-secondary);
+  }
+
+  /* Dialog de eliminación */
+  .delete-dialog-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+  }
+
+  .delete-info {
+    padding: var(--spacing-4);
+    background: var(--color-warning-50);
+    border-left: 3px solid var(--color-warning);
+    border-radius: var(--radius-base);
+  }
+
+  .delete-info p {
+    margin: 0 0 var(--spacing-2) 0;
+    color: var(--color-text-primary);
+  }
+
+  .delete-info ul {
+    margin: 0;
+    padding-left: var(--spacing-4);
+    list-style: none;
+  }
+
+  .delete-info li {
+    margin: var(--spacing-1) 0;
+    color: var(--color-text-secondary);
+  }
+
+  .dialog-actions {
+    display: flex;
+    gap: var(--spacing-3);
+    justify-content: flex-end;
+    margin-top: var(--spacing-2);
   }
 </style>

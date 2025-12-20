@@ -482,6 +482,34 @@ Sistema completo de tokens CSS en `tokens.css`:
 - ✅ Tooltips informativos
 - ✅ Accesibilidad ARIA completa
 
+**Checklist Pre-Commit (scope-aware):**
+
+Este checklist aplica **exclusivamente** al código que estás modificando o agregando:
+
+- [ ] **Componentes de UI:** ¿Usaste componentes nativos de HTML (`<select>`, `<dialog>`, etc.) en lugar de Melt UI?
+  - ❌ Si usaste `<select>`, reemplazar por Melt UI Dropdown
+  - ❌ Si usaste `confirm()` o `alert()`, reemplazar por Dialog component
+  - ✅ Solo componentes de Melt UI Next (v0.42) o excepcionalmente Dialog de @melt-ui/svelte (v0.86)
+
+- [ ] **Tamaño de archivo:** Si modificaste un archivo existente, ¿quedó muy grande?
+  - Si el archivo modificado tiene >500 líneas y agregaste nueva funcionalidad:
+    - ✅ Extraer **solo lo nuevo** a un componente separado
+    - ❌ NO modularizar código existente que no tocaste
+    - ✅ Si hay código viejo que necesita refactoring, crear issue separado
+
+- [ ] **Tipos TypeScript:** ¿Los tipos están sincronizados entre cliente/servidor?
+  - ✅ `invoiceType` debe ser `number | null` (códigos ARCA)
+  - ✅ Verificar que tipos en API, loader y componentes coincidan
+
+- [ ] **Formateo de datos:** ¿Usaste funciones centralizadas para display?
+  - ✅ `getFriendlyType()` para tipos de comprobante
+  - ✅ `formatInvoiceNumber()` para números completos
+  - ✅ Constantes de `arca-codes.ts` para listas
+
+- [ ] **Navegación:** ¿Usaste `goto()` en lugar de `window.location`?
+  - ✅ `goto('/path')` mantiene SPA
+  - ❌ `window.location.href` recarga toda la página
+
 **Navegación programática:**
 ```typescript
 // ❌ MAL - Rompe SPA, recarga toda la página
