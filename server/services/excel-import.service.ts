@@ -175,14 +175,30 @@ export class ExcelImportService {
     const rows: ParsedInvoice[] = [];
     const errors: Array<{ row: number; error: string }> = [];
 
-    // Obtener headers (primera fila)
-    const headerRow = worksheet.getRow(1);
+    // Detectar fila de headers (puede ser fila 1 o 2)
+    let headerRowNumber = 1;
+    const firstRow = worksheet.getRow(1);
+    const firstRowHeaders: string[] = [];
+    firstRow.eachCell((cell, colNumber) => {
+      firstRowHeaders[colNumber - 1] = getCellStringValue(cell.value).trim();
+    });
+
+    // Si todos los headers de la primera fila son iguales, es un título repetido
+    // En ese caso, los headers reales están en la fila 2
+    const uniqueHeaders = new Set(firstRowHeaders.filter((h) => h !== ''));
+    if (uniqueHeaders.size === 1) {
+      console.info(`   ⚠️  Fila 1 parece ser un título repetido, usando fila 2 como headers`);
+      headerRowNumber = 2;
+    }
+
+    // Obtener headers
+    const headerRow = worksheet.getRow(headerRowNumber);
     const headers: string[] = [];
     headerRow.eachCell((cell, colNumber) => {
       headers[colNumber - 1] = getCellStringValue(cell.value).trim();
     });
 
-    console.info(`   📌 Headers encontrados: ${headers.join(', ')}`);
+    console.info(`   📌 Headers encontrados (fila ${headerRowNumber}): ${headers.join(', ')}`);
 
     // Auto-detectar formato (simple vs ARCA completo)
     const format = this.detectExcelFormat(headers);
@@ -218,13 +234,14 @@ export class ExcelImportService {
       }
     }
 
-    // Procesar cada fila (comenzando desde la fila 2, después del header)
+    // Procesar cada fila (comenzando después de los headers)
     let rowCount = 0;
     const emittersToProcess = new Map<string, { cuit: string; name: string }>();
+    const dataStartRow = headerRowNumber + 1;
 
     worksheet.eachRow((row, rowNumber) => {
-      // Saltar header
-      if (rowNumber === 1) return;
+      // Saltar filas de título y headers
+      if (rowNumber < dataStartRow) return;
 
       try {
         const rowData: Record<string, ExcelJS.CellValue> = {};
@@ -397,19 +414,46 @@ export class ExcelImportService {
       return undefined;
     };
 
+    // Detectar columnas opcionales de ARCA primero
+    const emitterDocNumber = findOptionalColumn(['nro. doc. emisor']);
+    const emitterDenomination = findOptionalColumn(['denominación emisor', 'denominacion emisor']);
+    const emitterDocType = findOptionalColumn(['tipo doc. emisor']);
+
+    // Para la columna CUIT, si no existe una columna específica de CUIT pero existe
+    // "Nro. Doc. Emisor" (Excel de comprobantes recibidos), usar esa
+    let cuitColumn: string;
+    try {
+      cuitColumn = findColumn(['cuit', 'nro. cuit', 'numero de cuit']);
+    } catch {
+      if (emitterDocNumber) {
+        console.info(
+          `   ℹ️  Usando columna "Nro. Doc. Emisor" como CUIT (Excel de comprobantes recibidos)`
+        );
+        cuitColumn = emitterDocNumber;
+      } else {
+        throw new Error('No se pudo auto-detectar columna de CUIT o Nro. Doc. Emisor');
+      }
+    }
+
     return {
-      cuit: findColumn(['cuit', 'nro. cuit', 'numero de cuit']),
+      cuit: cuitColumn,
       emitterName: headers.find((h) => /nombre|razon social|emisor|proveedor/i.test(h)),
       issueDate: findColumn(['fecha', 'fecha emision', 'fecha de emision']),
       invoiceType: findColumn(['tipo', 'tipo comprobante', 'comprobante']),
       pointOfSale: findColumn(['punto de venta', 'pto venta', 'punto venta', 'pto. vta']),
-      invoiceNumber: findColumn(['numero', 'nro comprobante', 'numero comprobante']),
-      total: headers.find((h) => /total|importe|monto/i.test(h)),
-      cae: headers.find((h) => /cae|codigo autorizacion/i.test(h)),
+      invoiceNumber: findColumn([
+        'numero desde',
+        'número desde',
+        'numero',
+        'nro comprobante',
+        'numero comprobante',
+      ]),
+      total: headers.find((h) => /total|importe|monto|imp. total/i.test(h)),
+      cae: headers.find((h) => /cae|cód. autorización|codigo autorizacion/i.test(h)),
       // Columnas adicionales de ARCA
-      emitterDocType: findOptionalColumn(['tipo doc. emisor']),
-      emitterDocNumber: findOptionalColumn(['nro. doc. emisor']),
-      emitterDenomination: findOptionalColumn(['denominación emisor', 'denominacion emisor']),
+      emitterDocType,
+      emitterDocNumber,
+      emitterDenomination,
     };
   }
 
