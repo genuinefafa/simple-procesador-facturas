@@ -6,6 +6,7 @@ import ExcelJS from 'exceljs';
 import { normalizeCUIT, validateCUIT } from '../validators/cuit.js';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
+import { normalizeEmitterName } from '../utils/emitter-name-normalizer.js';
 import path from 'path';
 
 /**
@@ -267,7 +268,9 @@ export class ExcelImportService {
 
               // Validar CUIT
               if (validateCUIT(cuit)) {
-                emittersToProcess.set(cuitNumerico, { cuit, name: emitterDenomination });
+                // Normalizar el nombre del emisor (capitalización y abreviación de tipos societarios)
+                const normalizedName = normalizeEmitterName(emitterDenomination);
+                emittersToProcess.set(cuitNumerico, { cuit, name: normalizedName });
               } else {
                 console.warn(`   ⚠️  CUIT inválido en fila ${rowNumber}: ${cuit}`);
               }
@@ -302,29 +305,22 @@ export class ExcelImportService {
           const existingEmitter = this.emitterRepo.findByCUIT(emitterData.cuit);
 
           if (!existingEmitter) {
-            // Crear nuevo emisor
+            // Crear nuevo emisor con nombre normalizado
             this.emitterRepo.create({
               cuit: emitterData.cuit,
               cuitNumeric: cuitNumerico,
               name: emitterData.name,
-              legalName: emitterData.name, // ARCA tiene la razón social oficial
+              legalName: emitterData.name, // ARCA tiene la razón social oficial normalizada
               aliases: [],
             });
             emittersCreated++;
             console.info(`      ✅ Emisor creado: ${emitterData.name} (${emitterData.cuit})`);
           } else {
             emittersExisting++;
-            // Opción C del issue: actualizar solo si el nombre actual es igual al CUIT (sin ediciones manuales)
-            if (
-              existingEmitter.name === existingEmitter.cuit ||
-              existingEmitter.name === existingEmitter.cuitNumeric
-            ) {
-              // El nombre no ha sido editado manualmente, actualizar con datos de ARCA
-              this.emitterRepo.updateName(emitterData.cuit, emitterData.name, emitterData.name);
-              console.info(
-                `      🔄 Emisor actualizado: ${emitterData.name} (${emitterData.cuit})`
-              );
-            }
+            // Siempre actualizar con los datos oficiales de ARCA (normalizados)
+            // ARCA/AFIP tiene la razón social correcta y actualizada
+            this.emitterRepo.updateName(emitterData.cuit, emitterData.name, emitterData.name);
+            console.info(`      🔄 Emisor actualizado: ${emitterData.name} (${emitterData.cuit})`);
           }
         } catch (error) {
           console.error(
