@@ -303,14 +303,7 @@ export class ExcelImportService {
               existingEmitter.name === existingEmitter.cuitNumeric
             ) {
               // El nombre no ha sido editado manualmente, actualizar con datos de ARCA
-              const stmt = this.emitterRepo['db'].prepare(`
-                UPDATE emisores
-                SET nombre = ?,
-                    razon_social = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE cuit_numerico = ?
-              `);
-              stmt.run(emitterData.name, emitterData.name, cuitNumerico);
+              this.emitterRepo.updateName(emitterData.cuit, emitterData.name, emitterData.name);
               console.info(
                 `      🔄 Emisor actualizado: ${emitterData.name} (${emitterData.cuit})`
               );
