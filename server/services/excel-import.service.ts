@@ -5,6 +5,7 @@
 import ExcelJS from 'exceljs';
 import { normalizeCUIT, validateCUIT } from '../validators/cuit.js';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice.js';
+import { EmitterRepository } from '../database/repositories/emitter.js';
 import path from 'path';
 
 /**
@@ -51,6 +52,8 @@ export interface ImportResult {
   imported: number;
   updated: number;
   unchanged: number;
+  emittersCreated: number;
+  emittersExisting: number;
   errors: Array<{ row: number; error: string }>;
 }
 
@@ -77,16 +80,27 @@ export interface ColumnMapping {
   total?: string;
   cae?: string;
   caeExpiration?: string;
+  // Columnas adicionales de ARCA para emisores
+  emitterDocType?: string;
+  emitterDocNumber?: string;
+  emitterDenomination?: string;
 }
+
+/**
+ * Tipo de formato Excel detectado
+ */
+export type ExcelFormat = 'simple' | 'arca-full';
 
 /**
  * Servicio de importación de Excel/CSV de AFIP
  */
 export class ExcelImportService {
   private repo: ExpectedInvoiceRepository;
+  private emitterRepo: EmitterRepository;
 
   constructor() {
     this.repo = new ExpectedInvoiceRepository();
+    this.emitterRepo = new EmitterRepository();
   }
 
   /**
@@ -170,6 +184,12 @@ export class ExcelImportService {
 
     console.info(`   📌 Headers encontrados: ${headers.join(', ')}`);
 
+    // Auto-detectar formato (simple vs ARCA completo)
+    const format = this.detectExcelFormat(headers);
+    console.info(
+      `   📋 Formato detectado: ${format === 'arca-full' ? 'ARCA completo (con emisores)' : 'Simple'}`
+    );
+
     // Auto-detectar columnas si no se proporciona mapeo
     const mapping = columnMapping || this.autoDetectColumns(headers);
     console.info(`   🔍 Mapeo de columnas:`);
@@ -178,6 +198,10 @@ export class ExcelImportService {
     console.info(`      Tipo: "${mapping.invoiceType}"`);
     console.info(`      Punto Venta: "${mapping.pointOfSale}"`);
     console.info(`      Número: "${mapping.invoiceNumber}"`);
+    if (format === 'arca-full') {
+      console.info(`      Denominación Emisor: "${mapping.emitterDenomination}"`);
+      console.info(`      Nro. Doc. Emisor: "${mapping.emitterDocNumber}"`);
+    }
 
     // Validar que las columnas requeridas existan
     const requiredColumns = [
@@ -196,6 +220,8 @@ export class ExcelImportService {
 
     // Procesar cada fila (comenzando desde la fila 2, después del header)
     let rowCount = 0;
+    const emittersToProcess = new Map<string, { cuit: string; name: string }>();
+
     worksheet.eachRow((row, rowNumber) => {
       // Saltar header
       if (rowNumber === 1) return;
@@ -208,6 +234,29 @@ export class ExcelImportService {
             rowData[header] = cell.value;
           }
         });
+
+        // Si es formato ARCA completo, procesar información de emisor
+        if (format === 'arca-full' && mapping.emitterDocNumber && mapping.emitterDenomination) {
+          const emitterDocNumberRaw = getCellStringValue(rowData[mapping.emitterDocNumber]).trim();
+          const emitterDenomination = getCellStringValue(
+            rowData[mapping.emitterDenomination]
+          ).trim();
+
+          if (emitterDocNumberRaw && emitterDenomination) {
+            // Normalizar CUIT del emisor
+            const cuitNumerico = emitterDocNumberRaw.replace(/\D/g, '');
+            if (cuitNumerico.length === 11) {
+              const cuit = `${cuitNumerico.substring(0, 2)}-${cuitNumerico.substring(2, 10)}-${cuitNumerico.substring(10)}`;
+
+              // Validar CUIT
+              if (validateCUIT(cuit)) {
+                emittersToProcess.set(cuitNumerico, { cuit, name: emitterDenomination });
+              } else {
+                console.warn(`   ⚠️  CUIT inválido en fila ${rowNumber}: ${cuit}`);
+              }
+            }
+          }
+        }
 
         const parsed = this.parseRow(rowData, mapping);
         rows.push(parsed);
@@ -222,6 +271,61 @@ export class ExcelImportService {
 
     console.info(`   📊 Filas procesadas: ${rowCount}`);
     console.info(`   ❌ Errores encontrados: ${errors.length}`);
+
+    // Procesar emisores si es formato ARCA completo
+    let emittersCreated = 0;
+    let emittersExisting = 0;
+
+    if (format === 'arca-full' && emittersToProcess.size > 0) {
+      console.info(`   👥 Procesando ${emittersToProcess.size} emisores únicos...`);
+
+      for (const [cuitNumerico, emitterData] of emittersToProcess) {
+        try {
+          // Buscar si el emisor ya existe
+          const existingEmitter = this.emitterRepo.findByCUIT(emitterData.cuit);
+
+          if (!existingEmitter) {
+            // Crear nuevo emisor
+            this.emitterRepo.create({
+              cuit: emitterData.cuit,
+              cuitNumeric: cuitNumerico,
+              name: emitterData.name,
+              legalName: emitterData.name, // ARCA tiene la razón social oficial
+              aliases: [],
+            });
+            emittersCreated++;
+            console.info(`      ✅ Emisor creado: ${emitterData.name} (${emitterData.cuit})`);
+          } else {
+            emittersExisting++;
+            // Opción C del issue: actualizar solo si el nombre actual es igual al CUIT (sin ediciones manuales)
+            if (
+              existingEmitter.name === existingEmitter.cuit ||
+              existingEmitter.name === existingEmitter.cuitNumeric
+            ) {
+              // El nombre no ha sido editado manualmente, actualizar con datos de ARCA
+              const stmt = this.emitterRepo['db'].prepare(`
+                UPDATE emisores
+                SET nombre = ?,
+                    razon_social = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE cuit_numerico = ?
+              `);
+              stmt.run(emitterData.name, emitterData.name, cuitNumerico);
+              console.info(
+                `      🔄 Emisor actualizado: ${emitterData.name} (${emitterData.cuit})`
+              );
+            }
+          }
+        } catch (error) {
+          console.error(
+            `      ❌ Error procesando emisor ${emitterData.cuit}: ${error instanceof Error ? error.message : 'Error desconocido'}`
+          );
+        }
+      }
+
+      console.info(`   ✅ Emisores creados: ${emittersCreated}`);
+      console.info(`   ℹ️  Emisores ya existentes: ${emittersExisting}`);
+    }
 
     // Crear lote de importación
     const batch = await this.repo.createBatch({
@@ -257,8 +361,19 @@ export class ExcelImportService {
       imported: result.created.length,
       updated: result.updated.length,
       unchanged: result.unchanged.length,
+      emittersCreated,
+      emittersExisting,
       errors,
     };
+  }
+
+  /**
+   * Detecta automáticamente el formato del Excel (simple vs ARCA completo)
+   */
+  private detectExcelFormat(headers: string[]): ExcelFormat {
+    const arcaColumns = ['Denominación Emisor', 'Nro. Doc. Emisor', 'Tipo Doc. Emisor'];
+    const hasArcaColumns = arcaColumns.every((col) => headers.some((h) => h.trim() === col));
+    return hasArcaColumns ? 'arca-full' : 'simple';
   }
 
   /**
@@ -278,6 +393,17 @@ export class ExcelImportService {
       throw new Error(`No se pudo auto-detectar columna para patrones: ${patterns.join(', ')}`);
     };
 
+    const findOptionalColumn = (patterns: string[]): string | undefined => {
+      for (const pattern of patterns) {
+        const index = normalizedHeaders.findIndex((h) => h.includes(pattern));
+        if (index !== -1) {
+          const header = headers[index];
+          if (header) return header;
+        }
+      }
+      return undefined;
+    };
+
     return {
       cuit: findColumn(['cuit', 'nro. cuit', 'numero de cuit']),
       emitterName: headers.find((h) => /nombre|razon social|emisor|proveedor/i.test(h)),
@@ -287,6 +413,10 @@ export class ExcelImportService {
       invoiceNumber: findColumn(['numero', 'nro comprobante', 'numero comprobante']),
       total: headers.find((h) => /total|importe|monto/i.test(h)),
       cae: headers.find((h) => /cae|codigo autorizacion/i.test(h)),
+      // Columnas adicionales de ARCA
+      emitterDocType: findOptionalColumn(['tipo doc. emisor']),
+      emitterDocNumber: findOptionalColumn(['nro. doc. emisor']),
+      emitterDenomination: findOptionalColumn(['denominación emisor', 'denominacion emisor']),
     };
   }
 
