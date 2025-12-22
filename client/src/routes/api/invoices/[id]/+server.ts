@@ -201,23 +201,31 @@ export const DELETE: RequestHandler = async ({ params }) => {
 
     const invoiceRepo = new InvoiceRepository();
 
-    // Verificar que existe
-    const invoice = await invoiceRepo.findById(invoiceId);
-    if (!invoice) {
-      return json({ success: false, error: 'Factura no encontrada' }, { status: 404 });
+    // Eliminar factura con desvinculación segura
+    const result = await invoiceRepo.deleteWithUnlink(invoiceId);
+
+    if (!result.success) {
+      return json({ success: false, error: result.error }, { status: 404 });
     }
 
-    // Eliminar factura
-    if (typeof (invoiceRepo as any).delete === 'function') {
-      await (invoiceRepo as any).delete(invoiceId);
-    } else {
-      // Si no existe método delete, usar update con estado
-      console.warn('Delete method not available, skipping deletion');
+    // Preparar mensaje informativo
+    const messages: string[] = ['Factura eliminada correctamente'];
+    if (result.unlinkedExpected) {
+      messages.push(
+        `Factura esperada #${result.unlinkedExpected} desvinculada y marcada como pendiente`
+      );
+    }
+    if (result.unlinkedPending) {
+      messages.push(
+        `Archivo pendiente #${result.unlinkedPending} desvinculado y marcado para revisión`
+      );
     }
 
     return json({
       success: true,
-      message: 'Factura eliminada correctamente',
+      message: messages.join('. '),
+      unlinkedExpected: result.unlinkedExpected,
+      unlinkedPending: result.unlinkedPending,
     });
   } catch (error) {
     console.error('Error deleting invoice:', error);

@@ -4,9 +4,9 @@
 
 import pdf from 'pdf-parse';
 import { readFileSync } from 'fs';
-import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
+import type { ExtractionResult, DocumentKind } from '../utils/types';
 import { extractCUITsWithContext } from '../validators/cuit';
-import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
+import { extractInvoiceTypeWithAFIP, convertLetterToARCACode } from '../utils/afip-codes';
 
 export class PDFExtractor {
   /**
@@ -382,7 +382,7 @@ export class PDFExtractor {
 
     // Extraer tipo de comprobante (A, B, C, E, M, X) y tipo de documento (FAC, NCR, NDB)
     // Usa el mapeo de códigos AFIP para mayor precisión (ej: "11 - Factura C" → código 11 = FAC C)
-    let invoiceType: InvoiceType | undefined;
+    let invoiceType: string | undefined; // Temporal: letra que se convierte a código ARCA después
     let documentKind: DocumentKind = 'FAC'; // Por defecto es factura
 
     const afipResult = extractInvoiceTypeWithAFIP(text);
@@ -421,7 +421,7 @@ export class PDFExtractor {
         // Si el patrón captura 3 grupos (letra, pto venta, número)
         if (match.length === 4 && /[A-C]/.test(match[1]!)) {
           if (!invoiceType) {
-            invoiceType = match[1] as 'A' | 'B' | 'C';
+            invoiceType = match[1]; // Letra A, B o C
           }
           pointOfSale = parseInt(match[2]!, 10);
           invoiceNumber = parseInt(match[3]!, 10);
@@ -458,6 +458,15 @@ export class PDFExtractor {
       parsedTotal = parseFloat(normalized);
     }
 
+    // Convertir invoiceType de letra a código ARCA (TEMPORAL)
+    // TODO: Eliminar cuando extractores lean códigos ARCA nativamente (Issue en M5)
+    let invoiceTypeCode: number | null = null;
+    if (typeof invoiceType === 'string') {
+      invoiceTypeCode = convertLetterToARCACode(invoiceType);
+    } else if (typeof invoiceType === 'number') {
+      invoiceTypeCode = invoiceType;
+    }
+
     return {
       success: confidence > 50,
       confidence,
@@ -465,7 +474,7 @@ export class PDFExtractor {
         cuit,
         date,
         total: parsedTotal,
-        invoiceType,
+        invoiceType: invoiceTypeCode,
         documentKind,
         pointOfSale,
         invoiceNumber,

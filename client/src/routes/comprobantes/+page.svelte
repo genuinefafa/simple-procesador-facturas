@@ -7,7 +7,7 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { toast, Toaster } from 'svelte-sonner';
-  import { formatCurrency } from '$lib/formatters';
+  import { formatCurrency, getFriendlyType, formatDateShort } from '$lib/formatters';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -60,14 +60,15 @@
   function formatComprobante(c: Comprobante): string {
     if (c.final) {
       const f = c.final;
-      const type = f.invoiceType ?? '—';
+      const type = getFriendlyType(f.invoiceType);
       const pos = f.pointOfSale != null ? String(f.pointOfSale).padStart(4, '0') : '----';
       const num = f.invoiceNumber != null ? String(f.invoiceNumber).padStart(8, '0') : '--------';
-      return `${type}-${pos}-${num}`;
+      return `${type} ${pos}-${num}`;
     }
     if (c.expected) {
       const e = c.expected;
-      return `${e.invoiceType}-${String(e.pointOfSale).padStart(4, '0')}-${String(e.invoiceNumber).padStart(8, '0')}`;
+      const type = getFriendlyType(e.invoiceType);
+      return `${type} ${String(e.pointOfSale).padStart(4, '0')}-${String(e.invoiceNumber).padStart(8, '0')}`;
     }
     if (c.pending) {
       return c.pending.originalFilename;
@@ -377,10 +378,9 @@
             >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
           >
           <span class="col-date"
-            >{comp.final?.issueDate ||
-              comp.expected?.issueDate ||
-              comp.pending?.extractedDate ||
-              '—'}</span
+            >{formatDateShort(
+              comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate
+            )}</span
           >
           <span class="col-total align-right"
             >{formatCurrency(

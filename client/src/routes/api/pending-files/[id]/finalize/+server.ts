@@ -13,6 +13,7 @@ import { join, dirname, basename, extname } from 'path';
 import { mkdir, rename, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import type { InvoiceType } from '@server/utils/types.js';
+import { getFriendlyType } from '@server/utils/afip-codes.js';
 
 const PROCESSED_DIR = join(process.cwd(), '..', 'data', 'processed');
 
@@ -50,7 +51,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     const extractedCuit = (overrides.emitterCuit as string) ?? pendingFile.extractedCuit;
     const extractedDate = (overrides.issueDate as string) ?? pendingFile.extractedDate;
-    const extractedType = (overrides.invoiceType as string) ?? pendingFile.extractedType;
+    const extractedType = (overrides.invoiceType as number | null) ?? pendingFile.extractedType; // Código ARCA numérico
     const extractedPointOfSale =
       (overrides.pointOfSale as number) ?? pendingFile.extractedPointOfSale;
     const extractedInvoiceNumber =
@@ -120,13 +121,14 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Crear factura
     const invoiceRepo = new InvoiceRepository();
-    const invoiceType = extractedType as InvoiceType;
+    const invoiceType = extractedType; // Ya es number | null (código ARCA)
 
     // Generar nombre del archivo procesado
     const dateFormatted = extractedDate.replace(/-/g, ''); // YYYYMMDD
     const cuitNumeric = normalizedCuit.replace(/-/g, '');
     const fileExt = extname(pendingFile.originalFilename);
-    const processedFileName = `${cuitNumeric}_${dateFormatted}_${invoiceType}-${String(extractedPointOfSale).padStart(4, '0')}-${String(extractedInvoiceNumber).padStart(8, '0')}${fileExt}`;
+    const friendlyType = getFriendlyType(invoiceType) || 'UNKN';
+    const processedFileName = `${cuitNumeric}_${dateFormatted}_${friendlyType}-${String(extractedPointOfSale).padStart(4, '0')}-${String(extractedInvoiceNumber).padStart(8, '0')}${fileExt}`;
 
     // Crear directorio para emisor si no existe
     const emitterDir = join(PROCESSED_DIR, cuitNumeric, extractedDate.substring(0, 4)); // YYYY

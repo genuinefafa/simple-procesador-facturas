@@ -132,17 +132,21 @@ export class InvoiceRepository {
     pointOfSale: number,
     number: number
   ): Promise<Invoice | null> {
+    const conditions = [
+      eq(facturas.emisorCuit, emitterCuit),
+      eq(facturas.puntoVenta, pointOfSale),
+      eq(facturas.numeroComprobante, number),
+    ];
+
+    // Solo agregar condición de tipo si no es null
+    if (type !== null) {
+      conditions.push(eq(facturas.tipoComprobante, type));
+    }
+
     const result = await db
       .select()
       .from(facturas)
-      .where(
-        and(
-          eq(facturas.emisorCuit, emitterCuit),
-          eq(facturas.tipoComprobante, type),
-          eq(facturas.puntoVenta, pointOfSale),
-          eq(facturas.numeroComprobante, number)
-        )
-      )
+      .where(and(...conditions))
       .limit(1);
 
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
@@ -315,5 +319,61 @@ export class InvoiceRepository {
     const result = await db.update(facturas).set(updates).where(eq(facturas.id, id)).returning();
 
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
+  }
+
+  /**
+   * Elimina una factura con desvinculación segura:
+   * - Si tiene expected_invoice_id, vuelve el expected a "pending"
+   * - Si tiene pending_file_id, vuelve el pending a "reviewing"
+   * - Mantiene archivos físicos intactos
+   */
+  async deleteWithUnlink(
+    id: number
+  ): Promise<
+    | { success: true; unlinkedExpected?: number; unlinkedPending?: number }
+    | { success: false; error: string }
+  > {
+    try {
+      // Primero obtener la factura para saber qué desvincular
+      const invoice = await this.findById(id);
+      if (!invoice) {
+        return { success: false, error: 'Factura no encontrada' };
+      }
+
+      const result: { success: true; unlinkedExpected?: number; unlinkedPending?: number } = {
+        success: true,
+      };
+
+      // Si tiene expected vinculado, revertir status a "pending"
+      if (invoice.expectedInvoiceId) {
+        const { expectedInvoices } = await import('../schema.js');
+        await db
+          .update(expectedInvoices)
+          .set({ status: 'pending' })
+          .where(eq(expectedInvoices.id, invoice.expectedInvoiceId));
+        result.unlinkedExpected = invoice.expectedInvoiceId;
+      }
+
+      // Si tiene pending file vinculado, revertir status a "reviewing"
+      if (invoice.pendingFileId) {
+        const { pendingFiles } = await import('../schema.js');
+        await db
+          .update(pendingFiles)
+          .set({ status: 'reviewing' })
+          .where(eq(pendingFiles.id, invoice.pendingFileId));
+        result.unlinkedPending = invoice.pendingFileId;
+      }
+
+      // Finalmente, eliminar la factura
+      await db.delete(facturas).where(eq(facturas.id, id));
+
+      return result;
+    } catch (error) {
+      console.error('Error deleting invoice:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido al eliminar factura',
+      };
+    }
   }
 }

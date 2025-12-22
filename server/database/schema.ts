@@ -151,7 +151,7 @@ const pendingFiles_ = sqliteTable(
     extractedCuit: text('extracted_cuit'),
     extractedDate: text('extracted_date'),
     extractedTotal: real('extracted_total'),
-    extractedType: text('extracted_type'),
+    extractedType: integer('extracted_type'), // Código ARCA (1, 6, 11, etc.), null si desconocido
     extractedPointOfSale: integer('extracted_point_of_sale'),
     extractedInvoiceNumber: integer('extracted_invoice_number'),
 
@@ -191,7 +191,7 @@ const expectedInvoices_ = sqliteTable(
     cuit: text('cuit').notNull(),
     emitterName: text('emitter_name'),
     issueDate: text('issue_date').notNull(),
-    invoiceType: text('invoice_type').notNull(),
+    invoiceType: integer('invoice_type'), // Código ARCA (1, 6, 11, etc.), null si desconocido
     pointOfSale: integer('point_of_sale').notNull(),
     invoiceNumber: integer('invoice_number').notNull(),
     total: real('total'),
@@ -247,9 +247,7 @@ const facturas_ = sqliteTable(
 
     // Datos de la factura
     fechaEmision: text('fecha_emision').notNull(),
-    tipoComprobante: text('tipo_comprobante', {
-      enum: ['A', 'B', 'C', 'E', 'M', 'X'],
-    }).notNull(),
+    tipoComprobante: integer('tipo_comprobante'), // Código ARCA (1, 6, 11, etc.), null si desconocido
     puntoVenta: integer('punto_venta').notNull(),
     numeroComprobante: integer('numero_comprobante').notNull(),
     comprobanteCompleto: text('comprobante_completo').notNull(),

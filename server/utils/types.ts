@@ -15,7 +15,9 @@ export type TemplateCategory = 'SOFTWARE_COMERCIAL' | 'AFIP_ELECTRONICA' | 'MANU
 export type PersonType = 'FISICA' | 'JURIDICA';
 
 // Tipo de comprobante (facturas argentinas)
-export type InvoiceType = 'A' | 'B' | 'C' | 'E' | 'M' | 'X';
+// Usa códigos numéricos ARCA/AFIP (1=Factura A, 3=NC A, 6=Factura B, 11=Factura C, etc.)
+// null = tipo desconocido
+export type InvoiceType = number | null;
 
 // Moneda
 export type Currency = 'ARS' | 'USD' | 'EUR';

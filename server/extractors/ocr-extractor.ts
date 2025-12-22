@@ -11,9 +11,9 @@ import Tesseract from 'tesseract.js';
 import sharp from 'sharp';
 import { existsSync, readFileSync } from 'fs';
 import { extname } from 'path';
-import type { ExtractionResult, InvoiceType, DocumentKind } from '../utils/types';
+import type { ExtractionResult, DocumentKind } from '../utils/types';
 import { extractCUITsWithContext } from '../validators/cuit';
-import { extractInvoiceTypeWithAFIP } from '../utils/afip-codes';
+import { extractInvoiceTypeWithAFIP, convertLetterToARCACode } from '../utils/afip-codes';
 import { pdf } from 'pdf-to-img';
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore - no type definitions available for heic-convert
@@ -610,7 +610,7 @@ export class OCRExtractor {
 
       // Extraer tipo de comprobante (A, B, C, E, M) y tipo de documento (FAC, NCR, NDB)
       // Usa el mapeo de códigos AFIP para mayor precisión
-      let invoiceType: InvoiceType | undefined;
+      let invoiceType: string | undefined; // Temporal: letra que se convierte a código ARCA después
       let documentKind: DocumentKind = 'FAC'; // Por defecto es factura
 
       const afipResult = extractInvoiceTypeWithAFIP(text);
@@ -656,7 +656,7 @@ export class OCRExtractor {
         if (match) {
           if (match.length === 4 && /[A-C]/.test(match[1]!)) {
             if (!invoiceType) {
-              invoiceType = match[1] as InvoiceType;
+              invoiceType = match[1]; // Letra A, B o C
             }
             pointOfSale = parseInt(match[2]!, 10);
             invoiceNumber = parseInt(match[3]!, 10);
@@ -697,6 +697,15 @@ export class OCRExtractor {
       if (!invoiceNumber) errors.push('Número de factura no detectado');
       if (!total) errors.push('Total no detectado');
 
+      // Convertir invoiceType de letra a código ARCA (TEMPORAL)
+      // TODO: Eliminar cuando extractores lean códigos ARCA nativamente (Issue en M5)
+      let invoiceTypeCode: number | null = null;
+      if (typeof invoiceType === 'string') {
+        invoiceTypeCode = convertLetterToARCACode(invoiceType);
+      } else if (typeof invoiceType === 'number') {
+        invoiceTypeCode = invoiceType;
+      }
+
       return {
         success: confidence >= 50,
         confidence,
@@ -704,7 +713,7 @@ export class OCRExtractor {
           cuit,
           date,
           total: parsedTotal,
-          invoiceType,
+          invoiceType: invoiceTypeCode,
           documentKind,
           pointOfSale,
           invoiceNumber,
