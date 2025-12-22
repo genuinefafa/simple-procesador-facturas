@@ -93,8 +93,11 @@ export async function GET() {
 
   const comprobantesMap = new Map<string, Comprobante>();
 
-  // Resolver nombres de emisor en batch para finales
-  const uniqueCuits = new Set<string>(invoices.map((i) => i.emitterCuit).filter(Boolean));
+  // Resolver nombres de emisor en batch para finales y esperadas
+  const uniqueCuits = new Set<string>([
+    ...invoices.map((i) => i.emitterCuit).filter(Boolean),
+    ...expectedInvoices.map((i) => i.cuit).filter(Boolean),
+  ]);
   const emitterCache = new Map<string, string | null>();
   for (const cuit of uniqueCuits) {
     const emitter = emitterRepo.findByCUIT(cuit);
@@ -139,7 +142,7 @@ export async function GET() {
       source: 'expected',
       id: inv.id,
       cuit: inv.cuit,
-      emitterName: inv.emitterName,
+      emitterName: emitterCache.get(inv.cuit) || inv.emitterName,
       issueDate: inv.issueDate,
       invoiceType: inv.invoiceType,
       pointOfSale: inv.pointOfSale,

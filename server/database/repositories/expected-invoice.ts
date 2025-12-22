@@ -351,18 +351,28 @@ export class ExpectedInvoiceRepository {
       .select({
         expectedInvoice: expectedInvoices,
         filePath: pendingFiles.filePath,
+        emisorNombre: emisores.nombre,
       })
       .from(expectedInvoices)
-      .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId));
+      .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
+      .leftJoin(
+        emisores,
+        sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
+      );
 
     if (whereClause) {
       query = db
         .select({
           expectedInvoice: expectedInvoices,
           filePath: pendingFiles.filePath,
+          emisorNombre: emisores.nombre,
         })
         .from(expectedInvoices)
         .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
+        .leftJoin(
+          emisores,
+          sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
+        )
         .where(whereClause) as typeof query;
     }
 
@@ -386,10 +396,17 @@ export class ExpectedInvoiceRepository {
       filtered = filtered.slice(0, filters.limit);
     }
 
-    return filtered.map((row) => ({
-      ...this.mapDrizzleToExpectedInvoice(row.expectedInvoice),
-      filePath: row.filePath || null,
-    }));
+    return filtered.map((row) => {
+      const invoice = this.mapDrizzleToExpectedInvoice(row.expectedInvoice);
+      // Use emitter's normalized name if available, otherwise fall back to expected invoice's emitter name
+      if (row.emisorNombre) {
+        invoice.emitterName = row.emisorNombre;
+      }
+      return {
+        ...invoice,
+        filePath: row.filePath || null,
+      };
+    });
   }
 
   async findExactMatch(
