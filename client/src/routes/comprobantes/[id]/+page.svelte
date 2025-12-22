@@ -29,6 +29,7 @@
   };
 
   let selectedEmitter = $state<Emitter | null>(null);
+  let registeredEmitter = $state<Emitter | null>(null);
   let confirmReprocess = $state(false);
   let processing = $state(false);
   let selectedExpectedId = $state<number | null>(null);
@@ -104,6 +105,30 @@
         cuit: comprobante.final.cuit,
         cuitNumeric: comprobante.final.cuit.replace(/\D/g, ''),
       };
+    }
+  });
+
+  // Cargar emisor registrado cuando hay expected invoice
+  $effect(() => {
+    if (comprobante.expected?.cuit) {
+      fetch(`/api/emitters?cuit=${encodeURIComponent(comprobante.expected.cuit)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.emitter) {
+            registeredEmitter = {
+              name: data.emitter.name,
+              cuit: data.emitter.cuit,
+              cuitNumeric: data.emitter.cuitNumeric,
+            };
+          } else {
+            registeredEmitter = null;
+          }
+        })
+        .catch(() => {
+          registeredEmitter = null;
+        });
+    } else {
+      registeredEmitter = null;
     }
   });
 
@@ -729,6 +754,26 @@
                 <span class="label">CUIT:</span>
                 <span class="value">{comprobante.expected.cuit}</span>
               </div>
+              {#if comprobante.expected.emitterName}
+                <div class="data-item">
+                  <span class="label">Nombre (ARCA):</span>
+                  <span class="value" title={comprobante.expected.emitterName}>
+                    {comprobante.expected.emitterName.length > 30
+                      ? comprobante.expected.emitterName.slice(0, 30) + '...'
+                      : comprobante.expected.emitterName}
+                  </span>
+                </div>
+              {/if}
+              {#if registeredEmitter}
+                <div class="data-item">
+                  <span class="label">Emisor Registrado:</span>
+                  <span class="value" title={registeredEmitter.name}>
+                    {registeredEmitter.name.length > 30
+                      ? registeredEmitter.name.slice(0, 30) + '...'
+                      : registeredEmitter.name}
+                  </span>
+                </div>
+              {/if}
               <div class="data-item">
                 <span class="label">Tipo:</span>
                 <span class="value">
