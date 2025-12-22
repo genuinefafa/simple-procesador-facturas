@@ -433,7 +433,10 @@ export class ExcelImportService {
 
     return {
       cuit: cuitColumn,
-      emitterName: headers.find((h) => /nombre|razon social|emisor|proveedor/i.test(h)),
+      // Si existe "Denominación Emisor" (ARCA completo), usar esa. Si no, buscar por regex
+      emitterName:
+        emitterDenomination ||
+        headers.find((h) => /nombre|razon social|proveedor/i.test(h) && !/tipo doc/i.test(h)),
       issueDate: findColumn(['fecha', 'fecha emision', 'fecha de emision']),
       invoiceType: findColumn(['tipo', 'tipo comprobante', 'comprobante']),
       pointOfSale: findColumn(['punto de venta', 'pto venta', 'punto venta', 'pto. vta']),
