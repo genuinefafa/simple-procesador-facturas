@@ -15,7 +15,6 @@
     formatDateShort,
     getFriendlyType,
     getInvoiceTypeFromARCA,
-    formatEmitterName,
   } from '$lib/formatters';
 
   let { data } = $props();
@@ -27,6 +26,8 @@
     name: string;
     cuit: string;
     cuitNumeric?: string;
+    legalName?: string;
+    aliases?: string[];
   };
 
   let selectedEmitter = $state<Emitter | null>(null);
@@ -64,6 +65,26 @@
     if (value === null || value === undefined) return '—';
     return value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
   };
+
+  // Obtener el nombre más corto del emisor (entre nombre, razón social y aliases)
+  function getShortestEmitterName(emitter: Emitter | null): string {
+    if (!emitter) return '—';
+
+    const candidates: string[] = [];
+    if (emitter.name) candidates.push(emitter.name);
+    if (emitter.legalName && emitter.legalName !== emitter.name) {
+      candidates.push(emitter.legalName);
+    }
+    if (emitter.aliases && emitter.aliases.length > 0) {
+      candidates.push(...emitter.aliases);
+    }
+
+    if (candidates.length === 0) return emitter.cuit;
+
+    return candidates.reduce((shortest, current) =>
+      current.length < shortest.length ? current : shortest
+    );
+  }
 
   // Determinar si es una expected sin archivo (no permite crear factura directamente)
   const isExpectedWithoutFile = $derived(
@@ -112,14 +133,17 @@
   // Cargar emisor registrado cuando hay expected invoice
   $effect(() => {
     if (comprobante.expected?.cuit) {
-      fetch(`/api/emitters?cuit=${encodeURIComponent(comprobante.expected.cuit)}`)
+      fetch(`/api/emisores?cuit=${encodeURIComponent(comprobante.expected.cuit)}`)
         .then((res) => res.json())
         .then((data) => {
-          if (data.success && data.emitter) {
+          if (data.emitters && data.emitters.length > 0) {
+            const emitter = data.emitters[0];
             registeredEmitter = {
-              name: data.emitter.name,
-              cuit: data.emitter.cuit,
-              cuitNumeric: data.emitter.cuitNumeric,
+              name: emitter.name,
+              cuit: emitter.cuit,
+              cuitNumeric: emitter.cuitNumeric,
+              legalName: emitter.legalName,
+              aliases: emitter.aliases || [],
             };
           } else {
             registeredEmitter = null;
@@ -756,21 +780,15 @@
                 <span class="value">{comprobante.expected.cuit}</span>
               </div>
               {#if comprobante.expected.emitterName}
-                {@const formatted = formatEmitterName(comprobante.expected.emitterName, 30)}
                 <div class="data-item">
                   <span class="label">Nombre (ARCA):</span>
-                  <span class="value" title={formatted.full}>
-                    {formatted.short}
-                  </span>
+                  <span class="value">{comprobante.expected.emitterName}</span>
                 </div>
               {/if}
               {#if registeredEmitter}
-                {@const formatted = formatEmitterName(registeredEmitter.name, 30)}
                 <div class="data-item">
-                  <span class="label">Emisor Registrado:</span>
-                  <span class="value" title={formatted.full}>
-                    {formatted.short}
-                  </span>
+                  <span class="label">Emisor Nuestro:</span>
+                  <span class="value">{getShortestEmitterName(registeredEmitter)}</span>
                 </div>
               {/if}
               <div class="data-item">

@@ -32,6 +32,39 @@ export class EmitterRepository {
   }
 
   /**
+   * Obtiene el nombre más corto del emisor entre nombre, razón social y aliases
+   * Útil para mostrar en listas compactas
+   * @param emitter - Emisor del cual obtener el nombre corto
+   * @returns El nombre más corto disponible
+   */
+  static getShortestName(emitter: Emitter): string {
+    const candidates: string[] = [];
+
+    // Agregar nombre principal
+    if (emitter.name) candidates.push(emitter.name);
+
+    // Agregar razón social si es diferente del nombre
+    if (emitter.legalName && emitter.legalName !== emitter.name) {
+      candidates.push(emitter.legalName);
+    }
+
+    // Agregar aliases
+    if (emitter.aliases && emitter.aliases.length > 0) {
+      candidates.push(...emitter.aliases);
+    }
+
+    // Si no hay ningún candidato, devolver el CUIT
+    if (candidates.length === 0) {
+      return emitter.cuit;
+    }
+
+    // Retornar el más corto
+    return candidates.reduce((shortest, current) =>
+      current.length < shortest.length ? current : shortest
+    );
+  }
+
+  /**
    * Busca un emisor por CUIT
    * @param cuit - CUIT del emisor (con o sin guiones)
    * @returns Emisor o null si no existe
