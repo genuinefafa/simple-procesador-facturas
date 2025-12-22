@@ -7,7 +7,12 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { toast, Toaster } from 'svelte-sonner';
-  import { formatCurrency, getFriendlyType, formatDateShort } from '$lib/formatters';
+  import {
+    formatCurrency,
+    getFriendlyType,
+    formatDateShort,
+    formatEmitterName,
+  } from '$lib/formatters';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -78,10 +83,7 @@
 
   function getEmitterName(c: Comprobante): { short: string; full: string } {
     const name = c.emitterName || c.final?.emitterName || c.expected?.emitterName;
-    if (!name) return { short: '—', full: '' };
-    // Retornar nombre corto (primeras 20 chars) y nombre completo para tooltip
-    const short = name.length > 20 ? name.slice(0, 20) + '...' : name;
-    return { short, full: name };
+    return formatEmitterName(name, 20);
   }
 
   function isVisible(c: Comprobante): boolean {

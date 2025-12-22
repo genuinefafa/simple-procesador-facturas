@@ -15,6 +15,7 @@
     formatDateShort,
     getFriendlyType,
     getInvoiceTypeFromARCA,
+    formatEmitterName,
   } from '$lib/formatters';
 
   let { data } = $props();
@@ -755,22 +756,20 @@
                 <span class="value">{comprobante.expected.cuit}</span>
               </div>
               {#if comprobante.expected.emitterName}
+                {@const formatted = formatEmitterName(comprobante.expected.emitterName, 30)}
                 <div class="data-item">
                   <span class="label">Nombre (ARCA):</span>
-                  <span class="value" title={comprobante.expected.emitterName}>
-                    {comprobante.expected.emitterName.length > 30
-                      ? comprobante.expected.emitterName.slice(0, 30) + '...'
-                      : comprobante.expected.emitterName}
+                  <span class="value" title={formatted.full}>
+                    {formatted.short}
                   </span>
                 </div>
               {/if}
               {#if registeredEmitter}
+                {@const formatted = formatEmitterName(registeredEmitter.name, 30)}
                 <div class="data-item">
                   <span class="label">Emisor Registrado:</span>
-                  <span class="value" title={registeredEmitter.name}>
-                    {registeredEmitter.name.length > 30
-                      ? registeredEmitter.name.slice(0, 30) + '...'
-                      : registeredEmitter.name}
+                  <span class="value" title={formatted.full}>
+                    {formatted.short}
                   </span>
                 </div>
               {/if}
