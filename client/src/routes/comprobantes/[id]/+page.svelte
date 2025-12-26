@@ -116,6 +116,7 @@
   // Cargar emisor registrado cuando hay expected invoice o pending file con CUIT
   $effect(() => {
     const cuit = comprobante.expected?.cuit || comprobante.pending?.extractedCuit;
+    console.log('cuit', cuit);
 
     if (cuit) {
       fetch(`/api/emisores?cuit=${encodeURIComponent(cuit)}`)
@@ -767,7 +768,7 @@
               </div>
               {#if comprobante.expected.emitterName}
                 <div class="data-item">
-                  <span class="label">Nombre (ARCA):</span>
+                  <span class="label">Nombre (ARCA): {{ registeredEmitter }}</span>
                   <span class="value">{comprobante.expected.emitterName}</span>
                 </div>
               {/if}
@@ -886,10 +887,10 @@
                 <span class="label">CUIT (detectado):</span>
                 <span class="value">{comprobante.pending.extractedCuit || '—'}</span>
               </div>
-              {#if comprobante.emitterName}
+              {#if registeredEmitter}
                 <div class="data-item">
                   <span class="label">Emisor Nuestro:</span>
-                  <span class="value">{comprobante.emitterName}</span>
+                  <span class="value">{registeredEmitter.displayName}</span>
                 </div>
               {/if}
               <div class="data-item">
