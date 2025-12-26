@@ -113,10 +113,12 @@
     }
   });
 
-  // Cargar emisor registrado cuando hay expected invoice
+  // Cargar emisor registrado cuando hay expected invoice o pending file con CUIT
   $effect(() => {
-    if (comprobante.expected?.cuit) {
-      fetch(`/api/emisores?cuit=${encodeURIComponent(comprobante.expected.cuit)}`)
+    const cuit = comprobante.expected?.cuit || comprobante.pending?.extractedCuit;
+
+    if (cuit) {
+      fetch(`/api/emisores?cuit=${encodeURIComponent(cuit)}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.emitters && data.emitters.length > 0) {
