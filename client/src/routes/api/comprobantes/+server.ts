@@ -93,11 +93,12 @@ export async function GET() {
 
   const comprobantesMap = new Map<string, Comprobante>();
 
-  // Resolver nombres de emisor en batch para finales y esperadas
+  // Resolver nombres de emisor en batch para finales, esperadas y pendientes
   // Usar displayName que ya viene calculado desde el repository
   const uniqueCuits = new Set<string>([
-    ...invoices.map((i) => i.emitterCuit).filter(Boolean),
-    ...expectedInvoices.map((i) => i.cuit).filter(Boolean),
+    ...invoices.map((i) => i.emitterCuit).filter((c): c is string => Boolean(c)),
+    ...expectedInvoices.map((i) => i.cuit).filter((c): c is string => Boolean(c)),
+    ...pendingFiles.map((p) => p.extractedCuit).filter((c): c is string => Boolean(c)),
   ]);
   const emitterCache = new Map<string, string | null>();
   for (const cuit of uniqueCuits) {
@@ -199,7 +200,7 @@ export async function GET() {
           expected: null,
           pending: p,
           emitterCuit: p.extractedCuit,
-          emitterName: undefined,
+          emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
         });
       }
     }

@@ -884,6 +884,12 @@
                 <span class="label">CUIT (detectado):</span>
                 <span class="value">{comprobante.pending.extractedCuit || '—'}</span>
               </div>
+              {#if comprobante.emitterName}
+                <div class="data-item">
+                  <span class="label">Emisor Nuestro:</span>
+                  <span class="value">{comprobante.emitterName}</span>
+                </div>
+              {/if}
               <div class="data-item">
                 <span class="label">Tipo:</span>
                 <span class="value">
