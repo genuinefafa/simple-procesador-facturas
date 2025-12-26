@@ -24,6 +24,7 @@
   type Emitter = {
     id?: number;
     name: string;
+    displayName: string;
     cuit: string;
     cuitNumeric?: string;
     legalName?: string;
@@ -66,26 +67,6 @@
     return value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
   };
 
-  // Obtener el nombre más corto del emisor (entre nombre, razón social y aliases)
-  function getShortestEmitterName(emitter: Emitter | null): string {
-    if (!emitter) return '—';
-
-    const candidates: string[] = [];
-    if (emitter.name) candidates.push(emitter.name);
-    if (emitter.legalName && emitter.legalName !== emitter.name) {
-      candidates.push(emitter.legalName);
-    }
-    if (emitter.aliases && emitter.aliases.length > 0) {
-      candidates.push(...emitter.aliases);
-    }
-
-    if (candidates.length === 0) return emitter.cuit;
-
-    return candidates.reduce((shortest, current) =>
-      current.length < shortest.length ? current : shortest
-    );
-  }
-
   // Determinar si es una expected sin archivo (no permite crear factura directamente)
   const isExpectedWithoutFile = $derived(
     comprobante.kind === 'expected' && !comprobante.pending && !comprobante.final
@@ -122,8 +103,10 @@
 
     // Preseleccionar emisor SOLO en modo lectura
     if (!editMode && !selectedEmitter && comprobante.final?.cuit) {
+      const emitterName = comprobante.emitterName || comprobante.final.cuit;
       selectedEmitter = {
-        name: comprobante.emitterName || comprobante.final.cuit,
+        name: emitterName,
+        displayName: emitterName,
         cuit: comprobante.final.cuit,
         cuitNumeric: comprobante.final.cuit.replace(/\D/g, ''),
       };
@@ -140,6 +123,7 @@
             const emitter = data.emitters[0];
             registeredEmitter = {
               name: emitter.name,
+              displayName: emitter.displayName,
               cuit: emitter.cuit,
               cuitNumeric: emitter.cuitNumeric,
               legalName: emitter.legalName,
@@ -788,7 +772,7 @@
               {#if registeredEmitter}
                 <div class="data-item">
                   <span class="label">Emisor Nuestro:</span>
-                  <span class="value">{getShortestEmitterName(registeredEmitter)}</span>
+                  <span class="value">{registeredEmitter.displayName}</span>
                 </div>
               {/if}
               <div class="data-item">

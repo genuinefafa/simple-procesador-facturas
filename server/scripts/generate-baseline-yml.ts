@@ -131,6 +131,7 @@ async function generateBaselineYMLs() {
           cuit: normalizedCuit,
           cuitNumeric: normalizedCuit.replace(/-/g, ''),
           name: `Emisor ${normalizedCuit}`,
+          displayName: `Emisor ${normalizedCuit}`,
           aliases: [],
           personType: getPersonType(normalizedCuit) || undefined,
           createdAt: new Date(),

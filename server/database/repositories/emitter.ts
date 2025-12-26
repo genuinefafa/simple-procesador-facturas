@@ -13,10 +13,11 @@ export class EmitterRepository {
    * Mapea un Emisor de Drizzle a la interfaz Emitter del sistema
    */
   private mapToEmitter(row: Emisor): Emitter {
-    return {
+    const emitter: Emitter = {
       cuit: row.cuit,
       cuitNumeric: row.cuitNumerico,
       name: row.nombre,
+      displayName: '', // Se calcula después
       legalName: row.razonSocial ?? undefined,
       aliases: row.aliases ? (JSON.parse(row.aliases) as string[]) : [],
       templateId: row.templatePreferidoId ?? undefined,
@@ -29,6 +30,11 @@ export class EmitterRepository {
       createdAt: new Date(row.createdAt ?? ''),
       updatedAt: new Date(row.updatedAt ?? ''),
     };
+
+    // Calcular displayName usando el método estático
+    emitter.displayName = EmitterRepository.getShortestName(emitter);
+
+    return emitter;
   }
 
   /**

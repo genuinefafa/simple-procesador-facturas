@@ -94,7 +94,7 @@ export async function GET() {
   const comprobantesMap = new Map<string, Comprobante>();
 
   // Resolver nombres de emisor en batch para finales y esperadas
-  // Usar el nombre más corto disponible (entre nombre, razón social y aliases)
+  // Usar displayName que ya viene calculado desde el repository
   const uniqueCuits = new Set<string>([
     ...invoices.map((i) => i.emitterCuit).filter(Boolean),
     ...expectedInvoices.map((i) => i.cuit).filter(Boolean),
@@ -102,12 +102,7 @@ export async function GET() {
   const emitterCache = new Map<string, string | null>();
   for (const cuit of uniqueCuits) {
     const emitter = emitterRepo.findByCUIT(cuit);
-    if (emitter) {
-      const shortestName = EmitterRepository.getShortestName(emitter);
-      emitterCache.set(cuit, shortestName);
-    } else {
-      emitterCache.set(cuit, null);
-    }
+    emitterCache.set(cuit, emitter?.displayName || null);
   }
 
   // 1) Agregar facturas como comprobantes principales
