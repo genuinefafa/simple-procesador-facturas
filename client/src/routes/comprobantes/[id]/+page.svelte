@@ -32,7 +32,8 @@
   };
 
   let selectedEmitter = $state<Emitter | null>(null);
-  let registeredEmitter = $state<Emitter | null>(null);
+  let registeredEmitterForExpected = $state<Emitter | null>(null);
+  let registeredEmitterForPending = $state<Emitter | null>(null);
   let confirmReprocess = $state(false);
   let processing = $state(false);
   let selectedExpectedId = $state<number | null>(null);
@@ -113,18 +114,15 @@
     }
   });
 
-  // Cargar emisor registrado cuando hay expected invoice o pending file con CUIT
+  // Cargar emisor registrado para expected invoice (independiente)
   $effect(() => {
-    const cuit = comprobante.expected?.cuit || comprobante.pending?.extractedCuit;
-    console.log('cuit', cuit);
-
-    if (cuit) {
-      fetch(`/api/emisores?cuit=${encodeURIComponent(cuit)}`)
+    if (comprobante.expected?.cuit) {
+      fetch(`/api/emisores?cuit=${encodeURIComponent(comprobante.expected.cuit)}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.emitters && data.emitters.length > 0) {
             const emitter = data.emitters[0];
-            registeredEmitter = {
+            registeredEmitterForExpected = {
               name: emitter.name,
               displayName: emitter.displayName,
               cuit: emitter.cuit,
@@ -133,14 +131,42 @@
               aliases: emitter.aliases || [],
             };
           } else {
-            registeredEmitter = null;
+            registeredEmitterForExpected = null;
           }
         })
         .catch(() => {
-          registeredEmitter = null;
+          registeredEmitterForExpected = null;
         });
     } else {
-      registeredEmitter = null;
+      registeredEmitterForExpected = null;
+    }
+  });
+
+  // Cargar emisor registrado para pending file (independiente)
+  $effect(() => {
+    if (comprobante.pending?.extractedCuit) {
+      fetch(`/api/emisores?cuit=${encodeURIComponent(comprobante.pending.extractedCuit)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.emitters && data.emitters.length > 0) {
+            const emitter = data.emitters[0];
+            registeredEmitterForPending = {
+              name: emitter.name,
+              displayName: emitter.displayName,
+              cuit: emitter.cuit,
+              cuitNumeric: emitter.cuitNumeric,
+              legalName: emitter.legalName,
+              aliases: emitter.aliases || [],
+            };
+          } else {
+            registeredEmitterForPending = null;
+          }
+        })
+        .catch(() => {
+          registeredEmitterForPending = null;
+        });
+    } else {
+      registeredEmitterForPending = null;
     }
   });
 
@@ -768,14 +794,14 @@
               </div>
               {#if comprobante.expected.emitterName}
                 <div class="data-item">
-                  <span class="label">Nombre (ARCA): {{ registeredEmitter }}</span>
+                  <span class="label">Nombre (ARCA):</span>
                   <span class="value">{comprobante.expected.emitterName}</span>
                 </div>
               {/if}
-              {#if registeredEmitter}
+              {#if registeredEmitterForExpected}
                 <div class="data-item">
                   <span class="label">Emisor Nuestro:</span>
-                  <span class="value">{registeredEmitter.displayName}</span>
+                  <span class="value">{registeredEmitterForExpected.displayName}</span>
                 </div>
               {/if}
               <div class="data-item">
@@ -887,10 +913,10 @@
                 <span class="label">CUIT (detectado):</span>
                 <span class="value">{comprobante.pending.extractedCuit || '—'}</span>
               </div>
-              {#if registeredEmitter}
+              {#if registeredEmitterForPending}
                 <div class="data-item">
                   <span class="label">Emisor Nuestro:</span>
-                  <span class="value">{registeredEmitter.displayName}</span>
+                  <span class="value">{registeredEmitterForPending.displayName}</span>
                 </div>
               {/if}
               <div class="data-item">
