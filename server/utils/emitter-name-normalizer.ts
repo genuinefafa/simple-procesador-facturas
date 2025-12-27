@@ -121,7 +121,7 @@ function capitalizeWord(word: string, isFirst: boolean = false): string {
 export function normalizeEmitterName(rawName: string): string {
   if (!rawName) return rawName;
 
-  let normalized = rawName.trim();
+  const normalized = rawName.trim();
 
   // 1. Detectar y extraer el tipo societario (puede estar al final o en el medio)
   let companyType: string | null = null;

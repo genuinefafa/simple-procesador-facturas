@@ -95,9 +95,9 @@ export class EmitterRepository {
    * @param cuit - CUIT del emisor (con o sin guiones)
    * @returns Emisor o undefined si no existe
    */
-  async findByCUITAsync(cuit: string): Promise<Emitter | undefined> {
+  findByCUITAsync(cuit: string): Promise<Emitter | undefined> {
     const result = this.findByCUIT(cuit);
-    return result ?? undefined;
+    return Promise.resolve(result ?? undefined);
   }
 
   /**
