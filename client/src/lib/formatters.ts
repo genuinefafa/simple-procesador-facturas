@@ -262,3 +262,25 @@ export function getExtractionMethodLabel(method: string | null): string {
       return '❓ Desconocido';
   }
 }
+
+/**
+ * Formatea el nombre de un emisor para mostrar en UI
+ * Retorna versión corta y completa para usar con tooltip
+ * @param name Nombre del emisor (puede ser null/undefined)
+ * @param maxLength Longitud máxima del nombre corto (default: 30)
+ * @returns Objeto con {short, full} donde short tiene ellipsis si es muy largo
+ */
+export function formatEmitterName(
+  name: string | null | undefined,
+  maxLength: number = 30
+): { short: string; full: string } {
+  if (!name) return { short: '—', full: '' };
+  const trimmed = name.trim();
+  if (trimmed.length <= maxLength) {
+    return { short: trimmed, full: trimmed };
+  }
+  return {
+    short: trimmed.slice(0, maxLength) + '...',
+    full: trimmed,
+  };
+}

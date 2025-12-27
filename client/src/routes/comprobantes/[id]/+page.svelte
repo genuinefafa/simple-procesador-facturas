@@ -24,11 +24,16 @@
   type Emitter = {
     id?: number;
     name: string;
+    displayName: string;
     cuit: string;
     cuitNumeric?: string;
+    legalName?: string;
+    aliases?: string[];
   };
 
   let selectedEmitter = $state<Emitter | null>(null);
+  let registeredEmitterForExpected = $state<Emitter | null>(null);
+  let registeredEmitterForPending = $state<Emitter | null>(null);
   let confirmReprocess = $state(false);
   let processing = $state(false);
   let selectedExpectedId = $state<number | null>(null);
@@ -99,11 +104,69 @@
 
     // Preseleccionar emisor SOLO en modo lectura
     if (!editMode && !selectedEmitter && comprobante.final?.cuit) {
+      const emitterName = comprobante.emitterName || comprobante.final.cuit;
       selectedEmitter = {
-        name: comprobante.emitterName || comprobante.final.cuit,
+        name: emitterName,
+        displayName: emitterName,
         cuit: comprobante.final.cuit,
         cuitNumeric: comprobante.final.cuit.replace(/\D/g, ''),
       };
+    }
+  });
+
+  // Cargar emisor registrado para expected invoice (independiente)
+  $effect(() => {
+    if (comprobante.expected?.cuit) {
+      fetch(`/api/emisores?cuit=${encodeURIComponent(comprobante.expected.cuit)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.emitters && data.emitters.length > 0) {
+            const emitter = data.emitters[0];
+            registeredEmitterForExpected = {
+              name: emitter.name,
+              displayName: emitter.displayName,
+              cuit: emitter.cuit,
+              cuitNumeric: emitter.cuitNumeric,
+              legalName: emitter.legalName,
+              aliases: emitter.aliases || [],
+            };
+          } else {
+            registeredEmitterForExpected = null;
+          }
+        })
+        .catch(() => {
+          registeredEmitterForExpected = null;
+        });
+    } else {
+      registeredEmitterForExpected = null;
+    }
+  });
+
+  // Cargar emisor registrado para pending file (independiente)
+  $effect(() => {
+    if (comprobante.pending?.extractedCuit) {
+      fetch(`/api/emisores?cuit=${encodeURIComponent(comprobante.pending.extractedCuit)}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.emitters && data.emitters.length > 0) {
+            const emitter = data.emitters[0];
+            registeredEmitterForPending = {
+              name: emitter.name,
+              displayName: emitter.displayName,
+              cuit: emitter.cuit,
+              cuitNumeric: emitter.cuitNumeric,
+              legalName: emitter.legalName,
+              aliases: emitter.aliases || [],
+            };
+          } else {
+            registeredEmitterForPending = null;
+          }
+        })
+        .catch(() => {
+          registeredEmitterForPending = null;
+        });
+    } else {
+      registeredEmitterForPending = null;
     }
   });
 
@@ -729,6 +792,18 @@
                 <span class="label">CUIT:</span>
                 <span class="value">{comprobante.expected.cuit}</span>
               </div>
+              {#if comprobante.expected.emitterName}
+                <div class="data-item">
+                  <span class="label">Nombre (ARCA):</span>
+                  <span class="value">{comprobante.expected.emitterName}</span>
+                </div>
+              {/if}
+              {#if registeredEmitterForExpected}
+                <div class="data-item">
+                  <span class="label">Emisor Nuestro:</span>
+                  <span class="value">{registeredEmitterForExpected.displayName}</span>
+                </div>
+              {/if}
               <div class="data-item">
                 <span class="label">Tipo:</span>
                 <span class="value">
@@ -838,6 +913,12 @@
                 <span class="label">CUIT (detectado):</span>
                 <span class="value">{comprobante.pending.extractedCuit || '—'}</span>
               </div>
+              {#if registeredEmitterForPending}
+                <div class="data-item">
+                  <span class="label">Emisor Nuestro:</span>
+                  <span class="value">{registeredEmitterForPending.displayName}</span>
+                </div>
+              {/if}
               <div class="data-item">
                 <span class="label">Tipo:</span>
                 <span class="value">

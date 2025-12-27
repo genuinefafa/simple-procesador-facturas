@@ -73,6 +73,7 @@ export const POST: RequestHandler = async ({ request }) => {
       cuit,
       cuitNumeric: cuit.replace(/[-\s]/g, ''),
       name: nombre,
+      displayName: nombre,
       legalName: razonSocial || nombre,
       aliases: aliases ? aliases.split(',') : [],
       personType: tipoPersona || 'JURIDICA',

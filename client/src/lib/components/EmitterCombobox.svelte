@@ -4,6 +4,7 @@
   type Emitter = {
     id?: number;
     name: string;
+    displayName: string;
     cuit: string;
     cuitNumeric?: string;
   };

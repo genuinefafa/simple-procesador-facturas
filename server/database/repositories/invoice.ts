@@ -299,7 +299,7 @@ export class InvoiceRepository {
       expectedInvoiceId: number | null;
     }>
   ): Promise<Invoice | null> {
-    const updates: Record<string, any> = {};
+    const updates: Record<string, string | number | null> = {};
 
     if (data.emisorCuit !== undefined) updates.emisorCuit = data.emisorCuit;
     if (data.tipoComprobante !== undefined) updates.tipoComprobante = data.tipoComprobante;

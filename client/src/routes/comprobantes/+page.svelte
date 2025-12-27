@@ -7,7 +7,12 @@
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { toast, Toaster } from 'svelte-sonner';
-  import { formatCurrency, getFriendlyType, formatDateShort } from '$lib/formatters';
+  import {
+    formatCurrency,
+    getFriendlyType,
+    formatDateShort,
+    formatEmitterName,
+  } from '$lib/formatters';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -78,10 +83,7 @@
 
   function getEmitterName(c: Comprobante): { short: string; full: string } {
     const name = c.emitterName || c.final?.emitterName || c.expected?.emitterName;
-    if (!name) return { short: '—', full: '' };
-    // Retornar nombre corto (primeras 20 chars) y nombre completo para tooltip
-    const short = name.length > 20 ? name.slice(0, 20) + '...' : name;
-    return { short, full: name };
+    return formatEmitterName(name, 20);
   }
 
   function isVisible(c: Comprobante): boolean {
@@ -559,7 +561,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 100px 1fr 140px 140px 110px 120px 140px 100px 80px 100px;
+    grid-template-columns: 100px 1fr 180px 140px 110px 120px 140px 100px 80px 100px;
     gap: var(--spacing-2);
     padding: var(--spacing-3);
     align-items: center;
@@ -629,6 +631,13 @@
   /* Ajustar tamaño de columna para pills */
   .col-category {
     min-width: 200px;
+  }
+
+  /* Evitar que el nombre del emisor se pase de línea */
+  .col-emisor {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .align-right {

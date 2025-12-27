@@ -40,8 +40,9 @@ export type DocumentKind = 'FAC' | 'NCR' | 'NDB';
 export interface Emitter {
   cuit: string; // Formato: XX-XXXXXXXX-X
   cuitNumeric: string; // Sin guiones
-  name: string;
-  legalName?: string;
+  name: string; // Nombre normalizado desde ARCA
+  displayName: string; // Nombre más corto para mostrar (calculado automáticamente)
+  legalName?: string; // Razón social completa
   aliases: string[]; // Nombres cortos/alias del emisor
   templateId?: number; // FK a template preferido
   configOverride?: string; // JSON con ajustes específicos

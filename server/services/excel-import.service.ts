@@ -5,6 +5,8 @@
 import ExcelJS from 'exceljs';
 import { normalizeCUIT, validateCUIT } from '../validators/cuit.js';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice.js';
+import { EmitterRepository } from '../database/repositories/emitter.js';
+import { normalizeEmitterName } from '../utils/emitter-name-normalizer.js';
 import path from 'path';
 
 /**
@@ -51,6 +53,8 @@ export interface ImportResult {
   imported: number;
   updated: number;
   unchanged: number;
+  emittersCreated: number;
+  emittersExisting: number;
   errors: Array<{ row: number; error: string }>;
 }
 
@@ -77,16 +81,27 @@ export interface ColumnMapping {
   total?: string;
   cae?: string;
   caeExpiration?: string;
+  // Columnas adicionales de ARCA para emisores
+  emitterDocType?: string;
+  emitterDocNumber?: string;
+  emitterDenomination?: string;
 }
+
+/**
+ * Tipo de formato Excel detectado
+ */
+export type ExcelFormat = 'simple' | 'arca-full';
 
 /**
  * Servicio de importación de Excel/CSV de AFIP
  */
 export class ExcelImportService {
   private repo: ExpectedInvoiceRepository;
+  private emitterRepo: EmitterRepository;
 
   constructor() {
     this.repo = new ExpectedInvoiceRepository();
+    this.emitterRepo = new EmitterRepository();
   }
 
   /**
@@ -161,14 +176,36 @@ export class ExcelImportService {
     const rows: ParsedInvoice[] = [];
     const errors: Array<{ row: number; error: string }> = [];
 
-    // Obtener headers (primera fila)
-    const headerRow = worksheet.getRow(1);
+    // Detectar fila de headers (puede ser fila 1 o 2)
+    let headerRowNumber = 1;
+    const firstRow = worksheet.getRow(1);
+    const firstRowHeaders: string[] = [];
+    firstRow.eachCell((cell, colNumber) => {
+      firstRowHeaders[colNumber - 1] = getCellStringValue(cell.value).trim();
+    });
+
+    // Si todos los headers de la primera fila son iguales, es un título repetido
+    // En ese caso, los headers reales están en la fila 2
+    const uniqueHeaders = new Set(firstRowHeaders.filter((h) => h !== ''));
+    if (uniqueHeaders.size === 1) {
+      console.info(`   ⚠️  Fila 1 parece ser un título repetido, usando fila 2 como headers`);
+      headerRowNumber = 2;
+    }
+
+    // Obtener headers
+    const headerRow = worksheet.getRow(headerRowNumber);
     const headers: string[] = [];
     headerRow.eachCell((cell, colNumber) => {
       headers[colNumber - 1] = getCellStringValue(cell.value).trim();
     });
 
-    console.info(`   📌 Headers encontrados: ${headers.join(', ')}`);
+    console.info(`   📌 Headers encontrados (fila ${headerRowNumber}): ${headers.join(', ')}`);
+
+    // Auto-detectar formato (simple vs ARCA completo)
+    const format = this.detectExcelFormat(headers);
+    console.info(
+      `   📋 Formato detectado: ${format === 'arca-full' ? 'ARCA completo (con emisores)' : 'Simple'}`
+    );
 
     // Auto-detectar columnas si no se proporciona mapeo
     const mapping = columnMapping || this.autoDetectColumns(headers);
@@ -178,6 +215,10 @@ export class ExcelImportService {
     console.info(`      Tipo: "${mapping.invoiceType}"`);
     console.info(`      Punto Venta: "${mapping.pointOfSale}"`);
     console.info(`      Número: "${mapping.invoiceNumber}"`);
+    if (format === 'arca-full') {
+      console.info(`      Denominación Emisor: "${mapping.emitterDenomination}"`);
+      console.info(`      Nro. Doc. Emisor: "${mapping.emitterDocNumber}"`);
+    }
 
     // Validar que las columnas requeridas existan
     const requiredColumns = [
@@ -194,11 +235,14 @@ export class ExcelImportService {
       }
     }
 
-    // Procesar cada fila (comenzando desde la fila 2, después del header)
+    // Procesar cada fila (comenzando después de los headers)
     let rowCount = 0;
+    const emittersToProcess = new Map<string, { cuit: string; name: string }>();
+    const dataStartRow = headerRowNumber + 1;
+
     worksheet.eachRow((row, rowNumber) => {
-      // Saltar header
-      if (rowNumber === 1) return;
+      // Saltar filas de título y headers
+      if (rowNumber < dataStartRow) return;
 
       try {
         const rowData: Record<string, ExcelJS.CellValue> = {};
@@ -208,6 +252,31 @@ export class ExcelImportService {
             rowData[header] = cell.value;
           }
         });
+
+        // Si es formato ARCA completo, procesar información de emisor
+        if (format === 'arca-full' && mapping.emitterDocNumber && mapping.emitterDenomination) {
+          const emitterDocNumberRaw = getCellStringValue(rowData[mapping.emitterDocNumber]).trim();
+          const emitterDenomination = getCellStringValue(
+            rowData[mapping.emitterDenomination]
+          ).trim();
+
+          if (emitterDocNumberRaw && emitterDenomination) {
+            // Normalizar CUIT del emisor
+            const cuitNumerico = emitterDocNumberRaw.replace(/\D/g, '');
+            if (cuitNumerico.length === 11) {
+              const cuit = `${cuitNumerico.substring(0, 2)}-${cuitNumerico.substring(2, 10)}-${cuitNumerico.substring(10)}`;
+
+              // Validar CUIT
+              if (validateCUIT(cuit)) {
+                // Normalizar el nombre del emisor (capitalización y abreviación de tipos societarios)
+                const normalizedName = normalizeEmitterName(emitterDenomination);
+                emittersToProcess.set(cuitNumerico, { cuit, name: normalizedName });
+              } else {
+                console.warn(`   ⚠️  CUIT inválido en fila ${rowNumber}: ${cuit}`);
+              }
+            }
+          }
+        }
 
         const parsed = this.parseRow(rowData, mapping);
         rows.push(parsed);
@@ -222,6 +291,47 @@ export class ExcelImportService {
 
     console.info(`   📊 Filas procesadas: ${rowCount}`);
     console.info(`   ❌ Errores encontrados: ${errors.length}`);
+
+    // Procesar emisores si es formato ARCA completo
+    let emittersCreated = 0;
+    let emittersExisting = 0;
+
+    if (format === 'arca-full' && emittersToProcess.size > 0) {
+      console.info(`   👥 Procesando ${emittersToProcess.size} emisores únicos...`);
+
+      for (const [cuitNumerico, emitterData] of emittersToProcess) {
+        try {
+          // Buscar si el emisor ya existe
+          const existingEmitter = this.emitterRepo.findByCUIT(emitterData.cuit);
+
+          if (!existingEmitter) {
+            // Crear nuevo emisor con nombre normalizado
+            this.emitterRepo.create({
+              cuit: emitterData.cuit,
+              cuitNumeric: cuitNumerico,
+              name: emitterData.name,
+              legalName: emitterData.name, // ARCA tiene la razón social oficial normalizada
+              aliases: [],
+            });
+            emittersCreated++;
+            console.info(`      ✅ Emisor creado: ${emitterData.name} (${emitterData.cuit})`);
+          } else {
+            emittersExisting++;
+            // Siempre actualizar con los datos oficiales de ARCA (normalizados)
+            // ARCA/AFIP tiene la razón social correcta y actualizada
+            this.emitterRepo.updateName(emitterData.cuit, emitterData.name, emitterData.name);
+            console.info(`      🔄 Emisor actualizado: ${emitterData.name} (${emitterData.cuit})`);
+          }
+        } catch (error) {
+          console.error(
+            `      ❌ Error procesando emisor ${emitterData.cuit}: ${error instanceof Error ? error.message : 'Error desconocido'}`
+          );
+        }
+      }
+
+      console.info(`   ✅ Emisores creados: ${emittersCreated}`);
+      console.info(`   ℹ️  Emisores ya existentes: ${emittersExisting}`);
+    }
 
     // Crear lote de importación
     const batch = await this.repo.createBatch({
@@ -257,8 +367,19 @@ export class ExcelImportService {
       imported: result.created.length,
       updated: result.updated.length,
       unchanged: result.unchanged.length,
+      emittersCreated,
+      emittersExisting,
       errors,
     };
+  }
+
+  /**
+   * Detecta automáticamente el formato del Excel (simple vs ARCA completo)
+   */
+  private detectExcelFormat(headers: string[]): ExcelFormat {
+    const arcaColumns = ['Denominación Emisor', 'Nro. Doc. Emisor', 'Tipo Doc. Emisor'];
+    const hasArcaColumns = arcaColumns.every((col) => headers.some((h) => h.trim() === col));
+    return hasArcaColumns ? 'arca-full' : 'simple';
   }
 
   /**
@@ -278,15 +399,60 @@ export class ExcelImportService {
       throw new Error(`No se pudo auto-detectar columna para patrones: ${patterns.join(', ')}`);
     };
 
+    const findOptionalColumn = (patterns: string[]): string | undefined => {
+      for (const pattern of patterns) {
+        const index = normalizedHeaders.findIndex((h) => h.includes(pattern));
+        if (index !== -1) {
+          const header = headers[index];
+          if (header) return header;
+        }
+      }
+      return undefined;
+    };
+
+    // Detectar columnas opcionales de ARCA primero
+    const emitterDocNumber = findOptionalColumn(['nro. doc. emisor']);
+    const emitterDenomination = findOptionalColumn(['denominación emisor', 'denominacion emisor']);
+    const emitterDocType = findOptionalColumn(['tipo doc. emisor']);
+
+    // Para la columna CUIT, si no existe una columna específica de CUIT pero existe
+    // "Nro. Doc. Emisor" (Excel de comprobantes recibidos), usar esa
+    let cuitColumn: string;
+    try {
+      cuitColumn = findColumn(['cuit', 'nro. cuit', 'numero de cuit']);
+    } catch {
+      if (emitterDocNumber) {
+        console.info(
+          `   ℹ️  Usando columna "Nro. Doc. Emisor" como CUIT (Excel de comprobantes recibidos)`
+        );
+        cuitColumn = emitterDocNumber;
+      } else {
+        throw new Error('No se pudo auto-detectar columna de CUIT o Nro. Doc. Emisor');
+      }
+    }
+
     return {
-      cuit: findColumn(['cuit', 'nro. cuit', 'numero de cuit']),
-      emitterName: headers.find((h) => /nombre|razon social|emisor|proveedor/i.test(h)),
+      cuit: cuitColumn,
+      // Si existe "Denominación Emisor" (ARCA completo), usar esa. Si no, buscar por regex
+      emitterName:
+        emitterDenomination ||
+        headers.find((h) => /nombre|razon social|proveedor/i.test(h) && !/tipo doc/i.test(h)),
       issueDate: findColumn(['fecha', 'fecha emision', 'fecha de emision']),
       invoiceType: findColumn(['tipo', 'tipo comprobante', 'comprobante']),
       pointOfSale: findColumn(['punto de venta', 'pto venta', 'punto venta', 'pto. vta']),
-      invoiceNumber: findColumn(['numero', 'nro comprobante', 'numero comprobante']),
-      total: headers.find((h) => /total|importe|monto/i.test(h)),
-      cae: headers.find((h) => /cae|codigo autorizacion/i.test(h)),
+      invoiceNumber: findColumn([
+        'numero desde',
+        'número desde',
+        'numero',
+        'nro comprobante',
+        'numero comprobante',
+      ]),
+      total: headers.find((h) => /total|importe|monto|imp. total/i.test(h)),
+      cae: headers.find((h) => /cae|cód. autorización|codigo autorizacion/i.test(h)),
+      // Columnas adicionales de ARCA
+      emitterDocType,
+      emitterDocNumber,
+      emitterDenomination,
     };
   }
 

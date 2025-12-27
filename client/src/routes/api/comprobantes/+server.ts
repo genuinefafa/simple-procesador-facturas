@@ -93,12 +93,17 @@ export async function GET() {
 
   const comprobantesMap = new Map<string, Comprobante>();
 
-  // Resolver nombres de emisor en batch para finales
-  const uniqueCuits = new Set<string>(invoices.map((i) => i.emitterCuit).filter(Boolean));
+  // Resolver nombres de emisor en batch para finales, esperadas y pendientes
+  // Usar displayName que ya viene calculado desde el repository
+  const uniqueCuits = new Set<string>([
+    ...invoices.map((i) => i.emitterCuit).filter((c): c is string => Boolean(c)),
+    ...expectedInvoices.map((i) => i.cuit).filter((c): c is string => Boolean(c)),
+    ...pendingFiles.map((p) => p.extractedCuit).filter((c): c is string => Boolean(c)),
+  ]);
   const emitterCache = new Map<string, string | null>();
   for (const cuit of uniqueCuits) {
     const emitter = emitterRepo.findByCUIT(cuit);
-    emitterCache.set(cuit, emitter?.name || null);
+    emitterCache.set(cuit, emitter?.displayName || null);
   }
 
   // 1) Agregar facturas como comprobantes principales
@@ -139,7 +144,7 @@ export async function GET() {
       source: 'expected',
       id: inv.id,
       cuit: inv.cuit,
-      emitterName: inv.emitterName,
+      emitterName: emitterCache.get(inv.cuit) || inv.emitterName,
       issueDate: inv.issueDate,
       invoiceType: inv.invoiceType,
       pointOfSale: inv.pointOfSale,
@@ -195,7 +200,7 @@ export async function GET() {
           expected: null,
           pending: p,
           emitterCuit: p.extractedCuit,
-          emitterName: undefined,
+          emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
         });
       }
     }

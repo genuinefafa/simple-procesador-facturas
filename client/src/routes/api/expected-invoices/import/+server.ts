@@ -70,6 +70,10 @@ export const POST: RequestHandler = async ({ request }) => {
     console.info(`      Importadas: ${result.imported}`);
     console.info(`      Actualizadas: ${result.updated}`);
     console.info(`      Sin cambios: ${result.unchanged}`);
+    if (result.emittersCreated > 0 || result.emittersExisting > 0) {
+      console.info(`      Emisores creados: ${result.emittersCreated}`);
+      console.info(`      Emisores existentes: ${result.emittersExisting}`);
+    }
     console.info(`      Errores: ${result.errors.length}`);
 
     return json({
@@ -80,6 +84,8 @@ export const POST: RequestHandler = async ({ request }) => {
       imported: result.imported,
       updated: result.updated,
       unchanged: result.unchanged,
+      emittersCreated: result.emittersCreated,
+      emittersExisting: result.emittersExisting,
       errors: result.errors,
     });
   } catch (error) {

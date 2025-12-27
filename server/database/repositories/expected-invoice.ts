@@ -2,12 +2,13 @@
  * Repository para la gestión de facturas esperadas (Drizzle ORM)
  */
 
-import { eq, inArray, and, desc, gte, lte, isNull, like, SQL } from 'drizzle-orm';
+import { eq, inArray, and, desc, gte, lte, isNull, like, SQL, sql } from 'drizzle-orm';
 import { db } from '../db';
 import {
   expectedInvoices,
   importBatches,
   pendingFiles,
+  emisores,
   type ExpectedInvoice as DrizzelExpectedInvoice,
   type ImportBatch as DrizzelImportBatch,
 } from '../schema';
@@ -350,18 +351,28 @@ export class ExpectedInvoiceRepository {
       .select({
         expectedInvoice: expectedInvoices,
         filePath: pendingFiles.filePath,
+        emisorNombre: emisores.nombre,
       })
       .from(expectedInvoices)
-      .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId));
+      .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
+      .leftJoin(
+        emisores,
+        sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
+      );
 
     if (whereClause) {
       query = db
         .select({
           expectedInvoice: expectedInvoices,
           filePath: pendingFiles.filePath,
+          emisorNombre: emisores.nombre,
         })
         .from(expectedInvoices)
         .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
+        .leftJoin(
+          emisores,
+          sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
+        )
         .where(whereClause) as typeof query;
     }
 
@@ -385,10 +396,17 @@ export class ExpectedInvoiceRepository {
       filtered = filtered.slice(0, filters.limit);
     }
 
-    return filtered.map((row) => ({
-      ...this.mapDrizzleToExpectedInvoice(row.expectedInvoice),
-      filePath: row.filePath || null,
-    }));
+    return filtered.map((row) => {
+      const invoice = this.mapDrizzleToExpectedInvoice(row.expectedInvoice);
+      // Use emitter's normalized name if available, otherwise fall back to expected invoice's emitter name
+      if (row.emisorNombre) {
+        invoice.emitterName = row.emisorNombre;
+      }
+      return {
+        ...invoice,
+        filePath: row.filePath || null,
+      };
+    });
   }
 
   async findExactMatch(
@@ -653,20 +671,41 @@ export class ExpectedInvoiceRepository {
       conditions.push(eq(expectedInvoices.cuit, filters.cuit));
     }
 
+    // Join with emisores table to get normalized emitter name
+    // Use LEFT JOIN to keep invoices even if emitter doesn't exist
+    // Use COALESCE to prioritize emisores.nombre over expectedInvoices.emitterName
     let query;
 
     if (conditions.length > 0) {
       query = await db
-        .select()
+        .select({
+          expectedInvoice: expectedInvoices,
+          emisorNombre: emisores.nombre,
+        })
         .from(expectedInvoices)
+        .leftJoin(
+          emisores,
+          sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
+        )
         .where(and(...conditions));
     } else {
-      query = await db.select().from(expectedInvoices);
+      query = await db
+        .select({
+          expectedInvoice: expectedInvoices,
+          emisorNombre: emisores.nombre,
+        })
+        .from(expectedInvoices)
+        .leftJoin(
+          emisores,
+          sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
+        );
     }
 
     // Sort
     let result = query.sort(
-      (a, b) => new Date(b.issueDate).getTime() - new Date(a.issueDate).getTime()
+      (a, b) =>
+        new Date(b.expectedInvoice.issueDate).getTime() -
+        new Date(a.expectedInvoice.issueDate).getTime()
     );
 
     // Apply offset
@@ -679,7 +718,14 @@ export class ExpectedInvoiceRepository {
       result = result.slice(0, filters.limit);
     }
 
-    return result.map((row) => this.mapDrizzleToExpectedInvoice(row));
+    return result.map((row) => {
+      const invoice = this.mapDrizzleToExpectedInvoice(row.expectedInvoice);
+      // Use emitter's normalized name if available, otherwise fall back to expected invoice's emitter name
+      if (row.emisorNombre) {
+        invoice.emitterName = row.emisorNombre;
+      }
+      return invoice;
+    });
   }
 
   async markAsMatched(
