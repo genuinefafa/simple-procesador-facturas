@@ -1,6 +1,8 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
   import CategoryPills from '$lib/components/CategoryPills.svelte';
+  import SearchBox from '$lib/components/SearchBox.svelte';
+  import ActiveFilters from '$lib/components/ActiveFilters.svelte';
   import type { PageData } from './$types';
   import type { Comprobante } from '../api/comprobantes/+server';
   import { FileUpload } from 'melt/builders';
@@ -13,6 +15,7 @@
     formatDateShort,
     formatEmitterName,
   } from '$lib/formatters';
+  import { createFilterMatcher, serializeFilters, type FilterNode } from '$lib/search';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -27,6 +30,13 @@
   // Cargar filtro desde la URL (?f=...) o localStorage; por defecto 'all'
   let activeFilter = $state<FilterKind>('all');
 
+  // Estado para búsqueda meta-lenguaje
+  let searchQuery = $state('');
+  let searchFilters = $state<FilterNode[]>([]);
+
+  // Filter matcher
+  const matchesSearchFilter = $derived(createFilterMatcher(categories));
+
   $effect.pre(() => {
     if (typeof window !== 'undefined') {
       const rawParam = $page.url.searchParams.get('f');
@@ -40,6 +50,39 @@
           ? (urlParam as FilterKind)
           : (saved as FilterKind | null) || 'all';
       activeFilter = initial as FilterKind;
+
+      // Restaurar query de búsqueda desde URL
+      const q = $page.url.searchParams.get('q');
+      if (q) {
+        searchQuery = q;
+      } else {
+        // Si no hay query en URL, intentar restaurar desde localStorage
+        const savedFilters = localStorage.getItem('comprobantes-search-filters');
+        if (savedFilters) {
+          try {
+            const state = JSON.parse(savedFilters);
+            if (state.version === 1 && Date.now() - state.timestamp < 7 * 24 * 60 * 60 * 1000) {
+              searchQuery = state.query || '';
+            }
+          } catch (e) {
+            console.warn('Failed to restore search filters', e);
+          }
+        }
+      }
+    }
+  });
+
+  // Persistir filtros de búsqueda en localStorage
+  $effect(() => {
+    if (typeof window !== 'undefined') {
+      const state = {
+        version: 1,
+        query: searchQuery,
+        categoryId: activeCategoryId,
+        statusFilter: activeFilter,
+        timestamp: Date.now(),
+      };
+      localStorage.setItem('comprobantes-search-filters', JSON.stringify(state));
     }
   });
 
@@ -50,8 +93,12 @@
     activeFilter = kind;
     if (typeof window !== 'undefined') {
       localStorage.setItem('comprobantes-filter', kind);
-      const base = '/comprobantes';
-      const target = kind === 'all' ? base : `${base}?f=${kind}`;
+
+      const params = new URLSearchParams();
+      if (searchQuery) params.set('q', searchQuery);
+      if (kind !== 'all') params.set('f', kind);
+
+      const target = params.toString() ? `/comprobantes?${params}` : '/comprobantes';
       // Reemplazar estado para no ensuciar el historial al alternar filtros
       await goto(target, { replaceState: true, noScroll: true, keepFocus: true });
     }
@@ -111,6 +158,12 @@
     if (activeCategoryId !== undefined) {
       return (c.final?.categoryId ?? null) === activeCategoryId;
     }
+
+    // Filtros de búsqueda meta-lenguaje
+    for (const filter of searchFilters) {
+      if (!matchesSearchFilter(c, filter)) return false;
+    }
+
     return true;
   }
 
@@ -213,6 +266,25 @@
     };
   });
 
+  // Helpers para búsqueda meta-lenguaje
+  let visibleComprobantes = $derived(data.comprobantes.filter(isVisible));
+
+  let hasActiveFilters = $derived(
+    activeFilter !== 'all' || activeCategoryId !== undefined || searchFilters.length > 0
+  );
+
+  function clearAllFilters() {
+    searchQuery = '';
+    searchFilters = [];
+    activeCategoryId = undefined;
+    updateUrlForFilter('all');
+  }
+
+  function removeFilter(filter: FilterNode) {
+    const remaining = searchFilters.filter((f) => f !== filter);
+    searchQuery = serializeFilters(remaining);
+  }
+
   async function handleFiles(uploadedFiles: File[]) {
     const excel = uploadedFiles.filter((f) => /\.(xlsx|xls|csv)$/i.test(f.name));
     const others = uploadedFiles.filter((f) => !/\.(xlsx|xls|csv)$/i.test(f.name));
@@ -309,6 +381,15 @@
     <input {...fileUpload.input} />
   </div>
 
+  <!-- BÚSQUEDA META-LENGUAJE -->
+  <section class="search-section">
+    <SearchBox
+      bind:value={searchQuery}
+      onfilter={(filters) => (searchFilters = filters)}
+      {categories}
+    />
+  </section>
+
   <section class="filters">
     <button
       class:active={activeFilter === 'all'}
@@ -351,6 +432,25 @@
     />
   </section>
 
+  <!-- RESUMEN DE FILTROS + LIMPIAR -->
+  {#if hasActiveFilters}
+    <section class="filter-summary">
+      <div class="count">
+        Mostrando {visibleComprobantes.length} de {data.comprobantes.length} comprobantes
+      </div>
+      <button class="clear-all" onclick={clearAllFilters} type="button">
+        Limpiar todos los filtros
+      </button>
+    </section>
+  {/if}
+
+  <!-- FILTROS ACTIVOS VISUALES -->
+  {#if searchFilters.length > 0}
+    <section class="active-filters-section">
+      <ActiveFilters filters={searchFilters} onremove={removeFilter} />
+    </section>
+  {/if}
+
   <section class="list">
     <div class="list-head">
       <span>Tipo</span>
@@ -364,74 +464,71 @@
       <span>Hash</span>
       <span></span>
     </div>
-    {#each data.comprobantes as comp}
-      {#if isVisible(comp)}
-        <a href="/comprobantes/{comp.id}" class="row" data-sveltekit-preload-data>
-          <span class="col-type">
-            {#if comp.final}<span class="tag ok">Factura</span>
-            {:else if comp.expected}<span class="tag warn">Expected</span>
-            {:else}<span class="tag info">Pending</span>{/if}
-          </span>
-          <span class="col-cmp">{formatComprobante(comp)}</span>
-          <span class="col-emisor" title={getEmitterName(comp).full || undefined}
-            >{getEmitterName(comp).short}</span
-          >
-          <span class="col-cuit"
-            >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
-          >
-          <span class="col-date"
-            >{formatDateShort(
-              comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate
-            )}</span
-          >
-          <span class="col-total align-right"
-            >{formatCurrency(
-              comp.final?.total ?? comp.expected?.total ?? comp.pending?.extractedTotal
-            )}</span
-          >
-          <span class="col-category">
-            {#if comp.final}
-              {#if editingCategoryId === comp.final.id}
-                <!-- Modo edición: mostrar pills -->
-                <CategoryPills
-                  {categories}
-                  selected={comp.final?.categoryId ?? null}
-                  onselect={(id) => comp.final && updateCategory(comp.final.id, id)}
-                  mode="single"
-                />
-              {:else}
-                <!-- Modo readonly: mostrar categoría actual -->
-                <button
-                  type="button"
-                  class="category-display"
-                  onclick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    editingCategoryId = comp.final?.id ?? null;
-                  }}
-                  title="Click para editar categoría"
-                >
-                  {#if comp.final?.categoryId}
-                    {categories.find((c) => c.id === comp.final?.categoryId)?.description ?? '—'}
-                  {:else}
-                    <span class="no-category">Sin categoría</span>
-                  {/if}
-                </button>
-              {/if}
+    {#each visibleComprobantes as comp}
+      <a href="/comprobantes/{comp.id}" class="row" data-sveltekit-preload-data>
+        <span class="col-type">
+          {#if comp.final}<span class="tag ok">Factura</span>
+          {:else if comp.expected}<span class="tag warn">Expected</span>
+          {:else}<span class="tag info">Pending</span>{/if}
+        </span>
+        <span class="col-cmp">{formatComprobante(comp)}</span>
+        <span class="col-emisor" title={getEmitterName(comp).full || undefined}
+          >{getEmitterName(comp).short}</span
+        >
+        <span class="col-cuit"
+          >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
+        >
+        <span class="col-date"
+          >{formatDateShort(
+            comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate
+          )}</span
+        >
+        <span class="col-total align-right"
+          >{formatCurrency(
+            comp.final?.total ?? comp.expected?.total ?? comp.pending?.extractedTotal
+          )}</span
+        >
+        <span class="col-category">
+          {#if comp.final}
+            {#if editingCategoryId === comp.final.id}
+              <!-- Modo edición: mostrar pills -->
+              <CategoryPills
+                {categories}
+                selected={comp.final?.categoryId ?? null}
+                onselect={(id) => comp.final && updateCategory(comp.final.id, id)}
+                mode="single"
+              />
             {:else}
-              —
+              <!-- Modo readonly: mostrar categoría actual -->
+              <button
+                type="button"
+                class="category-display"
+                onclick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  editingCategoryId = comp.final?.id ?? null;
+                }}
+                title="Click para editar categoría"
+              >
+                {#if comp.final?.categoryId}
+                  {categories.find((c) => c.id === comp.final?.categoryId)?.description ?? '—'}
+                {:else}
+                  <span class="no-category">Sin categoría</span>
+                {/if}
+              </button>
             {/if}
-          </span>
-          <span class="col-status">
-            {#if comp.final}procesada
-            {:else if comp.expected}esperada
-            {:else}{comp.pending?.status || '—'}{/if}
-          </span>
-          <span class="col-hash">{comp.final?.fileHash ? shortHash(comp.final.fileHash) : '—'}</span
-          >
-          <span class="col-actions"><Button size="sm">Ver</Button></span>
-        </a>
-      {/if}
+          {:else}
+            —
+          {/if}
+        </span>
+        <span class="col-status">
+          {#if comp.final}procesada
+          {:else if comp.expected}esperada
+          {:else}{comp.pending?.status || '—'}{/if}
+        </span>
+        <span class="col-hash">{comp.final?.fileHash ? shortHash(comp.final.fileHash) : '—'}</span>
+        <span class="col-actions"><Button size="sm">Ver</Button></span>
+      </a>
     {/each}
   </section>
 </div>
@@ -642,5 +739,46 @@
 
   .align-right {
     text-align: right;
+  }
+
+  /* Búsqueda meta-lenguaje */
+  .search-section {
+    margin-bottom: var(--spacing-3);
+  }
+
+  .filter-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--color-surface-alt);
+    border-radius: var(--radius-md);
+  }
+
+  .filter-summary .count {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .clear-all {
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-1) var(--spacing-3);
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    transition: all var(--transition-fast);
+  }
+
+  .clear-all:hover {
+    border-color: var(--color-error);
+    color: var(--color-error);
+    background: #fef2f2;
+  }
+
+  .active-filters-section {
+    margin-bottom: var(--spacing-3);
   }
 </style>
