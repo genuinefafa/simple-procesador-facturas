@@ -62,13 +62,15 @@ function matchesEmisor(c: Comprobante, query: string): boolean {
 
   // Nombre del emisor
   const emisorName = getEmitterName(c);
+  const cuit = getCuit(c);
+
   if (emisorName && emisorName.toLowerCase().includes(queryLower)) {
     return true;
   }
 
-  // CUIT (normalizado)
-  const cuit = getCuit(c);
-  if (cuit && normalizeCuit(cuit).includes(normalizeCuit(query))) {
+  // CUIT (normalizado) - solo si el query tiene dígitos
+  const normalizedQuery = normalizeCuit(query);
+  if (cuit && normalizedQuery.length > 0 && normalizeCuit(cuit).includes(normalizedQuery)) {
     return true;
   }
 
@@ -239,9 +241,10 @@ function matchesFreeText(c: Comprobante, query: string): boolean {
     return true;
   }
 
-  // CUIT
+  // CUIT - solo si el query tiene dígitos
   const cuit = getCuit(c);
-  if (cuit && normalizeCuit(cuit).includes(normalizeCuit(query))) {
+  const normalizedQuery = normalizeCuit(query);
+  if (cuit && normalizedQuery.length > 0 && normalizeCuit(cuit).includes(normalizedQuery)) {
     return true;
   }
 
