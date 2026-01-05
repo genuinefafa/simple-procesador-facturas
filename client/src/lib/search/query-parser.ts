@@ -249,27 +249,52 @@ function parseDateField(value: string, negate: boolean): FilterNode {
     throw new Error(`Fecha inválida: ${dateValue}`);
   }
 
-  // Si es solo año o mes, expandir a rango
+  // Si es solo año o mes sin operador, expandir a rango
+  if (operator === 'eq') {
+    if (/^\d{4}$/.test(dateValue)) {
+      // Solo año → rango de todo el año
+      return {
+        type: 'fecha',
+        operator: 'range',
+        value: {
+          start: startOfYear(parsedDate),
+          end: endOfYear(parsedDate),
+        },
+        negate,
+      };
+    } else if (/^\d{4}-\d{2}$/.test(dateValue)) {
+      // Año-mes → rango de todo el mes
+      return {
+        type: 'fecha',
+        operator: 'range',
+        value: {
+          start: startOfMonth(parsedDate),
+          end: endOfMonth(parsedDate),
+        },
+        negate,
+      };
+    }
+  }
+
+  // Si hay operador y es año/mes parcial, usar inicio o fin según operador
   if (/^\d{4}$/.test(dateValue)) {
-    // Solo año → rango de todo el año
+    // Año parcial con operador: >2024, <2024, >=2024, <=2024
+    const targetDate =
+      operator === 'gt' || operator === 'lte' ? endOfYear(parsedDate) : startOfYear(parsedDate);
     return {
       type: 'fecha',
-      operator: 'range',
-      value: {
-        start: startOfYear(parsedDate),
-        end: endOfYear(parsedDate),
-      },
+      operator,
+      value: targetDate,
       negate,
     };
   } else if (/^\d{4}-\d{2}$/.test(dateValue)) {
-    // Año-mes → rango de todo el mes
+    // Mes parcial con operador: >2024-01, <2024-01, >=2024-01, <=2024-01
+    const targetDate =
+      operator === 'gt' || operator === 'lte' ? endOfMonth(parsedDate) : startOfMonth(parsedDate);
     return {
       type: 'fecha',
-      operator: 'range',
-      value: {
-        start: startOfMonth(parsedDate),
-        end: endOfMonth(parsedDate),
-      },
+      operator,
+      value: targetDate,
       negate,
     };
   }
