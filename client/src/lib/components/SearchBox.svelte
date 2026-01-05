@@ -158,6 +158,15 @@
     font-size: var(--font-size-sm);
   }
 
+  /* Ocultar botón de clear nativo del navegador */
+  .search-input::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  .search-input::-webkit-search-decoration {
+    display: none;
+  }
+
   .clear-btn,
   .help-btn {
     position: absolute;
