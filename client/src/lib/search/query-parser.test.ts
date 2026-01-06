@@ -112,7 +112,7 @@ describe('Query Parser', () => {
       const result = parseSearchQuery('fecha:<=2024-01');
       expect(result.errors).toEqual([]);
       const filter = result.filters[0];
-      expect(filter.type) === 'fecha';
+      expect(filter.type).toBe('fecha');
       if (filter.type === 'fecha' && filter.value instanceof Date) {
         expect(filter.operator).toBe('lte');
         expect(filter.value.getDate()).toBe(31);
