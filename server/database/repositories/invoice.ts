@@ -376,4 +376,20 @@ export class InvoiceRepository {
       };
     }
   }
+
+  async updateFileHash(id: number, fileHash: string): Promise<void> {
+    await db.update(facturas).set({ fileHash: fileHash }).where(eq(facturas.id, id));
+  }
+
+  async findByFileHash(hash: string): Promise<Invoice[]> {
+    const result = await db.select().from(facturas).where(eq(facturas.fileHash, hash));
+
+    return result.map((row) => this.mapDrizzleToInvoice(row));
+  }
+
+  async listAllProcessed(): Promise<Invoice[]> {
+    const result = await db.select().from(facturas);
+
+    return result.map((row) => this.mapDrizzleToInvoice(row));
+  }
 }
