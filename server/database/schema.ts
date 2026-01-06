@@ -146,6 +146,7 @@ const pendingFiles_ = sqliteTable(
     filePath: text('file_path').notNull(),
     fileSize: integer('file_size'),
     uploadDate: text('upload_date').default(sql`CURRENT_TIMESTAMP`),
+    fileHash: text('file_hash'), // SHA-256 hash del archivo
 
     // Datos extraídos (pueden estar incompletos/nulos)
     extractedCuit: text('extracted_cuit'),
@@ -170,6 +171,7 @@ const pendingFiles_ = sqliteTable(
   (table) => ({
     statusIdx: index('idx_pending_status').on(table.status),
     uploadDateIdx: index('idx_pending_upload_date').on(table.uploadDate),
+    hashIdx: index('idx_pending_files_hash').on(table.fileHash),
   })
 );
 
