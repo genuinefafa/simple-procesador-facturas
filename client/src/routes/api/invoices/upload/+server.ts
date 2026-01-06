@@ -8,6 +8,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
+import { calculateFileHash } from '@server/utils/file-hash.js';
 
 const UPLOAD_DIR = join(process.cwd(), '..', 'data', 'input');
 
@@ -93,12 +94,23 @@ export const POST: RequestHandler = async ({ request }) => {
       await writeFile(filePath, buffer);
       console.info(`✅ [UPLOAD] Guardado: ${filePath}`);
 
+      // Calcular hash SHA-256
+      let fileHash: string | undefined;
+      try {
+        const hashResult = await calculateFileHash(filePath);
+        fileHash = hashResult.hash;
+        console.info(`🔐 [UPLOAD] Hash: ${fileHash.substring(0, 16)}...`);
+      } catch (error) {
+        console.warn(`⚠️  [UPLOAD] Error calculando hash:`, error);
+      }
+
       // Crear registro en pending_files
       const pendingFileRepo = new PendingFileRepository();
       const pendingFile = await pendingFileRepo.create({
         originalFilename: file.name,
         filePath: filePath,
         fileSize: file.size,
+        fileHash,
         status: 'pending',
       });
 
