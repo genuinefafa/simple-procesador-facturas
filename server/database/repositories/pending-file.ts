@@ -14,6 +14,7 @@ export interface PendingFile {
   filePath: string;
   fileSize: number | null;
   uploadDate: string | null;
+  fileHash: string | null; // SHA-256 hash del archivo
   extractedCuit: string | null;
   extractedDate: string | null;
   extractedTotal: number | null;
@@ -39,6 +40,7 @@ export class PendingFileRepository {
       filePath: row.filePath,
       fileSize: row.fileSize || null,
       uploadDate: row.uploadDate || null,
+      fileHash: row.fileHash || null,
       extractedCuit: row.extractedCuit || null,
       extractedDate: row.extractedDate || null,
       extractedTotal: row.extractedTotal || null,
@@ -58,6 +60,7 @@ export class PendingFileRepository {
     originalFilename: string;
     filePath: string;
     fileSize?: number;
+    fileHash?: string;
     extractedCuit?: string;
     extractedDate?: string;
     extractedTotal?: number;
@@ -80,6 +83,7 @@ export class PendingFileRepository {
         originalFilename: data.originalFilename,
         filePath: data.filePath,
         fileSize: data.fileSize || null,
+        fileHash: data.fileHash || null,
         extractedCuit: data.extractedCuit || null,
         extractedDate: data.extractedDate || null,
         extractedTotal: data.extractedTotal || null,
@@ -229,5 +233,25 @@ export class PendingFileRepository {
     }
 
     return counts;
+  }
+
+  async updateFileHash(id: number, fileHash: string): Promise<PendingFile> {
+    const result = await db
+      .update(pendingFiles)
+      .set({ fileHash: fileHash })
+      .where(eq(pendingFiles.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error('Pending file not found after hash update');
+    }
+
+    return this.mapDrizzleToPendingFile(result[0]);
+  }
+
+  async findByHash(hash: string): Promise<PendingFile[]> {
+    const result = await db.select().from(pendingFiles).where(eq(pendingFiles.fileHash, hash));
+
+    return result.map((row) => this.mapDrizzleToPendingFile(row));
   }
 }
