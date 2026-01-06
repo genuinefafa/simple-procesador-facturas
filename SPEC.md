@@ -233,6 +233,144 @@ npm run db:migrate
 }
 ```
 
+### 2.7 Sistema de File Hashing e Integridad
+
+**Objetivo:** Garantizar la integridad de los archivos mediante hashes SHA-256 y detectar archivos perdidos/modificados.
+
+#### Decisión de Diseño
+
+**Algoritmo:** SHA-256 (64 caracteres hexadecimales)
+
+**Justificación:**
+- Estándar de la industria para verificación de integridad
+- Resistente a colisiones (probabilidad prácticamente nula)
+- Performance aceptable (~50-100ms por archivo de 500KB)
+- Compatible con herramientas estándar (shasum, openssl)
+
+#### Flujo de Hashing
+
+**1. Upload (data/input/)**
+- Archivo subido por el usuario
+- Hash SHA-256 calculado inmediatamente después de guardar
+- Guardado en `pending_files.file_hash`
+- Logueo: `🔐 Hash: a1b2c3d4e5f6...`
+
+**2. Processing**
+- Hash copiado automáticamente de `pending_files` a `facturas`
+- Fallback: si pending_file no tiene hash, se calcula on-the-fly
+- Guardado en `facturas.file_hash`
+- Logueo: `🔐 Hash copiado desde pending_file`
+
+**3. Backfill (Archivos Existentes)**
+- Script manual: `npm run backfill-hashes`
+- Escanea todos los registros en `facturas` con `archivo_procesado` != NULL
+- Calcula hash para archivos que no tienen
+- Reporta archivos no encontrados (posibles archivos perdidos)
+
+#### Schema de Base de Datos
+
+**pending_files**
+```sql
+file_hash TEXT  -- SHA-256 hex (64 chars), NULL si no calculado
+```
+
+**facturas**
+```sql
+file_hash TEXT  -- SHA-256 hex (64 chars), NULL si no calculado
+```
+
+**Índices:**
+- `idx_pending_files_hash` en `pending_files(file_hash)`
+- `idx_facturas_hash` en `facturas(file_hash)`
+
+#### Script de Backfill
+
+Para hashear archivos que ya están en el sistema (antes de implementar hashing):
+
+```bash
+npm run backfill-hashes
+```
+
+**Funcionalidad:**
+- Escanea todos los registros en `facturas` con `archivo_procesado` != NULL
+- Calcula hash SHA-256 para los que no tienen
+- Reporta archivos no encontrados (posibles archivos perdidos)
+- Progress logging cada 10 archivos
+- Genera reporte final con estadísticas
+
+**Output ejemplo:**
+```
+🔐 Iniciando backfill de hashes...
+📊 Total de facturas procesadas: 1247
+
+⏳ Progreso: 1240/1247 (1195 hasheados)
+❌ Archivo no encontrado: 2023-11/deleted-file.pdf
+
+📊 Reporte Final:
+   Total procesados: 1247
+   ✅ Ya tenían hash: 45
+   🔐 Hasheados ahora: 1195
+   ❌ No encontrados: 7
+   ⚠️  Errores: 0
+```
+
+#### Casos de Uso
+
+| Escenario | Comportamiento |
+|-----------|----------------|
+| **Archivo nuevo** | Hash calculado automáticamente al upload |
+| **Archivo sin hash** | Calcular con script de backfill |
+| **Archivo movido** | Hash permite identificarlo (futuro: reconciliación) |
+| **Verificar integridad** | Comparar hash actual vs guardado en BD |
+| **Archivos duplicados** | Detectar por hash idéntico |
+
+#### Utilidades de Hashing
+
+**Función principal:**
+```typescript
+import { calculateFileHash } from '@server/utils/file-hash.js';
+
+const result = await calculateFileHash('/path/to/file.pdf');
+// {
+//   hash: 'a1b2c3d4e5f6...',
+//   algorithm: 'sha256',
+//   fileSize: 524288,
+//   calculatedAt: Date
+// }
+```
+
+**Verificación:**
+```typescript
+import { verifyFileHash } from '@server/utils/file-hash.js';
+
+const isValid = await verifyFileHash('/path/to/file.pdf', 'expected-hash');
+// true/false
+```
+
+**Batch processing:**
+```typescript
+import { calculateBatchHashes } from '@server/utils/file-hash.js';
+
+const hashes = await calculateBatchHashes(['/file1.pdf', '/file2.pdf']);
+// Map<string, HashCalculationResult>
+```
+
+#### Estado de Implementación
+
+**✅ Parte 1 (Implementada - Issue #38):**
+- Hashing automático en flujo operativo (upload → process)
+- Script de backfill masivo (`npm run backfill-hashes`)
+- Métodos de repository para búsqueda por hash
+- Tests de integración completos
+- Documentación actualizada
+
+**🔜 Parte 2 (Futuro):**
+- UI de reconciliación (`/files/integrity`)
+- FileIntegrityService con matching inteligente
+- Detección automática de archivos perdidos/huérfanos
+- Sugerencias de matching por hash
+- API endpoints de integridad
+
 ---
 
 ## 3. Rutas y Funcionalidades
@@ -539,6 +677,30 @@ await invalidateAll(); // Re-ejecuta load functions
 - `fix/*` - Bugfixes
 - `docs/*` - Solo documentación
 - `refactor/*` - Refactoring sin cambios funcionales
+
+**Estrategia de Commits:**
+
+✅ **Commits incrementales**: Realizar commits pequeños y frecuentes durante el desarrollo
+- **NO** esperar a terminar toda la feature para commitear
+- **SÍ** commitear cada fase/componente lógico completado
+- Ejemplo: Migration → Utility → Repository → Integration → Tests (5 commits mínimo)
+
+✅ **Nombres descriptivos**: Usar conventional commits con alcance específico
+```bash
+feat(database): add file_hash to pending_files
+feat(utils): create file-hash utility with SHA-256
+feat(repository): add hash methods to InvoiceRepository
+```
+
+✅ **Branch por issue**: Crear branch `feat/nombre-issue-38` antes de comenzar
+```bash
+git checkout -b feat/file-hashing-issue-38
+```
+
+✅ **Push frecuente**: Subir cambios al menos una vez al día para backup
+```bash
+git push -u origin feat/file-hashing-issue-38
+```
 
 ### 7.4 Gestión de Issues y Prioridades
 
