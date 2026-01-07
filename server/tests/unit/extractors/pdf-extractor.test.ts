@@ -17,8 +17,7 @@ describe('PDFExtractor', () => {
   });
 
   describe('extract - tipo de comprobante', () => {
-    // TODO(Issue): Test failing - PDFExtractor returning numeric codes instead of letter types
-    // Needs investigation of extraction logic
+    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
     it.skip('debe detectar "Factura A" correctamente', async () => {
       const mockText = `
         FACTURA
@@ -37,7 +36,7 @@ describe('PDFExtractor', () => {
       expect(result.data.invoiceType).toBe('A');
     });
 
-    // TODO(Issue): Test failing - PDFExtractor returning numeric codes instead of letter types
+    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
     it.skip('debe detectar "Factura C" correctamente', async () => {
       const mockText = `
         FACTURA
@@ -55,7 +54,7 @@ describe('PDFExtractor', () => {
       expect(result.data.invoiceType).toBe('C');
     });
 
-    // TODO(Issue): Test failing - PDFExtractor returning numeric codes instead of letter types
+    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
     it.skip('NO debe confundir "11 - Factura C" con tipo A (bug reportado)', async () => {
       // Este es el caso problemático reportado:
       // El campo tenía "11 - Factura C" y se detectó como tipo A
@@ -79,7 +78,7 @@ describe('PDFExtractor', () => {
       expect(result.data.invoiceType).toBe('C');
     });
 
-    // TODO(Issue): Test failing - PDFExtractor returning numeric codes instead of letter types
+    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
     it.skip('debe detectar tipo desde "Comprobante A"', async () => {
       const mockText = `
         Comprobante A
@@ -94,7 +93,7 @@ describe('PDFExtractor', () => {
       expect(result.data.invoiceType).toBe('A');
     });
 
-    // TODO(Issue): Test failing - PDFExtractor returning numeric codes instead of letter types
+    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
     it.skip('debe detectar tipo desde código AFIP', async () => {
       const mockText = `
         CODIGO:

@@ -12,8 +12,7 @@ import {
 
 describe('AFIP Codes', () => {
   describe('AFIP_CODES mapping', () => {
-    // TODO(Issue): Test failing - AFIP_CODES not properly exported/imported
-    // Needs investigation of utils/afip-codes module
+    // TODO(Issue #68): Test failing - AFIP_CODES not properly exported/imported
     it.skip('debe tener los códigos principales de facturas', () => {
       // Facturas A
       expect(AFIP_CODES['001']).toEqual({
@@ -40,7 +39,7 @@ describe('AFIP Codes', () => {
       });
     });
 
-    // TODO(Issue): Test failing - AFIP_CODES not properly exported/imported
+    // TODO(Issue #68): Test failing - AFIP_CODES not properly exported/imported
     it.skip('debe tener los códigos de notas de crédito', () => {
       expect(AFIP_CODES['003']).toEqual({
         code: '003',
@@ -64,7 +63,7 @@ describe('AFIP Codes', () => {
       });
     });
 
-    // TODO(Issue): Test failing - AFIP_CODES not properly exported/imported
+    // TODO(Issue #68): Test failing - AFIP_CODES not properly exported/imported
     it.skip('debe tener los códigos de notas de débito', () => {
       expect(AFIP_CODES['002']).toEqual({
         code: '002',
@@ -76,7 +75,7 @@ describe('AFIP Codes', () => {
   });
 
   describe('getDocumentTypeFromAFIPCode', () => {
-    // TODO(Issue): Test failing - function returning undefined
+    // TODO(Issue #68): Test failing - function returning undefined
     it.skip('debe reconocer código con ceros a la izquierda', () => {
       const result = getDocumentTypeFromAFIPCode('011');
       expect(result?.invoiceType).toBe('C');
@@ -107,7 +106,7 @@ describe('AFIP Codes', () => {
   });
 
   describe('extractAFIPCodeFromText', () => {
-    // TODO(Issue): Test failing - function returning undefined
+    // TODO(Issue #68): Test failing - function returning undefined
     it.skip('debe extraer código de "11 - Factura C"', () => {
       const text = `
         Punto de Venta
@@ -120,7 +119,7 @@ describe('AFIP Codes', () => {
       expect(result?.documentKind).toBe('FAC');
     });
 
-    // TODO(Issue): Test failing - function returning undefined
+    // TODO(Issue #68): Test failing - function returning undefined
     it.skip('debe extraer código de "CODIGO: 011"', () => {
       const text = `
         CODIGO:

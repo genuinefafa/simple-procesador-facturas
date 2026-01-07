@@ -37,8 +37,7 @@ describe('Matches API - findPartialMatches', () => {
     expect(matches[0].matchScore).toBeGreaterThan(0);
   });
 
-  // TODO(Issue): Test failing - needs database setup with expected invoices
-  // See issue for investigation and fix
+  // TODO(Issue #68): Test failing - needs database setup with expected invoices
   it.skip('debería asignar score por proximidad de número', async () => {
     const matches = await expectedRepo.findPartialMatches({
       invoiceType: 'A',

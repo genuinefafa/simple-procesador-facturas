@@ -155,8 +155,7 @@ describe('Precisión de Extracción de Datos', () => {
     ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.Fecha);
   });
 
-  // TODO(Issue): Test failing - extraction accuracy below threshold
-  // Needs investigation of PDF extraction logic
+  // TODO(Issue #68): Test failing - extraction accuracy below threshold
   it.skip('debe mantener precisión de Tipo >= 70% (objetivo: 90%)', () => {
     const matches = results.filter((r) => r.tipoMatch).length;
     const accuracy = (matches / results.length) * 100;
@@ -205,8 +204,7 @@ describe('Precisión de Extracción de Datos', () => {
     ).toBeGreaterThanOrEqual(ACCURACY_THRESHOLDS.Total);
   });
 
-  // TODO(Issue): Test failing - extraction accuracy below threshold
-  // Needs investigation of PDF extraction logic
+  // TODO(Issue #68): Test failing - extraction accuracy below threshold
   it.skip('debe mantener al menos 10% de extractiones perfectas (objetivo: 60%)', () => {
     const perfectMatches = results.filter(
       (r) =>
