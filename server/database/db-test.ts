@@ -55,11 +55,22 @@ export function resetTestDb(): void {
 
 /**
  * Ejecutar migraciones en la DB de test
+ * Solo corre si la DB está vacía o no tiene las tablas necesarias
  */
 export async function runTestMigrations(): Promise<void> {
   const { migrate } = await import('drizzle-orm/better-sqlite3/migrator');
   const { readFileSync } = await import('fs');
   const path = await import('path');
+
+  // Verificar si ya existen las tablas principales
+  const tables = rawDb
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='facturas'")
+    .all() as { name: string }[];
+
+  if (tables.length > 0) {
+    console.log('✅ DB de test ya tiene schema, saltando migraciones');
+    return;
+  }
 
   const migrationsPath = path.join(__dirname, 'migrations');
 
