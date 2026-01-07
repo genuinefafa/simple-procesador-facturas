@@ -4,7 +4,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
@@ -83,7 +83,21 @@ export const POST: RequestHandler = async ({ request }) => {
           fileHash = hashResult.hash;
           hashPreview = fileHash.substring(0, 16);
           console.info(`🔐 [UPLOAD] Hash: ${hashPreview}...`);
+
+          // Verificar si ya existe un archivo con este hash
+          const existingFiles = await pendingFileRepo.findByHash(fileHash);
+          if (existingFiles.length > 0) {
+            // Borrar el archivo recién subido
+            await unlink(filePath);
+            throw new Error(
+              `Archivo duplicado (hash idéntico a ${existingFiles[0].originalFilename})`
+            );
+          }
         } catch (error) {
+          // Si es error de duplicado, propagar
+          if (error instanceof Error && error.message.includes('duplicado')) {
+            throw error;
+          }
           console.warn(`⚠️  [UPLOAD] Error calculando hash:`, error);
         }
 
