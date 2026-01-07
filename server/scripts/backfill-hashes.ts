@@ -52,12 +52,12 @@ async function backfillHashes(): Promise<BackfillStats> {
       continue;
     }
 
-    // Construir ruta completa al archivo
-    const filePath = join(PROCESSED_DIR, invoice.processedFile);
+    // El processedFile ya es una ruta absoluta completa
+    const filePath = invoice.processedFile;
 
     // Verificar que existe
     if (!existsSync(filePath)) {
-      console.warn(`❌ Archivo no encontrado: ${invoice.processedFile}`);
+      console.warn(`❌ Archivo no encontrado: ${filePath}`);
       stats.notFound++;
       continue;
     }
