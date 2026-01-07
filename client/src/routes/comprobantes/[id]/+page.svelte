@@ -67,6 +67,10 @@
     if (value === null || value === undefined) return '—';
     return value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
   };
+  const formatHash = (hash: string | null | undefined) => {
+    if (!hash) return '—';
+    return `${hash.substring(0, 16)}...`;
+  };
 
   // Determinar si es una expected sin archivo (no permite crear factura directamente)
   const isExpectedWithoutFile = $derived(
@@ -421,8 +425,8 @@
   }
 
   function openDeleteDialog() {
-    if (!comprobante.final) {
-      toast.error('Solo se pueden eliminar facturas finalizadas');
+    if (!comprobante.final && !comprobante.pending) {
+      toast.error('No hay nada que eliminar');
       return;
     }
     deleteDialogOpen = true;
@@ -431,26 +435,51 @@
   async function confirmDelete() {
     deleteDialogOpen = false;
 
-    if (!comprobante.final) return;
+    // Eliminar factura final
+    if (comprobante.final) {
+      const toastId = toast.loading('Eliminando factura...');
 
-    const toastId = toast.loading('Eliminando factura...');
+      try {
+        const response = await fetch(`/api/invoices/${comprobante.final.id}`, {
+          method: 'DELETE',
+        });
 
-    try {
-      const response = await fetch(`/api/invoices/${comprobante.final.id}`, {
-        method: 'DELETE',
-      });
+        const data = await response.json();
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        toast.success(data.message, { id: toastId });
-        await goto('/comprobantes');
-      } else {
-        toast.error(data.error || 'Error al eliminar factura', { id: toastId });
+        if (response.ok && data.success) {
+          toast.success(data.message, { id: toastId });
+          await goto('/comprobantes');
+        } else {
+          toast.error(data.error || 'Error al eliminar factura', { id: toastId });
+        }
+      } catch (err) {
+        console.error('Error al eliminar factura:', err);
+        toast.error('Error al eliminar factura', { id: toastId });
       }
-    } catch (err) {
-      console.error('Error al eliminar factura:', err);
-      toast.error('Error al eliminar factura', { id: toastId });
+      return;
+    }
+
+    // Eliminar pending file
+    if (comprobante.pending) {
+      const toastId = toast.loading('Eliminando archivo pendiente...');
+
+      try {
+        const response = await fetch(`/api/pending-files/${comprobante.pending.id}`, {
+          method: 'DELETE',
+        });
+
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          toast.success(data.message || 'Archivo pendiente eliminado', { id: toastId });
+          await goto('/comprobantes');
+        } else {
+          toast.error(data.error || 'Error al eliminar archivo pendiente', { id: toastId });
+        }
+      } catch (err) {
+        console.error('Error al eliminar archivo pendiente:', err);
+        toast.error('Error al eliminar archivo pendiente', { id: toastId });
+      }
     }
   }
 
@@ -598,8 +627,13 @@
 
 <div class="container">
   <header class="header">
-    <a href="/comprobantes">← Volver</a>
-    <h1>Detalle Comprobante</h1>
+    <div class="header-left">
+      <a href="/comprobantes">← Volver</a>
+      <h1>Detalle Comprobante</h1>
+    </div>
+    <div class="header-actions">
+      <Button variant="danger" size="sm" onclick={openDeleteDialog}>🗑️ Eliminar</Button>
+    </div>
   </header>
 
   <div class="layout">
@@ -647,6 +681,14 @@
           <div class="meta-row small">
             <span class="meta">Creada: {formatDateTime(comprobante.final.processedAt)}</span>
           </div>
+          {#if comprobante.final.fileHash}
+            <div class="meta-row small">
+              <span class="meta"
+                >Hash SHA-256: <code class="hash">{formatHash(comprobante.final.fileHash)}</code
+                ></span
+              >
+            </div>
+          {/if}
         {/if}
 
         <EmitterCombobox value={selectedEmitter} onselect={onEmitterSelect} disabled={isReadOnly} />
@@ -886,6 +928,14 @@
                 <span class="label">Estado:</span>
                 <span class="value">{comprobante.pending.status}</span>
               </div>
+              {#if comprobante.pending.fileHash}
+                <div class="data-item">
+                  <span class="label">Hash SHA-256:</span>
+                  <span class="value"
+                    ><code class="hash">{formatHash(comprobante.pending.fileHash)}</code></span
+                  >
+                </div>
+              {/if}
 
               {#if comprobante.pending.extractionConfidence !== null && comprobante.pending.extractionConfidence !== undefined}
                 <div class="data-item">
@@ -1024,20 +1074,42 @@
 <!-- Dialog de confirmación de eliminación -->
 <Dialog
   bind:open={deleteDialogOpen}
-  title="⚠️ Eliminar Factura"
+  title={comprobante.final
+    ? '⚠️ Eliminar Factura'
+    : comprobante.pending
+      ? '⚠️ Eliminar Archivo Pendiente'
+      : '⚠️ Eliminar Comprobante'}
   description="Esta acción no se puede deshacer"
 >
   <div class="delete-dialog-content">
-    <p>¿Estás seguro de que querés eliminar esta factura?</p>
-
-    <div class="delete-info">
-      <p><strong>La factura será eliminada pero:</strong></p>
-      <ul>
-        <li>• Los archivos se mantendrán</li>
-        <li>• Si tiene factura esperada vinculada, volverá a estado "pendiente"</li>
-        <li>• Si tiene archivo pendiente vinculado, volverá a "en revisión"</li>
-      </ul>
-    </div>
+    {#if comprobante.final}
+      <p>¿Estás seguro de que querés eliminar esta factura?</p>
+      <div class="delete-info">
+        <p><strong>La factura será eliminada pero:</strong></p>
+        <ul>
+          <li>• Los archivos se mantendrán</li>
+          <li>• Si tiene factura esperada vinculada, volverá a estado "pendiente"</li>
+          <li>• Si tiene archivo pendiente vinculado, volverá a "en revisión"</li>
+        </ul>
+      </div>
+    {:else if comprobante.pending}
+      <p>¿Estás seguro de que querés eliminar este archivo pendiente?</p>
+      <div class="delete-info">
+        <p><strong>Se eliminará:</strong></p>
+        <ul>
+          <li>• El registro en base de datos</li>
+          <li>
+            • El archivo físico del disco <strong
+              >solo si no está vinculado a ninguna factura</strong
+            >
+          </li>
+        </ul>
+        <p class="info-note">
+          📌 Si existe una factura que usa este archivo, el archivo físico se preservará
+          automáticamente.
+        </p>
+      </div>
+    {/if}
 
     <div class="dialog-actions">
       <Button variant="secondary" onclick={() => (deleteDialogOpen = false)}>Cancelar</Button>
@@ -1053,14 +1125,26 @@
     padding: var(--spacing-4);
   }
   .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: var(--spacing-4);
+  }
+  .header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
   }
   .header a {
     color: var(--color-primary-700);
     text-decoration: none;
   }
   .header h1 {
-    margin: 0.5rem 0;
+    margin: 0;
+  }
+  .header-actions {
+    display: flex;
+    gap: var(--spacing-2);
   }
 
   .layout {
@@ -1472,10 +1556,29 @@
     color: var(--color-text-secondary);
   }
 
+  .delete-info .info-note {
+    margin-top: var(--spacing-3);
+    padding: var(--spacing-2);
+    background: var(--color-surface);
+    border-radius: var(--radius-sm);
+    font-size: 0.9em;
+    color: var(--color-text-secondary);
+  }
+
   .dialog-actions {
     display: flex;
     gap: var(--spacing-3);
     justify-content: flex-end;
     margin-top: var(--spacing-2);
+  }
+
+  code.hash {
+    font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+    font-size: 0.85em;
+    background: var(--color-surface);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
   }
 </style>

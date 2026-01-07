@@ -47,6 +47,7 @@ export const GET: RequestHandler = async ({ params }) => {
         originalFile: invoice.originalFile,
         processedFile: invoice.processedFile,
         fileType: invoice.fileType,
+        fileHash: invoice.fileHash,
         extractionConfidence: invoice.extractionConfidence,
         requiresReview: invoice.requiresReview,
         manuallyValidated: invoice.manuallyValidated,

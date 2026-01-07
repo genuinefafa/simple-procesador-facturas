@@ -40,6 +40,7 @@ export type Pending = {
   id: number;
   originalFilename: string;
   filePath: string;
+  fileHash?: string | null;
   status: 'pending' | 'reviewing' | 'processed' | 'failed';
   extractedCuit?: string | null;
   extractedDate?: string | null;
@@ -158,6 +159,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
               id: d.id,
               originalFilename: d.originalFilename,
               filePath: d.filePath,
+              fileHash: d.fileHash,
               status: d.status,
               extractedCuit: d.extractedCuit,
               extractedDate: d.extractedDate,
@@ -223,6 +225,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           id: data.id,
           originalFilename: data.originalFilename,
           filePath: data.filePath,
+          fileHash: data.fileHash,
           status: data.status,
           extractedCuit: data.extractedCuit,
           extractedDate: data.extractedDate,
