@@ -335,7 +335,42 @@
     if (others.length > 0) {
       const fd = new FormData();
       others.forEach((f) => fd.append('files', f));
-      await fetch('/api/invoices/upload', { method: 'POST', body: fd });
+      const toastId = toast.loading(
+        `Subiendo ${others.length} archivo${others.length > 1 ? 's' : ''}...`
+      );
+
+      try {
+        const response = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
+        const data = await response.json();
+
+        if (data.success) {
+          const { summary } = data;
+          if (summary.failed > 0) {
+            // Hubo algunos errores
+            const errorList = data.errors.map((e: any) => `${e.name}: ${e.error}`).join('; ');
+            toast.warning(`${summary.success}/${summary.total} subido(s). Errores: ${errorList}`, {
+              id: toastId,
+              duration: Infinity,
+            });
+          } else {
+            // Todo OK
+            toast.success(`${summary.success} archivo(s) subido(s) correctamente`, {
+              id: toastId,
+              duration: 3000,
+            });
+          }
+        } else {
+          // Mostrar errores específicos si existen, sino mensaje genérico
+          const errorMsg =
+            data.errors && data.errors.length > 0
+              ? data.errors.map((e: any) => `${e.name}: ${e.error}`).join('; ')
+              : data.error || 'Error desconocido al subir archivos';
+          toast.error(errorMsg, { id: toastId, duration: Infinity });
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : 'Error de conexión';
+        toast.error(`Error al subir archivos: ${errorMsg}`, { id: toastId, duration: Infinity });
+      }
     }
 
     // 3) Refresh reactivo

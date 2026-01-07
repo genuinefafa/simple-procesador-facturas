@@ -75,18 +75,34 @@ jobs:
       - name: Setup Node and Dependencies
         uses: ./.github/actions/setup-node-deps
 
+      - name: Run server tests
+        run: cd server && npm run test -- --run
+
       - name: Run client tests
         run: cd client && npm run test:run
 
-      - name: Run client tests with coverage
-        run: cd client && npm run test:coverage || echo "Coverage not configured"
+      - name: Run server tests with coverage
+        run: cd server && npm run test:coverage || echo "Server coverage not configured"
         continue-on-error: true
 
-      - name: Upload coverage artifacts
+      - name: Run client tests with coverage
+        run: cd client && npm run test:coverage || echo "Client coverage not configured"
+        continue-on-error: true
+
+      - name: Upload server coverage artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-report
+          name: server-coverage-report
+          path: server/coverage/
+          retention-days: 30
+        continue-on-error: true
+
+      - name: Upload client coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-coverage-report
           path: client/coverage/
           retention-days: 30
         continue-on-error: true

@@ -1,5 +1,8 @@
 /**
  * Conexión a la base de datos con Drizzle ORM
+ *
+ * Soporta modo TEST mediante variable de entorno NODE_ENV=test
+ * que usa database.test.sqlite en lugar de database.sqlite
  */
 
 import { drizzle } from 'drizzle-orm/better-sqlite3';
@@ -12,8 +15,10 @@ import * as schema from './schema.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Ruta a la base de datos
-const DB_PATH = join(__dirname, '..', '..', 'data', 'database.sqlite');
+// Determinar qué DB usar según NODE_ENV
+const isTestMode = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+const dbFilename = isTestMode ? 'database.test.sqlite' : 'database.sqlite';
+const DB_PATH = join(__dirname, '..', '..', 'data', dbFilename);
 
 // Crear directorio data/ si no existe
 const dataDir = join(__dirname, '..', '..', 'data');

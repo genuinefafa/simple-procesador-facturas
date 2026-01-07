@@ -202,6 +202,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         originalFile: pendingFile.filePath,
         processedFile: processedFilePath,
         fileType: 'PDF_DIGITAL', // TODO: detectar tipo real
+        fileHash: pendingFile.fileHash || undefined,
         extractionMethod: 'MANUAL', // Fue corregido manualmente
         extractionConfidence: 100, // 100% porque fue validado manualmente
         requiresReview: false,

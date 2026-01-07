@@ -13,6 +13,7 @@ import { OCRExtractor } from '../extractors/ocr-extractor.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '../validators/cuit.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import { InvoiceRepository } from '../database/repositories/invoice.js';
+import { PendingFileRepository } from '../database/repositories/pending-file.js';
 import {
   ExpectedInvoiceRepository,
   type ExpectedInvoice,
@@ -20,6 +21,7 @@ import {
 import { format } from 'date-fns';
 import { extname } from 'path';
 import type { Invoice, DocumentType, ExtractionMethod } from '../utils/types.js';
+import { calculateFileHash } from '../utils/file-hash.js';
 
 // Extensiones de imagen soportadas para OCR
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp', '.heic', '.heif'];
@@ -37,6 +39,7 @@ export interface ProcessingResult {
   method?: ExtractionMethod; // Método de extracción específico
   matchedExpectedInvoiceId?: number;
   matchCandidates?: ExpectedInvoice[];
+  fileHash?: string;
   extractedData?: {
     cuit?: string;
     date?: string;
@@ -52,6 +55,7 @@ export class InvoiceProcessingService {
   private ocrExtractor: OCRExtractor;
   private emitterRepo: EmitterRepository;
   private invoiceRepo: InvoiceRepository;
+  private pendingFileRepo: PendingFileRepository;
   private expectedInvoiceRepo: ExpectedInvoiceRepository;
 
   constructor() {
@@ -59,6 +63,7 @@ export class InvoiceProcessingService {
     this.ocrExtractor = new OCRExtractor();
     this.emitterRepo = new EmitterRepository();
     this.invoiceRepo = new InvoiceRepository();
+    this.pendingFileRepo = new PendingFileRepository();
     this.expectedInvoiceRepo = new ExpectedInvoiceRepository();
   }
 
@@ -523,12 +528,33 @@ export class InvoiceProcessingService {
         `   📊 Requiere revisión: ${confidence < 80 ? 'SÍ' : 'NO'} (confianza: ${confidence}%)`
       );
 
+      // 8. Copiar hash desde pending_file o calcular si no existe
+      let fileHash: string | undefined;
+      try {
+        const pendingFiles = await this.pendingFileRepo.list({ limit: 1000 });
+        const pendingFile = pendingFiles.find((pf) => pf.filePath === filePath);
+
+        if (pendingFile?.fileHash) {
+          fileHash = pendingFile.fileHash;
+          console.info(`   🔐 Hash copiado desde pending_file: ${fileHash.substring(0, 16)}...`);
+        } else {
+          const hashResult = await calculateFileHash(filePath);
+          fileHash = hashResult.hash;
+          console.info(`   🔐 Hash calculado: ${fileHash.substring(0, 16)}...`);
+        }
+
+        await this.invoiceRepo.updateFileHash(invoice.id, fileHash);
+      } catch (error) {
+        console.warn(`   ⚠️  Error con hash:`, error);
+      }
+
       return {
         success: true,
         invoice,
         requiresReview: confidence < 80,
         confidence,
         source: 'PDF_EXTRACTION',
+        fileHash,
         extractedData: {
           cuit: normalizedCuit,
           date: formattedDate,

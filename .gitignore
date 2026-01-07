@@ -145,3 +145,7 @@ docker-compose.override.yml
 # Borradores y notas de desarrollo
 prompts-draft.md
 
+# Tesseract OCR language data
+eng.traineddata
+*.traineddata
+

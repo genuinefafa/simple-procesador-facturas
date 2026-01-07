@@ -447,8 +447,20 @@ export class ExcelImportService {
         'nro comprobante',
         'numero comprobante',
       ]),
-      total: headers.find((h) => /total|importe|monto|imp. total/i.test(h)),
-      cae: headers.find((h) => /cae|cód. autorización|codigo autorizacion/i.test(h)),
+      total: findOptionalColumn([
+        'imp. total',
+        'imp total',
+        'importe total',
+        'total',
+        'importe',
+        'monto',
+      ]),
+      cae: findOptionalColumn([
+        'cae',
+        'cód. autorización',
+        'codigo autorizacion',
+        'cod autorizacion',
+      ]),
       // Columnas adicionales de ARCA
       emitterDocType,
       emitterDocNumber,
