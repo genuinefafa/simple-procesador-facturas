@@ -6,6 +6,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
 import type { PendingFileStatus } from '@server/database/repositories/pending-file.js';
+import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 
@@ -139,6 +140,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
     }
 
     const pendingFileRepo = new PendingFileRepository();
+    const invoiceRepo = new InvoiceRepository();
 
     // Obtener información del archivo antes de eliminarlo
     const pendingFile = await pendingFileRepo.findById(id);
@@ -146,10 +148,25 @@ export const DELETE: RequestHandler = async ({ params }) => {
       return json({ success: false, error: 'Archivo pendiente no encontrado' }, { status: 404 });
     }
 
-    // Eliminar archivo físico si existe
-    if (existsSync(pendingFile.filePath)) {
-      console.info(`🗑️  Eliminando archivo físico: ${pendingFile.filePath}`);
-      await unlink(pendingFile.filePath);
+    // CRÍTICO: Verificar si existe una factura que referencia este archivo
+    const linkedInvoices = await invoiceRepo.findByPendingFileId(id);
+
+    let fileDeleted = false;
+    if (linkedInvoices.length > 0) {
+      // NO borrar el archivo físico si está siendo usado por una factura
+      console.warn(
+        `⚠️  [PENDING-FILE] Archivo está vinculado a ${linkedInvoices.length} factura(s). No se eliminará el archivo físico.`
+      );
+      console.info(
+        `   Facturas vinculadas: ${linkedInvoices.map((inv) => `#${inv.id}`).join(', ')}`
+      );
+    } else {
+      // Solo eliminar archivo físico si NO está vinculado a ninguna factura
+      if (existsSync(pendingFile.filePath)) {
+        console.info(`🗑️  Eliminando archivo físico: ${pendingFile.filePath}`);
+        await unlink(pendingFile.filePath);
+        fileDeleted = true;
+      }
     }
 
     // Eliminar registro de BD
@@ -158,11 +175,19 @@ export const DELETE: RequestHandler = async ({ params }) => {
       return json({ success: false, error: 'No se pudo eliminar el registro' }, { status: 500 });
     }
 
-    console.info(`✅ [PENDING-FILE] Eliminado correctamente: ${pendingFile.originalFilename}`);
+    const message = fileDeleted
+      ? 'Archivo pendiente y archivo físico eliminados correctamente'
+      : linkedInvoices.length > 0
+        ? `Registro eliminado. El archivo físico se mantiene (vinculado a ${linkedInvoices.length} factura(s))`
+        : 'Registro eliminado';
+
+    console.info(`✅ [PENDING-FILE] ${message}: ${pendingFile.originalFilename}`);
 
     return json({
       success: true,
-      message: 'Archivo pendiente eliminado correctamente',
+      message,
+      fileDeleted,
+      linkedInvoicesCount: linkedInvoices.length,
     });
   } catch (error) {
     console.error('❌ [PENDING-FILE] Error:', error);
