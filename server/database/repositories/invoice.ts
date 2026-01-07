@@ -73,6 +73,7 @@ export class InvoiceRepository {
     originalFile: string;
     processedFile: string;
     fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
+    fileHash?: string;
     extractionMethod: ExtractionMethod;
     extractionConfidence?: number;
     requiresReview?: boolean;
@@ -103,6 +104,7 @@ export class InvoiceRepository {
         archivoOriginal: data.originalFile,
         archivoProcesado: data.processedFile,
         tipoArchivo: data.fileType,
+        fileHash: data.fileHash ?? null,
         metodoExtraccion: data.extractionMethod,
         confianzaExtraccion: data.extractionConfidence ?? null,
         validadoManualmente: false,
@@ -124,6 +126,14 @@ export class InvoiceRepository {
   async findById(id: number): Promise<Invoice | null> {
     const result = await db.select().from(facturas).where(eq(facturas.id, id)).limit(1);
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
+  }
+
+  async findByPendingFileId(pendingFileId: number): Promise<Invoice[]> {
+    const result = await db
+      .select()
+      .from(facturas)
+      .where(eq(facturas.pendingFileId, pendingFileId));
+    return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 
   async findByInvoiceNumber(
