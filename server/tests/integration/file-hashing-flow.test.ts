@@ -131,7 +131,7 @@ describe('File Hashing Integration Flow', () => {
     const originalHashResult = await calculateFileHash(TEST_FILE);
     const originalHash = originalHashResult.hash;
 
-    const pendingFile = await pendingFileRepo.create({
+    await pendingFileRepo.create({
       originalFilename: 'integrity-test.txt',
       filePath: TEST_FILE,
       fileSize: 20,

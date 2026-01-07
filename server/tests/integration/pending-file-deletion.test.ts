@@ -6,7 +6,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { PendingFileRepository } from '../../database/repositories/pending-file.js';
 import { InvoiceRepository } from '../../database/repositories/invoice.js';
 import { EmitterRepository } from '../../database/repositories/emitter.js';
-import { writeFileSync, mkdirSync, rmSync, existsSync } from 'fs';
+import { writeFileSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
 import { runTestMigrations, resetTestDb, cleanupTestDb } from '../../database/db-test.js';
 

@@ -34,18 +34,24 @@ export async function calculateFileHash(filePath: string): Promise<HashCalculati
 
     stream.on('data', (chunk) => hash.update(chunk));
 
-    stream.on('end', async () => {
-      try {
-        const fileStats = await stat(filePath);
-        resolve({
-          hash: hash.digest('hex'),
-          algorithm: 'sha256',
-          fileSize: fileStats.size,
-          calculatedAt: new Date(),
-        });
-      } catch (error) {
-        reject(new Error(`Error obteniendo stats del archivo: ${error}`));
-      }
+    stream.on('end', () => {
+      void (async () => {
+        try {
+          const fileStats = await stat(filePath);
+          resolve({
+            hash: hash.digest('hex'),
+            algorithm: 'sha256',
+            fileSize: fileStats.size,
+            calculatedAt: new Date(),
+          });
+        } catch (error) {
+          reject(
+            new Error(
+              `Error obteniendo stats del archivo: ${error instanceof Error ? error.message : String(error)}`
+            )
+          );
+        }
+      })();
     });
 
     stream.on('error', (error) => {

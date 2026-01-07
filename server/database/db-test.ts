@@ -59,9 +59,9 @@ export function resetTestDb(): void {
 export async function runTestMigrations(): Promise<void> {
   const { migrate } = await import('drizzle-orm/better-sqlite3/migrator');
   const { readFileSync } = await import('fs');
-  const { join } = await import('path');
+  const path = await import('path');
 
-  const migrationsPath = join(__dirname, 'migrations');
+  const migrationsPath = path.join(__dirname, 'migrations');
 
   console.log('🔧 Ejecutando migraciones en DB de test...');
   console.log(`   DB Path: ${TEST_DB_PATH}`);
@@ -71,7 +71,7 @@ export async function runTestMigrations(): Promise<void> {
   migrate(db, { migrationsFolder: migrationsPath });
 
   // Ejecutar post-migration.sql (triggers y views)
-  const postMigrationPath = join(migrationsPath, 'post-migration.sql');
+  const postMigrationPath = path.join(migrationsPath, 'post-migration.sql');
   const postMigrationSQL = readFileSync(postMigrationPath, 'utf-8');
   rawDb.exec(postMigrationSQL);
 
