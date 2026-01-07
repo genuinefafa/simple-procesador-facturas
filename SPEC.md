@@ -870,19 +870,58 @@ npm run format         # Auto-formatear todo
 
 ## 8. Testing
 
-### 8.1 Estado Actual
+### 8.1 Base de Datos de Test
+
+**IMPORTANTE**: Los tests automáticos **DEBEN usar una base de datos independiente** para evitar contaminar los datos de producción.
+
+**Implementación:**
+- `database.test.sqlite` - Base de datos exclusiva para tests
+- Auto-detect: `db.ts` detecta `VITEST=true` y usa automáticamente la DB de test
+- Setup: Ejecutar migraciones en `beforeAll()` de cada test suite
+- Cleanup: Eliminar DB de test en `afterAll()`
+- Reset: Limpiar todas las tablas en `beforeEach()` para estado limpio
+
+**Ejemplo:**
+```typescript
+import { runTestMigrations, resetTestDb, cleanupTestDb } from '../../database/db-test.js';
+
+beforeAll(async () => {
+  await runTestMigrations();  // Crear schema
+});
+
+beforeEach(() => {
+  resetTestDb();  // Limpiar datos entre tests
+});
+
+afterAll(() => {
+  cleanupTestDb();  // Eliminar database.test.sqlite
+});
+```
+
+**Archivos relacionados:**
+- `server/database/db.ts` - Auto-detect de modo test
+- `server/database/db-test.ts` - Utilidades para DB de test
+- `.gitignore` - Ignora `*.sqlite` (incluye database.test.sqlite)
+
+### 8.2 Estado Actual
 
 **Unit Tests:**
 - ✅ Tests de extracción de archivos (`server/scripts/test-extraction-accuracy.ts`)
 - ✅ Tests de validación CUIT
 - ✅ Tests de detección de códigos AFIP
+- ✅ Tests de file hashing (13 unit + 5 integration)
 - ❌ Falta: Tests de matching con Excel AFIP
-- ❌ Falta: Tests de servicios
+- ❌ Falta: Tests de servicios completos
+
+**Integration Tests:**
+- ✅ File hashing flow (usa DB de test)
+- ✅ Extraction accuracy (usa ejemplos en `examples/facturas/`)
+- ❌ Falta: Upload → Process flow completo
 
 **E2E Tests:**
 - ❌ No implementados
 
-### 8.2 Archivos de Test
+### 8.3 Archivos de Test
 
 **Ejemplos para testing:**
 ```

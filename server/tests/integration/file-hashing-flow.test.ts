@@ -6,71 +6,47 @@
  * 2. Hash operations on pending_files
  * 3. Workflow básico de hashing
  *
- * Nota: Tests de invoice creation requieren emitters existentes,
- * se cubren en otros tests de integración con setup completo.
+ * IMPORTANTE: Usa base de datos de TEST (database.test.sqlite)
+ * separada de la DB real para evitar contaminar datos de producción.
+ * Vitest automáticamente setea VITEST=true, lo que hace que db.ts
+ * use la DB de test.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import { writeFileSync, mkdirSync, rmSync } from 'fs';
 import { join } from 'path';
+import { runTestMigrations, resetTestDb, cleanupTestDb } from '../../database/db-test.js';
 import { PendingFileRepository } from '../../database/repositories/pending-file.js';
 import { calculateFileHash } from '../../utils/file-hash.js';
 
 const TEST_DIR = join(process.cwd(), 'server/tests/fixtures/hash-flow-test');
 const TEST_FILE = join(TEST_DIR, 'test-invoice.txt');
 
-beforeAll(() => {
-  // Crear directorio de fixtures
+beforeAll(async () => {
+  // 1. Ejecutar migraciones en DB de test
+  await runTestMigrations();
+
+  // 2. Crear directorio de fixtures
   mkdirSync(TEST_DIR, { recursive: true });
 
-  // Crear archivo de prueba
+  // 3. Crear archivo de prueba
   writeFileSync(TEST_FILE, 'Test Invoice Content');
 });
 
 afterAll(() => {
   // Limpiar fixtures
   rmSync(TEST_DIR, { recursive: true, force: true });
+
+  // Limpiar y cerrar DB de test
+  cleanupTestDb();
 });
 
 describe('File Hashing Integration Flow', () => {
   const pendingFileRepo = new PendingFileRepository();
 
-  let createdPendingFileIds: number[] = [];
-
-  // Cleanup ANTES de cada test para asegurar estado limpio
-  beforeEach(async () => {
-    // Limpiar registros previos de tests (por si fallaron anteriormente)
-    const allPending = await pendingFileRepo.list({ limit: 1000 });
-    const testFiles = allPending.filter(
-      (pf) =>
-        pf.originalFilename?.includes('test-invoice') ||
-        pf.originalFilename?.includes('workflow-test') ||
-        pf.originalFilename?.includes('integrity-test') ||
-        pf.originalFilename?.includes('update-test')
-    );
-
-    for (const testFile of testFiles) {
-      try {
-        await pendingFileRepo.delete(testFile.id);
-      } catch (error) {
-        // Ignorar errores
-      }
-    }
-
-    createdPendingFileIds = [];
-  });
-
-  // Cleanup DESPUÉS de todos los tests
-  afterEach(async () => {
-    // Limpiar registros creados en este test
-    for (const id of createdPendingFileIds) {
-      try {
-        await pendingFileRepo.delete(id);
-      } catch (error) {
-        // Ignorar errores de limpieza
-      }
-    }
-    createdPendingFileIds = [];
+  // Resetear DB antes de cada test (estado limpio garantizado)
+  beforeEach(() => {
+    resetTestDb();
   });
 
   it('should calculate and store hash on upload (pending_files)', async () => {
@@ -85,8 +61,6 @@ describe('File Hashing Integration Flow', () => {
       fileHash,
       status: 'pending',
     });
-
-    createdPendingFileIds.push(pendingFile.id);
 
     // Verificar que el hash se guardó correctamente
     expect(pendingFile.fileHash).toBe(fileHash);
@@ -113,8 +87,6 @@ describe('File Hashing Integration Flow', () => {
       status: 'pending',
     });
 
-    createdPendingFileIds.push(pendingFile.id);
-
     // 2. Verificar que el hash se guardó correctamente
     expect(pendingFile.fileHash).toBe(fileHash);
 
@@ -139,8 +111,6 @@ describe('File Hashing Integration Flow', () => {
       fileHash: originalHash,
       status: 'pending',
     });
-
-    createdPendingFileIds.push(pendingFile.id);
 
     expect(pendingFile.fileHash).toBe(originalHash);
 
@@ -169,8 +139,6 @@ describe('File Hashing Integration Flow', () => {
       status: 'pending',
     });
 
-    createdPendingFileIds.push(pendingFile.id);
-
     // 2. Modificar archivo
     const modifiedContent = 'Modified Invoice Content - DIFFERENT';
     writeFileSync(TEST_FILE, modifiedContent);
@@ -193,8 +161,6 @@ describe('File Hashing Integration Flow', () => {
       fileSize: 20,
       status: 'pending',
     });
-
-    createdPendingFileIds.push(pendingFile.id);
 
     // Inicialmente sin hash
     expect(pendingFile.fileHash).toBeNull();
