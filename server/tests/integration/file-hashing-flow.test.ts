@@ -37,12 +37,32 @@ describe('File Hashing Integration Flow', () => {
 
   let createdPendingFileIds: number[] = [];
 
-  beforeEach(() => {
+  // Cleanup ANTES de cada test para asegurar estado limpio
+  beforeEach(async () => {
+    // Limpiar registros previos de tests (por si fallaron anteriormente)
+    const allPending = await pendingFileRepo.list({ limit: 1000 });
+    const testFiles = allPending.filter(
+      (pf) =>
+        pf.originalFilename?.includes('test-invoice') ||
+        pf.originalFilename?.includes('workflow-test') ||
+        pf.originalFilename?.includes('integrity-test') ||
+        pf.originalFilename?.includes('update-test')
+    );
+
+    for (const testFile of testFiles) {
+      try {
+        await pendingFileRepo.delete(testFile.id);
+      } catch (error) {
+        // Ignorar errores
+      }
+    }
+
     createdPendingFileIds = [];
   });
 
-  afterAll(async () => {
-    // Limpiar registros creados durante los tests
+  // Cleanup DESPUÉS de todos los tests
+  afterEach(async () => {
+    // Limpiar registros creados en este test
     for (const id of createdPendingFileIds) {
       try {
         await pendingFileRepo.delete(id);
@@ -50,6 +70,7 @@ describe('File Hashing Integration Flow', () => {
         // Ignorar errores de limpieza
       }
     }
+    createdPendingFileIds = [];
   });
 
   it('should calculate and store hash on upload (pending_files)', async () => {
