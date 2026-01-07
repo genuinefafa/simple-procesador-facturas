@@ -14,10 +14,7 @@
 
 import { InvoiceRepository } from '../database/repositories/invoice.js';
 import { calculateFileHash } from '../utils/file-hash.js';
-import { join, resolve } from 'path';
 import { existsSync } from 'fs';
-
-const PROCESSED_DIR = resolve(process.cwd(), 'data', 'processed');
 
 interface BackfillStats {
   total: number;
@@ -45,6 +42,7 @@ async function backfillHashes(): Promise<BackfillStats> {
 
   for (let i = 0; i < allInvoices.length; i++) {
     const invoice = allInvoices[i];
+    if (!invoice) continue; // Safety check
 
     // Skip si ya tiene hash
     if (invoice.fileHash) {
