@@ -356,6 +356,12 @@
         });
       } else if (comprobante.kind === 'pending' && comprobante.pending) {
         // Crear factura desde pending
+        // Buscar categoryKey desde selectedCategoryId
+        const categoryKey =
+          selectedCategoryId !== null
+            ? categories.find((c) => c.id === selectedCategoryId)?.key
+            : undefined;
+
         response = await fetch(`/api/pending-files/${comprobante.pending.id}/finalize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -368,6 +374,7 @@
             total: facuraData.total,
             expectedInvoiceId: selectedExpectedId,
             emitterName: selectedEmitter?.name || lastCopiedEmitterName || undefined,
+            categoryKey,
           }),
         });
 
@@ -380,33 +387,7 @@
       if (response && response.ok) {
         toast.success('✅ Factura guardada correctamente', { id: toastId });
 
-        // Actualizar categoría ANTES de refrescar navegación/datos
-        try {
-          // Si se creó una nueva factura desde expected/pending, actualizar esa
-          const targetInvoiceId = newInvoiceId ?? comprobante.final?.id;
-          if (targetInvoiceId !== undefined) {
-            const catRes = await fetch(`/api/invoices/${targetInvoiceId}/category`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ categoryId: selectedCategoryId }),
-            });
-            const catData = await catRes.json();
-            if (!catRes.ok || !catData.ok) {
-              toast.error(catData.error || 'No se pudo actualizar la categoría');
-            } else {
-              // Actualizar estado local para evitar que el efecto lo pise al cancelar
-              if (!newInvoiceId && comprobante.final) {
-                comprobante.final.categoryId = selectedCategoryId;
-              }
-              toast.success('📌 Categoría actualizada');
-            }
-          }
-        } catch (e) {
-          console.error('Error actualizando categoría', e);
-          toast.error('Error actualizando categoría');
-        }
-
-        // Navegación / recarga después de actualizar categoría
+        // Navegación / recarga
         // Salir de modo edición para evitar confusiones
         editMode = false;
         if (newInvoiceId) {
