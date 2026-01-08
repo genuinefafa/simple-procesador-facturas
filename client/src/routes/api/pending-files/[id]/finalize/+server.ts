@@ -60,6 +60,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const overriddenTotal = (overrides.total as number | undefined) ?? pendingFile.extractedTotal;
     const requestedExpectedId = overrides.expectedInvoiceId as number | undefined;
     const providedEmitterName = overrides.emitterName as string | undefined;
+    const categoryKey = overrides.categoryKey as string | undefined;
 
     if (
       !extractedCuit ||
@@ -134,8 +135,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
       invoiceType,
       extractedPointOfSale,
       extractedInvoiceNumber,
-      pendingFile.originalFilename
-      // Sin categoryKey por ahora - se podría agregar después
+      pendingFile.originalFilename,
+      categoryKey // Categoría opcional del usuario (ej: "3f", "sw")
     );
 
     // Crear directorio si no existe
