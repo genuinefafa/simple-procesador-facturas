@@ -7,7 +7,55 @@ import type { RequestHandler } from './$types';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
 import { ZoneAnnotationRepository } from '@server/database/repositories/zone-annotation.js';
+import { CategoryRepository } from '@server/database/repositories/category.js';
 import { getDatabase } from '@server/database/connection.js';
+import { generateProcessedFilename, generateSubdirectory } from '@server/utils/file-naming.js';
+import { join, dirname } from 'path';
+import { rename, access, mkdir } from 'fs/promises';
+import { existsSync, readdirSync, statSync } from 'fs';
+
+const FINALIZED_DIR = join(process.cwd(), '..', 'data', 'finalized');
+
+/**
+ * Busca un archivo en el filesystem basándose en CUIT y número de factura
+ * Útil cuando la fecha o categoría cambió y el nombre ya no coincide
+ */
+async function findFileByInvoiceData(
+  cuit: string,
+  tipo: number,
+  pv: number,
+  num: number
+): Promise<string | null> {
+  try {
+    const cuitNumeric = cuit.replace(/\D/g, '');
+    const pvFormatted = String(pv).padStart(5, '0');
+    const numFormatted = String(num).padStart(8, '0');
+
+    // Buscar archivos que contengan estos identificadores
+    const subdirs = readdirSync(FINALIZED_DIR).filter((item) => {
+      const itemPath = join(FINALIZED_DIR, item);
+      return statSync(itemPath).isDirectory();
+    });
+
+    for (const subdir of subdirs) {
+      const subdirPath = join(FINALIZED_DIR, subdir);
+      const files = readdirSync(subdirPath);
+
+      for (const file of files) {
+        // Buscar archivo que contenga CUIT y número de factura
+        if (file.includes(cuitNumeric) && file.includes(`${pvFormatted}-${numFormatted}`)) {
+          const candidatePath = join(subdirPath, file);
+          console.log(`[FIND-FILE] Encontrado por CUIT/número en ${subdir}: ${file}`);
+          return candidatePath;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[FIND-FILE] Error:', err);
+  }
+
+  return null;
+}
 
 export const GET: RequestHandler = async ({ params }) => {
   try {
@@ -174,6 +222,73 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
     // Refrescar datos
     const final = await invoiceRepo.findById(invoiceId);
+
+    // Si se cambió algo que afecta el nombre del archivo, renombrarlo/moverlo
+    const shouldRenameFile =
+      updates.invoiceType ||
+      updates.pointOfSale !== undefined ||
+      updates.invoiceNumber !== undefined ||
+      updates.issueDate;
+
+    if (shouldRenameFile && final) {
+      try {
+        const emitterRepo = new EmitterRepository();
+        const categoryRepo = new CategoryRepository();
+
+        const emitter = await emitterRepo.findByCUIT(final.emitterCuit);
+        if (!emitter) {
+          console.warn(`[PATCH] Emisor no encontrado: ${final.emitterCuit}`);
+        } else {
+          // Obtener categoryKey si tiene categoría
+          let categoryKey: string | null = null;
+          if (final.categoryId) {
+            const category = await categoryRepo.findById(final.categoryId);
+            categoryKey = category?.key || null;
+          }
+
+          // Generar nuevo nombre y ruta
+          const issueDate = new Date(final.issueDate);
+          const subdir = generateSubdirectory(issueDate);
+          const newFileName = generateProcessedFilename(
+            issueDate,
+            emitter,
+            final.invoiceType,
+            final.pointOfSale,
+            final.invoiceNumber,
+            final.originalFile,
+            categoryKey
+          );
+
+          const newPath = join(FINALIZED_DIR, subdir, newFileName);
+
+          // Buscar archivo actual (puede estar en ruta diferente)
+          let actualOldPath: string | null = null;
+          if (existsSync(final.processedFile)) {
+            actualOldPath = final.processedFile;
+          } else if (final.invoiceType !== null) {
+            actualOldPath = await findFileByInvoiceData(
+              final.emitterCuit,
+              final.invoiceType,
+              final.pointOfSale,
+              final.invoiceNumber
+            );
+          }
+
+          if (actualOldPath && actualOldPath !== newPath) {
+            // Crear directorio destino si no existe
+            await mkdir(dirname(newPath), { recursive: true });
+            // Mover archivo
+            await rename(actualOldPath, newPath);
+            // Actualizar ruta en DB
+            await invoiceRepo.updateProcessedFile(invoiceId, newPath);
+            console.log(`[PATCH] Archivo movido: ${actualOldPath} -> ${newPath}`);
+          }
+        }
+      } catch (err) {
+        console.error('[PATCH] Error renombrando archivo:', err);
+        // No fallar el PATCH si el renombrado falla
+      }
+    }
 
     return json({
       success: true,

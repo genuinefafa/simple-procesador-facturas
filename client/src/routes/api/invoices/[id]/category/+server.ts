@@ -4,10 +4,52 @@ import { InvoiceRepository } from '@server/database/repositories/invoice';
 import { CategoryRepository } from '@server/database/repositories/category';
 import { EmitterRepository } from '@server/database/repositories/emitter';
 import { generateProcessedFilename, generateSubdirectory } from '@server/utils/file-naming.js';
-import { join } from 'path';
-import { rename, access } from 'fs/promises';
+import { join, dirname } from 'path';
+import { rename, access, mkdir } from 'fs/promises';
+import { existsSync, readdirSync, statSync } from 'fs';
 
 const FINALIZED_DIR = join(process.cwd(), '..', 'data', 'finalized');
+
+/**
+ * Busca un archivo en el filesystem basándose en CUIT y número de factura
+ * Útil cuando la fecha o categoría cambió y el nombre ya no coincide
+ */
+async function findFileByInvoiceData(
+  cuit: string,
+  tipo: number,
+  pv: number,
+  num: number
+): Promise<string | null> {
+  try {
+    const cuitNumeric = cuit.replace(/\D/g, '');
+    const pvFormatted = String(pv).padStart(5, '0');
+    const numFormatted = String(num).padStart(8, '0');
+
+    // Buscar archivos que contengan estos identificadores
+    const subdirs = readdirSync(FINALIZED_DIR).filter((item) => {
+      const itemPath = join(FINALIZED_DIR, item);
+      return statSync(itemPath).isDirectory();
+    });
+
+    for (const subdir of subdirs) {
+      const subdirPath = join(FINALIZED_DIR, subdir);
+      const files = readdirSync(subdirPath);
+
+      for (const file of files) {
+        // Buscar archivo que contenga CUIT y número de factura
+        if (file.includes(cuitNumeric) && file.includes(`${pvFormatted}-${numFormatted}`)) {
+          const candidatePath = join(subdirPath, file);
+          console.log(`[FIND-FILE] Encontrado por CUIT/número en ${subdir}: ${file}`);
+          return candidatePath;
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[FIND-FILE] Error:', err);
+  }
+
+  return null;
+}
 
 export const POST: RequestHandler = async ({ params, request }) => {
   const id = parseInt(params.id, 10);
@@ -56,18 +98,32 @@ export const POST: RequestHandler = async ({ params, request }) => {
     );
 
     // Rutas de archivos
-    const oldPath = invoice.processedFile; // Ruta absoluta actual
     const newPath = join(FINALIZED_DIR, subdir, newFileName);
 
-    // Renombrar archivo físico si existe y la ruta cambió
-    if (oldPath && oldPath !== newPath) {
+    // Buscar archivo actual (puede estar en ruta diferente por cambios previos)
+    let actualOldPath: string | null = null;
+    if (existsSync(invoice.processedFile)) {
+      actualOldPath = invoice.processedFile;
+    } else if (invoice.invoiceType !== null) {
+      actualOldPath = await findFileByInvoiceData(
+        invoice.emitterCuit,
+        invoice.invoiceType,
+        invoice.pointOfSale,
+        invoice.invoiceNumber
+      );
+    }
+
+    // Mover/renombrar archivo físico si existe y la ruta cambió
+    if (actualOldPath && actualOldPath !== newPath) {
       try {
-        await access(oldPath);
-        await rename(oldPath, newPath);
-        console.log(`[CATEGORY] Archivo renombrado: ${oldPath} -> ${newPath}`);
+        // Crear directorio destino si no existe
+        await mkdir(dirname(newPath), { recursive: true });
+        // Mover archivo al nuevo path
+        await rename(actualOldPath, newPath);
+        console.log(`[CATEGORY] Archivo movido: ${actualOldPath} -> ${newPath}`);
       } catch (err) {
-        console.warn(`[CATEGORY] No se pudo renombrar archivo: ${err}`);
-        // Continuar de todas formas - el archivo puede no existir todavía
+        console.warn(`[CATEGORY] No se pudo mover archivo: ${err}`);
+        // Continuar de todas formas
       }
     }
 
