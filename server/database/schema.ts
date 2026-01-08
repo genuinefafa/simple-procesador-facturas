@@ -259,6 +259,7 @@ const facturas_ = sqliteTable(
     // Archivos
     archivoOriginal: text('archivo_original').notNull(),
     archivoProcesado: text('archivo_procesado').notNull().unique(),
+    finalizedFile: text('finalized_file'), // Ruta relativa a data/ (ej: finalized/2025-12/file.pdf)
     tipoArchivo: text('tipo_archivo', {
       enum: ['PDF_DIGITAL', 'PDF_IMAGEN', 'IMAGEN'],
     }).notNull(),

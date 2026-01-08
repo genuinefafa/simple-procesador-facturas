@@ -57,6 +57,13 @@
       "when": 1736217600000,
       "tag": "0007_add_file_hash_to_pending_files",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1736359200000,
+      "tag": "0008_add_finalized_file",
+      "breakpoints": true
     }
   ]
 }

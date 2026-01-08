@@ -370,4 +370,110 @@ describe('file-naming utils', () => {
       );
     });
   });
+
+  describe('UTC date handling (issue #16)', () => {
+    it('formatDateForFilename debe usar UTC para evitar problemas de zona horaria', () => {
+      // Fecha en UTC: 2025-12-01T00:00:00Z
+      // En Argentina (GMT-3) sería: 2025-11-30T21:00:00-03:00
+      const utcDate = new Date('2025-12-01T00:00:00Z');
+
+      const formatted = formatDateForFilename(utcDate);
+
+      // Debe usar la fecha UTC, no la local
+      expect(formatted).toBe('2025-12-01');
+    });
+
+    it('generateSubdirectory debe usar UTC para organizar por mes correcto', () => {
+      // Fecha en UTC: 2025-12-01T00:00:00Z (diciembre)
+      const utcDate = new Date('2025-12-01T00:00:00Z');
+
+      const subdir = generateSubdirectory(utcDate);
+
+      // Debe generar directorio de diciembre, no noviembre
+      expect(subdir).toBe('2025-12');
+    });
+
+    it('debe manejar correctamente fechas al inicio del mes en UTC', () => {
+      const date1 = new Date('2025-01-01T00:00:00Z');
+      const date2 = new Date('2025-06-01T00:00:00Z');
+      const date3 = new Date('2025-12-01T00:00:00Z');
+
+      expect(formatDateForFilename(date1)).toBe('2025-01-01');
+      expect(formatDateForFilename(date2)).toBe('2025-06-01');
+      expect(formatDateForFilename(date3)).toBe('2025-12-01');
+
+      expect(generateSubdirectory(date1)).toBe('2025-01');
+      expect(generateSubdirectory(date2)).toBe('2025-06');
+      expect(generateSubdirectory(date3)).toBe('2025-12');
+    });
+
+    it('debe manejar correctamente fechas al final del mes en UTC', () => {
+      const date1 = new Date('2025-01-31T23:59:59Z');
+      const date2 = new Date('2025-02-28T23:59:59Z');
+      const date3 = new Date('2025-12-31T23:59:59Z');
+
+      expect(formatDateForFilename(date1)).toBe('2025-01-31');
+      expect(formatDateForFilename(date2)).toBe('2025-02-28');
+      expect(formatDateForFilename(date3)).toBe('2025-12-31');
+    });
+
+    it('generateProcessedFilename debe generar nombre con fecha UTC correcta', () => {
+      const issueDate = new Date('2025-12-01T00:00:00Z');
+      const emitter: Emitter = {
+        cuit: '27-29696328-9',
+        cuitNumeric: '27296963289',
+        name: 'Muñoz Cecilia Mariela',
+        aliases: ['Munoz'],
+        active: true,
+        totalInvoices: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const filename = generateProcessedFilename(
+        issueDate,
+        emitter,
+        11, // FACC
+        1,
+        133,
+        'factura.pdf',
+        'Fer'
+      );
+
+      // Debe tener fecha 2025-12-01, no 2025-11-30
+      expect(filename).toBe('2025-12-01 Munoz 27-29696328-9 FACC 00001-00000133 [Fer].pdf');
+    });
+
+    it('generateProcessedPath debe crear ruta en directorio del mes correcto (UTC)', () => {
+      const issueDate = new Date('2025-12-01T00:00:00Z');
+      const emitter: Emitter = {
+        cuit: '27-29696328-9',
+        cuitNumeric: '27296963289',
+        name: 'Muñoz',
+        aliases: [],
+        active: true,
+        totalInvoices: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const fullPath = generateProcessedPath(
+        '/data/finalized',
+        issueDate,
+        emitter,
+        11,
+        1,
+        133,
+        'factura.pdf',
+        'Fer'
+      );
+
+      // Debe estar en directorio 2025-12, no 2025-11
+      expect(fullPath).toContain('/2025-12/');
+      // Nota: sanitizeFilenameReadable elimina acentos, por eso es "Munoz" no "Muñoz"
+      expect(fullPath).toBe(
+        '/data/finalized/2025-12/2025-12-01 Munoz 27-29696328-9 FACC 00001-00000133 [Fer].pdf'
+      );
+    });
+  });
 });
