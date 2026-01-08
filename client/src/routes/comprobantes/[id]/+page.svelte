@@ -286,8 +286,8 @@
 
     // Si existe factura, persistir en servidor
     try {
-      const res = await fetch(`/api/invoices/${comprobante.final.id}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/invoices/${comprobante.final.id}/category`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ categoryId: normalizedId }),
       });
