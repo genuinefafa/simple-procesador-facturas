@@ -114,27 +114,29 @@ export function padNumber(num: number, width: number): string {
 
 /**
  * Formatea una fecha en formato YYYY-MM-DD
+ * IMPORTANTE: Usa UTC para evitar problemas de zona horaria
  *
  * @param date - Fecha a formatear
  * @returns String en formato YYYY-MM-DD
  */
 export function formatDateForFilename(date: Date): string {
-  const year = date.getFullYear();
-  const month = padNumber(date.getMonth() + 1, 2);
-  const day = padNumber(date.getDate(), 2);
+  const year = date.getUTCFullYear();
+  const month = padNumber(date.getUTCMonth() + 1, 2);
+  const day = padNumber(date.getUTCDate(), 2);
   return `${year}-${month}-${day}`;
 }
 
 /**
  * Genera el nombre del subdirectorio basado en la fecha
  * Formato: yyyy-mm
+ * IMPORTANTE: Usa UTC para evitar problemas de zona horaria
  *
  * @param date - Fecha de emisión
  * @returns Nombre del subdirectorio (ej: "2024-01")
  */
 export function generateSubdirectory(date: Date): string {
-  const year = date.getFullYear();
-  const month = padNumber(date.getMonth() + 1, 2);
+  const year = date.getUTCFullYear();
+  const month = padNumber(date.getUTCMonth() + 1, 2);
   return `${year}-${month}`;
 }
 
