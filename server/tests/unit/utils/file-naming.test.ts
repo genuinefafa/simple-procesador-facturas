@@ -420,10 +420,10 @@ describe('file-naming utils', () => {
     it('generateProcessedFilename debe generar nombre con fecha UTC correcta', () => {
       const issueDate = new Date('2025-12-01T00:00:00Z');
       const emitter: Emitter = {
-        cuit: '27-29696328-9',
-        cuitNumeric: '27296963289',
-        name: 'Muñoz Cecilia Mariela',
-        aliases: ['Munoz'],
+        cuit: '20-12345678-9',
+        cuitNumeric: '20123456789',
+        name: 'Test Company SRL',
+        aliases: ['TestCo'],
         active: true,
         totalInvoices: 0,
         createdAt: new Date(),
@@ -437,19 +437,19 @@ describe('file-naming utils', () => {
         1,
         133,
         'factura.pdf',
-        'Fer'
+        'test'
       );
 
       // Debe tener fecha 2025-12-01, no 2025-11-30
-      expect(filename).toBe('2025-12-01 Munoz 27-29696328-9 FACC 00001-00000133 [Fer].pdf');
+      expect(filename).toBe('2025-12-01 TestCo 20-12345678-9 FACC 00001-00000133 [test].pdf');
     });
 
     it('generateProcessedPath debe crear ruta en directorio del mes correcto (UTC)', () => {
       const issueDate = new Date('2025-12-01T00:00:00Z');
       const emitter: Emitter = {
-        cuit: '27-29696328-9',
-        cuitNumeric: '27296963289',
-        name: 'Muñoz',
+        cuit: '20-12345678-9',
+        cuitNumeric: '20123456789',
+        name: 'Test Company',
         aliases: [],
         active: true,
         totalInvoices: 0,
@@ -465,14 +465,13 @@ describe('file-naming utils', () => {
         1,
         133,
         'factura.pdf',
-        'Fer'
+        'test'
       );
 
       // Debe estar en directorio 2025-12, no 2025-11
       expect(fullPath).toContain('/2025-12/');
-      // Nota: sanitizeFilenameReadable elimina acentos, por eso es "Munoz" no "Muñoz"
       expect(fullPath).toBe(
-        '/data/finalized/2025-12/2025-12-01 Munoz 27-29696328-9 FACC 00001-00000133 [Fer].pdf'
+        '/data/finalized/2025-12/2025-12-01 Test_Company 20-12345678-9 FACC 00001-00000133 [test].pdf'
       );
     });
   });

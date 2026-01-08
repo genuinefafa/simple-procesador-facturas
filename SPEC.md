@@ -1132,7 +1132,74 @@ Estas ideas NO están en el roadmap actual pero podrían considerarse:
 
 ---
 
-## 14. Referencias
+## 14. Testing y Datos de Prueba
+
+### 14.1 Política de Privacidad en Tests
+
+**⚠️ CRÍTICO**: Este proyecto es **público en GitHub**. **NUNCA** usar datos reales en tests:
+
+- ❌ **NO** usar CUITs reales de clientes/proveedores
+- ❌ **NO** usar nombres reales de personas o empresas
+- ❌ **NO** usar datos sensibles (direcciones, teléfonos, emails reales)
+- ❌ **NO** commitear archivos de prueba con información confidencial
+
+### 14.2 CUITs de Prueba Estándar
+
+Usar **SIEMPRE** estos CUITs ficticios en tests y ejemplos:
+
+```typescript
+// CUITs de prueba aprobados (ya usados en el proyecto)
+const TEST_CUITS = {
+  persona: '20-12345678-9',
+  empresa: '30-12345678-9',
+  monotributista: '23-12345678-9',
+  // Alternativo
+  persona2: '20-13046568-5',
+};
+```
+
+### 14.3 Datos de Prueba
+
+**Nombres ficticios aprobados**:
+- Personas: "Test Company", "Test User", "Empresa Prueba"
+- Archivos: "factura_test.pdf", "comprobante_ejemplo.pdf"
+
+**Números de comprobante**:
+- Usar rangos altos no realistas: `99999-99999999`
+- O rangos bajos obvios: `00001-00000001`
+
+### 14.4 Archivos de Ejemplo
+
+Los archivos en `/examples` son seguros porque:
+- Usan datos completamente ficticios
+- Están diseñados como plantillas genéricas
+- No contienen información real
+
+**Al agregar nuevos ejemplos**:
+1. Asegurarse de usar CUITs de prueba
+2. Usar nombres ficticios
+3. Marcar claramente como "EJEMPLO" o "TEST"
+
+### 14.5 Revisión Pre-Commit
+
+**Antes de cada commit**:
+```bash
+# Buscar posibles CUITs reales (formato XX-XXXXXXXX-X)
+git diff --cached | grep -E '\d{2}-\d{8}-\d'
+
+# Revisar nombres que no sean "Test", "Prueba", "Example"
+git diff --cached | grep -i -E '(S\.A\.|S\.R\.L\.|S\.A\.|Inc\.|Ltd\.)'
+```
+
+**Si se detectan datos reales**:
+1. Revertir el commit inmediatamente
+2. Limpiar el historial con `git reset --soft`
+3. Reemplazar con datos ficticios
+4. Volver a commitear
+
+---
+
+## 15. Referencias
 
 **Documentación oficial:**
 - [Melt UI Next](https://context7.com/melt-ui/next-gen)
