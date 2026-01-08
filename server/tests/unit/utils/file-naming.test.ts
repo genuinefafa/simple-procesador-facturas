@@ -121,13 +121,19 @@ describe('file-naming utils', () => {
   });
 
   describe('getDocumentTypeCode', () => {
-    // TODO(Issue #68): Test failing - getDocumentTypeCode returning 'UNKN'
-    it.skip('debe combinar tipo de documento con letra', () => {
-      expect(getDocumentTypeCode('FAC', 'A')).toBe('FACA');
-      expect(getDocumentTypeCode('FAC', 'B')).toBe('FACB');
-      expect(getDocumentTypeCode('NCR', 'A')).toBe('NCRA');
-      expect(getDocumentTypeCode('NCR', 'B')).toBe('NCRB');
-      expect(getDocumentTypeCode('NDB', 'A')).toBe('NDBA');
+    it('debe retornar friendlyType para códigos ARCA válidos', () => {
+      expect(getDocumentTypeCode(1)).toBe('FACA'); // Factura A
+      expect(getDocumentTypeCode(6)).toBe('FACB'); // Factura B
+      expect(getDocumentTypeCode(11)).toBe('FACC'); // Factura C
+      expect(getDocumentTypeCode(3)).toBe('NCRA'); // Nota de Crédito A
+      expect(getDocumentTypeCode(8)).toBe('NCRB'); // Nota de Crédito B
+      expect(getDocumentTypeCode(2)).toBe('NDBA'); // Nota de Débito A
+    });
+
+    it('debe retornar UNKN para códigos inválidos', () => {
+      expect(getDocumentTypeCode(null)).toBe('UNKN');
+      expect(getDocumentTypeCode(undefined)).toBe('UNKN');
+      expect(getDocumentTypeCode(999)).toBe('UNKN');
     });
   });
 
@@ -172,8 +178,7 @@ describe('file-naming utils', () => {
   });
 
   describe('generateProcessedFilename', () => {
-    // TODO(Issue #68): Test failing - filename contains 'UNKN'
-    it.skip('debe generar nombre correcto con formato nuevo', () => {
+    it('debe generar nombre correcto con formato nuevo (con categoría)', () => {
       const issueDate = new Date(2023, 1, 14); // Mes 1 = Febrero
       const emitter: Emitter = {
         cuit: '20-13046568-5',
@@ -186,14 +191,48 @@ describe('file-naming utils', () => {
         updatedAt: new Date(),
       };
 
-      const filename = generateProcessedFilename(issueDate, emitter, 'A', 3, 3668, 'factura.pdf');
+      const filename = generateProcessedFilename(
+        issueDate,
+        emitter,
+        1, // Código ARCA para Factura A
+        3,
+        3668,
+        'factura.pdf',
+        '3f' // Categoría
+      );
 
-      // Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV NUM.ext
-      expect(filename).toBe('2023-02-14 oscar 20-13046568-5 FACA 00003 00003668.pdf');
+      // Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV-NUM [cat].ext
+      expect(filename).toBe('2023-02-14 oscar 20-13046568-5 FACA 00003-00003668 [3f].pdf');
     });
 
-    // TODO(Issue #68): Test failing - filename contains 'UNKN'
-    it.skip('debe preservar la extensión del archivo original', () => {
+    it('debe generar nombre sin categoría cuando no se provee', () => {
+      const issueDate = new Date(2023, 1, 14);
+      const emitter: Emitter = {
+        cuit: '20-13046568-5',
+        cuitNumeric: '20130465685',
+        name: 'OSCAR ALFREDO ANDEREGGEN',
+        aliases: ['andereggen', 'oscar'],
+        active: true,
+        totalInvoices: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const filename = generateProcessedFilename(
+        issueDate,
+        emitter,
+        1, // Código ARCA para Factura A
+        3,
+        3668,
+        'factura.pdf'
+        // Sin categoría
+      );
+
+      // Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV-NUM [].ext
+      expect(filename).toBe('2023-02-14 oscar 20-13046568-5 FACA 00003-00003668 [].pdf');
+    });
+
+    it('debe preservar la extensión del archivo original', () => {
       const issueDate = new Date(2023, 4, 20); // Mes 4 = Mayo
       const emitter: Emitter = {
         cuit: '30-50001770-4',
@@ -209,17 +248,16 @@ describe('file-naming utils', () => {
       const filename = generateProcessedFilename(
         issueDate,
         emitter,
-        'B',
+        6, // Código ARCA para Factura B
         124,
         17649,
         'original.tif'
       );
 
-      expect(filename).toBe('2023-05-20 Seguros 30-50001770-4 FACB 00124 00017649.tif');
+      expect(filename).toBe('2023-05-20 Seguros 30-50001770-4 FACB 00124-00017649 [].tif');
     });
 
-    // TODO(Issue #68): Test failing - filename format mismatch
-    it.skip('debe manejar Nota de Crédito', () => {
+    it('debe manejar Nota de Crédito A', () => {
       const issueDate = new Date(2024, 11, 31); // Diciembre 2024
       const emitter: Emitter = {
         cuit: '20-12345678-9',
@@ -235,18 +273,17 @@ describe('file-naming utils', () => {
       const filename = generateProcessedFilename(
         issueDate,
         emitter,
-        'A',
+        3, // Código ARCA para Nota de Crédito A
         99999,
         1,
         'test.pdf',
-        'NCR'
+        'sw' // Categoría software
       );
 
-      expect(filename).toBe('2024-12-31 Test_Empresa 20-12345678-9 NCRA 99999 00000001.pdf');
+      expect(filename).toBe('2024-12-31 Test_Empresa 20-12345678-9 NCRA 99999-00000001 [sw].pdf');
     });
 
-    // TODO(Issue #68): Test failing - filename format mismatch
-    it.skip('debe manejar Nota de Débito', () => {
+    it('debe manejar Nota de Débito B', () => {
       const issueDate = new Date(2024, 5, 15); // Junio 2024
       const emitter: Emitter = {
         cuit: '30-99999999-9',
@@ -262,20 +299,18 @@ describe('file-naming utils', () => {
       const filename = generateProcessedFilename(
         issueDate,
         emitter,
-        'B',
+        7, // Código ARCA para Nota de Débito B
         1,
         12345678,
-        'nota.pdf',
-        'NDB'
+        'nota.pdf'
       );
 
-      expect(filename).toBe('2024-06-15 Proveedor 30-99999999-9 NDBB 00001 12345678.pdf');
+      expect(filename).toBe('2024-06-15 Proveedor 30-99999999-9 NDBB 00001-12345678 [].pdf');
     });
   });
 
   describe('generateProcessedPath', () => {
-    // TODO(Issue #68): Test failing - filename format mismatch
-    it.skip('debe generar ruta completa con subdirectorio', () => {
+    it('debe generar ruta completa con subdirectorio', () => {
       const issueDate = new Date(2024, 0, 15); // Enero 2024
       const emitter: Emitter = {
         cuit: '20-12345678-9',
@@ -292,14 +327,46 @@ describe('file-naming utils', () => {
         '/data/processed',
         issueDate,
         emitter,
-        'A',
+        1, // Código ARCA para Factura A
+        1,
+        100,
+        'doc.pdf',
+        '3f' // Categoría
+      );
+
+      // Formato: /baseDir/yyyy-mm/yyyy-mm-dd Nombre CUIT TIPO PV-NUM [cat].ext
+      expect(fullPath).toBe(
+        '/data/processed/2024-01/2024-01-15 Empresa 20-12345678-9 FACA 00001-00000100 [3f].pdf'
+      );
+    });
+
+    it('debe generar ruta con categoría vacía si no se provee', () => {
+      const issueDate = new Date(2024, 0, 15);
+      const emitter: Emitter = {
+        cuit: '20-12345678-9',
+        cuitNumeric: '20123456789',
+        name: 'Empresa',
+        aliases: [],
+        active: true,
+        totalInvoices: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const fullPath = generateProcessedPath(
+        '/data/processed',
+        issueDate,
+        emitter,
+        1, // Código ARCA para Factura A
         1,
         100,
         'doc.pdf'
+        // Sin categoría
       );
 
+      // Formato: /baseDir/yyyy-mm/yyyy-mm-dd Nombre CUIT TIPO PV-NUM [].ext
       expect(fullPath).toBe(
-        '/data/processed/2024-01/2024-01-15 Empresa 20-12345678-9 FACA 00001 00000100.pdf'
+        '/data/processed/2024-01/2024-01-15 Empresa 20-12345678-9 FACA 00001-00000100 [].pdf'
       );
     });
   });

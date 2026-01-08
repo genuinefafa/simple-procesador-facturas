@@ -6,7 +6,7 @@ emisor:
   nombre: "Garcia Marcos Andres"
 
 factura:
-  tipo: "A"
+  tipo: 1
   punto_venta: 3
   numero: 1360
   fecha: "2023-02-14"

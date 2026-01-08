@@ -6,7 +6,7 @@ emisor:
   nombre: "Del Barco Gabriel Dante"
 
 factura:
-  tipo: "A"
+  tipo: 1
   punto_venta: 3
   numero: 3435
   fecha: "2023-02-10"

@@ -6,7 +6,7 @@ emisor:
   nombre: "Auto Radio Amenabar"
 
 factura:
-  tipo: "A"
+  tipo: 1
   punto_venta: 5
   numero: 11643
   fecha: "2023-02-14"

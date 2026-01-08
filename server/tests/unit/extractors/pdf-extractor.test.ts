@@ -17,8 +17,7 @@ describe('PDFExtractor', () => {
   });
 
   describe('extract - tipo de comprobante', () => {
-    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
-    it.skip('debe detectar "Factura A" correctamente', async () => {
+    it('debe detectar "Factura A" correctamente', async () => {
       const mockText = `
         FACTURA
         Factura A
@@ -33,11 +32,10 @@ describe('PDFExtractor', () => {
       vi.spyOn(extractor, 'extractText').mockResolvedValue(mockText);
 
       const result = await extractor.extract('/test.pdf');
-      expect(result.data.invoiceType).toBe('A');
+      expect(result.data.invoiceType).toBe(1); // Código ARCA para Factura A
     });
 
-    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
-    it.skip('debe detectar "Factura C" correctamente', async () => {
+    it('debe detectar "Factura C" correctamente', async () => {
       const mockText = `
         FACTURA
         Factura C
@@ -51,11 +49,10 @@ describe('PDFExtractor', () => {
       vi.spyOn(extractor, 'extractText').mockResolvedValue(mockText);
 
       const result = await extractor.extract('/test.pdf');
-      expect(result.data.invoiceType).toBe('C');
+      expect(result.data.invoiceType).toBe(11); // Código ARCA para Factura C
     });
 
-    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
-    it.skip('NO debe confundir "11 - Factura C" con tipo A (bug reportado)', async () => {
+    it('NO debe confundir "11 - Factura C" con tipo A (bug reportado)', async () => {
       // Este es el caso problemático reportado:
       // El campo tenía "11 - Factura C" y se detectó como tipo A
       const mockText = `
@@ -74,12 +71,11 @@ describe('PDFExtractor', () => {
 
       const result = await extractor.extract('/test.pdf');
 
-      // El tipo debe ser C (de "Factura C"), NO A
-      expect(result.data.invoiceType).toBe('C');
+      // El tipo debe ser 11 (Factura C), NO 1 (Factura A)
+      expect(result.data.invoiceType).toBe(11); // Código ARCA para Factura C
     });
 
-    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
-    it.skip('debe detectar tipo desde "Comprobante A"', async () => {
+    it('debe detectar tipo desde "Comprobante A"', async () => {
       const mockText = `
         Comprobante A
         Número: A-00001-00000100
@@ -90,11 +86,10 @@ describe('PDFExtractor', () => {
       vi.spyOn(extractor, 'extractText').mockResolvedValue(mockText);
 
       const result = await extractor.extract('/test.pdf');
-      expect(result.data.invoiceType).toBe('A');
+      expect(result.data.invoiceType).toBe(1); // Código ARCA para Factura A
     });
 
-    // TODO(Issue #68): Test failing - PDFExtractor returning numeric codes
-    it.skip('debe detectar tipo desde código AFIP', async () => {
+    it('debe detectar tipo desde código AFIP', async () => {
       const mockText = `
         CODIGO:
         -
@@ -108,7 +103,7 @@ describe('PDFExtractor', () => {
       vi.spyOn(extractor, 'extractText').mockResolvedValue(mockText);
 
       const result = await extractor.extract('/test.pdf');
-      expect(result.data.invoiceType).toBe('B');
+      expect(result.data.invoiceType).toBe(6); // Código ARCA para Factura B
     });
   });
 

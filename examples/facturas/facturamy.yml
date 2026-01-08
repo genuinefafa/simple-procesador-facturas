@@ -6,7 +6,7 @@ emisor:
   nombre: "Caputto Pablo Roberto"
 
 factura:
-  tipo: "A"
+  tipo: 1
   punto_venta: 1
   numero: 125
   fecha: "2023-02-13"

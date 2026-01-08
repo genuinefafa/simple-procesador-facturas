@@ -4,205 +4,233 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  getDocumentTypeFromAFIPCode,
-  extractAFIPCodeFromText,
-  extractInvoiceTypeWithAFIP,
-  AFIP_CODES,
+  getDocumentTypeFromARCACode,
+  extractARCACodeFromText,
+  extractInvoiceTypeWithARCA,
+  AFIP_TYPES,
 } from '../../../utils/afip-codes';
 
 describe('AFIP Codes', () => {
-  describe('AFIP_CODES mapping', () => {
-    // TODO(Issue #68): Test failing - AFIP_CODES not properly exported/imported
-    it.skip('debe tener los códigos principales de facturas', () => {
-      // Facturas A
-      expect(AFIP_CODES['001']).toEqual({
-        code: '001',
+  describe('AFIP_TYPES mapping', () => {
+    it('debe tener los códigos principales de facturas', () => {
+      // Facturas A (código 1)
+      expect(AFIP_TYPES['1']).toEqual({
+        code: 1,
         invoiceType: 'A',
         documentKind: 'FAC',
+        friendlyType: 'FACA',
         description: 'Factura A',
+        descriptionLong: 'Factura A (Responsable Inscripto a Responsable Inscripto)',
       });
 
-      // Facturas B
-      expect(AFIP_CODES['006']).toEqual({
-        code: '006',
+      // Facturas B (código 6)
+      expect(AFIP_TYPES['6']).toEqual({
+        code: 6,
         invoiceType: 'B',
         documentKind: 'FAC',
+        friendlyType: 'FACB',
         description: 'Factura B',
+        descriptionLong: 'Factura B (Responsable Inscripto a Consumidor Final/Exento)',
       });
 
-      // Facturas C
-      expect(AFIP_CODES['011']).toEqual({
-        code: '011',
+      // Facturas C (código 11)
+      expect(AFIP_TYPES['11']).toEqual({
+        code: 11,
         invoiceType: 'C',
         documentKind: 'FAC',
+        friendlyType: 'FACC',
         description: 'Factura C',
+        descriptionLong: 'Factura C (Monotributista)',
       });
     });
 
-    // TODO(Issue #68): Test failing - AFIP_CODES not properly exported/imported
-    it.skip('debe tener los códigos de notas de crédito', () => {
-      expect(AFIP_CODES['003']).toEqual({
-        code: '003',
+    it('debe tener los códigos de notas de crédito', () => {
+      // Nota de Crédito A (código 3)
+      expect(AFIP_TYPES['3']).toEqual({
+        code: 3,
         invoiceType: 'A',
         documentKind: 'NCR',
+        friendlyType: 'NCRA',
         description: 'Nota de Crédito A',
+        descriptionLong: 'Nota de Crédito A (Responsable Inscripto a Responsable Inscripto)',
       });
 
-      expect(AFIP_CODES['008']).toEqual({
-        code: '008',
+      // Nota de Crédito B (código 8)
+      expect(AFIP_TYPES['8']).toEqual({
+        code: 8,
         invoiceType: 'B',
         documentKind: 'NCR',
+        friendlyType: 'NCRB',
         description: 'Nota de Crédito B',
+        descriptionLong: 'Nota de Crédito B (Responsable Inscripto a Consumidor Final/Exento)',
       });
 
-      expect(AFIP_CODES['013']).toEqual({
-        code: '013',
+      // Nota de Crédito C (código 13)
+      expect(AFIP_TYPES['13']).toEqual({
+        code: 13,
         invoiceType: 'C',
         documentKind: 'NCR',
+        friendlyType: 'NCRC',
         description: 'Nota de Crédito C',
+        descriptionLong: 'Nota de Crédito C (Monotributista)',
       });
     });
 
-    // TODO(Issue #68): Test failing - AFIP_CODES not properly exported/imported
-    it.skip('debe tener los códigos de notas de débito', () => {
-      expect(AFIP_CODES['002']).toEqual({
-        code: '002',
+    it('debe tener los códigos de notas de débito', () => {
+      // Nota de Débito A (código 2)
+      expect(AFIP_TYPES['2']).toEqual({
+        code: 2,
         invoiceType: 'A',
         documentKind: 'NDB',
+        friendlyType: 'NDBA',
         description: 'Nota de Débito A',
+        descriptionLong: 'Nota de Débito A (Responsable Inscripto a Responsable Inscripto)',
       });
     });
   });
 
-  describe('getDocumentTypeFromAFIPCode', () => {
-    // TODO(Issue #68): Test failing - function returning undefined
-    it.skip('debe reconocer código con ceros a la izquierda', () => {
-      const result = getDocumentTypeFromAFIPCode('011');
+  describe('getDocumentTypeFromARCACode', () => {
+    it('debe reconocer código con ceros a la izquierda (string)', () => {
+      const result = getDocumentTypeFromARCACode('011');
       expect(result?.invoiceType).toBe('C');
       expect(result?.documentKind).toBe('FAC');
+      expect(result?.code).toBe(11);
     });
 
-    it('debe reconocer código sin ceros a la izquierda', () => {
-      const result = getDocumentTypeFromAFIPCode('11');
+    it('debe reconocer código sin ceros a la izquierda (string)', () => {
+      const result = getDocumentTypeFromARCACode('11');
       expect(result?.invoiceType).toBe('C');
       expect(result?.documentKind).toBe('FAC');
+      expect(result?.code).toBe(11);
     });
 
-    it('debe reconocer código de un solo dígito', () => {
-      const result = getDocumentTypeFromAFIPCode('1');
+    it('debe reconocer código de un solo dígito (string)', () => {
+      const result = getDocumentTypeFromARCACode('1');
       expect(result?.invoiceType).toBe('A');
       expect(result?.documentKind).toBe('FAC');
+      expect(result?.code).toBe(1);
+    });
+
+    it('debe reconocer código numérico directamente', () => {
+      const result = getDocumentTypeFromARCACode(11);
+      expect(result?.invoiceType).toBe('C');
+      expect(result?.documentKind).toBe('FAC');
+      expect(result?.code).toBe(11);
     });
 
     it('debe retornar undefined para código inexistente', () => {
-      const result = getDocumentTypeFromAFIPCode('999');
+      const result = getDocumentTypeFromARCACode('999');
       expect(result).toBeUndefined();
     });
 
     it('debe manejar espacios en blanco', () => {
-      const result = getDocumentTypeFromAFIPCode(' 11 ');
+      const result = getDocumentTypeFromARCACode(' 11 ');
       expect(result?.invoiceType).toBe('C');
     });
   });
 
-  describe('extractAFIPCodeFromText', () => {
-    // TODO(Issue #68): Test failing - function returning undefined
-    it.skip('debe extraer código de "11 - Factura C"', () => {
+  describe('extractARCACodeFromText', () => {
+    it('debe extraer código de "11 - Factura C"', () => {
       const text = `
         Punto de Venta
         11 - Factura C
         Número de Comprobante
         00000789
       `;
-      const result = extractAFIPCodeFromText(text);
+      const result = extractARCACodeFromText(text);
       expect(result?.invoiceType).toBe('C');
       expect(result?.documentKind).toBe('FAC');
+      expect(result?.code).toBe(11);
     });
 
-    // TODO(Issue #68): Test failing - function returning undefined
-    it.skip('debe extraer código de "CODIGO: 011"', () => {
+    it('debe extraer código de "CODIGO: 011"', () => {
       const text = `
         CODIGO:
         011
         Factura
       `;
-      const result = extractAFIPCodeFromText(text);
+      const result = extractARCACodeFromText(text);
       expect(result?.invoiceType).toBe('C');
+      expect(result?.code).toBe(11);
     });
 
     it('debe extraer código de "Cod. 6"', () => {
       const text = 'Comprobante Cod. 6 emitido';
-      const result = extractAFIPCodeFromText(text);
+      const result = extractARCACodeFromText(text);
       expect(result?.invoiceType).toBe('B');
       expect(result?.documentKind).toBe('FAC');
+      expect(result?.code).toBe(6);
     });
 
     it('debe extraer código de "Tipo: 3"', () => {
       const text = 'Documento Tipo: 3';
-      const result = extractAFIPCodeFromText(text);
+      const result = extractARCACodeFromText(text);
       expect(result?.invoiceType).toBe('A');
       expect(result?.documentKind).toBe('NCR');
+      expect(result?.code).toBe(3);
     });
 
     it('debe reconocer nota de crédito por código 13', () => {
       const text = '13 - Nota de Crédito C';
-      const result = extractAFIPCodeFromText(text);
+      const result = extractARCACodeFromText(text);
       expect(result?.invoiceType).toBe('C');
       expect(result?.documentKind).toBe('NCR');
+      expect(result?.code).toBe(13);
     });
 
-    it('debe retornar undefined si no hay código AFIP', () => {
+    it('debe retornar undefined si no hay código ARCA', () => {
       const text = 'Factura común sin código numérico';
-      const result = extractAFIPCodeFromText(text);
+      const result = extractARCACodeFromText(text);
       expect(result).toBeUndefined();
     });
   });
 
-  describe('extractInvoiceTypeWithAFIP', () => {
-    it('debe preferir código AFIP sobre patrón de texto', () => {
+  describe('extractInvoiceTypeWithARCA', () => {
+    it('debe preferir código ARCA sobre patrón de texto', () => {
       // El código 11 indica Factura C, aunque diga "Factura A" en el texto
       const text = `
         11 - Factura C
         Pero también dice Factura A en algún lado
       `;
-      const result = extractInvoiceTypeWithAFIP(text);
+      const result = extractInvoiceTypeWithARCA(text);
       expect(result?.invoiceType).toBe('C');
-      expect(result?.method).toBe('AFIP_CODE');
+      expect(result?.method).toBe('ARCA_CODE');
+      expect(result?.code).toBe(11);
     });
 
-    it('debe usar patrón de texto si no hay código AFIP', () => {
+    it('debe usar patrón de texto si no hay código ARCA', () => {
       const text = 'FACTURA A Número 00001-00000123';
-      const result = extractInvoiceTypeWithAFIP(text);
+      const result = extractInvoiceTypeWithARCA(text);
       expect(result?.invoiceType).toBe('A');
       expect(result?.method).toBe('TEXT_PATTERN');
     });
 
-    it('NO debe confundir "11" aislado con código AFIP', () => {
+    it('NO debe confundir "11" aislado con código ARCA', () => {
       // Solo números sueltos no deben ser reconocidos
       const text = 'Punto de venta 11 número 00000123';
-      extractAFIPCodeFromText(text);
+      extractARCACodeFromText(text);
       // No debería encontrar código porque no tiene formato "11 - Factura"
       // ni "Cod. 11" ni similar
       // El patrón actual lo detectaría incorrectamente, pero la función
-      // extractInvoiceTypeWithAFIP debería manejarlo correctamente
+      // extractInvoiceTypeWithARCA debería manejarlo correctamente
     });
 
     it('debe detectar Nota de Crédito A desde texto', () => {
       const text = 'NOTA DE CRÉDITO A Número 00001-00000456';
-      const result = extractInvoiceTypeWithAFIP(text);
+      const result = extractInvoiceTypeWithARCA(text);
       expect(result?.invoiceType).toBe('A');
       expect(result?.documentKind).toBe('NCR');
     });
 
     it('debe retornar undefined si no puede determinar tipo', () => {
       const text = 'Documento genérico sin tipo identificable';
-      const result = extractInvoiceTypeWithAFIP(text);
+      const result = extractInvoiceTypeWithARCA(text);
       expect(result).toBeUndefined();
     });
   });
 
   describe('Caso bug reportado: "11 - Factura C" como tipo A', () => {
-    it('debe detectar correctamente como tipo C usando código AFIP', () => {
+    it('debe detectar correctamente como tipo C usando código ARCA', () => {
       const text = `
         Punto de Venta
         11 - Factura C
@@ -215,12 +243,13 @@ describe('AFIP Codes', () => {
         Importe Total: $5.000,00
       `;
 
-      const result = extractInvoiceTypeWithAFIP(text);
+      const result = extractInvoiceTypeWithARCA(text);
 
       // El código 11 = Factura C, así que el tipo debe ser C
       expect(result?.invoiceType).toBe('C');
       expect(result?.documentKind).toBe('FAC');
-      expect(result?.method).toBe('AFIP_CODE');
+      expect(result?.method).toBe('ARCA_CODE');
+      expect(result?.code).toBe(11);
     });
   });
 });

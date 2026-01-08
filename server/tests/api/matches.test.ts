@@ -23,7 +23,7 @@ describe('Matches API - findPartialMatches', () => {
     // y ordenarlos por score
     const matches = await expectedRepo.findPartialMatches({
       cuit: undefined, // Sin CUIT
-      invoiceType: 'A',
+      invoiceType: 1, // Código ARCA para Factura A
       pointOfSale: 2056,
       invoiceNumber: 99157,
       limit: 10,
@@ -47,7 +47,7 @@ describe('Matches API - findPartialMatches', () => {
   // TODO(Issue #68): Test failing - needs database setup with expected invoices
   it.skip('debería asignar score por proximidad de número', async () => {
     const matches = await expectedRepo.findPartialMatches({
-      invoiceType: 'A',
+      invoiceType: 1, // Código ARCA para Factura A
       pointOfSale: 2056,
       invoiceNumber: 99157, // El expected tiene 99152
       limit: 10,
@@ -72,7 +72,7 @@ describe('Matches API - findPartialMatches', () => {
   // TODO(Issue #68): Test failing - needs database setup with expected invoices
   it.skip('debería ordenar por mejor score', async () => {
     const matches = await expectedRepo.findPartialMatches({
-      invoiceType: 'A',
+      invoiceType: 1, // Código ARCA para Factura A
       pointOfSale: 2056,
       invoiceNumber: 99157,
       limit: 10,
