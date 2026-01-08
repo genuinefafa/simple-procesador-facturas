@@ -54,7 +54,9 @@ export const FRIENDLY_TYPE_TO_CODE: Record<string, number> = Object.values(AFIP_
  * getDocumentTypeFromARCACode("11") // { code: 11, invoiceType: "C", friendlyType: "FACC", ... }
  */
 export function getDocumentTypeFromARCACode(code: number | string): AFIPDocumentType | undefined {
-  const codeStr = typeof code === 'number' ? code.toString() : code.trim();
+  // Normalizar: convertir a número y luego a string para remover ceros a la izquierda
+  // Ej: "011" → 11 → "11"
+  const codeStr = typeof code === 'number' ? code.toString() : parseInt(code.trim(), 10).toString();
   return AFIP_TYPES[codeStr];
 }
 

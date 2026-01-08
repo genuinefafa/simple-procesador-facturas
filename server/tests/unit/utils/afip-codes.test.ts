@@ -72,7 +72,7 @@ describe('AFIP Codes', () => {
         documentKind: 'NCR',
         friendlyType: 'NCRC',
         description: 'Nota de Crédito C',
-        descriptionLong: 'Nota de Crédito C (Responsable de Monotributo)',
+        descriptionLong: 'Nota de Crédito C (Monotributista)',
       });
     });
 
