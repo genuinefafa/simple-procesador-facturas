@@ -6,7 +6,7 @@ emisor:
   nombre: "Oscar Alfredo Andereggen"
 
 factura:
-  tipo: "A"
+  tipo: 1
   punto_venta: 3
   numero: 3668
   fecha: "2023-02-14"

@@ -6,7 +6,7 @@ emisor:
   nombre: "Escobar Luis Ramon"
 
 factura:
-  tipo: "C"
+  tipo: 11
   punto_venta: 3
   numero: 128
   fecha: "2023-02-18"
