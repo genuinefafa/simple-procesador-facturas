@@ -14,8 +14,9 @@ import { mkdir, rename, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import type { InvoiceType } from '@server/utils/types.js';
 import { getFriendlyType } from '@server/utils/afip-codes.js';
+import { generateSubdirectory, generateProcessedFilename } from '@server/utils/file-naming.js';
 
-const PROCESSED_DIR = join(process.cwd(), '..', 'data', 'processed');
+const FINALIZED_DIR = join(process.cwd(), '..', 'data', 'finalized');
 
 /**
  * POST /api/pending-files/:id/finalize
@@ -123,20 +124,27 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const invoiceRepo = new InvoiceRepository();
     const invoiceType = extractedType; // Ya es number | null (código ARCA)
 
-    // Generar nombre del archivo procesado
-    const dateFormatted = extractedDate.replace(/-/g, ''); // YYYYMMDD
-    const cuitNumeric = normalizedCuit.replace(/-/g, '');
-    const fileExt = extname(pendingFile.originalFilename);
-    const friendlyType = getFriendlyType(invoiceType) || 'UNKN';
-    const processedFileName = `${cuitNumeric}_${dateFormatted}_${friendlyType}-${String(extractedPointOfSale).padStart(4, '0')}-${String(extractedInvoiceNumber).padStart(8, '0')}${fileExt}`;
+    // Generar nombre y path del archivo procesado usando nuevo formato
+    // Formato: finalized/yyyy-mm/yyyy-mm-dd Alias CUIT TIPO PV-NUM [cat].ext
+    const issueDate = new Date(extractedDate);
+    const subdir = generateSubdirectory(issueDate); // yyyy-mm
+    const processedFileName = generateProcessedFilename(
+      issueDate,
+      emitter,
+      invoiceType,
+      extractedPointOfSale,
+      extractedInvoiceNumber,
+      pendingFile.originalFilename
+      // Sin categoryKey por ahora - se podría agregar después
+    );
 
-    // Crear directorio para emisor si no existe
-    const emitterDir = join(PROCESSED_DIR, cuitNumeric, extractedDate.substring(0, 4)); // YYYY
-    if (!existsSync(emitterDir)) {
-      await mkdir(emitterDir, { recursive: true });
+    // Crear directorio si no existe
+    const finalizedDir = join(FINALIZED_DIR, subdir);
+    if (!existsSync(finalizedDir)) {
+      await mkdir(finalizedDir, { recursive: true });
     }
 
-    const processedFilePath = join(emitterDir, processedFileName);
+    const processedFilePath = join(finalizedDir, processedFileName);
 
     // Verificar si archivo destino ya existe
     if (existsSync(processedFilePath)) {
