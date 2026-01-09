@@ -51,6 +51,7 @@ export type Pending = {
   extractionConfidence?: number | null;
   extractionMethod?: string | null;
   extractionErrors?: string | null;
+  linkedInvoiceId?: number | null; // ID de la factura que referencia este pending
 };
 
 export type Match = {
@@ -221,6 +222,21 @@ export const load: PageLoad = async ({ fetch, params }) => {
       if (res.ok) {
         const response = await res.json();
         const data = response.pendingFile; // { success, pendingFile }
+
+        // Buscar si existe una factura que referencia este pending
+        let linkedInvoiceId: number | null = null;
+        try {
+          const invoicesRes = await fetch(`/api/invoices?pendingFileId=${id}`);
+          if (invoicesRes.ok) {
+            const invoicesData = await invoicesRes.json();
+            if (invoicesData.invoices && invoicesData.invoices.length > 0) {
+              linkedInvoiceId = invoicesData.invoices[0].id;
+            }
+          }
+        } catch (err) {
+          console.warn('No se pudo verificar factura vinculada:', err);
+        }
+
         const pending: Pending = {
           id: data.id,
           originalFilename: data.originalFilename,
@@ -236,6 +252,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           extractionConfidence: data.extractionConfidence,
           extractionMethod: data.extractionMethod,
           extractionErrors: data.extractionErrors,
+          linkedInvoiceId,
         };
 
         let matches: Match[] = [];

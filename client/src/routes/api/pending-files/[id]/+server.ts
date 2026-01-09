@@ -7,6 +7,7 @@ import type { RequestHandler } from './$types';
 import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
 import type { PendingFileStatus } from '@server/database/repositories/pending-file.js';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
+import { calculateFileHash } from '@server/utils/file-hash.js';
 import { unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 
@@ -24,13 +25,30 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     const pendingFileRepo = new PendingFileRepository();
-    const pendingFile = await pendingFileRepo.findById(id);
+    let pendingFile = await pendingFileRepo.findById(id);
 
     if (!pendingFile) {
       return json({ success: false, error: 'Archivo pendiente no encontrado' }, { status: 404 });
     }
 
     console.info(`✅ [PENDING-FILE] Encontrado: ${pendingFile.originalFilename}`);
+
+    // Calcular hash on-the-fly si no existe
+    if (!pendingFile.fileHash && existsSync(pendingFile.filePath)) {
+      console.info(`🔐 [PENDING-FILE] Calculando hash on-the-fly...`);
+      try {
+        const hashResult = await calculateFileHash(pendingFile.filePath);
+        await pendingFileRepo.updateFileHash(id, hashResult.hash);
+        // Refrescar para incluir el hash en la respuesta
+        pendingFile = await pendingFileRepo.findById(id);
+        console.info(
+          `✅ [PENDING-FILE] Hash calculado y guardado: ${hashResult.hash.substring(0, 16)}...`
+        );
+      } catch (hashError) {
+        console.error(`❌ [PENDING-FILE] Error calculando hash:`, hashError);
+        // No fallar la request, solo loguear
+      }
+    }
 
     return json({
       success: true,

@@ -5,6 +5,7 @@
   import EmitterCombobox from '$lib/components/EmitterCombobox.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
   import InvoiceTypeSelect from '$lib/components/InvoiceTypeSelect.svelte';
+  import DuplicateHashAlert from '$lib/components/DuplicateHashAlert.svelte';
   import { Accordion } from 'melt/builders';
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
@@ -98,10 +99,16 @@
     }
 
     // Preseleccionar categoría desde la factura final si existe (solo en modo lectura)
+    // NO resetear si la factura aún no existe (pending file sin finalizar)
     console.log('[EFFECT] comprobante.final?.categoryId:', comprobante.final?.categoryId);
-    if (!editMode) {
-      selectedCategoryId = comprobante.final?.categoryId ?? null;
+    if (!editMode && comprobante.final) {
+      selectedCategoryId = comprobante.final.categoryId ?? null;
       console.log('[EFFECT] selectedCategoryId set to:', selectedCategoryId);
+    } else if (!comprobante.final) {
+      console.log(
+        '[EFFECT] comprobante.final no existe aún, preservando selectedCategoryId:',
+        selectedCategoryId
+      );
     } else {
       console.log('[EFFECT] editMode=true, no se pisa selectedCategoryId');
     }
@@ -616,6 +623,16 @@
       <Button variant="danger" size="sm" onclick={openDeleteDialog}>🗑️ Eliminar</Button>
     </div>
   </header>
+
+  <!-- Alerta de duplicados por hash (global, arriba) -->
+  {#if comprobante.final?.fileHash || comprobante.pending?.fileHash}
+    {@const fileHash = comprobante.final?.fileHash || comprobante.pending?.fileHash}
+    {@const currentType = comprobante.final ? 'invoice' : 'pending'}
+    {@const currentId = comprobante.final?.id || comprobante.pending?.id || 0}
+    {@const linkedPendingId = comprobante.final?.pendingFileId || null}
+    {@const linkedInvoiceId = comprobante.pending?.linkedInvoiceId || null}
+    <DuplicateHashAlert {fileHash} {currentId} {currentType} {linkedPendingId} {linkedInvoiceId} />
+  {/if}
 
   <div class="layout">
     <!-- Columna izquierda: Preview -->

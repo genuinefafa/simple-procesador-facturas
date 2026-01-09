@@ -230,6 +230,55 @@ export function formatCurrency(value?: number | null): string {
 }
 
 /**
+ * Formatea el estado de un pending_file a español
+ * @param status Estado del pending_file
+ * @returns Estado traducido
+ */
+export function formatPendingStatus(
+  status?: 'pending' | 'reviewing' | 'processed' | 'failed' | null
+): string {
+  const statusMap: Record<string, string> = {
+    pending: 'Pendiente',
+    reviewing: 'En revisión',
+    processed: 'Procesado',
+    failed: 'Fallido',
+  };
+  return status ? statusMap[status] || status : '—';
+}
+
+/**
+ * Formatea el estado de un expected_invoice a español
+ * @param status Estado del expected_invoice
+ * @returns Estado traducido
+ */
+export function formatExpectedStatus(
+  status?: 'pending' | 'matched' | 'discrepancy' | 'manual' | 'ignored' | null
+): string {
+  const statusMap: Record<string, string> = {
+    pending: 'Pendiente',
+    matched: 'Coincide',
+    discrepancy: 'Discrepancia',
+    manual: 'Manual',
+    ignored: 'Ignorado',
+  };
+  return status ? statusMap[status] || status : '—';
+}
+
+/**
+ * Formatea el tipo de comprobante (kind) a español
+ * @param kind Tipo de comprobante
+ * @returns Tipo traducido
+ */
+export function formatComprobanteKind(kind?: 'factura' | 'expected' | 'pending' | null): string {
+  const kindMap: Record<string, string> = {
+    factura: 'Factura',
+    expected: 'Esperada',
+    pending: 'Pendiente',
+  };
+  return kind ? kindMap[kind] || kind : '—';
+}
+
+/**
  * Obtiene clase CSS para el color de confianza
  * @param confidence Porcentaje de confianza (0-100)
  * @returns Clase CSS para aplicar color

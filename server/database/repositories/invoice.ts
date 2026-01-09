@@ -21,6 +21,7 @@ export interface Invoice {
   currency: Currency;
   originalFile: string;
   processedFile: string;
+  finalizedFile?: string; // Ruta relativa a data/ (ej: finalized/2025-12/file.pdf)
   fileHash?: string;
   fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
   extractionMethod: ExtractionMethod;
@@ -48,6 +49,7 @@ export class InvoiceRepository {
       currency: row.moneda || 'ARS',
       originalFile: row.archivoOriginal,
       processedFile: row.archivoProcesado,
+      finalizedFile: row.finalizedFile || undefined,
       fileHash: row.fileHash || undefined,
       fileType: row.tipoArchivo,
       extractionMethod: row.metodoExtraccion as ExtractionMethod,
@@ -72,6 +74,7 @@ export class InvoiceRepository {
     currency?: Currency;
     originalFile: string;
     processedFile: string;
+    finalizedFile?: string;
     fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
     fileHash?: string;
     extractionMethod: ExtractionMethod;
@@ -103,6 +106,7 @@ export class InvoiceRepository {
         moneda: data.currency || 'ARS',
         archivoOriginal: data.originalFile,
         archivoProcesado: data.processedFile,
+        finalizedFile: data.finalizedFile ?? null,
         tipoArchivo: data.fileType,
         fileHash: data.fileHash ?? null,
         metodoExtraccion: data.extractionMethod,
@@ -213,8 +217,18 @@ export class InvoiceRepository {
       .where(eq(facturas.id, id));
   }
 
-  async updateProcessedFile(id: number, processedFile: string): Promise<void> {
-    await db.update(facturas).set({ archivoProcesado: processedFile }).where(eq(facturas.id, id));
+  async updateProcessedFile(
+    id: number,
+    processedFile: string,
+    finalizedFile?: string
+  ): Promise<void> {
+    await db
+      .update(facturas)
+      .set({
+        archivoProcesado: processedFile,
+        finalizedFile: finalizedFile ?? null,
+      })
+      .where(eq(facturas.id, id));
   }
 
   async findByEmitterAndNumber(

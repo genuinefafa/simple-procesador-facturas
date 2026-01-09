@@ -8,6 +8,7 @@ import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
+import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { calculateFileHash } from '@server/utils/file-hash.js';
 
 const UPLOAD_DIR = join(process.cwd(), '..', 'data', 'input');
@@ -65,11 +66,20 @@ export const POST: RequestHandler = async ({ request }) => {
 
         // Guardar archivo
         const buffer = Buffer.from(await file.arrayBuffer());
-        const filePath = join(UPLOAD_DIR, file.name);
+        let filePath = join(UPLOAD_DIR, file.name);
+        let savedFilename = file.name;
 
-        // Verificar si ya existe
+        // Verificar si ya existe y generar nombre único con timestamp si es necesario
         if (existsSync(filePath)) {
-          throw new Error(`El archivo ya existe`);
+          const timestamp = Date.now();
+          const extname = file.name.split('.').pop();
+          const basename = file.name.substring(
+            0,
+            file.name.length - (extname ? extname.length + 1 : 0)
+          );
+          savedFilename = `${basename}.${timestamp}.${extname}`;
+          filePath = join(UPLOAD_DIR, savedFilename);
+          console.info(`⚠️  [UPLOAD] Archivo ya existe, renombrando a: ${savedFilename}`);
         }
 
         await writeFile(filePath, buffer);
@@ -84,13 +94,37 @@ export const POST: RequestHandler = async ({ request }) => {
           hashPreview = fileHash.substring(0, 16);
           console.info(`🔐 [UPLOAD] Hash: ${hashPreview}...`);
 
-          // Verificar si ya existe un archivo con este hash
-          const existingFiles = await pendingFileRepo.findByHash(fileHash);
-          if (existingFiles.length > 0) {
+          // Verificar si ya existe un archivo con este hash en pending_files
+          const existingPending = await pendingFileRepo.findByHash(fileHash);
+          if (existingPending.length > 0) {
+            // Borrar el archivo recién subido
+            await unlink(filePath);
+            const existing = existingPending[0];
+            throw new Error(
+              JSON.stringify({
+                type: 'duplicate',
+                duplicateType: 'pending',
+                duplicateId: existing.id,
+                duplicateFilename: existing.originalFilename,
+                message: `Archivo duplicado (hash idéntico a pending:${existing.id})`,
+              })
+            );
+          }
+
+          // Verificar si ya existe en facturas finalizadas
+          const invoiceRepo = new InvoiceRepository();
+          const existingInvoice = await invoiceRepo.findByHash(fileHash);
+          if (existingInvoice) {
             // Borrar el archivo recién subido
             await unlink(filePath);
             throw new Error(
-              `Archivo duplicado (hash idéntico a ${existingFiles[0].originalFilename})`
+              JSON.stringify({
+                type: 'duplicate',
+                duplicateType: 'invoice',
+                duplicateId: existingInvoice.id,
+                duplicateFilename: existingInvoice.originalFile.split('/').pop(),
+                message: `Archivo duplicado (hash idéntico a factura:${existingInvoice.id})`,
+              })
             );
           }
         } catch (error) {
@@ -103,7 +137,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
         // Crear registro en pending_files
         const pendingFile = await pendingFileRepo.create({
-          originalFilename: file.name,
+          originalFilename: savedFilename,
           filePath: filePath,
           fileSize: file.size,
           fileHash,
@@ -114,7 +148,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
         uploadedFiles.push({
           pendingFileId: pendingFile.id,
-          name: file.name,
+          name: savedFilename,
           size: file.size,
           path: filePath,
           hash: fileHash,
@@ -123,9 +157,19 @@ export const POST: RequestHandler = async ({ request }) => {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
         console.warn(`⚠️  [UPLOAD] Error con ${file.name}: ${errorMessage}`);
+
+        // Intentar parsear el error como JSON (para duplicados)
+        let errorData: any = { message: errorMessage };
+        try {
+          errorData = JSON.parse(errorMessage);
+        } catch {
+          // No es JSON, usar mensaje simple
+        }
+
         errors.push({
           name: file.name,
-          error: errorMessage,
+          error: errorData.message || errorMessage,
+          ...errorData, // Incluir type, duplicateType, duplicateId, etc.
         });
       }
     }
@@ -148,7 +192,7 @@ export const POST: RequestHandler = async ({ request }) => {
       message: hasSuccess
         ? `${successCount} de ${totalCount} archivo(s) subido(s) correctamente`
         : `No se pudo subir ningún archivo`,
-      files: uploadedFiles,
+      uploadedFiles,
       errors,
       summary: {
         total: totalCount,

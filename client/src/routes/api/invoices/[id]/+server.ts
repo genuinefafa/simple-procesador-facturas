@@ -10,8 +10,9 @@ import { ZoneAnnotationRepository } from '@server/database/repositories/zone-ann
 import { CategoryRepository } from '@server/database/repositories/category.js';
 import { getDatabase } from '@server/database/connection.js';
 import { generateProcessedFilename, generateSubdirectory } from '@server/utils/file-naming.js';
+import { calculateFileHash } from '@server/utils/file-hash.js';
 import { join, dirname } from 'path';
-import { rename, access, mkdir } from 'fs/promises';
+import { copyFile, mkdir } from 'fs/promises';
 import { existsSync, readdirSync, statSync } from 'fs';
 
 const FINALIZED_DIR = join(process.cwd(), '..', 'data', 'finalized');
@@ -69,10 +70,27 @@ export const GET: RequestHandler = async ({ params }) => {
     const emitterRepo = new EmitterRepository();
     const zoneRepo = new ZoneAnnotationRepository();
 
-    const invoice = await invoiceRepo.findById(invoiceId);
+    let invoice = await invoiceRepo.findById(invoiceId);
 
     if (!invoice) {
       return json({ success: false, error: 'Factura no encontrada' }, { status: 404 });
+    }
+
+    // Calcular hash on-the-fly si no existe
+    if (!invoice.fileHash && existsSync(invoice.processedFile)) {
+      console.info(`🔐 [INVOICE] Calculando hash on-the-fly para factura #${invoiceId}...`);
+      try {
+        const hashResult = await calculateFileHash(invoice.processedFile);
+        await invoiceRepo.updateFileHash(invoiceId, hashResult.hash);
+        // Refrescar para incluir el hash en la respuesta
+        invoice = await invoiceRepo.findById(invoiceId);
+        console.info(
+          `✅ [INVOICE] Hash calculado y guardado: ${hashResult.hash.substring(0, 16)}...`
+        );
+      } catch (hashError) {
+        console.error(`❌ [INVOICE] Error calculando hash:`, hashError);
+        // No fallar la request, solo loguear
+      }
     }
 
     const emitter = await emitterRepo.findByCUIT(invoice.emitterCuit);
@@ -94,6 +112,8 @@ export const GET: RequestHandler = async ({ params }) => {
         currency: invoice.currency,
         originalFile: invoice.originalFile,
         processedFile: invoice.processedFile,
+        finalizedFile: invoice.finalizedFile ?? null,
+        usingFallbackFile: !invoice.finalizedFile, // TRUE si usa rutas legacy
         fileType: invoice.fileType,
         fileHash: invoice.fileHash,
         extractionConfidence: invoice.extractionConfidence,
@@ -277,11 +297,27 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
           if (actualOldPath && actualOldPath !== newPath) {
             // Crear directorio destino si no existe
             await mkdir(dirname(newPath), { recursive: true });
-            // Mover archivo
-            await rename(actualOldPath, newPath);
-            // Actualizar ruta en DB
-            await invoiceRepo.updateProcessedFile(invoiceId, newPath);
-            console.log(`[PATCH] Archivo movido: ${actualOldPath} -> ${newPath}`);
+
+            // Si el archivo ya está en finalized/, MOVER (rename)
+            // Si viene de uploaded/input, COPIAR (preserve original)
+            const isInFinalized = actualOldPath.includes('/finalized/');
+
+            if (isInFinalized) {
+              const { rename } = await import('fs/promises');
+              await rename(actualOldPath, newPath);
+              console.log(`[PATCH] ✅ Archivo movido (rename): ${actualOldPath} -> ${newPath}`);
+            } else {
+              await copyFile(actualOldPath, newPath);
+              console.log(
+                `[PATCH] ✅ Archivo copiado (desde uploaded): ${actualOldPath} -> ${newPath}`
+              );
+            }
+
+            // Calcular ruta relativa: finalized/yyyy-mm/nombre.pdf
+            const relativePath = join('finalized', subdir, newFileName);
+
+            // Actualizar ruta en DB (absoluta y relativa)
+            await invoiceRepo.updateProcessedFile(invoiceId, newPath, relativePath);
           }
         }
       } catch (err) {

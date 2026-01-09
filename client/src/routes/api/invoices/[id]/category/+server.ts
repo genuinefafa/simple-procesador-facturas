@@ -5,7 +5,7 @@ import { CategoryRepository } from '@server/database/repositories/category';
 import { EmitterRepository } from '@server/database/repositories/emitter';
 import { generateProcessedFilename, generateSubdirectory } from '@server/utils/file-naming.js';
 import { join, dirname } from 'path';
-import { rename, access, mkdir } from 'fs/promises';
+import { copyFile, mkdir } from 'fs/promises';
 import { existsSync, readdirSync, statSync } from 'fs';
 
 const FINALIZED_DIR = join(process.cwd(), '..', 'data', 'finalized');
@@ -99,40 +99,78 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     // Rutas de archivos
     const newPath = join(FINALIZED_DIR, subdir, newFileName);
+    console.log(`[CATEGORY] Nueva ruta destino: ${newPath}`);
+    console.log(`[CATEGORY] Ruta en DB (processedFile): ${invoice.processedFile}`);
+    console.log(`[CATEGORY] Ruta en DB (originalFile): ${invoice.originalFile}`);
 
     // Buscar archivo actual (puede estar en ruta diferente por cambios previos)
     let actualOldPath: string | null = null;
+
+    // 1. Intentar con processedFile
     if (existsSync(invoice.processedFile)) {
       actualOldPath = invoice.processedFile;
-    } else if (invoice.invoiceType !== null) {
+      console.log(`[CATEGORY] ✅ Encontrado en processedFile: ${actualOldPath}`);
+    }
+    // 2. Intentar con originalFile (puede estar en input/)
+    else if (existsSync(invoice.originalFile)) {
+      actualOldPath = invoice.originalFile;
+      console.log(`[CATEGORY] ✅ Encontrado en originalFile: ${actualOldPath}`);
+    }
+    // 3. Buscar en finalized por CUIT/número
+    else if (invoice.invoiceType !== null) {
+      console.log(`[CATEGORY] ⚠️ No encontrado en rutas DB, buscando por CUIT/número...`);
       actualOldPath = await findFileByInvoiceData(
         invoice.emitterCuit,
         invoice.invoiceType,
         invoice.pointOfSale,
         invoice.invoiceNumber
       );
+      if (actualOldPath) {
+        console.log(`[CATEGORY] ✅ Encontrado por búsqueda: ${actualOldPath}`);
+      }
     }
 
-    // Mover/renombrar archivo físico si existe y la ruta cambió
+    if (!actualOldPath) {
+      console.error(`[CATEGORY] ❌ No se encontró el archivo físico para factura ${id}`);
+    }
+
+    // Mover/copiar archivo a finalized si existe y la ruta cambió
     if (actualOldPath && actualOldPath !== newPath) {
       try {
         // Crear directorio destino si no existe
         await mkdir(dirname(newPath), { recursive: true });
-        // Mover archivo al nuevo path
-        await rename(actualOldPath, newPath);
-        console.log(`[CATEGORY] Archivo movido: ${actualOldPath} -> ${newPath}`);
+
+        // Si el archivo ya está en finalized/, MOVER (rename)
+        // Si viene de uploaded/input, COPIAR (preserve original)
+        const isInFinalized = actualOldPath.includes('/finalized/');
+
+        if (isInFinalized) {
+          const { rename } = await import('fs/promises');
+          await rename(actualOldPath, newPath);
+          console.log(`[CATEGORY] ✅ Archivo movido (rename): ${actualOldPath} -> ${newPath}`);
+        } else {
+          await copyFile(actualOldPath, newPath);
+          console.log(
+            `[CATEGORY] ✅ Archivo copiado (desde uploaded): ${actualOldPath} -> ${newPath}`
+          );
+        }
       } catch (err) {
-        console.warn(`[CATEGORY] No se pudo mover archivo: ${err}`);
+        console.error(`[CATEGORY] ❌ Error copiando archivo: ${err}`);
         // Continuar de todas formas
       }
+    } else if (actualOldPath === newPath) {
+      console.log(`[CATEGORY] ℹ️ Archivo ya está en la ubicación correcta`);
     }
 
     // Actualizar en la base de datos
     const updated = await invoiceRepo.updateLinking(id, { categoryId: categoryId ?? null });
     if (!updated) return json({ ok: false, error: 'Invoice not found' }, { status: 404 });
 
-    // Actualizar ruta del archivo procesado
-    await invoiceRepo.updateProcessedFile(id, newPath);
+    // Calcular ruta relativa: finalized/yyyy-mm/nombre.pdf
+    const relativePath = join('finalized', subdir, newFileName);
+
+    // Actualizar ruta del archivo procesado (absoluta y relativa)
+    await invoiceRepo.updateProcessedFile(id, newPath, relativePath);
 
     return json({
       ok: true,

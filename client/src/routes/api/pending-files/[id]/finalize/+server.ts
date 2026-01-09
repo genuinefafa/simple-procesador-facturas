@@ -8,6 +8,7 @@ import { PendingFileRepository } from '@server/database/repositories/pending-fil
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice.js';
+import { CategoryRepository } from '@server/database/repositories/category.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '@server/validators/cuit.js';
 import { join, dirname, basename, extname } from 'path';
 import { mkdir, rename, copyFile } from 'fs/promises';
@@ -121,6 +122,20 @@ export const POST: RequestHandler = async ({ params, request }) => {
       });
     }
 
+    // Buscar categoryId si se proveyó categoryKey
+    const categoryRepo = new CategoryRepository();
+    let categoryId: number | undefined = undefined;
+    if (categoryKey) {
+      const categories = await categoryRepo.findAll();
+      const category = categories.find((c) => c.key === categoryKey);
+      if (category) {
+        categoryId = category.id;
+        console.info(`📌 Categoría encontrada: ${category.name} (ID: ${categoryId})`);
+      } else {
+        console.warn(`⚠️ Categoría con key "${categoryKey}" no encontrada`);
+      }
+    }
+
     // Crear factura
     const invoiceRepo = new InvoiceRepository();
     const invoiceType = extractedType; // Ya es number | null (código ARCA)
@@ -162,6 +177,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
     console.info(`📁 Copiando archivo a: ${processedFilePath}`);
     await copyFile(pendingFile.filePath, processedFilePath);
 
+    // Calcular ruta relativa para finalized_file
+    // Formato: finalized/yyyy-mm/nombre.pdf
+    const relativePath = join('finalized', subdir, processedFileName);
+    console.info(`📍 Ruta relativa: ${relativePath}`);
+
     // Buscar expectedInvoice match exacto ANTES de crear factura
     // Resolver expectedInvoice: prioridad a ID provisto; sino buscar match exacto
     if (!expectedInvoice) {
@@ -191,10 +211,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
     if (existing) {
       console.info(`🔗 Consolidando con factura existente ${existing.id}`);
       // Actualizar archivo procesado y links
-      await invoiceRepo.updateProcessedFile(existing.id, processedFilePath);
+      await invoiceRepo.updateProcessedFile(existing.id, processedFilePath, relativePath);
       invoice = await invoiceRepo.updateLinking(existing.id, {
         expectedInvoiceId: expectedInvoice?.id ?? null,
         pendingFileId: id,
+        categoryId: categoryId ?? null,
       });
       // También actualizar fecha/total si vinieron overrides
       // Nota: Mantener simple por ahora, el repositorio no tiene update general
@@ -210,6 +231,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         total: overriddenTotal || undefined,
         originalFile: pendingFile.filePath,
         processedFile: processedFilePath,
+        finalizedFile: relativePath,
         fileType: 'PDF_DIGITAL', // TODO: detectar tipo real
         fileHash: pendingFile.fileHash || undefined,
         extractionMethod: 'MANUAL', // Fue corregido manualmente
@@ -217,6 +239,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         requiresReview: false,
         expectedInvoiceId: expectedInvoice?.id || undefined,
         pendingFileId: id,
+        categoryId: categoryId || undefined,
       });
     }
 

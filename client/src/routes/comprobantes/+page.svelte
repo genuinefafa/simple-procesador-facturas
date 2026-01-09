@@ -3,6 +3,7 @@
   import CategoryPills from '$lib/components/CategoryPills.svelte';
   import SearchBox from '$lib/components/SearchBox.svelte';
   import ActiveFilters from '$lib/components/ActiveFilters.svelte';
+  import UploadReport from '$lib/components/UploadReport.svelte';
   import type { PageData } from './$types';
   import type { Comprobante } from '../api/comprobantes/+server';
   import { FileUpload } from 'melt/builders';
@@ -14,6 +15,8 @@
     getFriendlyType,
     formatDateShort,
     formatEmitterName,
+    formatPendingStatus,
+    formatComprobanteKind,
   } from '$lib/formatters';
   import { createFilterMatcher, serializeFilters, type FilterNode } from '$lib/search';
 
@@ -144,8 +147,8 @@
         if (!(!!c.expected && !c.final)) return false;
         break;
       case 'pendientes':
-        // Solo pendientes en espera de reconocimiento o con error
-        if (!(c.pending?.status === 'pending' || c.pending?.status === 'failed')) return false;
+        // Mostrar todos los comprobantes de tipo pending (sin factura finalizada)
+        if (!c.pending || c.final) return false;
         break;
       default:
         break;
@@ -202,6 +205,12 @@
   });
 
   let pendingUploadFiles = new Set<File>();
+
+  // Estado para upload report
+  let uploadResult = $state<{
+    uploadedFiles: any[];
+    errors: any[];
+  } | null>(null);
 
   // Estado para drag & drop global
   let isDraggingOverPage = $state(false);
@@ -343,30 +352,16 @@
         const response = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
         const data = await response.json();
 
-        if (data.success) {
-          const { summary } = data;
-          if (summary.failed > 0) {
-            // Hubo algunos errores
-            const errorList = data.errors.map((e: any) => `${e.name}: ${e.error}`).join('; ');
-            toast.warning(`${summary.success}/${summary.total} subido(s). Errores: ${errorList}`, {
-              id: toastId,
-              duration: Infinity,
-            });
-          } else {
-            // Todo OK
-            toast.success(`${summary.success} archivo(s) subido(s) correctamente`, {
-              id: toastId,
-              duration: 3000,
-            });
-          }
-        } else {
-          // Mostrar errores específicos si existen, sino mensaje genérico
-          const errorMsg =
-            data.errors && data.errors.length > 0
-              ? data.errors.map((e: any) => `${e.name}: ${e.error}`).join('; ')
-              : data.error || 'Error desconocido al subir archivos';
-          toast.error(errorMsg, { id: toastId, duration: Infinity });
-        }
+        toast.dismiss(toastId);
+
+        // Guardar resultado para mostrar en el report
+        uploadResult = {
+          uploadedFiles: data.uploadedFiles || [],
+          errors: data.errors || [],
+        };
+
+        // Recargar datos para reflejar los nuevos pending files
+        await invalidateAll();
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Error de conexión';
         toast.error(`Error al subir archivos: ${errorMsg}`, { id: toastId, duration: Infinity });
@@ -408,13 +403,24 @@
     </div>
   </header>
 
-  <!-- Dropzone compacto clickeable -->
-  <div class="dropzone-wrapper">
-    <div {...fileUpload.dropzone} class="dropzone-compact">
-      <span class="dz-compact-hint">📎 Click para subir archivos o arrastrá a cualquier parte</span>
+  <!-- Upload Report o Dropzone -->
+  {#if uploadResult}
+    <UploadReport
+      uploadedFiles={uploadResult.uploadedFiles}
+      errors={uploadResult.errors}
+      onClose={() => (uploadResult = null)}
+    />
+  {:else}
+    <!-- Dropzone compacto clickeable -->
+    <div class="dropzone-wrapper">
+      <div {...fileUpload.dropzone} class="dropzone-compact">
+        <span class="dz-compact-hint"
+          >📎 Click para subir archivos o arrastrá a cualquier parte</span
+        >
+      </div>
+      <input {...fileUpload.input} />
     </div>
-    <input {...fileUpload.input} />
-  </div>
+  {/if}
 
   <!-- BÚSQUEDA META-LENGUAJE -->
   <section class="search-section">
@@ -503,8 +509,8 @@
       <a href="/comprobantes/{comp.id}" class="row" data-sveltekit-preload-data>
         <span class="col-type">
           {#if comp.final}<span class="tag ok">Factura</span>
-          {:else if comp.expected}<span class="tag warn">Expected</span>
-          {:else}<span class="tag info">Pending</span>{/if}
+          {:else if comp.expected}<span class="tag warn">Esperada</span>
+          {:else}<span class="tag info">Pendiente</span>{/if}
         </span>
         <span class="col-cmp">{formatComprobante(comp)}</span>
         <span class="col-emisor" title={getEmitterName(comp).full || undefined}
@@ -557,9 +563,9 @@
           {/if}
         </span>
         <span class="col-status">
-          {#if comp.final}procesada
-          {:else if comp.expected}esperada
-          {:else}{comp.pending?.status || '—'}{/if}
+          {#if comp.final}Procesada
+          {:else if comp.expected}Esperada
+          {:else}{formatPendingStatus(comp.pending?.status)}{/if}
         </span>
         <span class="col-hash">{comp.final?.fileHash ? shortHash(comp.final.fileHash) : '—'}</span>
         <span class="col-actions"><Button size="sm">Ver</Button></span>

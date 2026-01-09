@@ -191,13 +191,32 @@ export async function GET() {
         const comp = comprobantesMap.get(factId)!;
         comp.pending = p;
       } else {
-        // Pendiente sin factura
+        // Buscar si hay una expected vinculada a este pending
+        const expectedLinked = expectedInvoices.find((e) => e.matchedPendingFileId === p.id);
+        const expectedData = expectedLinked
+          ? {
+              source: 'expected' as const,
+              id: expectedLinked.id,
+              cuit: expectedLinked.cuit,
+              emitterName: emitterCache.get(expectedLinked.cuit) || expectedLinked.emitterName,
+              issueDate: expectedLinked.issueDate,
+              invoiceType: expectedLinked.invoiceType,
+              pointOfSale: expectedLinked.pointOfSale,
+              invoiceNumber: expectedLinked.invoiceNumber,
+              total: expectedLinked.total,
+              status: expectedLinked.status,
+              file: expectedLinked.filePath || undefined,
+              matchedPendingFileId: expectedLinked.matchedPendingFileId ?? null,
+            }
+          : null;
+
+        // Pendiente sin factura (pero puede tener expected)
         const comprobanteId = `pending:${p.id}`;
         comprobantesMap.set(comprobanteId, {
           id: comprobanteId,
           kind: 'pending',
           final: null,
-          expected: null,
+          expected: expectedData,
           pending: p,
           emitterCuit: p.extractedCuit,
           emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
