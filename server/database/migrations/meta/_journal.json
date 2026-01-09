@@ -64,6 +64,13 @@
       "when": 1736359200000,
       "tag": "0008_add_finalized_file",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1736445600000,
+      "tag": "0009_normalize_extracted_date",
+      "breakpoints": true
     }
   ]
 }
