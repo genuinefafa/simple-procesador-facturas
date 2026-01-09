@@ -737,7 +737,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 180px 300px 85px 120px 90px 140px 60px 60px;
+    grid-template-columns: 180px 300px 85px 120px 90px 180px 60px 60px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
