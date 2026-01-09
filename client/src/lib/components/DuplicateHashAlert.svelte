@@ -166,7 +166,7 @@
                 <span class="duplicate-label">factura:{invoice.id}</span>
                 <span class="duplicate-info">
                   {#if invoice.invoiceType}
-                    {getInvoiceTypeFromARCA(invoice.invoiceType).shortName}
+                    {getInvoiceTypeFromARCA(invoice.invoiceType).friendlyType}
                   {/if}
                   {invoice.fullInvoiceNumber}
                 </span>
