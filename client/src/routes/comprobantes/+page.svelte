@@ -587,9 +587,17 @@
           {/if}
         </span>
         <span class="col-type-status">
-          {#if comp.final}<span class="tag ok">Factura</span>
-          {:else if comp.expected}<span class="tag warn">Esperada</span>
-          {:else}<span class="tag info">{formatPendingStatus(comp.pending?.status)}</span>{/if}
+          {#if comp.final}
+            <span class="tag ok">Factura</span>
+          {:else if comp.expected}
+            <span class="tag warn">Esperada</span>
+            {#if comp.expected.status}
+              <span class="tag info">{comp.expected.status}</span>
+            {/if}
+          {:else if comp.pending}
+            <span class="tag neutral">Pendiente</span>
+            <span class="tag info">{formatPendingStatus(comp.pending.status)}</span>
+          {/if}
         </span>
         <span class="col-hash"
           >{comp.final?.fileHash || comp.pending?.fileHash
@@ -729,7 +737,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 180px 300px 85px 120px 90px 85px 60px 60px;
+    grid-template-columns: 180px 300px 85px 120px 90px 140px 60px 60px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
@@ -773,6 +781,18 @@
     background: var(--color-neutral-100);
     color: var(--color-text-secondary);
     border-color: var(--color-neutral-200);
+  }
+  .tag.neutral {
+    background: var(--color-neutral-50);
+    color: var(--color-text-tertiary);
+    border-color: var(--color-neutral-200);
+  }
+
+  /* Columna tipo/estado con múltiples tags */
+  .col-type-status {
+    display: flex;
+    gap: var(--spacing-1);
+    flex-wrap: wrap;
   }
 
   /* Category display button (readonly mode) */
