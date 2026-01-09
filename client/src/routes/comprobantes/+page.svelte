@@ -494,34 +494,37 @@
 
   <section class="list">
     <div class="list-head">
-      <span>Tipo</span>
       <span>Comprobante / Archivo</span>
-      <span>Emisor</span>
-      <span>CUIT</span>
+      <span>Emisor (CUIT)</span>
       <span>Fecha</span>
       <span class="align-right">Total</span>
       <span>Categoría</span>
-      <span>Estado</span>
+      <span>Tipo / Estado</span>
       <span>Hash</span>
       <span></span>
     </div>
     {#each visibleComprobantes as comp}
-      <a href="/comprobantes/{comp.id}" class="row" data-sveltekit-preload-data>
-        <span class="col-type">
-          {#if comp.final}<span class="tag ok">Factura</span>
-          {:else if comp.expected}<span class="tag warn">Esperada</span>
-          {:else}<span class="tag info">Pendiente</span>{/if}
+      <div class="row">
+        <span class="col-cmp" class:col-cmp-extended={!comp.final}>{formatComprobante(comp)}</span>
+        <span class="col-emisor-cuit" title={getEmitterName(comp).full || undefined}>
+          {#if getEmitterName(comp).short}
+            {getEmitterName(comp).short}
+            <span class="cuit-inline"
+              >({comp.final?.cuit ||
+                comp.expected?.cuit ||
+                comp.pending?.extractedCuit ||
+                '—'})</span
+            >
+          {:else}
+            {comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}
+          {/if}
         </span>
-        <span class="col-cmp">{formatComprobante(comp)}</span>
-        <span class="col-emisor" title={getEmitterName(comp).full || undefined}
-          >{getEmitterName(comp).short}</span
-        >
-        <span class="col-cuit"
-          >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
-        >
         <span class="col-date"
           >{formatDateShort(
-            comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate
+            comp.final?.issueDate ||
+              comp.expected?.issueDate ||
+              comp.pending?.extractedDate ||
+              comp.final?.processedAt
           )}</span
         >
         <span class="col-total align-right"
@@ -562,14 +565,20 @@
             —
           {/if}
         </span>
-        <span class="col-status">
-          {#if comp.final}Procesada
-          {:else if comp.expected}Esperada
-          {:else}{formatPendingStatus(comp.pending?.status)}{/if}
+        <span class="col-type-status">
+          {#if comp.final}<span class="tag ok">Factura</span>
+          {:else if comp.expected}<span class="tag warn">Esperada</span>
+          {:else}<span class="tag info">{formatPendingStatus(comp.pending?.status)}</span>{/if}
         </span>
-        <span class="col-hash">{comp.final?.fileHash ? shortHash(comp.final.fileHash) : '—'}</span>
-        <span class="col-actions"><Button size="sm">Ver</Button></span>
-      </a>
+        <span class="col-hash"
+          >{comp.final?.fileHash || comp.pending?.fileHash
+            ? shortHash(comp.final?.fileHash || comp.pending?.fileHash)
+            : '—'}</span
+        >
+        <span class="col-actions"
+          ><a href="/comprobantes/{comp.id}"><Button size="sm">Ver</Button></a></span
+        >
+      </div>
     {/each}
   </section>
 </div>
@@ -699,20 +708,20 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 100px 1fr 180px 140px 110px 120px 140px 100px 80px 100px;
+    grid-template-columns: 1fr 200px 100px 100px 120px 110px 90px 90px;
     gap: var(--spacing-2);
-    padding: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
   }
   .list-head {
     background: var(--color-surface-alt);
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+    font-weight: var(--font-weight-medium);
   }
   .row {
     border: none;
     border-top: 1px solid var(--color-border);
-    cursor: pointer;
     background: transparent;
     text-align: left;
     width: 100%;
@@ -771,11 +780,46 @@
     min-width: 200px;
   }
 
-  /* Evitar que el nombre del emisor se pase de línea */
-  .col-emisor {
+  /* Columna de comprobante con extensión cuando no está procesado */
+  .col-cmp {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: var(--font-size-sm);
+  }
+
+  .col-cmp-extended {
+    grid-column: span 2; /* Ocupa también la columna de emisor cuando no hay factura */
+    font-weight: var(--font-weight-medium);
+  }
+
+  /* Emisor y CUIT en la misma columna */
+  .col-emisor-cuit {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    font-size: var(--font-size-sm);
+  }
+
+  .cuit-inline {
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-xs);
+    margin-left: var(--spacing-1);
+  }
+
+  /* Hash más compacto */
+  .col-hash {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  /* Botón Ver sin cursor pointer en toda la fila */
+  .col-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .col-actions a {
+    text-decoration: none;
   }
 
   .align-right {
