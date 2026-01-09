@@ -82,8 +82,8 @@ export const GET: RequestHandler = async ({ params }) => {
       try {
         const hashResult = await calculateFileHash(invoice.processedFile);
         await invoiceRepo.updateFileHash(invoiceId, hashResult.hash);
-        // Refrescar para incluir el hash en la respuesta
-        invoice = await invoiceRepo.findById(invoiceId);
+        // Refrescar para incluir el hash en la respuesta (sabemos que existe porque acabamos de actualizarlo)
+        invoice = (await invoiceRepo.findById(invoiceId))!;
         console.info(
           `✅ [INVOICE] Hash calculado y guardado: ${hashResult.hash.substring(0, 16)}...`
         );

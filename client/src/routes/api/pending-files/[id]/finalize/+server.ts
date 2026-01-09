@@ -130,7 +130,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       const category = categories.find((c) => c.key === categoryKey);
       if (category) {
         categoryId = category.id;
-        console.info(`📌 Categoría encontrada: ${category.name} (ID: ${categoryId})`);
+        console.info(`📌 Categoría encontrada: ${category.description} (ID: ${categoryId})`);
       } else {
         console.warn(`⚠️ Categoría con key "${categoryKey}" no encontrada`);
       }

@@ -113,8 +113,9 @@ export const POST: RequestHandler = async ({ request }) => {
 
           // Verificar si ya existe en facturas finalizadas
           const invoiceRepo = new InvoiceRepository();
-          const existingInvoice = await invoiceRepo.findByHash(fileHash);
-          if (existingInvoice) {
+          const existingInvoices = await invoiceRepo.findByFileHash(fileHash);
+          if (existingInvoices.length > 0) {
+            const existingInvoice = existingInvoices[0];
             // Borrar el archivo recién subido
             await unlink(filePath);
             throw new Error(
