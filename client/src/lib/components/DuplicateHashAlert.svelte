@@ -69,9 +69,11 @@
             // No mostrar la propia factura
             if (currentType === 'invoice' && i.id === currentId) return false;
 
-            // Si es pending actual y está vinculado a esta factura, no mostrar
-            if (currentType === 'pending' && linkedInvoiceId && i.id === linkedInvoiceId)
-              return false;
+            // IMPORTANTE: Si estamos en un pending, SÍ mostrar la factura vinculada
+            // Esto permite que el usuario vea que ya existe una factura para este archivo
+            // (antes esto se filtraba y causaba que se pudieran crear duplicados)
+            // if (currentType === 'pending' && linkedInvoiceId && i.id === linkedInvoiceId)
+            //   return false;
 
             return true;
           });

@@ -1,4 +1,5 @@
 import type { PageLoad } from './$types';
+import { redirect } from '@sveltejs/kit';
 
 // Re-definir tipos aquí (sin circular import)
 export type Final = {
@@ -223,7 +224,8 @@ export const load: PageLoad = async ({ fetch, params }) => {
         const response = await res.json();
         const data = response.pendingFile; // { success, pendingFile }
 
-        // Buscar si existe una factura que referencia este pending
+        // IMPORTANTE: Si el pending ya tiene una factura vinculada, redirigir automáticamente
+        // Esto evita que el usuario pueda crear facturas duplicadas desde un pending ya procesado
         let linkedInvoiceId: number | null = null;
         try {
           const invoicesRes = await fetch(`/api/invoices?pendingFileId=${id}`);
@@ -231,9 +233,19 @@ export const load: PageLoad = async ({ fetch, params }) => {
             const invoicesData = await invoicesRes.json();
             if (invoicesData.invoices && invoicesData.invoices.length > 0) {
               linkedInvoiceId = invoicesData.invoices[0].id;
+
+              // Redirigir automáticamente a la factura (HTTP 302)
+              console.info(
+                `[PENDING→FACTURA] Redirigiendo de pending:${id} a factura:${linkedInvoiceId}`
+              );
+              throw redirect(302, `/comprobantes/factura:${linkedInvoiceId}`);
             }
           }
         } catch (err) {
+          // Si es un redirect de SvelteKit, re-lanzarlo
+          if (err && typeof err === 'object' && 'status' in err && (err as any).status === 302) {
+            throw err;
+          }
           console.warn('No se pudo verificar factura vinculada:', err);
         }
 

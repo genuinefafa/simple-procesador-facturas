@@ -94,25 +94,47 @@ export const POST: RequestHandler = async ({ request }) => {
           hashPreview = fileHash.substring(0, 16);
           console.info(`🔐 [UPLOAD] Hash: ${hashPreview}...`);
 
+          // Instanciar InvoiceRepository una sola vez
+          const invoiceRepo = new InvoiceRepository();
+
           // Verificar si ya existe un archivo con este hash en pending_files
           const existingPending = await pendingFileRepo.findByHash(fileHash);
           if (existingPending.length > 0) {
-            // Borrar el archivo recién subido
-            await unlink(filePath);
             const existing = existingPending[0];
-            throw new Error(
-              JSON.stringify({
-                type: 'duplicate',
-                duplicateType: 'pending',
-                duplicateId: existing.id,
-                duplicateFilename: existing.originalFilename,
-                message: `Archivo duplicado (hash idéntico a pending:${existing.id})`,
-              })
-            );
+
+            // IMPORTANTE: Verificar si este pending ya tiene una factura asociada
+            // Si es así, reportar la factura en lugar del pending
+            const linkedInvoices = await invoiceRepo.findByPendingFileId(existing.id);
+
+            await unlink(filePath); // Borrar archivo recién subido
+
+            if (linkedInvoices.length > 0) {
+              // El pending ya tiene factura → reportar la factura
+              const linkedInvoice = linkedInvoices[0];
+              throw new Error(
+                JSON.stringify({
+                  type: 'duplicate',
+                  duplicateType: 'invoice',
+                  duplicateId: linkedInvoice.id,
+                  duplicateFilename: linkedInvoice.originalFile.split('/').pop(),
+                  message: `Archivo duplicado (hash idéntico a factura:${linkedInvoice.id})`,
+                })
+              );
+            } else {
+              // Pending sin factura → reportar el pending
+              throw new Error(
+                JSON.stringify({
+                  type: 'duplicate',
+                  duplicateType: 'pending',
+                  duplicateId: existing.id,
+                  duplicateFilename: existing.originalFilename,
+                  message: `Archivo duplicado (hash idéntico a pending:${existing.id})`,
+                })
+              );
+            }
           }
 
           // Verificar si ya existe en facturas finalizadas
-          const invoiceRepo = new InvoiceRepository();
           const existingInvoices = await invoiceRepo.findByFileHash(fileHash);
           if (existingInvoices.length > 0) {
             const existingInvoice = existingInvoices[0];
