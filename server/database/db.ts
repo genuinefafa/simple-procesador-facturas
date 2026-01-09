@@ -38,6 +38,9 @@ export const db = drizzle(sqlite, { schema });
 // Exportar también la conexión SQLite pura para casos especiales
 export const rawDb: Database.Database = sqlite;
 
+// Exportar ruta de DB para scripts que necesiten acceder directamente
+export { DB_PATH };
+
 // Helper para cerrar la conexión (útil en tests)
 export function closeDb(): void {
   sqlite.close();

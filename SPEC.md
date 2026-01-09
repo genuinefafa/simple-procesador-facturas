@@ -145,6 +145,16 @@ simple-procesador-facturas/
 **ORM**: Drizzle ORM
 **Ubicación del archivo**: `data/database.sqlite` (desde root del proyecto)
 
+**Acceso desde código**:
+```typescript
+// Importar ruta de DB desde db.ts
+import { DB_PATH } from './database/db.js';
+
+// Uso:
+// - Producción: /path/to/project/data/database.sqlite
+// - Tests: /path/to/project/data/database.test.sqlite
+```
+
 **Configuración**:
 - **Drizzle config**: `server/drizzle.config.ts`
 - **Conexión**: `server/database/db.ts`

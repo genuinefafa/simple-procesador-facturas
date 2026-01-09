@@ -19,6 +19,18 @@ import { pdf } from 'pdf-to-img';
 // @ts-ignore - no type definitions available for heic-convert
 import convert from 'heic-convert';
 
+/**
+ * Convierte fecha de formato DD/MM/YYYY a ISO (YYYY-MM-DD)
+ * @param ddmmyyyy - Fecha en formato DD/MM/YYYY (ej: "23/10/2025")
+ * @returns Fecha en formato ISO (ej: "2025-10-23")
+ */
+function formatToISO(ddmmyyyy: string): string {
+  const parts = ddmmyyyy.split('/');
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return ddmmyyyy;
+  const [day, month, year] = parts;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
 // Configuración de OCR
 const OCR_CONFIG = {
   language: 'eng', // Inglés (incluido por defecto, no requiere descarga)
@@ -711,7 +723,7 @@ export class OCRExtractor {
         confidence,
         data: {
           cuit,
-          date,
+          date: date ? formatToISO(date) : undefined,
           total: parsedTotal,
           invoiceType: invoiceTypeCode,
           documentKind,
