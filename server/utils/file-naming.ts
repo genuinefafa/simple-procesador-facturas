@@ -10,6 +10,7 @@
 
 import type { Emitter, InvoiceType } from './types';
 import { getFriendlyType } from './afip-codes.js';
+import { EmitterRepository } from '../database/repositories/emitter.js';
 import path from 'path';
 
 /**
@@ -57,22 +58,13 @@ export function inferDocumentKind(
  * @param emitter - Emisor
  * @returns Nombre más corto (sanitizado para usar en archivos)
  */
+/**
+ * Obtiene el nombre más corto del emisor
+ * @deprecated Usar EmitterRepository.getShortestName() en su lugar
+ */
 export function getShortestName(emitter: Emitter): string {
-  // Incluir nombre, razón social (legalName) y todos los aliases
-  const candidates = [emitter.name];
-
-  if (emitter.legalName) {
-    candidates.push(emitter.legalName);
-  }
-
-  candidates.push(...emitter.aliases);
-
-  // Encontrar el más corto
-  const shortest = candidates.reduce((prev, current) =>
-    current.length < prev.length ? current : prev
-  );
-
-  // Sanitizar para nombre de archivo (manteniendo legibilidad)
+  // Delegar al método del repositorio y sanitizar
+  const shortest = EmitterRepository.getShortestName(emitter);
   return sanitizeFilenameReadable(shortest);
 }
 
@@ -114,27 +106,29 @@ export function padNumber(num: number, width: number): string {
 
 /**
  * Formatea una fecha en formato YYYY-MM-DD
+ * IMPORTANTE: Usa UTC para evitar problemas de zona horaria
  *
  * @param date - Fecha a formatear
  * @returns String en formato YYYY-MM-DD
  */
 export function formatDateForFilename(date: Date): string {
-  const year = date.getFullYear();
-  const month = padNumber(date.getMonth() + 1, 2);
-  const day = padNumber(date.getDate(), 2);
+  const year = date.getUTCFullYear();
+  const month = padNumber(date.getUTCMonth() + 1, 2);
+  const day = padNumber(date.getUTCDate(), 2);
   return `${year}-${month}-${day}`;
 }
 
 /**
  * Genera el nombre del subdirectorio basado en la fecha
  * Formato: yyyy-mm
+ * IMPORTANTE: Usa UTC para evitar problemas de zona horaria
  *
  * @param date - Fecha de emisión
  * @returns Nombre del subdirectorio (ej: "2024-01")
  */
 export function generateSubdirectory(date: Date): string {
-  const year = date.getFullYear();
-  const month = padNumber(date.getMonth() + 1, 2);
+  const year = date.getUTCFullYear();
+  const month = padNumber(date.getUTCMonth() + 1, 2);
   return `${year}-${month}`;
 }
 

@@ -10,6 +10,7 @@ export type Final = {
   cuit: string;
   emitterName?: string | null;
   issueDate: string | null;
+  processedAt?: string | null;
   invoiceType: number | null; // Código ARCA numérico (1, 6, 11, etc.)
   pointOfSale: number | null;
   invoiceNumber: number | null;
@@ -40,7 +41,9 @@ export type Pending = {
   id: number;
   originalFilename: string;
   filePath: string;
+  fileHash?: string | null;
   status: 'pending' | 'reviewing' | 'processed' | 'failed';
+  uploadDate?: string | null;
   extractedCuit?: string | null;
   extractedDate?: string | null;
   extractedTotal?: number | null;
@@ -79,7 +82,9 @@ export async function GET() {
     id: pf.id,
     originalFilename: pf.originalFilename,
     filePath: pf.filePath,
+    fileHash: pf.fileHash ?? null,
     status: pf.status,
+    uploadDate: pf.uploadDate,
     extractedCuit: pf.extractedCuit,
     extractedDate: pf.extractedDate,
     extractedTotal: pf.extractedTotal,
@@ -113,6 +118,7 @@ export async function GET() {
     cuit: inv.emitterCuit,
     emitterName: emitterCache.get(inv.emitterCuit) || undefined,
     issueDate: toISODate(inv.issueDate),
+    processedAt: inv.processedAt ? inv.processedAt.toString() : null,
     invoiceType: inv.invoiceType,
     pointOfSale: inv.pointOfSale,
     invoiceNumber: inv.invoiceNumber,
@@ -191,13 +197,32 @@ export async function GET() {
         const comp = comprobantesMap.get(factId)!;
         comp.pending = p;
       } else {
-        // Pendiente sin factura
+        // Buscar si hay una expected vinculada a este pending
+        const expectedLinked = expectedInvoices.find((e) => e.matchedPendingFileId === p.id);
+        const expectedData = expectedLinked
+          ? {
+              source: 'expected' as const,
+              id: expectedLinked.id,
+              cuit: expectedLinked.cuit,
+              emitterName: emitterCache.get(expectedLinked.cuit) || expectedLinked.emitterName,
+              issueDate: expectedLinked.issueDate,
+              invoiceType: expectedLinked.invoiceType,
+              pointOfSale: expectedLinked.pointOfSale,
+              invoiceNumber: expectedLinked.invoiceNumber,
+              total: expectedLinked.total,
+              status: expectedLinked.status,
+              file: expectedLinked.filePath || undefined,
+              matchedPendingFileId: expectedLinked.matchedPendingFileId ?? null,
+            }
+          : null;
+
+        // Pendiente sin factura (pero puede tener expected)
         const comprobanteId = `pending:${p.id}`;
         comprobantesMap.set(comprobanteId, {
           id: comprobanteId,
           kind: 'pending',
           final: null,
-          expected: null,
+          expected: expectedData,
           pending: p,
           emitterCuit: p.extractedCuit,
           emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,

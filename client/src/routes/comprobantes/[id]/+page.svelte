@@ -5,6 +5,7 @@
   import EmitterCombobox from '$lib/components/EmitterCombobox.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
   import InvoiceTypeSelect from '$lib/components/InvoiceTypeSelect.svelte';
+  import DuplicateHashAlert from '$lib/components/DuplicateHashAlert.svelte';
   import { Accordion } from 'melt/builders';
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
@@ -98,10 +99,16 @@
     }
 
     // Preseleccionar categoría desde la factura final si existe (solo en modo lectura)
+    // NO resetear si la factura aún no existe (pending file sin finalizar)
     console.log('[EFFECT] comprobante.final?.categoryId:', comprobante.final?.categoryId);
-    if (!editMode) {
-      selectedCategoryId = comprobante.final?.categoryId ?? null;
+    if (!editMode && comprobante.final) {
+      selectedCategoryId = comprobante.final.categoryId ?? null;
       console.log('[EFFECT] selectedCategoryId set to:', selectedCategoryId);
+    } else if (!comprobante.final) {
+      console.log(
+        '[EFFECT] comprobante.final no existe aún, preservando selectedCategoryId:',
+        selectedCategoryId
+      );
     } else {
       console.log('[EFFECT] editMode=true, no se pisa selectedCategoryId');
     }
@@ -286,8 +293,8 @@
 
     // Si existe factura, persistir en servidor
     try {
-      const res = await fetch(`/api/invoices/${comprobante.final.id}`, {
-        method: 'PATCH',
+      const res = await fetch(`/api/invoices/${comprobante.final.id}/category`, {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ categoryId: normalizedId }),
       });
@@ -356,6 +363,12 @@
         });
       } else if (comprobante.kind === 'pending' && comprobante.pending) {
         // Crear factura desde pending
+        // Buscar categoryKey desde selectedCategoryId
+        const categoryKey =
+          selectedCategoryId !== null
+            ? categories.find((c) => c.id === selectedCategoryId)?.key
+            : undefined;
+
         response = await fetch(`/api/pending-files/${comprobante.pending.id}/finalize`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -368,6 +381,7 @@
             total: facuraData.total,
             expectedInvoiceId: selectedExpectedId,
             emitterName: selectedEmitter?.name || lastCopiedEmitterName || undefined,
+            categoryKey,
           }),
         });
 
@@ -380,33 +394,7 @@
       if (response && response.ok) {
         toast.success('✅ Factura guardada correctamente', { id: toastId });
 
-        // Actualizar categoría ANTES de refrescar navegación/datos
-        try {
-          // Si se creó una nueva factura desde expected/pending, actualizar esa
-          const targetInvoiceId = newInvoiceId ?? comprobante.final?.id;
-          if (targetInvoiceId !== undefined) {
-            const catRes = await fetch(`/api/invoices/${targetInvoiceId}/category`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ categoryId: selectedCategoryId }),
-            });
-            const catData = await catRes.json();
-            if (!catRes.ok || !catData.ok) {
-              toast.error(catData.error || 'No se pudo actualizar la categoría');
-            } else {
-              // Actualizar estado local para evitar que el efecto lo pise al cancelar
-              if (!newInvoiceId && comprobante.final) {
-                comprobante.final.categoryId = selectedCategoryId;
-              }
-              toast.success('📌 Categoría actualizada');
-            }
-          }
-        } catch (e) {
-          console.error('Error actualizando categoría', e);
-          toast.error('Error actualizando categoría');
-        }
-
-        // Navegación / recarga después de actualizar categoría
+        // Navegación / recarga
         // Salir de modo edición para evitar confusiones
         editMode = false;
         if (newInvoiceId) {
@@ -635,6 +623,16 @@
       <Button variant="danger" size="sm" onclick={openDeleteDialog}>🗑️ Eliminar</Button>
     </div>
   </header>
+
+  <!-- Alerta de duplicados por hash (global, arriba) -->
+  {#if comprobante.final?.fileHash || comprobante.pending?.fileHash}
+    {@const fileHash = comprobante.final?.fileHash || comprobante.pending?.fileHash}
+    {@const currentType = comprobante.final ? 'invoice' : 'pending'}
+    {@const currentId = comprobante.final?.id || comprobante.pending?.id || 0}
+    {@const linkedPendingId = comprobante.final?.pendingFileId || null}
+    {@const linkedInvoiceId = comprobante.pending?.linkedInvoiceId || null}
+    <DuplicateHashAlert {fileHash} {currentId} {currentType} {linkedPendingId} {linkedInvoiceId} />
+  {/if}
 
   <div class="layout">
     <!-- Columna izquierda: Preview -->

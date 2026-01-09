@@ -63,24 +63,23 @@ if [ $ERRORS -gt 0 ]; then
   exit 1
 fi
 
-# Si hay SvelteKit en client/, correr svelte-check
-if [ -d "client" ] && [ -f "client/package.json" ]; then
+# Validación TypeScript estricta (igual que CI)
+echo ""
+echo "🔬 Validando TypeScript y Svelte (client)..."
+if ! (cd client && npx svelte-check --fail-on-warnings --threshold error); then
   echo ""
-  echo "🔬 Ejecutando svelte-check (puede tardar)..."
+  echo "❌ Errores de TypeScript/Svelte en client/"
+  echo "   Usá 'git commit --no-verify' para saltear esta validación (no recomendado)"
+  exit 1
+fi
 
-  # Solo correr en los archivos modificados
-  if ! (cd client && npm run check > /dev/null 2>&1); then
-    echo ""
-    echo "⚠️  svelte-check encontró errores de tipos."
-    echo "   Podés ver los detalles con: cd client && npm run check"
-    echo ""
-    read -p "¿Querés commitear igual? (y/N): " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-      echo "❌ Commit cancelado"
-      exit 1
-    fi
-  fi
+echo ""
+echo "🔬 Validando TypeScript (server)..."
+if ! (cd server && npx tsc --noEmit); then
+  echo ""
+  echo "❌ Errores de TypeScript en server/"
+  echo "   Usá 'git commit --no-verify' para saltear esta validación (no recomendado)"
+  exit 1
 fi
 
 echo ""

@@ -47,18 +47,45 @@ export const GET: RequestHandler = async ({ params }) => {
       if (!fs.existsSync(absolutePath)) {
         const searchDirs = [
           path.join(projectRoot, 'examples'),
-          path.join(projectRoot, 'data/input'),
           path.join(projectRoot, 'data/processed'),
+          path.join(projectRoot, 'data/input'),
         ];
 
         console.info(`   No encontrado, buscando en directorios comunes...`);
-        for (const dir of searchDirs) {
-          const candidatePath = path.join(dir, path.basename(filePath));
-          console.info(`     Probando: ${candidatePath}`);
-          if (fs.existsSync(candidatePath)) {
-            absolutePath = candidatePath;
-            console.info(`     ✅ Encontrado!`);
-            break;
+
+        // Buscar primero en finalized con subdirectorios (yyyy-mm)
+        const finalizedDir = path.join(projectRoot, 'data/finalized');
+        if (fs.existsSync(finalizedDir)) {
+          try {
+            const subdirs = fs.readdirSync(finalizedDir).filter((item) => {
+              const itemPath = path.join(finalizedDir, item);
+              return fs.statSync(itemPath).isDirectory();
+            });
+
+            for (const subdir of subdirs) {
+              const candidatePath = path.join(finalizedDir, subdir, path.basename(filePath));
+              console.info(`     Probando: ${candidatePath}`);
+              if (fs.existsSync(candidatePath)) {
+                absolutePath = candidatePath;
+                console.info(`     ✅ Encontrado en finalized/${subdir}!`);
+                break;
+              }
+            }
+          } catch (err) {
+            console.warn(`     Error buscando en finalized:`, err);
+          }
+        }
+
+        // Si no se encontró en finalized, buscar en otros directorios
+        if (!fs.existsSync(absolutePath)) {
+          for (const dir of searchDirs) {
+            const candidatePath = path.join(dir, path.basename(filePath));
+            console.info(`     Probando: ${candidatePath}`);
+            if (fs.existsSync(candidatePath)) {
+              absolutePath = candidatePath;
+              console.info(`     ✅ Encontrado!`);
+              break;
+            }
           }
         }
       }

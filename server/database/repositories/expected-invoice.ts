@@ -275,6 +275,15 @@ export class ExpectedInvoiceRepository {
     return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
   }
 
+  async findByMatchedPendingFileId(pendingFileId: number): Promise<ExpectedInvoice | null> {
+    const result = await db
+      .select()
+      .from(expectedInvoices)
+      .where(eq(expectedInvoices.matchedPendingFileId, pendingFileId));
+
+    return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
+  }
+
   async findCandidates(criteria: {
     cuit: string;
     dateRange?: [string, string];

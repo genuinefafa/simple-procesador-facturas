@@ -8,14 +8,16 @@ import { PendingFileRepository } from '@server/database/repositories/pending-fil
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice.js';
+import { CategoryRepository } from '@server/database/repositories/category.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '@server/validators/cuit.js';
 import { join, dirname, basename, extname } from 'path';
 import { mkdir, rename, copyFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import type { InvoiceType } from '@server/utils/types.js';
 import { getFriendlyType } from '@server/utils/afip-codes.js';
+import { generateSubdirectory, generateProcessedFilename } from '@server/utils/file-naming.js';
 
-const PROCESSED_DIR = join(process.cwd(), '..', 'data', 'processed');
+const FINALIZED_DIR = join(process.cwd(), '..', 'data', 'finalized');
 
 /**
  * POST /api/pending-files/:id/finalize
@@ -59,6 +61,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const overriddenTotal = (overrides.total as number | undefined) ?? pendingFile.extractedTotal;
     const requestedExpectedId = overrides.expectedInvoiceId as number | undefined;
     const providedEmitterName = overrides.emitterName as string | undefined;
+    const categoryKey = overrides.categoryKey as string | undefined;
 
     if (
       !extractedCuit ||
@@ -119,24 +122,45 @@ export const POST: RequestHandler = async ({ params, request }) => {
       });
     }
 
+    // Buscar categoryId si se proveyó categoryKey
+    const categoryRepo = new CategoryRepository();
+    let categoryId: number | undefined = undefined;
+    if (categoryKey) {
+      const categories = await categoryRepo.findAll();
+      const category = categories.find((c) => c.key === categoryKey);
+      if (category) {
+        categoryId = category.id;
+        console.info(`📌 Categoría encontrada: ${category.description} (ID: ${categoryId})`);
+      } else {
+        console.warn(`⚠️ Categoría con key "${categoryKey}" no encontrada`);
+      }
+    }
+
     // Crear factura
     const invoiceRepo = new InvoiceRepository();
     const invoiceType = extractedType; // Ya es number | null (código ARCA)
 
-    // Generar nombre del archivo procesado
-    const dateFormatted = extractedDate.replace(/-/g, ''); // YYYYMMDD
-    const cuitNumeric = normalizedCuit.replace(/-/g, '');
-    const fileExt = extname(pendingFile.originalFilename);
-    const friendlyType = getFriendlyType(invoiceType) || 'UNKN';
-    const processedFileName = `${cuitNumeric}_${dateFormatted}_${friendlyType}-${String(extractedPointOfSale).padStart(4, '0')}-${String(extractedInvoiceNumber).padStart(8, '0')}${fileExt}`;
+    // Generar nombre y path del archivo procesado usando nuevo formato
+    // Formato: finalized/yyyy-mm/yyyy-mm-dd Alias CUIT TIPO PV-NUM [cat].ext
+    const issueDate = new Date(extractedDate);
+    const subdir = generateSubdirectory(issueDate); // yyyy-mm
+    const processedFileName = generateProcessedFilename(
+      issueDate,
+      emitter,
+      invoiceType,
+      extractedPointOfSale,
+      extractedInvoiceNumber,
+      pendingFile.originalFilename,
+      categoryKey // Categoría opcional del usuario (ej: "3f", "sw")
+    );
 
-    // Crear directorio para emisor si no existe
-    const emitterDir = join(PROCESSED_DIR, cuitNumeric, extractedDate.substring(0, 4)); // YYYY
-    if (!existsSync(emitterDir)) {
-      await mkdir(emitterDir, { recursive: true });
+    // Crear directorio si no existe
+    const finalizedDir = join(FINALIZED_DIR, subdir);
+    if (!existsSync(finalizedDir)) {
+      await mkdir(finalizedDir, { recursive: true });
     }
 
-    const processedFilePath = join(emitterDir, processedFileName);
+    const processedFilePath = join(finalizedDir, processedFileName);
 
     // Verificar si archivo destino ya existe
     if (existsSync(processedFilePath)) {
@@ -152,6 +176,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
     // Copiar archivo a directorio procesado
     console.info(`📁 Copiando archivo a: ${processedFilePath}`);
     await copyFile(pendingFile.filePath, processedFilePath);
+
+    // Calcular ruta relativa para finalized_file
+    // Formato: finalized/yyyy-mm/nombre.pdf
+    const relativePath = join('finalized', subdir, processedFileName);
+    console.info(`📍 Ruta relativa: ${relativePath}`);
 
     // Buscar expectedInvoice match exacto ANTES de crear factura
     // Resolver expectedInvoice: prioridad a ID provisto; sino buscar match exacto
@@ -182,10 +211,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
     if (existing) {
       console.info(`🔗 Consolidando con factura existente ${existing.id}`);
       // Actualizar archivo procesado y links
-      await invoiceRepo.updateProcessedFile(existing.id, processedFilePath);
+      await invoiceRepo.updateProcessedFile(existing.id, processedFilePath, relativePath);
       invoice = await invoiceRepo.updateLinking(existing.id, {
         expectedInvoiceId: expectedInvoice?.id ?? null,
         pendingFileId: id,
+        categoryId: categoryId ?? null,
       });
       // También actualizar fecha/total si vinieron overrides
       // Nota: Mantener simple por ahora, el repositorio no tiene update general
@@ -201,6 +231,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         total: overriddenTotal || undefined,
         originalFile: pendingFile.filePath,
         processedFile: processedFilePath,
+        finalizedFile: relativePath,
         fileType: 'PDF_DIGITAL', // TODO: detectar tipo real
         fileHash: pendingFile.fileHash || undefined,
         extractionMethod: 'MANUAL', // Fue corregido manualmente
@@ -208,6 +239,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         requiresReview: false,
         expectedInvoiceId: expectedInvoice?.id || undefined,
         pendingFileId: id,
+        categoryId: categoryId || undefined,
       });
     }
 

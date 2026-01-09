@@ -3,6 +3,7 @@
   import CategoryPills from '$lib/components/CategoryPills.svelte';
   import SearchBox from '$lib/components/SearchBox.svelte';
   import ActiveFilters from '$lib/components/ActiveFilters.svelte';
+  import UploadReport from '$lib/components/UploadReport.svelte';
   import type { PageData } from './$types';
   import type { Comprobante } from '../api/comprobantes/+server';
   import { FileUpload } from 'melt/builders';
@@ -14,6 +15,8 @@
     getFriendlyType,
     formatDateShort,
     formatEmitterName,
+    formatPendingStatus,
+    formatComprobanteKind,
   } from '$lib/formatters';
   import { createFilterMatcher, serializeFilters, type FilterNode } from '$lib/search';
 
@@ -144,8 +147,8 @@
         if (!(!!c.expected && !c.final)) return false;
         break;
       case 'pendientes':
-        // Solo pendientes en espera de reconocimiento o con error
-        if (!(c.pending?.status === 'pending' || c.pending?.status === 'failed')) return false;
+        // Mostrar todos los comprobantes de tipo pending (sin factura finalizada)
+        if (!c.pending || c.final) return false;
         break;
       default:
         break;
@@ -202,6 +205,12 @@
   });
 
   let pendingUploadFiles = new Set<File>();
+
+  // Estado para upload report
+  let uploadResult = $state<{
+    uploadedFiles: any[];
+    errors: any[];
+  } | null>(null);
 
   // Estado para drag & drop global
   let isDraggingOverPage = $state(false);
@@ -343,30 +352,16 @@
         const response = await fetch('/api/invoices/upload', { method: 'POST', body: fd });
         const data = await response.json();
 
-        if (data.success) {
-          const { summary } = data;
-          if (summary.failed > 0) {
-            // Hubo algunos errores
-            const errorList = data.errors.map((e: any) => `${e.name}: ${e.error}`).join('; ');
-            toast.warning(`${summary.success}/${summary.total} subido(s). Errores: ${errorList}`, {
-              id: toastId,
-              duration: Infinity,
-            });
-          } else {
-            // Todo OK
-            toast.success(`${summary.success} archivo(s) subido(s) correctamente`, {
-              id: toastId,
-              duration: 3000,
-            });
-          }
-        } else {
-          // Mostrar errores específicos si existen, sino mensaje genérico
-          const errorMsg =
-            data.errors && data.errors.length > 0
-              ? data.errors.map((e: any) => `${e.name}: ${e.error}`).join('; ')
-              : data.error || 'Error desconocido al subir archivos';
-          toast.error(errorMsg, { id: toastId, duration: Infinity });
-        }
+        toast.dismiss(toastId);
+
+        // Guardar resultado para mostrar en el report
+        uploadResult = {
+          uploadedFiles: data.uploadedFiles || [],
+          errors: data.errors || [],
+        };
+
+        // Recargar datos para reflejar los nuevos pending files
+        await invalidateAll();
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : 'Error de conexión';
         toast.error(`Error al subir archivos: ${errorMsg}`, { id: toastId, duration: Infinity });
@@ -408,13 +403,24 @@
     </div>
   </header>
 
-  <!-- Dropzone compacto clickeable -->
-  <div class="dropzone-wrapper">
-    <div {...fileUpload.dropzone} class="dropzone-compact">
-      <span class="dz-compact-hint">📎 Click para subir archivos o arrastrá a cualquier parte</span>
+  <!-- Upload Report o Dropzone -->
+  {#if uploadResult}
+    <UploadReport
+      uploadedFiles={uploadResult.uploadedFiles}
+      errors={uploadResult.errors}
+      onClose={() => (uploadResult = null)}
+    />
+  {:else}
+    <!-- Dropzone compacto clickeable -->
+    <div class="dropzone-wrapper">
+      <div {...fileUpload.dropzone} class="dropzone-compact">
+        <span class="dz-compact-hint"
+          >📎 Click para subir archivos o arrastrá a cualquier parte</span
+        >
+      </div>
+      <input {...fileUpload.input} />
     </div>
-    <input {...fileUpload.input} />
-  </div>
+  {/if}
 
   <!-- BÚSQUEDA META-LENGUAJE -->
   <section class="search-section">
@@ -488,36 +494,60 @@
 
   <section class="list">
     <div class="list-head">
-      <span>Tipo</span>
       <span>Comprobante / Archivo</span>
-      <span>Emisor</span>
-      <span>CUIT</span>
+      <span>Emisor (CUIT)</span>
       <span>Fecha</span>
       <span class="align-right">Total</span>
       <span>Categoría</span>
-      <span>Estado</span>
+      <span>Tipo / Estado</span>
       <span>Hash</span>
       <span></span>
     </div>
     {#each visibleComprobantes as comp}
-      <a href="/comprobantes/{comp.id}" class="row" data-sveltekit-preload-data>
-        <span class="col-type">
-          {#if comp.final}<span class="tag ok">Factura</span>
-          {:else if comp.expected}<span class="tag warn">Expected</span>
-          {:else}<span class="tag info">Pending</span>{/if}
+      {@const uploadDate = comp.pending?.uploadDate || comp.final?.processedAt}
+      {@const uploadDateOnly = uploadDate ? uploadDate.split(' ')[0] : null}
+      {@const issueDate =
+        comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate}
+      {@const dateToShow = issueDate || uploadDateOnly}
+      {@const isProvisionalDate = !issueDate && uploadDateOnly}
+      {@const hasEmitter = !!(
+        getEmitterName(comp).short ||
+        comp.final?.cuit ||
+        comp.expected?.cuit ||
+        comp.pending?.extractedCuit
+      )}
+      <div class="row">
+        <!-- Columna 1: Comprobante/Archivo -->
+        <span class="col-cmp" class:col-cmp-extended={!hasEmitter}>
+          {formatComprobante(comp)}
         </span>
-        <span class="col-cmp">{formatComprobante(comp)}</span>
-        <span class="col-emisor" title={getEmitterName(comp).full || undefined}
-          >{getEmitterName(comp).short}</span
+
+        <!-- Columna 2: Emisor (CUIT) -->
+        <span
+          class="col-emisor-cuit"
+          class:hidden={!hasEmitter}
+          title={getEmitterName(comp).full || undefined}
         >
-        <span class="col-cuit"
-          >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
+          {#if getEmitterName(comp).short}
+            <span class="emitter-name">{getEmitterName(comp).short}</span>
+            <span class="cuit-inline"
+              >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
+            >
+          {:else}
+            {comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}
+          {/if}
+        </span>
+
+        <!-- Columna 3: Fecha -->
+        <span
+          class="col-date"
+          class:provisional-date={isProvisionalDate}
+          title={isProvisionalDate
+            ? 'Fecha de upload (provisoria, no se extrajo fecha de emisión)'
+            : undefined}
         >
-        <span class="col-date"
-          >{formatDateShort(
-            comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate
-          )}</span
-        >
+          {dateToShow ? formatDateShort(dateToShow) : '—'}
+        </span>
         <span class="col-total align-right"
           >{formatCurrency(
             comp.final?.total ?? comp.expected?.total ?? comp.pending?.extractedTotal
@@ -556,14 +586,28 @@
             —
           {/if}
         </span>
-        <span class="col-status">
-          {#if comp.final}procesada
-          {:else if comp.expected}esperada
-          {:else}{comp.pending?.status || '—'}{/if}
+        <span class="col-type-status">
+          {#if comp.final}
+            <span class="tag ok">Factura</span>
+          {:else if comp.expected}
+            <span class="tag warn">Esperada</span>
+            {#if comp.expected.status}
+              <span class="tag info">{comp.expected.status}</span>
+            {/if}
+          {:else if comp.pending}
+            <span class="tag neutral">Pendiente</span>
+            <span class="tag info">{formatPendingStatus(comp.pending.status)}</span>
+          {/if}
         </span>
-        <span class="col-hash">{comp.final?.fileHash ? shortHash(comp.final.fileHash) : '—'}</span>
-        <span class="col-actions"><Button size="sm">Ver</Button></span>
-      </a>
+        <span class="col-hash"
+          >{comp.final?.fileHash || comp.pending?.fileHash
+            ? shortHash(comp.final?.fileHash || comp.pending?.fileHash)
+            : '—'}</span
+        >
+        <span class="col-actions"
+          ><a href="/comprobantes/{comp.id}"><Button size="sm">Ver</Button></a></span
+        >
+      </div>
     {/each}
   </section>
 </div>
@@ -693,20 +737,20 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 100px 1fr 180px 140px 110px 120px 140px 100px 80px 100px;
+    grid-template-columns: 180px 300px 85px 120px 90px 180px 60px 60px;
     gap: var(--spacing-2);
-    padding: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
   }
   .list-head {
     background: var(--color-surface-alt);
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+    font-weight: var(--font-weight-medium);
   }
   .row {
     border: none;
     border-top: 1px solid var(--color-border);
-    cursor: pointer;
     background: transparent;
     text-align: left;
     width: 100%;
@@ -738,6 +782,18 @@
     color: var(--color-text-secondary);
     border-color: var(--color-neutral-200);
   }
+  .tag.neutral {
+    background: var(--color-neutral-50);
+    color: var(--color-text-tertiary);
+    border-color: var(--color-neutral-200);
+  }
+
+  /* Columna tipo/estado con múltiples tags */
+  .col-type-status {
+    display: flex;
+    gap: var(--spacing-1);
+    flex-wrap: wrap;
+  }
 
   /* Category display button (readonly mode) */
   .category-display {
@@ -765,11 +821,77 @@
     min-width: 200px;
   }
 
-  /* Evitar que el nombre del emisor se pase de línea */
-  .col-emisor {
+  /* Columna de comprobante */
+  .col-cmp {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: var(--font-size-sm);
+  }
+
+  /* Comprobante extendido cuando no hay emisor */
+  .col-cmp-extended {
+    grid-column: span 2;
+  }
+
+  /* Ocultar emisor pero mantener en grid */
+  .hidden {
+    visibility: hidden;
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  /* Fecha provisional (upload date como fallback) */
+  .provisional-date {
+    color: var(--color-warning);
+    font-style: italic;
+    cursor: help;
+  }
+
+  /* Emisor y CUIT en la misma columna */
+  .col-emisor-cuit {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-2);
+    font-size: var(--font-size-sm);
+  }
+
+  .emitter-name {
+    flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    text-align: left;
+  }
+
+  .cuit-inline {
+    color: var(--color-text-tertiary);
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  /* Total con tipografía monospace */
+  .col-total {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: var(--font-size-sm);
+  }
+
+  /* Hash más compacto */
+  .col-hash {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  /* Botón Ver sin cursor pointer en toda la fila */
+  .col-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .col-actions a {
+    text-decoration: none;
   }
 
   .align-right {
