@@ -507,6 +507,7 @@
       {@const hasPendingWithoutData =
         comp.pending && !comp.pending.extractedCuit && !comp.pending.extractedDate}
       {@const uploadDate = comp.pending?.uploadDate || comp.final?.processedAt}
+      {@const uploadDateOnly = uploadDate ? uploadDate.split(' ')[0] : null}
       <div class="row">
         <span class="col-cmp" class:col-cmp-extended={hasPendingWithoutData}
           >{formatComprobante(comp)}</span
@@ -528,11 +529,13 @@
           <span class="col-date"
             >{formatDateShort(
               comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate
-            ) || (uploadDate ? formatDateShort(uploadDate) : '—')}</span
+            ) || (uploadDateOnly ? formatDateShort(uploadDateOnly) : '—')}</span
           >
         {:else}
           <!-- Pending sin datos: fecha de upload en lugar de emisor+fecha -->
-          <span class="col-date-upload">{uploadDate ? formatDateShort(uploadDate) : '—'}</span>
+          <span class="col-date-upload"
+            >{uploadDateOnly ? `Subido: ${formatDateShort(uploadDateOnly)}` : '—'}</span
+          >
         {/if}
         <span class="col-total align-right"
           >{formatCurrency(
@@ -715,7 +718,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: minmax(180px, 0.5fr) 200px 100px 100px 120px 110px 90px 90px;
+    grid-template-columns: minmax(180px, 0.5fr) 200px 100px 100px 120px 110px 90px 70px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
