@@ -510,19 +510,28 @@
         comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate}
       {@const dateToShow = issueDate || uploadDateOnly}
       {@const isProvisionalDate = !issueDate && uploadDateOnly}
+      {@const hasEmitter = !!(
+        getEmitterName(comp).short ||
+        comp.final?.cuit ||
+        comp.expected?.cuit ||
+        comp.pending?.extractedCuit
+      )}
       <div class="row">
         <!-- Columna 1: Comprobante/Archivo -->
-        <span class="col-cmp">{formatComprobante(comp)}</span>
+        <span class="col-cmp" class:col-cmp-extended={!hasEmitter}>
+          {formatComprobante(comp)}
+        </span>
 
         <!-- Columna 2: Emisor (CUIT) -->
-        <span class="col-emisor-cuit" title={getEmitterName(comp).full || undefined}>
+        <span
+          class="col-emisor-cuit"
+          class:hidden={!hasEmitter}
+          title={getEmitterName(comp).full || undefined}
+        >
           {#if getEmitterName(comp).short}
-            {getEmitterName(comp).short}
+            <span class="emitter-name">{getEmitterName(comp).short}</span>
             <span class="cuit-inline"
-              >({comp.final?.cuit ||
-                comp.expected?.cuit ||
-                comp.pending?.extractedCuit ||
-                '—'})</span
+              >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
             >
           {:else}
             {comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}
@@ -720,7 +729,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 220px 280px 85px 85px 105px 95px 60px auto;
+    grid-template-columns: 180px 300px 85px 120px 90px 85px 60px 60px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
@@ -798,6 +807,19 @@
     font-size: var(--font-size-sm);
   }
 
+  /* Comprobante extendido cuando no hay emisor */
+  .col-cmp-extended {
+    grid-column: span 2;
+  }
+
+  /* Ocultar emisor pero mantener en grid */
+  .hidden {
+    visibility: hidden;
+    width: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+
   /* Fecha provisional (upload date como fallback) */
   .provisional-date {
     color: var(--color-warning);
@@ -807,16 +829,32 @@
 
   /* Emisor y CUIT en la misma columna */
   .col-emisor-cuit {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-2);
+    font-size: var(--font-size-sm);
+  }
+
+  .emitter-name {
+    flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-size: var(--font-size-sm);
+    text-align: left;
   }
 
   .cuit-inline {
     color: var(--color-text-tertiary);
     font-size: var(--font-size-xs);
-    margin-left: var(--spacing-1);
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  /* Total con tipografía monospace */
+  .col-total {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: var(--font-size-sm);
   }
 
   /* Hash más compacto */
