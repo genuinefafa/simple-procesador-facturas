@@ -8,6 +8,18 @@ import type { ExtractionResult, DocumentKind } from '../utils/types';
 import { extractCUITsWithContext } from '../validators/cuit';
 import { extractInvoiceTypeWithAFIP, convertLetterToARCACode } from '../utils/afip-codes';
 
+/**
+ * Convierte fecha de formato DD/MM/YYYY a ISO (YYYY-MM-DD)
+ * @param ddmmyyyy - Fecha en formato DD/MM/YYYY (ej: "23/10/2025")
+ * @returns Fecha en formato ISO (ej: "2025-10-23")
+ */
+function formatToISO(ddmmyyyy: string): string {
+  const parts = ddmmyyyy.split('/');
+  if (parts.length !== 3) return ddmmyyyy;
+  const [day, month, year] = parts;
+  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+}
+
 export class PDFExtractor {
   /**
    * Extrae texto de un PDF digital
@@ -472,7 +484,7 @@ export class PDFExtractor {
       confidence,
       data: {
         cuit,
-        date,
+        date: date ? formatToISO(date) : undefined,
         total: parsedTotal,
         invoiceType: invoiceTypeCode,
         documentKind,

@@ -97,18 +97,9 @@ describe('Precisión de Extracción de Datos', () => {
 
       // Comparar campos
       const cuitMatch = detected.cuit === expected.emisor.cuit;
+      // Los extractores ahora retornan fecha en formato ISO (YYYY-MM-DD) directamente
       const fechaMatch =
-        detected.date && expected.factura.fecha
-          ? (() => {
-              // Convertir fecha detectada DD/MM/YYYY → YYYY-MM-DD
-              const parts = detected.date.split('/');
-              if (parts.length === 3) {
-                const detectedFormatted = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                return detectedFormatted === expected.factura.fecha;
-              }
-              return false;
-            })()
-          : false;
+        detected.date && expected.factura.fecha ? detected.date === expected.factura.fecha : false;
       // YML ahora usa códigos ARCA numéricos directamente
       const tipoMatch = detected.invoiceType === expected.factura.tipo;
       const pvMatch = detected.pointOfSale === expected.factura.punto_venta;
