@@ -504,29 +504,36 @@
       <span></span>
     </div>
     {#each visibleComprobantes as comp}
+      {@const hasPendingWithoutData =
+        comp.pending && !comp.pending.extractedCuit && !comp.pending.extractedDate}
+      {@const uploadDate = comp.pending?.uploadDate || comp.final?.processedAt}
       <div class="row">
-        <span class="col-cmp" class:col-cmp-extended={!comp.final}>{formatComprobante(comp)}</span>
-        <span class="col-emisor-cuit" title={getEmitterName(comp).full || undefined}>
-          {#if getEmitterName(comp).short}
-            {getEmitterName(comp).short}
-            <span class="cuit-inline"
-              >({comp.final?.cuit ||
-                comp.expected?.cuit ||
-                comp.pending?.extractedCuit ||
-                '—'})</span
-            >
-          {:else}
-            {comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}
-          {/if}
-        </span>
-        <span class="col-date"
-          >{formatDateShort(
-            comp.final?.issueDate ||
-              comp.expected?.issueDate ||
-              comp.pending?.extractedDate ||
-              comp.final?.processedAt
-          )}</span
+        <span class="col-cmp" class:col-cmp-extended={hasPendingWithoutData}
+          >{formatComprobante(comp)}</span
         >
+        {#if !hasPendingWithoutData}
+          <span class="col-emisor-cuit" title={getEmitterName(comp).full || undefined}>
+            {#if getEmitterName(comp).short}
+              {getEmitterName(comp).short}
+              <span class="cuit-inline"
+                >({comp.final?.cuit ||
+                  comp.expected?.cuit ||
+                  comp.pending?.extractedCuit ||
+                  '—'})</span
+              >
+            {:else}
+              {comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}
+            {/if}
+          </span>
+          <span class="col-date"
+            >{formatDateShort(
+              comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate
+            ) || (uploadDate ? formatDateShort(uploadDate) : '—')}</span
+          >
+        {:else}
+          <!-- Pending sin datos: fecha de upload en lugar de emisor+fecha -->
+          <span class="col-date-upload">{uploadDate ? formatDateShort(uploadDate) : '—'}</span>
+        {/if}
         <span class="col-total align-right"
           >{formatCurrency(
             comp.final?.total ?? comp.expected?.total ?? comp.pending?.extractedTotal
@@ -708,7 +715,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 1fr 200px 100px 100px 120px 110px 90px 90px;
+    grid-template-columns: minmax(180px, 0.5fr) 200px 100px 100px 120px 110px 90px 90px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
@@ -787,8 +794,16 @@
   }
 
   .col-cmp-extended {
-    grid-column: span 2; /* Ocupa también la columna de emisor cuando no hay factura */
+    grid-column: span 3; /* Ocupa comprobante + emisor + fecha para archivos sin datos */
     font-weight: var(--font-weight-medium);
+  }
+
+  /* Fecha de upload para pendientes sin datos */
+  .col-date-upload {
+    grid-column: span 2; /* Ocupa emisor + fecha */
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    font-style: italic;
   }
 
   /* Emisor y CUIT en la misma columna */

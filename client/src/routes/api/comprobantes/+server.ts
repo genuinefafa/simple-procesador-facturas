@@ -41,6 +41,7 @@ export type Pending = {
   originalFilename: string;
   filePath: string;
   status: 'pending' | 'reviewing' | 'processed' | 'failed';
+  uploadDate?: string | null;
   extractedCuit?: string | null;
   extractedDate?: string | null;
   extractedTotal?: number | null;
@@ -80,6 +81,7 @@ export async function GET() {
     originalFilename: pf.originalFilename,
     filePath: pf.filePath,
     status: pf.status,
+    uploadDate: pf.uploadDate,
     extractedCuit: pf.extractedCuit,
     extractedDate: pf.extractedDate,
     extractedTotal: pf.extractedTotal,
