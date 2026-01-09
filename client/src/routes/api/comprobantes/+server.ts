@@ -10,6 +10,7 @@ export type Final = {
   cuit: string;
   emitterName?: string | null;
   issueDate: string | null;
+  processedAt?: string | null;
   invoiceType: number | null; // Código ARCA numérico (1, 6, 11, etc.)
   pointOfSale: number | null;
   invoiceNumber: number | null;
@@ -40,6 +41,7 @@ export type Pending = {
   id: number;
   originalFilename: string;
   filePath: string;
+  fileHash?: string | null;
   status: 'pending' | 'reviewing' | 'processed' | 'failed';
   uploadDate?: string | null;
   extractedCuit?: string | null;
@@ -80,6 +82,7 @@ export async function GET() {
     id: pf.id,
     originalFilename: pf.originalFilename,
     filePath: pf.filePath,
+    fileHash: pf.fileHash ?? null,
     status: pf.status,
     uploadDate: pf.uploadDate,
     extractedCuit: pf.extractedCuit,
@@ -115,6 +118,7 @@ export async function GET() {
     cuit: inv.emitterCuit,
     emitterName: emitterCache.get(inv.emitterCuit) || undefined,
     issueDate: toISODate(inv.issueDate),
+    processedAt: inv.processedAt ? inv.processedAt.toString() : null,
     invoiceType: inv.invoiceType,
     pointOfSale: inv.pointOfSale,
     invoiceNumber: inv.invoiceNumber,

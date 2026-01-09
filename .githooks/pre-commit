@@ -65,10 +65,10 @@ fi
 
 # Validación TypeScript estricta (igual que CI)
 echo ""
-echo "🔬 Validando TypeScript (client)..."
-if ! (cd client && npx tsc --noEmit); then
+echo "🔬 Validando TypeScript y Svelte (client)..."
+if ! (cd client && npx svelte-check --fail-on-warnings --threshold error); then
   echo ""
-  echo "❌ Errores de TypeScript en client/"
+  echo "❌ Errores de TypeScript/Svelte en client/"
   echo "   Usá 'git commit --no-verify' para saltear esta validación (no recomendado)"
   exit 1
 fi
