@@ -504,39 +504,41 @@
       <span></span>
     </div>
     {#each visibleComprobantes as comp}
-      {@const hasPendingWithoutData =
-        comp.pending && !comp.pending.extractedCuit && !comp.pending.extractedDate}
       {@const uploadDate = comp.pending?.uploadDate || comp.final?.processedAt}
       {@const uploadDateOnly = uploadDate ? uploadDate.split(' ')[0] : null}
+      {@const issueDate =
+        comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate}
+      {@const dateToShow = issueDate || uploadDateOnly}
+      {@const isProvisionalDate = !issueDate && uploadDateOnly}
       <div class="row">
-        <span class="col-cmp" class:col-cmp-extended={hasPendingWithoutData}
-          >{formatComprobante(comp)}</span
+        <!-- Columna 1: Comprobante/Archivo -->
+        <span class="col-cmp">{formatComprobante(comp)}</span>
+
+        <!-- Columna 2: Emisor (CUIT) -->
+        <span class="col-emisor-cuit" title={getEmitterName(comp).full || undefined}>
+          {#if getEmitterName(comp).short}
+            {getEmitterName(comp).short}
+            <span class="cuit-inline"
+              >({comp.final?.cuit ||
+                comp.expected?.cuit ||
+                comp.pending?.extractedCuit ||
+                '—'})</span
+            >
+          {:else}
+            {comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}
+          {/if}
+        </span>
+
+        <!-- Columna 3: Fecha -->
+        <span
+          class="col-date"
+          class:provisional-date={isProvisionalDate}
+          title={isProvisionalDate
+            ? 'Fecha de upload (provisoria, no se extrajo fecha de emisión)'
+            : undefined}
         >
-        {#if !hasPendingWithoutData}
-          <span class="col-emisor-cuit" title={getEmitterName(comp).full || undefined}>
-            {#if getEmitterName(comp).short}
-              {getEmitterName(comp).short}
-              <span class="cuit-inline"
-                >({comp.final?.cuit ||
-                  comp.expected?.cuit ||
-                  comp.pending?.extractedCuit ||
-                  '—'})</span
-              >
-            {:else}
-              {comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}
-            {/if}
-          </span>
-          <span class="col-date"
-            >{formatDateShort(
-              comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate
-            ) || (uploadDateOnly ? formatDateShort(uploadDateOnly) : '—')}</span
-          >
-        {:else}
-          <!-- Pending sin datos: fecha de upload en lugar de emisor+fecha -->
-          <span class="col-date-upload"
-            >{uploadDateOnly ? `Subido: ${formatDateShort(uploadDateOnly)}` : '—'}</span
-          >
-        {/if}
+          {dateToShow ? formatDateShort(dateToShow) : '—'}
+        </span>
         <span class="col-total align-right"
           >{formatCurrency(
             comp.final?.total ?? comp.expected?.total ?? comp.pending?.extractedTotal
@@ -718,7 +720,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: minmax(180px, 0.5fr) 200px 100px 100px 120px 110px 90px 70px;
+    grid-template-columns: 220px 280px 85px 85px 105px 95px 60px auto;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
@@ -790,23 +792,17 @@
     min-width: 200px;
   }
 
-  /* Columna de comprobante con extensión cuando no está procesado */
+  /* Columna de comprobante */
   .col-cmp {
     font-family: 'Monaco', 'Menlo', monospace;
     font-size: var(--font-size-sm);
   }
 
-  .col-cmp-extended {
-    grid-column: span 3; /* Ocupa comprobante + emisor + fecha para archivos sin datos */
-    font-weight: var(--font-weight-medium);
-  }
-
-  /* Fecha de upload para pendientes sin datos */
-  .col-date-upload {
-    grid-column: span 2; /* Ocupa emisor + fecha */
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
+  /* Fecha provisional (upload date como fallback) */
+  .provisional-date {
+    color: var(--color-warning);
     font-style: italic;
+    cursor: help;
   }
 
   /* Emisor y CUIT en la misma columna */
