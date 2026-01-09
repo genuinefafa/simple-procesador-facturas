@@ -150,6 +150,8 @@ const pendingFiles_ = sqliteTable(
 
     // Datos extraídos (pueden estar incompletos/nulos)
     extractedCuit: text('extracted_cuit'),
+    // CHECK constraint aplicado en migración 0009 (Drizzle no soporta .check() actualmente)
+    // Formato: YYYY-MM-DD (ISO 8601), validado por DB
     extractedDate: text('extracted_date'),
     extractedTotal: real('extracted_total'),
     extractedType: integer('extracted_type'), // Código ARCA (1, 6, 11, etc.), null si desconocido
