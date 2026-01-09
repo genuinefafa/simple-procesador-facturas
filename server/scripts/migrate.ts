@@ -60,7 +60,33 @@ try {
     console.info(`   ${status}: ${m}`);
   });
 
-  // 1. Ejecutar migraciones de Drizzle
+  // 1. Aplicar migraciones especiales (con CHECK constraints que Drizzle no soporta)
+  const specialMigrations = [{ tag: '0009_normalize_extracted_date', when: 1736445600000 }];
+
+  for (const special of specialMigrations) {
+    if (!appliedMigrations.includes(special.tag)) {
+      console.info(`\n🔧 Aplicando migración especial: ${special.tag}...`);
+      const specialPath = join(migrationsPath, `${special.tag}.sql`);
+      try {
+        const specialSQL = readFileSync(specialPath, 'utf-8');
+        // Ejecutar SQL
+        rawDb.exec(specialSQL);
+        // Registrar en __drizzle_migrations
+        const crypto = await import('crypto');
+        const hash = crypto.createHash('sha256').update(specialSQL).digest('hex');
+        rawDb
+          .prepare('INSERT INTO __drizzle_migrations (hash, created_at) VALUES (?, ?)')
+          .run(hash, special.when);
+        console.info(`   ✓ Aplicada: ${special.tag}`);
+        appliedMigrations.push(special.tag);
+      } catch (error) {
+        console.error(`   ❌ Error aplicando ${special.tag}:`, error);
+        throw error;
+      }
+    }
+  }
+
+  // 2. Ejecutar migraciones de Drizzle
   console.info('\n🔄 Aplicando migraciones de Drizzle...');
   const migrationsFolderAbs = join(__dirname, '..', 'database', 'migrations');
   console.info(`   ↪️ Carpeta de migraciones: ${migrationsFolderAbs}`);
