@@ -26,7 +26,7 @@ import convert from 'heic-convert';
  */
 function formatToISO(ddmmyyyy: string): string {
   const parts = ddmmyyyy.split('/');
-  if (parts.length !== 3) return ddmmyyyy;
+  if (parts.length !== 3 || !parts[0] || !parts[1] || !parts[2]) return ddmmyyyy;
   const [day, month, year] = parts;
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
