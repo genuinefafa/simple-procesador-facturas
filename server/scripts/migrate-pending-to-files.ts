@@ -12,7 +12,7 @@ import { db, rawDb } from '../database/db.js';
 import { FileRepository } from '../database/repositories/file.js';
 import { FileExtractionRepository } from '../database/repositories/file-extraction.js';
 import { PendingFileRepository } from '../database/repositories/pending-file.js';
-import { pendingFiles, facturas, expectedInvoices } from '../database/schema.js';
+import { expectedInvoices } from '../database/schema.js';
 import { eq } from 'drizzle-orm';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';

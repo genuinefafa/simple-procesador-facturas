@@ -3,7 +3,7 @@
  * Gestiona archivos físicos subidos al sistema
  */
 
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { db } from '../db.js';
 import { files, type File, type NewFile } from '../schema.js';
 

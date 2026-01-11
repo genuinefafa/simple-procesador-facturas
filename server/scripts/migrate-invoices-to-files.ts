@@ -11,9 +11,8 @@
  * IMPORTANTE: Usa hash como fuente de verdad para evitar asociaciones incorrectas
  */
 
-import { db, rawDb } from '../database/db.js';
+import { db } from '../database/db.js';
 import { FileRepository } from '../database/repositories/file.js';
-import { InvoiceRepository } from '../database/repositories/invoice.js';
 import { facturas } from '../database/schema.js';
 import { isNull, eq } from 'drizzle-orm';
 import { existsSync, statSync } from 'fs';
@@ -99,7 +98,6 @@ function findInvoiceFile(invoice: any): string | null {
 
 async function main() {
   const fileRepo = new FileRepository();
-  const invoiceRepo = new InvoiceRepository();
 
   try {
     // 1. Obtener todas las facturas sin file_id
