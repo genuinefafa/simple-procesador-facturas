@@ -212,6 +212,10 @@ const expectedInvoices_ = sqliteTable(
     matchedPendingFileId: integer('matched_pending_file_id').references(() => pendingFiles_.id, {
       onDelete: 'set null',
     }),
+    // FK al nuevo modelo files (temporal, convive con matchedPendingFileId durante migración)
+    matchedFileId: integer('matched_file_id').references(() => files_.id, {
+      onDelete: 'set null',
+    }),
     matchConfidence: real('match_confidence'),
 
     // Metadata
@@ -244,8 +248,13 @@ const facturas_ = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     emisorCuit: text('emisor_cuit')
       .notNull()
-      .references(() => emisores.cuit, { onDelete: 'cascade' }),
+      .references(() => emisores.cuit, { onDelete: 'cascade' }), // TEMPORALMENTE CASCADE - cambiar a RESTRICT en migración posterior
     templateUsadoId: integer('template_usado_id').references(() => templatesExtraccion.id, {
+      onDelete: 'set null',
+    }),
+
+    // FK al nuevo modelo files (temporal, convive con pendingFileId durante migración)
+    fileId: integer('file_id').references(() => files_.id, {
       onDelete: 'set null',
     }),
 
@@ -300,6 +309,7 @@ const facturas_ = sqliteTable(
     revisionIdx: index('idx_facturas_revision').on(table.requiereRevision),
     expectedInvoiceIdx: index('idx_facturas_expected_invoice').on(table.expectedInvoiceId),
     pendingFileIdx: index('idx_facturas_pending_file').on(table.pendingFileId),
+    fileIdx: index('idx_facturas_file').on(table.fileId),
     categoryIdx: index('idx_facturas_category').on(table.categoryId),
     uniqueFactura: index('unique_factura').on(
       table.emisorCuit,
@@ -437,3 +447,89 @@ export type NewExpectedInvoice = typeof expectedInvoices_.$inferInsert;
 
 export type Category = typeof categories_.$inferSelect;
 export type NewCategory = typeof categories_.$inferInsert;
+
+// =============================================================================
+// FILES (reemplaza pending_files)
+// =============================================================================
+
+const files_ = sqliteTable(
+  'files',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+
+    // Metadatos del archivo
+    originalFilename: text('original_filename').notNull(),
+    fileType: text('file_type', {
+      enum: ['PDF_DIGITAL', 'PDF_IMAGEN', 'IMAGEN', 'HEIC'],
+    }).notNull(),
+    fileSize: integer('file_size'),
+    fileHash: text('file_hash').notNull().unique(), // SHA-256
+    storagePath: text('storage_path').notNull(), // Ruta relativa a data/
+
+    // Estado simple
+    status: text('status', {
+      enum: ['uploaded', 'processed'],
+    })
+      .notNull()
+      .default('uploaded'),
+    // uploaded: recién subido, visible en tab "Archivos subidos"
+    // processed: ya tiene factura asociada
+
+    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    statusIdx: index('idx_files_status').on(table.status),
+    hashIdx: index('idx_files_hash').on(table.fileHash),
+    createdIdx: index('idx_files_created').on(table.createdAt),
+  })
+);
+
+export { files_ as files };
+
+// =============================================================================
+// FILE EXTRACTION RESULTS (nueva tabla)
+// =============================================================================
+
+const fileExtractionResults_ = sqliteTable(
+  'file_extraction_results',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    fileId: integer('file_id')
+      .notNull()
+      .references(() => files_.id, {
+        onDelete: 'cascade',
+      }),
+
+    // Datos extraídos automáticamente
+    extractedCuit: text('extracted_cuit'),
+    extractedDate: text('extracted_date'), // ISO YYYY-MM-DD
+    extractedTotal: real('extracted_total'),
+    extractedType: integer('extracted_type'), // Código ARCA
+    extractedPointOfSale: integer('extracted_point_of_sale'),
+    extractedInvoiceNumber: integer('extracted_invoice_number'),
+
+    // Metadata de extracción
+    confidence: integer('confidence'), // 0-100
+    method: text('method'), // 'PDF_TEXT', 'OCR', 'TEMPLATE', 'PDF_TEXT+OCR'
+    templateId: integer('template_id').references(() => templatesExtraccion.id, {
+      onDelete: 'set null',
+    }),
+    errors: text('errors'), // JSON con errores
+
+    extractedAt: text('extracted_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    fileIdx: index('idx_file_extraction_file').on(table.fileId),
+    cuitIdx: index('idx_file_extraction_cuit').on(table.extractedCuit),
+    dateIdx: index('idx_file_extraction_date').on(table.extractedDate),
+  })
+);
+
+export { fileExtractionResults_ as fileExtractionResults };
+
+export type File = typeof files_.$inferSelect;
+export type NewFile = typeof files_.$inferInsert;
+
+export type FileExtractionResult = typeof fileExtractionResults_.$inferSelect;
+export type NewFileExtractionResult = typeof fileExtractionResults_.$inferInsert;
