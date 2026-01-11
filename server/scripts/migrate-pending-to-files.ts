@@ -152,15 +152,29 @@ async function main() {
           console.log(`   ℹ️  Sin datos de extracción`);
         }
 
-        // Actualizar facturas que apuntan a este pending
-        const updateResult = db
-          .update(facturas)
-          .set({ fileId: file.id })
-          .where(eq(facturas.pendingFileId, pending.id))
-          .run();
+        // Actualizar facturas SOLO si el hash coincide (evitar asociaciones incorrectas)
+        // Si pending_file tiene hash, solo actualizar facturas con ese mismo hash
+        let facturaUpdates = 0;
+        if (pending.fileHash) {
+          const updateResult = rawDb
+            .prepare(
+              `UPDATE facturas
+               SET file_id = ?
+               WHERE pending_file_id = ?
+               AND (file_hash = ? OR file_hash IS NULL)`
+            )
+            .run(file.id, pending.id, pending.fileHash);
 
-        if (updateResult.changes > 0) {
-          console.log(`   ✅ ${updateResult.changes} factura(s) actualizada(s)`);
+          facturaUpdates = updateResult.changes;
+        } else {
+          // Sin hash, NO actualizar (muy riesgoso, puede ser un pending antiguo reutilizado)
+          console.log(
+            `   ⚠️  Pending sin hash, saltando actualización de facturas (evitar asociaciones incorrectas)`
+          );
+        }
+
+        if (facturaUpdates > 0) {
+          console.log(`   ✅ ${facturaUpdates} factura(s) actualizada(s) (hash verified)`);
         }
 
         // Actualizar expected_invoices que matchean con este pending
