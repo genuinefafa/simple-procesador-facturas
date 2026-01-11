@@ -139,9 +139,8 @@
   function isVisible(c: Comprobante): boolean {
     switch (activeFilter) {
       case 'reconocidas':
-        // Incluir facturas finalizadas y pendientes ya reconocidos (OCR)
-        if (!(!!c.final || c.pending?.status === 'reviewing' || c.pending?.status === 'processed'))
-          return false;
+        // Incluir facturas finalizadas y archivos procesados
+        if (!(!!c.final || c.pending?.status === 'processed')) return false;
         break;
       case 'esperadas':
         if (!(!!c.expected && !c.final)) return false;

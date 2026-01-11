@@ -234,14 +234,10 @@ export function formatCurrency(value?: number | null): string {
  * @param status Estado del pending_file
  * @returns Estado traducido
  */
-export function formatPendingStatus(
-  status?: 'pending' | 'reviewing' | 'processed' | 'failed' | null
-): string {
+export function formatPendingStatus(status?: 'uploaded' | 'processed' | null): string {
   const statusMap: Record<string, string> = {
-    pending: 'Pendiente',
-    reviewing: 'En revisión',
+    uploaded: 'Subido',
     processed: 'Procesado',
-    failed: 'Fallido',
   };
   return status ? statusMap[status] || status : '—';
 }

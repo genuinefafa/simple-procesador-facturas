@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
-import { PendingFileRepository } from '@server/database/repositories/pending-file';
+import { FileRepository } from '@server/database/repositories/file';
+import { FileExtractionRepository } from '@server/database/repositories/file-extraction';
 import { EmitterRepository } from '@server/database/repositories/emitter';
 
 export type Final = {
@@ -42,11 +43,14 @@ export type Pending = {
   originalFilename: string;
   filePath: string;
   fileHash?: string | null;
-  status: 'pending' | 'reviewing' | 'processed' | 'failed';
+  status: 'uploaded' | 'processed';
   uploadDate?: string | null;
   extractedCuit?: string | null;
   extractedDate?: string | null;
   extractedTotal?: number | null;
+  extractedType?: number | null;
+  extractedPointOfSale?: number | null;
+  extractedInvoiceNumber?: number | null;
 };
 
 export type Comprobante = {
@@ -69,7 +73,8 @@ export type Comprobante = {
 export async function GET() {
   const invoiceRepo = new InvoiceRepository();
   const expectedRepo = new ExpectedInvoiceRepository();
-  const pendingRepo = new PendingFileRepository();
+  const fileRepo = new FileRepository();
+  const extractionRepo = new FileExtractionRepository();
   const emitterRepo = new EmitterRepository();
 
   const invoices = await invoiceRepo.list();
@@ -77,18 +82,27 @@ export async function GET() {
     status: ['pending', 'discrepancy', 'manual', 'ignored'],
   });
 
-  const pendingFilesRaw = await pendingRepo.list();
-  const pendingFiles: Pending[] = pendingFilesRaw.map((pf) => ({
-    id: pf.id,
-    originalFilename: pf.originalFilename,
-    filePath: pf.filePath,
-    fileHash: pf.fileHash ?? null,
-    status: pf.status,
-    uploadDate: pf.uploadDate,
-    extractedCuit: pf.extractedCuit,
-    extractedDate: pf.extractedDate,
-    extractedTotal: pf.extractedTotal,
-  }));
+  // Get uploaded files (not yet associated to invoice)
+  const uploadedFilesRaw = fileRepo.list({ status: 'uploaded' });
+  const pendingFiles: Pending[] = uploadedFilesRaw.map((file) => {
+    // Get extraction data if available
+    const extraction = extractionRepo.findByFileId(file.id);
+
+    return {
+      id: file.id,
+      originalFilename: file.originalFilename,
+      filePath: file.storagePath,
+      fileHash: file.fileHash ?? null,
+      status: file.status,
+      uploadDate: file.createdAt ?? null,
+      extractedCuit: extraction?.extractedCuit ?? null,
+      extractedDate: extraction?.extractedDate ?? null,
+      extractedTotal: extraction?.extractedTotal ?? null,
+      extractedType: extraction?.extractedType ?? null,
+      extractedPointOfSale: extraction?.extractedPointOfSale ?? null,
+      extractedInvoiceNumber: extraction?.extractedInvoiceNumber ?? null,
+    };
+  });
 
   const toISODate = (value: Date | string | null | undefined) => {
     if (!value) return null;
@@ -161,10 +175,6 @@ export async function GET() {
       matchedPendingFileId: inv.matchedPendingFileId ?? null,
     }));
 
-  const linkedPendingIds = new Set<number>(
-    finals.map((f) => f.pendingFileId).filter(Boolean) as number[]
-  );
-
   for (const e of expecteds) {
     const facturaLinked = finals.find((f) => f.expectedInvoiceId === e.id);
     if (facturaLinked) {
@@ -187,48 +197,40 @@ export async function GET() {
     }
   }
 
-  // 3) Agregar pendientes no vinculadas a factura
+  // 3) Agregar archivos subidos (no vinculados a factura)
+  // Los archivos con status='uploaded' son por definición no asociados a factura
   for (const p of pendingFiles) {
-    if (!linkedPendingIds.has(p.id)) {
-      const facturaLinked = finals.find((f) => f.pendingFileId === p.id);
-      if (facturaLinked) {
-        // Ya incluida en factura
-        const factId = `factura:${facturaLinked.id}`;
-        const comp = comprobantesMap.get(factId)!;
-        comp.pending = p;
-      } else {
-        // Buscar si hay una expected vinculada a este pending
-        const expectedLinked = expectedInvoices.find((e) => e.matchedPendingFileId === p.id);
-        const expectedData = expectedLinked
-          ? {
-              source: 'expected' as const,
-              id: expectedLinked.id,
-              cuit: expectedLinked.cuit,
-              emitterName: emitterCache.get(expectedLinked.cuit) || expectedLinked.emitterName,
-              issueDate: expectedLinked.issueDate,
-              invoiceType: expectedLinked.invoiceType,
-              pointOfSale: expectedLinked.pointOfSale,
-              invoiceNumber: expectedLinked.invoiceNumber,
-              total: expectedLinked.total,
-              status: expectedLinked.status,
-              file: expectedLinked.filePath || undefined,
-              matchedPendingFileId: expectedLinked.matchedPendingFileId ?? null,
-            }
-          : null;
+    // Buscar si hay una expected vinculada a este file
+    // NOTA: Por ahora buscamos por matchedPendingFileId (legacy) hasta que se actualice el repo
+    const expectedLinked = expectedInvoices.find((e) => e.matchedPendingFileId === p.id);
+    const expectedData = expectedLinked
+      ? {
+          source: 'expected' as const,
+          id: expectedLinked.id,
+          cuit: expectedLinked.cuit,
+          emitterName: emitterCache.get(expectedLinked.cuit) || expectedLinked.emitterName,
+          issueDate: expectedLinked.issueDate,
+          invoiceType: expectedLinked.invoiceType,
+          pointOfSale: expectedLinked.pointOfSale,
+          invoiceNumber: expectedLinked.invoiceNumber,
+          total: expectedLinked.total,
+          status: expectedLinked.status,
+          file: expectedLinked.filePath || undefined,
+          matchedPendingFileId: expectedLinked.matchedPendingFileId ?? null,
+        }
+      : null;
 
-        // Pendiente sin factura (pero puede tener expected)
-        const comprobanteId = `pending:${p.id}`;
-        comprobantesMap.set(comprobanteId, {
-          id: comprobanteId,
-          kind: 'pending',
-          final: null,
-          expected: expectedData,
-          pending: p,
-          emitterCuit: p.extractedCuit,
-          emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
-        });
-      }
-    }
+    // Archivo subido sin factura (pero puede tener expected vinculado)
+    const comprobanteId = `pending:${p.id}`;
+    comprobantesMap.set(comprobanteId, {
+      id: comprobanteId,
+      kind: 'pending',
+      final: null,
+      expected: expectedData,
+      pending: p,
+      emitterCuit: p.extractedCuit,
+      emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
+    });
   }
 
   const comprobantes = Array.from(comprobantesMap.values());

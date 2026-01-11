@@ -245,7 +245,7 @@ describe('Filter Executor', () => {
           id: 1,
           originalFilename: 'test.pdf',
           filePath: '/test.pdf',
-          status: 'pending',
+          status: 'uploaded',
           extractedDate: null,
         },
       });
@@ -388,7 +388,7 @@ describe('Filter Executor', () => {
           id: 1,
           originalFilename: 'factura-coto-123.pdf',
           filePath: '/test.pdf',
-          status: 'pending',
+          status: 'uploaded',
         },
       });
 
@@ -551,7 +551,7 @@ describe('Filter Executor', () => {
           id: 1,
           originalFilename: 'factura-coto.pdf',
           filePath: '/test.pdf',
-          status: 'pending',
+          status: 'uploaded',
         },
       });
 
