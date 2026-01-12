@@ -1,5 +1,6 @@
 /**
  * API endpoint para subir archivos de facturas
+ * Usa el nuevo modelo files + file_extraction_results
  */
 
 import { json } from '@sveltejs/kit';
@@ -7,9 +8,11 @@ import type { RequestHandler } from './$types';
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
+import { FileRepository } from '@server/database/repositories/file.js';
+import { FileExtractionRepository } from '@server/database/repositories/file-extraction.js';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { calculateFileHash } from '@server/utils/file-hash.js';
+import { InvoiceProcessingService } from '@server/services/invoice-processing.service.js';
 
 const UPLOAD_DIR = join(process.cwd(), '..', 'data', 'input');
 
@@ -36,7 +39,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const uploadedFiles = [];
     const errors = [];
-    const pendingFileRepo = new PendingFileRepository();
+    const fileRepo = new FileRepository();
+    const extractionRepo = new FileExtractionRepository();
+    const invoiceRepo = new InvoiceRepository();
+    const processingService = new InvoiceProcessingService();
 
     for (const file of files) {
       console.info(`📄 [UPLOAD] Procesando: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);
@@ -94,61 +100,38 @@ export const POST: RequestHandler = async ({ request }) => {
           hashPreview = fileHash.substring(0, 16);
           console.info(`🔐 [UPLOAD] Hash: ${hashPreview}...`);
 
-          // Instanciar InvoiceRepository una sola vez
-          const invoiceRepo = new InvoiceRepository();
-
-          // Verificar si ya existe un archivo con este hash en pending_files
-          const existingPending = await pendingFileRepo.findByHash(fileHash);
-          if (existingPending.length > 0) {
-            const existing = existingPending[0];
-
-            // IMPORTANTE: Verificar si este pending ya tiene una factura asociada
-            // Si es así, reportar la factura en lugar del pending
-            const linkedInvoices = await invoiceRepo.findByPendingFileId(existing.id);
-
+          // Verificar si ya existe un archivo con este hash en files
+          const existingFile = fileRepo.findByHash(fileHash);
+          if (existingFile) {
             await unlink(filePath); // Borrar archivo recién subido
 
+            // Verificar si este file ya tiene una factura asociada
+            const linkedInvoices = await invoiceRepo.findByFileId(existingFile.id);
+
             if (linkedInvoices.length > 0) {
-              // El pending ya tiene factura → reportar la factura
+              // El file ya tiene factura → reportar la factura
               const linkedInvoice = linkedInvoices[0];
               throw new Error(
                 JSON.stringify({
                   type: 'duplicate',
                   duplicateType: 'invoice',
                   duplicateId: linkedInvoice.id,
-                  duplicateFilename: linkedInvoice.originalFile.split('/').pop(),
+                  duplicateFilename: existingFile.originalFilename,
                   message: `Archivo duplicado (hash idéntico a factura:${linkedInvoice.id})`,
                 })
               );
             } else {
-              // Pending sin factura → reportar el pending
+              // File sin factura → reportar el file
               throw new Error(
                 JSON.stringify({
                   type: 'duplicate',
-                  duplicateType: 'pending',
-                  duplicateId: existing.id,
-                  duplicateFilename: existing.originalFilename,
-                  message: `Archivo duplicado (hash idéntico a pending:${existing.id})`,
+                  duplicateType: 'file',
+                  duplicateId: existingFile.id,
+                  duplicateFilename: existingFile.originalFilename,
+                  message: `Archivo duplicado (hash idéntico a file:${existingFile.id})`,
                 })
               );
             }
-          }
-
-          // Verificar si ya existe en facturas finalizadas
-          const existingInvoices = await invoiceRepo.findByFileHash(fileHash);
-          if (existingInvoices.length > 0) {
-            const existingInvoice = existingInvoices[0];
-            // Borrar el archivo recién subido
-            await unlink(filePath);
-            throw new Error(
-              JSON.stringify({
-                type: 'duplicate',
-                duplicateType: 'invoice',
-                duplicateId: existingInvoice.id,
-                duplicateFilename: existingInvoice.originalFile.split('/').pop(),
-                message: `Archivo duplicado (hash idéntico a factura:${existingInvoice.id})`,
-              })
-            );
           }
         } catch (error) {
           // Si es error de duplicado, propagar
@@ -158,19 +141,63 @@ export const POST: RequestHandler = async ({ request }) => {
           console.warn(`⚠️  [UPLOAD] Error calculando hash:`, error);
         }
 
-        // Crear registro en pending_files
-        const pendingFile = await pendingFileRepo.create({
+        // Determinar tipo de archivo
+        const fileType = ext === 'pdf' ? 'PDF_DIGITAL' : 'IMAGEN'; // Simplificado, luego se puede refinar
+
+        // Calcular ruta relativa desde data/
+        const relativePath = `input/${savedFilename}`;
+
+        // Crear registro en files
+        const createdFile = fileRepo.create({
           originalFilename: savedFilename,
-          filePath: filePath,
+          fileType: fileType as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN' | 'HEIC',
           fileSize: file.size,
-          fileHash,
-          status: 'pending',
+          fileHash: fileHash!,
+          storagePath: relativePath,
+          status: 'uploaded',
         });
 
-        console.info(`📝 [UPLOAD] Registro creado en BD: ID ${pendingFile.id}`);
+        console.info(`📝 [UPLOAD] File creado en BD: ID ${createdFile.id}`);
+
+        // Intentar extracción automática usando InvoiceProcessingService
+        try {
+          console.info(`🔍 [UPLOAD] Iniciando extracción para file ${createdFile.id}...`);
+          const processingResult = await processingService.processInvoice(filePath, savedFilename);
+
+          if (processingResult.extractedData) {
+            // Guardar resultados de extracción en file_extraction_results
+            const method = processingResult.method || 'OCR';
+            extractionRepo.create({
+              fileId: createdFile.id,
+              extractedCuit: processingResult.extractedData.cuit || null,
+              extractedDate: processingResult.extractedData.date || null,
+              extractedTotal: processingResult.extractedData.total || null,
+              extractedType: processingResult.extractedData.invoiceType || null,
+              extractedPointOfSale: processingResult.extractedData.pointOfSale || null,
+              extractedInvoiceNumber: processingResult.extractedData.invoiceNumber || null,
+              confidence: processingResult.confidence || null,
+              method: method as
+                | 'TEMPLATE'
+                | 'GENERICO'
+                | 'MANUAL'
+                | 'PDF_TEXT'
+                | 'OCR'
+                | 'PDF_TEXT+OCR',
+              errors: processingResult.error || null,
+            });
+            console.info(
+              `✅ [UPLOAD] Extracción completada (conf: ${processingResult.confidence}%, método: ${method})`
+            );
+          } else {
+            console.warn(`⚠️  [UPLOAD] Sin datos extraídos: ${processingResult.error}`);
+          }
+        } catch (extractionError) {
+          console.warn(`⚠️  [UPLOAD] Error en extracción:`, extractionError);
+          // No falla el upload si la extracción falla
+        }
 
         uploadedFiles.push({
-          pendingFileId: pendingFile.id,
+          fileId: createdFile.id,
           name: savedFilename,
           size: file.size,
           path: filePath,

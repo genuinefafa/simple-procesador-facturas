@@ -17,25 +17,6 @@ import { db } from '../../db.js';
 import { pendingFiles, files, fileExtractionResults, facturas } from '../../schema.js';
 import { eq, and, isNotNull } from 'drizzle-orm';
 
-interface PendingFileRow {
-  id: number;
-  file_hash: string | null;
-  extracted_cuit: string | null;
-  extracted_date: string | null;
-  extracted_total: number | null;
-  extracted_type: number | null;
-  extracted_point_of_sale: number | null;
-  extracted_invoice_number: number | null;
-  extraction_confidence: number | null;
-  extraction_method: string | null;
-  extraction_errors: string | null;
-}
-
-interface FileRow {
-  id: number;
-  file_hash: string | null;
-}
-
 async function migrate() {
   console.log('🔄 Iniciando migración de datos de extracción...\n');
 
