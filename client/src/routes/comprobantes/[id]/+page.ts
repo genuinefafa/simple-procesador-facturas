@@ -224,11 +224,12 @@ export const load: PageLoad = async ({ fetch, params }) => {
         const response = await res.json();
         const data = response.pendingFile; // { success, pendingFile }
 
-        // IMPORTANTE: Si el pending ya tiene una factura vinculada, redirigir automáticamente
-        // Esto evita que el usuario pueda crear facturas duplicadas desde un pending ya procesado
+        // IMPORTANTE: Si el archivo ya tiene una factura vinculada, redirigir automáticamente
+        // Esto evita que el usuario pueda crear facturas duplicadas desde un archivo ya procesado
         let linkedInvoiceId: number | null = null;
         try {
-          const invoicesRes = await fetch(`/api/invoices?pendingFileId=${id}`);
+          // Usar fileId (nuevo modelo) en lugar de pendingFileId (legacy)
+          const invoicesRes = await fetch(`/api/invoices?fileId=${id}`);
           if (invoicesRes.ok) {
             const invoicesData = await invoicesRes.json();
             if (invoicesData.invoices && invoicesData.invoices.length > 0) {

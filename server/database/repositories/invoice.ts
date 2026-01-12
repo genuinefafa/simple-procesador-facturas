@@ -140,6 +140,11 @@ export class InvoiceRepository {
     return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 
+  async findByFileId(fileId: number): Promise<Invoice[]> {
+    const result = await db.select().from(facturas).where(eq(facturas.fileId, fileId));
+    return result.map((row) => this.mapDrizzleToInvoice(row));
+  }
+
   async findByInvoiceNumber(
     emitterCuit: string,
     type: InvoiceType,
