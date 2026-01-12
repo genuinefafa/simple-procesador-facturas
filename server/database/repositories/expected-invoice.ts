@@ -533,6 +533,27 @@ export class ExpectedInvoiceRepository {
     return this.mapDrizzleToExpectedInvoice(result[0]);
   }
 
+  /**
+   * Actualiza el estado de una expected invoice
+   */
+  async updateStatus(
+    id: number,
+    status: 'pending' | 'matched' | 'discrepancy' | 'manual' | 'ignored'
+  ): Promise<void> {
+    await db.update(expectedInvoices).set({ status }).where(eq(expectedInvoices.id, id)).run();
+  }
+
+  /**
+   * Vincula una expected invoice a un file
+   */
+  async linkToFile(expectedInvoiceId: number, fileId: number): Promise<void> {
+    await db
+      .update(expectedInvoices)
+      .set({ matchedFileId: fileId })
+      .where(eq(expectedInvoices.id, expectedInvoiceId))
+      .run();
+  }
+
   async findPartialMatches(criteria: {
     cuit?: string;
     cuitPartial?: string; // middle-8 digits or any stable core segment
