@@ -219,7 +219,8 @@ export const load: PageLoad = async ({ fetch, params }) => {
         }
       }
     } else if (idType === 'pending') {
-      const res = await fetch(`/api/pending-files/${id}`);
+      // Usar nuevo endpoint /api/files en lugar de /api/pending-files
+      const res = await fetch(`/api/files/${id}`);
       if (res.ok) {
         const response = await res.json();
         const data = response.pendingFile; // { success, pendingFile }
@@ -270,7 +271,8 @@ export const load: PageLoad = async ({ fetch, params }) => {
 
         let matches: Match[] = [];
         try {
-          const matchRes = await fetch(`/api/pending-files/${id}/matches`);
+          // Usar nuevo endpoint /api/files/[id]/matches
+          const matchRes = await fetch(`/api/files/${id}/matches`);
           if (matchRes.ok) {
             const matchData = await matchRes.json();
             if (matchData.hasExactMatch && matchData.exactMatch) {
