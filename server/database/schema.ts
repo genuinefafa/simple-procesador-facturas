@@ -135,8 +135,11 @@ const importBatches_ = sqliteTable('import_batches', {
 export { importBatches_ as importBatches };
 
 // =============================================================================
-// ARCHIVOS PENDIENTES
+// ARCHIVOS PENDIENTES - DEPRECATED (USAR files EN SU LUGAR)
 // =============================================================================
+// NOTA: Esta tabla será eliminada físicamente en migración 0011.
+// Mantener definición aquí solo para compatibilidad con scripts de migración legacy.
+// NO USAR EN CÓDIGO NUEVO.
 
 const pendingFiles_ = sqliteTable(
   'pending_files',
@@ -146,27 +149,19 @@ const pendingFiles_ = sqliteTable(
     filePath: text('file_path').notNull(),
     fileSize: integer('file_size'),
     uploadDate: text('upload_date').default(sql`CURRENT_TIMESTAMP`),
-    fileHash: text('file_hash'), // SHA-256 hash del archivo
-
-    // Datos extraídos (pueden estar incompletos/nulos)
+    fileHash: text('file_hash'),
     extractedCuit: text('extracted_cuit'),
-    // CHECK constraint aplicado en migración 0009 (Drizzle no soporta .check() actualmente)
-    // Formato: YYYY-MM-DD (ISO 8601), validado por DB
     extractedDate: text('extracted_date'),
     extractedTotal: real('extracted_total'),
-    extractedType: integer('extracted_type'), // Código ARCA (1, 6, 11, etc.), null si desconocido
+    extractedType: integer('extracted_type'),
     extractedPointOfSale: integer('extracted_point_of_sale'),
     extractedInvoiceNumber: integer('extracted_invoice_number'),
-
     extractionConfidence: integer('extraction_confidence'),
     extractionMethod: text('extraction_method'),
     extractionErrors: text('extraction_errors'),
-
-    // Estados: pending, reviewing, processed, failed
     status: text('status', {
       enum: ['pending', 'reviewing', 'processed', 'failed'],
     }).default('pending'),
-
     createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
   },
@@ -209,10 +204,10 @@ const expectedInvoices_ = sqliteTable(
     status: text('status', {
       enum: ['pending', 'matched', 'discrepancy', 'manual', 'ignored'],
     }).default('pending'),
+    // DEPRECATED: matchedPendingFileId será eliminado en migración 0011 (usar matchedFileId)
     matchedPendingFileId: integer('matched_pending_file_id').references(() => pendingFiles_.id, {
       onDelete: 'set null',
     }),
-    // FK al nuevo modelo files (temporal, convive con matchedPendingFileId durante migración)
     matchedFileId: integer('matched_file_id').references(() => files_.id, {
       onDelete: 'set null',
     }),
@@ -288,6 +283,7 @@ const facturas_ = sqliteTable(
     expectedInvoiceId: integer('expected_invoice_id').references(() => expectedInvoices_.id, {
       onDelete: 'set null',
     }),
+    // DEPRECATED: pendingFileId será eliminado en migración 0011 (usar fileId)
     pendingFileId: integer('pending_file_id').references(() => pendingFiles_.id, {
       onDelete: 'set null',
     }),
@@ -436,6 +432,7 @@ export type NewFacturaCorreccion = typeof facturasCorrecciones_.$inferInsert;
 export type FacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferSelect;
 export type NewFacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferInsert;
 
+// DEPRECATED: PendingFile types (usar File types en su lugar)
 export type PendingFile = typeof pendingFiles_.$inferSelect;
 export type NewPendingFile = typeof pendingFiles_.$inferInsert;
 
