@@ -166,8 +166,14 @@ export const POST: RequestHandler = async ({ params, request }) => {
       finalizedFile: newRelativePath,
       fileType: file.fileType as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN',
       fileHash: file.fileHash,
-      extractionMethod: extraction?.method || 'MANUAL',
-      extractionConfidence: extraction?.confidence,
+      extractionMethod: (extraction?.method || 'MANUAL') as
+        | 'TEMPLATE'
+        | 'GENERICO'
+        | 'MANUAL'
+        | 'PDF_TEXT'
+        | 'OCR'
+        | 'PDF_TEXT+OCR',
+      extractionConfidence: extraction?.confidence ?? undefined,
       requiresReview: false, // Si el usuario crea manualmente, ya está validado
       expectedInvoiceId: source === 'expected' ? expectedId : undefined,
       // NUEVO campo (Sprint 3)

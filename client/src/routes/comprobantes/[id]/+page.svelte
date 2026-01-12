@@ -362,32 +362,28 @@
           }),
         });
       } else if (comprobante.kind === 'pending' && comprobante.pending) {
-        // Crear factura desde pending
-        // Buscar categoryKey desde selectedCategoryId
-        const categoryKey =
-          selectedCategoryId !== null
-            ? categories.find((c) => c.id === selectedCategoryId)?.key
-            : undefined;
-
-        response = await fetch(`/api/pending-files/${comprobante.pending.id}/finalize`, {
+        // Crear factura desde file (nuevo modelo)
+        response = await fetch(`/api/invoices/from-file/${comprobante.pending.id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            emitterCuit: facuraData.cuit,
-            invoiceType: facuraData.invoiceType,
-            pointOfSale: facuraData.pointOfSale,
-            invoiceNumber: facuraData.invoiceNumber,
-            issueDate: facuraData.issueDate,
-            total: facuraData.total,
-            expectedInvoiceId: selectedExpectedId,
-            emitterName: selectedEmitter?.name || lastCopiedEmitterName || undefined,
-            categoryKey,
+            source: selectedExpectedId ? 'expected' : 'manual',
+            expectedId: selectedExpectedId,
+            data: {
+              cuit: facuraData.cuit,
+              invoiceType: facuraData.invoiceType,
+              pointOfSale: facuraData.pointOfSale,
+              invoiceNumber: facuraData.invoiceNumber,
+              issueDate: facuraData.issueDate,
+              total: facuraData.total,
+              currency: 'ARS',
+            },
           }),
         });
 
         const data = await response.json();
-        if (data.success && data.invoiceId) {
-          newInvoiceId = data.invoiceId;
+        if (data.success && data.invoice?.id) {
+          newInvoiceId = data.invoice.id;
         }
       }
 
@@ -548,8 +544,22 @@
     const toastId = toast.loading('Creando factura...');
 
     try {
-      const response = await fetch(`/api/pending-files/${pending.id}/finalize`, {
+      // Usar nuevo endpoint /api/invoices/from-file con datos de extracción
+      const response = await fetch(`/api/invoices/from-file/${pending.id}`, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'extraction',
+          data: {
+            cuit: pending.extractedCuit!,
+            invoiceType: pending.extractedType!,
+            pointOfSale: pending.extractedPointOfSale!,
+            invoiceNumber: pending.extractedInvoiceNumber!,
+            issueDate: pending.extractedDate!,
+            total: pending.extractedTotal || 0,
+            currency: 'ARS',
+          },
+        }),
       });
 
       const data = await response.json();
@@ -575,15 +585,15 @@
 
   // Obtener ruta del archivo para preview
   const fileUrl = $derived.by(() => {
-    // Para pending files, usar el endpoint de API que maneja HEIC
+    // Para files (antes "pending"), usar el endpoint simplificado
     if (comprobante.pending?.id) {
-      const url = `/api/pending-files/${comprobante.pending.id}/file`;
-      console.log('[FilePreview] URL para pending:', url, comprobante.pending);
+      const url = `/api/comprobantes/pending:${comprobante.pending.id}/file`;
+      console.log('[FilePreview] URL para file (pending):', url, comprobante.pending);
       return url;
     }
-    if (comprobante.final?.filePath) {
-      const url = `/api/files/${comprobante.final.filePath}`;
-      console.log('[FilePreview] URL para final:', url);
+    if (comprobante.final?.id) {
+      const url = `/api/comprobantes/factura:${comprobante.final.id}/file`;
+      console.log('[FilePreview] URL para factura:', url);
       return url;
     }
     if (comprobante.expected?.filePath) {

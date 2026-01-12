@@ -31,6 +31,7 @@ export interface Invoice {
   processedAt: Date;
   expectedInvoiceId?: number;
   pendingFileId?: number;
+  fileId?: number; // Nuevo modelo: ID del file asociado
   categoryId?: number;
 }
 
@@ -59,6 +60,7 @@ export class InvoiceRepository {
       processedAt: row.procesadoEn ? new Date(row.procesadoEn) : new Date(),
       expectedInvoiceId: row.expectedInvoiceId || undefined,
       pendingFileId: row.pendingFileId || undefined,
+      fileId: row.fileId || undefined,
       categoryId: row.categoryId || undefined,
     };
   }
