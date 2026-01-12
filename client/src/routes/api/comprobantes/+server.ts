@@ -82,6 +82,18 @@ export async function GET() {
     status: ['pending', 'discrepancy', 'manual', 'ignored'],
   });
 
+  const toISODate = (value: Date | string | null | undefined) => {
+    if (!value) return null;
+    if (typeof value === 'string') {
+      // Si ya es ISO date (YYYY-MM-DD), retornar tal cual
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+      // Si es ISO timestamp, extraer solo la fecha
+      if (value.includes('T')) return value.split('T')[0];
+      return value;
+    }
+    return value.toISOString().slice(0, 10);
+  };
+
   // Get uploaded files (not yet associated to invoice)
   const uploadedFilesRaw = fileRepo.list({ status: 'uploaded' });
   const pendingFiles: Pending[] = uploadedFilesRaw.map((file) => {
@@ -94,7 +106,7 @@ export async function GET() {
       filePath: file.storagePath,
       fileHash: file.fileHash ?? null,
       status: file.status,
-      uploadDate: file.createdAt ?? null,
+      uploadDate: toISODate(file.createdAt),
       extractedCuit: extraction?.extractedCuit ?? null,
       extractedDate: extraction?.extractedDate ?? null,
       extractedTotal: extraction?.extractedTotal ?? null,
@@ -103,12 +115,6 @@ export async function GET() {
       extractedInvoiceNumber: extraction?.extractedInvoiceNumber ?? null,
     };
   });
-
-  const toISODate = (value: Date | string | null | undefined) => {
-    if (!value) return null;
-    if (typeof value === 'string') return value;
-    return value.toISOString().slice(0, 10);
-  };
 
   const comprobantesMap = new Map<string, Comprobante>();
 
