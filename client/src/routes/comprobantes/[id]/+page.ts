@@ -18,6 +18,7 @@ export type Final = {
   fileHash?: string | null;
   categoryId?: number | null;
   pendingFileId?: number | null;
+  fileId?: number | null;
   expectedInvoiceId?: number | null;
 };
 
@@ -122,6 +123,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           categoryId: base.categoryId ?? null,
           expectedInvoiceId: base.expectedInvoiceId,
           pendingFileId: base.pendingFileId,
+          fileId: base.fileId ?? null,
         };
         console.log('[LOADER] final object:', { id: final.id, categoryId: final.categoryId });
 

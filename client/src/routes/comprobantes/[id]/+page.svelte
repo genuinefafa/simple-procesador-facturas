@@ -637,11 +637,11 @@
   <!-- Alerta de duplicados por hash (global, arriba) -->
   {#if comprobante.final?.fileHash || comprobante.pending?.fileHash}
     {@const fileHash = comprobante.final?.fileHash || comprobante.pending?.fileHash}
-    {@const currentType = comprobante.final ? 'invoice' : 'pending'}
+    {@const currentType = comprobante.final ? 'invoice' : 'file'}
     {@const currentId = comprobante.final?.id || comprobante.pending?.id || 0}
-    {@const linkedPendingId = comprobante.final?.pendingFileId || null}
+    {@const linkedFileId = comprobante.final?.fileId || null}
     {@const linkedInvoiceId = comprobante.pending?.linkedInvoiceId || null}
-    <DuplicateHashAlert {fileHash} {currentId} {currentType} {linkedPendingId} {linkedInvoiceId} />
+    <DuplicateHashAlert {fileHash} {currentId} {currentType} {linkedFileId} {linkedInvoiceId} />
   {/if}
 
   <div class="layout">
