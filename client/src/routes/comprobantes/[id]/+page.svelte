@@ -361,7 +361,7 @@
             expectedInvoiceId: selectedExpectedId,
           }),
         });
-      } else if (comprobante.kind === 'pending' && comprobante.pending) {
+      } else if (comprobante.kind === 'file' && comprobante.pending) {
         // Crear factura desde file (nuevo modelo)
         response = await fetch(`/api/invoices/from-file/${comprobante.pending.id}`, {
           method: 'POST',

@@ -70,10 +70,10 @@ export type Match = {
 
 export type Comprobante = {
   id: string;
-  kind: 'factura' | 'expected' | 'pending';
+  kind: 'factura' | 'expected' | 'file';
   final: Final | null;
   expected: Expected | null;
-  pending: Pending | null;
+  pending: Pending | null; // renamed conceptually to "file", but keeping field name for now
   matches?: Match[];
   emitterCuit?: string | null;
   emitterName?: string | null;
@@ -218,8 +218,9 @@ export const load: PageLoad = async ({ fetch, params }) => {
           };
         }
       }
-    } else if (idType === 'pending') {
-      // Usar nuevo endpoint /api/files en lugar de /api/pending-files
+    } else if (idType === 'file' || idType === 'pending') {
+      // Soportar tanto 'file:N' (nuevo) como 'pending:N' (legacy)
+      // Usar endpoint /api/files
       const res = await fetch(`/api/files/${id}`);
       if (res.ok) {
         const response = await res.json();
@@ -289,8 +290,8 @@ export const load: PageLoad = async ({ fetch, params }) => {
         }
 
         comprobante = {
-          id: `pending:${pending.id}`,
-          kind: 'pending',
+          id: `file:${pending.id}`,
+          kind: 'file',
           final: null,
           expected: null,
           pending,
