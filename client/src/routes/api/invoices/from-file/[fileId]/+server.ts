@@ -24,40 +24,17 @@ import { FileRepository } from '@server/database/repositories/file';
 import { FileExtractionRepository } from '@server/database/repositories/file-extraction';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
+import { EmitterRepository } from '@server/database/repositories/emitter';
+import { CategoryRepository } from '@server/database/repositories/category';
 import { existsSync } from 'fs';
 import { copyFile, mkdir } from 'fs/promises';
 import { join, dirname } from 'path';
+import { generateProcessedFilename, generateSubdirectory } from '@server/utils/file-naming';
+import { validateCUIT, normalizeCUIT } from '@server/validators/cuit';
 
 const PROJECT_ROOT = join(process.cwd(), '..');
 const DATA_DIR = join(PROJECT_ROOT, 'data');
 const FINALIZED_DIR = join(DATA_DIR, 'finalized');
-
-/**
- * Genera el nombre de archivo procesado basado en metadata de la factura
- */
-function generateProcessedFilename(data: {
-  date: string; // YYYY-MM-DD
-  cuit: string;
-  type: number;
-  pointOfSale: number;
-  invoiceNumber: number;
-}): string {
-  // Formato: YYYYMM_CUIT_TIPO-PV-NUM.pdf
-  const yearMonth = data.date.slice(0, 7).replace('-', '');
-  const cuitClean = data.cuit.replace(/\D/g, '');
-  const typeCode = `FAC${String.fromCharCode(64 + data.type)}`; // 1->A, 6->F, etc.
-  const pv = String(data.pointOfSale).padStart(4, '0');
-  const num = String(data.invoiceNumber).padStart(8, '0');
-
-  return `${yearMonth}_${cuitClean}_${typeCode}-${pv}-${num}.pdf`;
-}
-
-/**
- * Genera el subdirectorio basado en la fecha (YYYY-MM)
- */
-function generateSubdir(date: string): string {
-  return date.slice(0, 7); // YYYY-MM
-}
 
 export const POST: RequestHandler = async ({ params, request }) => {
   console.info(`📝 [FROM-FILE] Creando factura desde file ID ${params.fileId}...`);
@@ -113,23 +90,56 @@ export const POST: RequestHandler = async ({ params, request }) => {
     console.info(`📄 [FROM-FILE] File: ${file.originalFilename}`);
     console.info(`📊 [FROM-FILE] Source: ${source}`);
 
-    // 2. Generar nombre de archivo procesado
-    const newFilename = generateProcessedFilename({
-      date: data.issueDate,
-      cuit: data.cuit,
-      type: data.invoiceType,
-      pointOfSale: data.pointOfSale,
-      invoiceNumber: data.invoiceNumber,
-    });
+    // 2. Validar y normalizar CUIT
+    if (!validateCUIT(data.cuit)) {
+      return json({ success: false, error: 'CUIT inválido' }, { status: 400 });
+    }
 
-    const subdir = generateSubdir(data.issueDate);
+    const normalizedCuit = normalizeCUIT(data.cuit);
+    console.info(`✅ [FROM-FILE] CUIT válido: ${normalizedCuit}`);
+
+    // 3. Buscar o crear emisor
+    const emitterRepo = new EmitterRepository();
+    let emitter = await emitterRepo.findByCUIT(normalizedCuit);
+
+    if (!emitter) {
+      console.info(`➕ [FROM-FILE] Creando nuevo emisor para ${normalizedCuit}`);
+      emitter = await emitterRepo.create({
+        cuit: normalizedCuit,
+        cuitNumeric: normalizedCuit.replace(/-/g, ''),
+        name: `Emisor ${normalizedCuit}`,
+        aliases: [],
+      });
+    }
+
+    // 4. Buscar categoría si existe
+    const categoryRepo = new CategoryRepository();
+    let categoryId: number | undefined = undefined;
+    let categoryKey: string | undefined = undefined;
+
+    // TODO: El frontend podría enviar categoryKey en el body
+    // Por ahora dejamos sin categoría
+
+    // 5. Generar nombre de archivo procesado usando funciones correctas
+    const issueDate = new Date(data.issueDate);
+    const newFilename = generateProcessedFilename(
+      issueDate,
+      emitter,
+      data.invoiceType,
+      data.pointOfSale,
+      data.invoiceNumber,
+      file.originalFilename,
+      categoryKey
+    );
+
+    const subdir = generateSubdirectory(issueDate);
     const targetDir = join(FINALIZED_DIR, subdir);
     const newPath = join(targetDir, newFilename);
     const newRelativePath = `finalized/${subdir}/${newFilename}`;
 
     console.info(`📁 [FROM-FILE] Target: ${newRelativePath}`);
 
-    // 3. Copiar archivo a finalized/ (no mover, preservar original)
+    // 6. Copiar archivo a finalized/ (no mover, preservar original)
     const absoluteSourcePath = file.storagePath.startsWith('/')
       ? file.storagePath
       : join(DATA_DIR, file.storagePath);
@@ -145,15 +155,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
     await copyFile(absoluteSourcePath, newPath);
     console.info(`📋 [FROM-FILE] Archivo copiado a ${newPath}`);
 
-    // 4. Actualizar file
+    // 7. Actualizar file
     fileRepo.updatePath(fileId, newRelativePath);
     fileRepo.updateStatus(fileId, 'processed');
 
-    // 5. Crear factura
+    // 8. Crear factura
     const invoiceRepo = new InvoiceRepository();
 
     const invoice = await invoiceRepo.create({
-      emitterCuit: data.cuit,
+      emitterCuit: normalizedCuit,
       issueDate: data.issueDate,
       invoiceType: data.invoiceType,
       pointOfSale: data.pointOfSale,
@@ -178,11 +188,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
       expectedInvoiceId: source === 'expected' ? expectedId : undefined,
       // NUEVO campo (Sprint 3)
       fileId: fileId,
+      categoryId: categoryId,
     });
 
     console.info(`✅ [FROM-FILE] Factura creada: ID ${invoice.id}`);
 
-    // 6. Si hay expected_invoice vinculado, actualizar su estado
+    // 9. Si hay expected_invoice vinculado, actualizar su estado
     if (source === 'expected' && expectedId) {
       const expectedRepo = new ExpectedInvoiceRepository();
       await expectedRepo.updateStatus(expectedId, 'matched');
