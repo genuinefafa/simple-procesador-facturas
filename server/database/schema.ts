@@ -135,44 +135,11 @@ const importBatches_ = sqliteTable('import_batches', {
 export { importBatches_ as importBatches };
 
 // =============================================================================
-// ARCHIVOS PENDIENTES - DEPRECATED (USAR files EN SU LUGAR)
+// ARCHIVOS PENDIENTES - ELIMINADA (migración 0011)
 // =============================================================================
-// NOTA: Esta tabla será eliminada físicamente en migración 0011.
-// Mantener definición aquí solo para compatibilidad con scripts de migración legacy.
-// NO USAR EN CÓDIGO NUEVO.
-
-const pendingFiles_ = sqliteTable(
-  'pending_files',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    originalFilename: text('original_filename').notNull(),
-    filePath: text('file_path').notNull(),
-    fileSize: integer('file_size'),
-    uploadDate: text('upload_date').default(sql`CURRENT_TIMESTAMP`),
-    fileHash: text('file_hash'),
-    extractedCuit: text('extracted_cuit'),
-    extractedDate: text('extracted_date'),
-    extractedTotal: real('extracted_total'),
-    extractedType: integer('extracted_type'),
-    extractedPointOfSale: integer('extracted_point_of_sale'),
-    extractedInvoiceNumber: integer('extracted_invoice_number'),
-    extractionConfidence: integer('extraction_confidence'),
-    extractionMethod: text('extraction_method'),
-    extractionErrors: text('extraction_errors'),
-    status: text('status', {
-      enum: ['pending', 'reviewing', 'processed', 'failed'],
-    }).default('pending'),
-    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => ({
-    statusIdx: index('idx_pending_status').on(table.status),
-    uploadDateIdx: index('idx_pending_upload_date').on(table.uploadDate),
-    hashIdx: index('idx_pending_files_hash').on(table.fileHash),
-  })
-);
-
-export { pendingFiles_ as pendingFiles };
+// Esta tabla YA NO EXISTE. Fue completamente eliminada en migración 0011.
+// Reemplazada por: files + file_extraction_results
+// NO DESCOMENTAR NI USAR.
 
 // =============================================================================
 // FACTURAS ESPERADAS (DESDE EXCEL AFIP)
