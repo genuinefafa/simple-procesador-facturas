@@ -125,8 +125,8 @@
       const type = getFriendlyType(e.invoiceType);
       return `${type} ${String(e.pointOfSale).padStart(4, '0')}-${String(e.invoiceNumber).padStart(8, '0')}`;
     }
-    if (c.pending) {
-      return c.pending.originalFilename;
+    if (c.file) {
+      return c.file.originalFilename;
     }
     return '—';
   }
@@ -140,14 +140,14 @@
     switch (activeFilter) {
       case 'reconocidas':
         // Incluir facturas finalizadas y archivos procesados
-        if (!(!!c.final || c.pending?.status === 'processed')) return false;
+        if (!(!!c.final || c.file?.status === 'processed')) return false;
         break;
       case 'esperadas':
         if (!(!!c.expected && !c.final)) return false;
         break;
       case 'pendientes':
         // Mostrar todos los comprobantes de tipo pending (sin factura finalizada)
-        if (!c.pending || c.final) return false;
+        if (!c.file || c.final) return false;
         break;
       default:
         break;
@@ -503,17 +503,17 @@
       <span></span>
     </div>
     {#each visibleComprobantes as comp}
-      {@const uploadDate = comp.pending?.uploadDate || comp.final?.processedAt}
+      {@const uploadDate = comp.file?.uploadDate || comp.final?.processedAt}
       {@const uploadDateOnly = uploadDate ? uploadDate.split(' ')[0] : null}
       {@const issueDate =
-        comp.final?.issueDate || comp.expected?.issueDate || comp.pending?.extractedDate}
+        comp.final?.issueDate || comp.expected?.issueDate || comp.file?.extractedDate}
       {@const dateToShow = issueDate || uploadDateOnly}
       {@const isProvisionalDate = !issueDate && uploadDateOnly}
       {@const hasEmitter = !!(
         getEmitterName(comp).short ||
         comp.final?.cuit ||
         comp.expected?.cuit ||
-        comp.pending?.extractedCuit
+        comp.file?.extractedCuit
       )}
       <div class="row">
         <!-- Columna 1: Comprobante/Archivo -->
@@ -530,10 +530,10 @@
           {#if getEmitterName(comp).short}
             <span class="emitter-name">{getEmitterName(comp).short}</span>
             <span class="cuit-inline"
-              >{comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}</span
+              >{comp.final?.cuit || comp.expected?.cuit || comp.file?.extractedCuit || '—'}</span
             >
           {:else}
-            {comp.final?.cuit || comp.expected?.cuit || comp.pending?.extractedCuit || '—'}
+            {comp.final?.cuit || comp.expected?.cuit || comp.file?.extractedCuit || '—'}
           {/if}
         </span>
 
@@ -549,7 +549,7 @@
         </span>
         <span class="col-total align-right"
           >{formatCurrency(
-            comp.final?.total ?? comp.expected?.total ?? comp.pending?.extractedTotal
+            comp.final?.total ?? comp.expected?.total ?? comp.file?.extractedTotal
           )}</span
         >
         <span class="col-category">
@@ -593,14 +593,14 @@
             {#if comp.expected.status}
               <span class="tag info">{comp.expected.status}</span>
             {/if}
-          {:else if comp.pending}
+          {:else if comp.file}
             <span class="tag neutral">Pendiente</span>
-            <span class="tag info">{formatPendingStatus(comp.pending.status)}</span>
+            <span class="tag info">{formatPendingStatus(comp.file.status)}</span>
           {/if}
         </span>
         <span class="col-hash"
-          >{comp.final?.fileHash || comp.pending?.fileHash
-            ? shortHash(comp.final?.fileHash || comp.pending?.fileHash)
+          >{comp.final?.fileHash || comp.file?.fileHash
+            ? shortHash(comp.final?.fileHash || comp.file?.fileHash)
             : '—'}</span
         >
         <span class="col-actions"

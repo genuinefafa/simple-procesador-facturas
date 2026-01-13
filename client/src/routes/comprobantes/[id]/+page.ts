@@ -38,12 +38,12 @@ export type Expected = {
   matchedPendingFileId?: number | null;
 };
 
-export type Pending = {
+export type FileData = {
   id: number;
   originalFilename: string;
   filePath: string;
   fileHash?: string | null;
-  status: 'pending' | 'reviewing' | 'processed' | 'failed';
+  status: 'uploaded' | 'processed' | 'failed';
   extractedCuit?: string | null;
   extractedDate?: string | null;
   extractedTotal?: number | null;
@@ -53,7 +53,7 @@ export type Pending = {
   extractionConfidence?: number | null;
   extractionMethod?: string | null;
   extractionErrors?: string | null;
-  linkedInvoiceId?: number | null; // ID de la factura que referencia este pending
+  linkedInvoiceId?: number | null; // ID de la factura vinculada a este archivo
 };
 
 export type Match = {
@@ -74,7 +74,7 @@ export type Comprobante = {
   kind: 'factura' | 'expected' | 'file';
   final: Final | null;
   expected: Expected | null;
-  pending: Pending | null; // renamed conceptually to "file", but keeping field name for now
+  file: FileData | null; // Archivo sin factura asociada
   matches?: Match[];
   emitterCuit?: string | null;
   emitterName?: string | null;
@@ -153,13 +153,15 @@ export const load: PageLoad = async ({ fetch, params }) => {
           }
         }
 
-        let pending: Pending | null = null;
-        if (final.pendingFileId) {
-          const pRes = await fetch(`/api/pending-files/${final.pendingFileId}`);
-          if (pRes.ok) {
-            const pData = await pRes.json();
-            const d = pData.pendingFile || pData;
-            pending = {
+        // Cargar archivo asociado (si existe fileId o pendingFileId legacy)
+        let file: FileData | null = null;
+        const fileIdToLoad = final.fileId || final.pendingFileId;
+        if (fileIdToLoad) {
+          const fileRes = await fetch(`/api/files/${fileIdToLoad}`);
+          if (fileRes.ok) {
+            const fileData = await fileRes.json();
+            const d = fileData.pendingFile || fileData; // API retorna 'pendingFile' por compatibilidad
+            file = {
               id: d.id,
               originalFilename: d.originalFilename,
               filePath: d.filePath,
@@ -183,7 +185,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           kind: 'factura',
           final,
           expected,
-          pending,
+          file,
           emitterCuit: final.cuit,
           emitterName: final.emitterName,
         };
@@ -214,7 +216,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
             kind: 'expected',
             final: null,
             expected,
-            pending: null,
+            file: null,
             emitterCuit: expected.cuit,
             emitterName: expected.emitterName,
           };
@@ -241,7 +243,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
 
               // Redirigir automáticamente a la factura (HTTP 302)
               console.info(
-                `[PENDING→FACTURA] Redirigiendo de pending:${id} a factura:${linkedInvoiceId}`
+                `[FILE→FACTURA] Redirigiendo de file:${id} a factura:${linkedInvoiceId}`
               );
               throw redirect(302, `/comprobantes/factura:${linkedInvoiceId}`);
             }
@@ -254,7 +256,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           console.warn('No se pudo verificar factura vinculada:', err);
         }
 
-        const pending: Pending = {
+        const file: FileData = {
           id: data.id,
           originalFilename: data.originalFilename,
           filePath: data.filePath,
@@ -292,17 +294,21 @@ export const load: PageLoad = async ({ fetch, params }) => {
         }
 
         comprobante = {
-          id: `file:${pending.id}`,
+          id: `file:${file.id}`,
           kind: 'file',
           final: null,
           expected: null,
-          pending,
+          file,
           matches,
-          emitterCuit: pending.extractedCuit,
+          emitterCuit: file.extractedCuit,
         };
       }
     }
   } catch (e) {
+    // IMPORTANTE: Si es un redirect de SvelteKit, re-lanzarlo sin convertir a error
+    if (e && typeof e === 'object' && 'status' in e && 'location' in e) {
+      throw e; // Re-lanzar redirect
+    }
     console.error('Error loading comprobante:', e);
   }
 

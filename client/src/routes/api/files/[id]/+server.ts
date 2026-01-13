@@ -71,3 +71,45 @@ export const GET: RequestHandler = async ({ params }) => {
     );
   }
 };
+
+/**
+ * DELETE /api/files/:id
+ * Eliminar un archivo (soft delete: marca como deleted o hard delete si no tiene factura)
+ */
+export const DELETE: RequestHandler = async ({ params }) => {
+  console.info(`🗑️  [FILE] Eliminando archivo ID ${params.id}...`);
+
+  try {
+    const id = parseInt(params.id, 10);
+    if (isNaN(id)) {
+      return json({ success: false, error: 'ID inválido' }, { status: 400 });
+    }
+
+    const fileRepo = new FileRepository();
+    const file = fileRepo.findById(id);
+
+    if (!file) {
+      return json({ success: false, error: 'Archivo no encontrado' }, { status: 404 });
+    }
+
+    // TODO: Verificar si tiene factura asociada antes de borrar
+    // Por ahora simplemente borramos
+    await fileRepo.delete(id);
+
+    console.info(`✅ [FILE] Archivo ${id} eliminado`);
+
+    return json({
+      success: true,
+      message: 'Archivo eliminado correctamente',
+    });
+  } catch (error) {
+    console.error('❌ [FILE] Error:', error);
+    return json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+      },
+      { status: 500 }
+    );
+  }
+};

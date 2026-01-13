@@ -162,8 +162,8 @@ function matchesNumero(c: Comprobante, query: string): boolean {
   }
 
   // Pending: nombre de archivo
-  if (c.pending) {
-    if (c.pending.originalFilename.toLowerCase().includes(queryLower)) {
+  if (c.file) {
+    if (c.file.originalFilename.toLowerCase().includes(queryLower)) {
       return true;
     }
   }
@@ -254,7 +254,7 @@ function matchesFreeText(c: Comprobante, query: string): boolean {
   }
 
   // Nombre de archivo (pending)
-  if (c.pending && c.pending.originalFilename.toLowerCase().includes(queryLower)) {
+  if (c.file && c.file.originalFilename.toLowerCase().includes(queryLower)) {
     return true;
   }
 
@@ -270,15 +270,15 @@ function getEmitterName(c: Comprobante): string | null {
 }
 
 function getCuit(c: Comprobante): string | null {
-  return c.emitterCuit || c.final?.cuit || c.expected?.cuit || c.pending?.extractedCuit || null;
+  return c.emitterCuit || c.final?.cuit || c.expected?.cuit || c.file?.extractedCuit || null;
 }
 
 function getDate(c: Comprobante): string | null {
-  return c.final?.issueDate || c.expected?.issueDate || c.pending?.extractedDate || null;
+  return c.final?.issueDate || c.expected?.issueDate || c.file?.extractedDate || null;
 }
 
 function getTotal(c: Comprobante): number | null {
-  return c.final?.total ?? c.expected?.total ?? c.pending?.extractedTotal ?? null;
+  return c.final?.total ?? c.expected?.total ?? c.file?.extractedTotal ?? null;
 }
 
 /**

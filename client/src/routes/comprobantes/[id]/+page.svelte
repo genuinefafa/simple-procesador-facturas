@@ -75,7 +75,7 @@
 
   // Determinar si es una expected sin archivo (no permite crear factura directamente)
   const isExpectedWithoutFile = $derived(
-    comprobante.kind === 'expected' && !comprobante.pending && !comprobante.final
+    comprobante.kind === 'expected' && !comprobante.file && !comprobante.final
   );
 
   // Sincronizar facturaData con comprobante cuando cambie
@@ -155,8 +155,8 @@
 
   // Cargar emisor registrado para pending file (independiente)
   $effect(() => {
-    if (comprobante.pending?.extractedCuit) {
-      fetch(`/api/emisores?cuit=${encodeURIComponent(comprobante.pending.extractedCuit)}`)
+    if (comprobante.file?.extractedCuit) {
+      fetch(`/api/emisores?cuit=${encodeURIComponent(comprobante.file.extractedCuit)}`)
         .then((res) => res.json())
         .then((data) => {
           if (data.emitters && data.emitters.length > 0) {
@@ -181,8 +181,8 @@
     }
   });
 
-  // Accordion para expected/pending
-  let accordionValue = $derived(comprobante.pending ? 'pending' : undefined);
+  // Accordion para expected/file
+  let accordionValue = $derived(comprobante.file ? 'file' : undefined);
   const accordion = new Accordion({
     get value() {
       return accordionValue;
@@ -194,13 +194,13 @@
     if (emitter) facuraData.cuit = emitter.cuit;
   }
 
-  function copyFromSection(source: 'final' | 'expected' | 'pending') {
+  function copyFromSection(source: 'final' | 'expected' | 'file') {
     const sourceData =
       source === 'final'
         ? comprobante.final
         : source === 'expected'
           ? comprobante.expected
-          : comprobante.pending;
+          : comprobante.file;
     if (!sourceData) return;
 
     if (source === 'final') {
@@ -361,9 +361,9 @@
             expectedInvoiceId: selectedExpectedId,
           }),
         });
-      } else if (comprobante.kind === 'file' && comprobante.pending) {
+      } else if (comprobante.kind === 'file' && comprobante.file) {
         // Crear factura desde file (nuevo modelo)
-        response = await fetch(`/api/invoices/from-file/${comprobante.pending.id}`, {
+        response = await fetch(`/api/invoices/from-file/${comprobante.file.id}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -409,7 +409,7 @@
   }
 
   function openDeleteDialog() {
-    if (!comprobante.final && !comprobante.pending) {
+    if (!comprobante.final && !comprobante.file) {
       toast.error('No hay nada que eliminar');
       return;
     }
@@ -443,19 +443,19 @@
       return;
     }
 
-    // Eliminar pending file
-    if (comprobante.pending) {
-      const toastId = toast.loading('Eliminando archivo pendiente...');
+    // Eliminar archivo
+    if (comprobante.file) {
+      const toastId = toast.loading('Eliminando archivo...');
 
       try {
-        const response = await fetch(`/api/pending-files/${comprobante.pending.id}`, {
+        const response = await fetch(`/api/files/${comprobante.file.id}`, {
           method: 'DELETE',
         });
 
         const data = await response.json();
 
         if (response.ok && data.success) {
-          toast.success(data.message || 'Archivo pendiente eliminado', { id: toastId });
+          toast.success(data.message || 'Archivo eliminado', { id: toastId });
           await goto('/comprobantes');
         } else {
           toast.error(data.error || 'Error al eliminar archivo pendiente', { id: toastId });
@@ -469,7 +469,7 @@
 
   // Determinar si se procesó alguna vez (tiene datos de extracción)
   const hasExtraction = $derived(
-    comprobante.pending?.status === 'reviewing' || comprobante.pending?.status === 'processed'
+    comprobante.file?.extractedCuit != null || comprobante.file?.extractionConfidence != null
   );
   const wasProcessed = $derived(comprobante.final != null);
   const isReadOnly = $derived(
@@ -477,7 +477,7 @@
   );
 
   async function processPending() {
-    if (!comprobante.pending) return;
+    if (!comprobante.file) return;
 
     if (hasExtraction && !confirmReprocess) {
       toast.error('Confirmá el reprocesamiento marcando el checkbox');
@@ -485,16 +485,13 @@
     }
 
     processing = true;
-    const toastId = toast.loading(hasExtraction ? 'Reprocesando...' : 'Procesando...');
+    const toastId = toast.loading('Procesando...');
 
     try {
-      const endpoint = hasExtraction
-        ? `/api/pending-files/${comprobante.pending.id}/reprocess`
-        : `/api/pending-files/${comprobante.pending.id}/process`;
-
-      const response = await fetch(endpoint, {
+      const response = await fetch('/api/invoices/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileIds: [comprobante.file.id] }),
       });
 
       const data = await response.json();
@@ -519,15 +516,15 @@
   }
 
   async function createInvoiceFromPending() {
-    if (!comprobante.pending) return;
+    if (!comprobante.file) return;
 
-    const pending = comprobante.pending;
+    const file = comprobante.file;
     if (
-      !pending.extractedCuit ||
-      !pending.extractedDate ||
-      !pending.extractedType ||
-      pending.extractedPointOfSale === null ||
-      pending.extractedInvoiceNumber === null
+      !file.extractedCuit ||
+      !file.extractedDate ||
+      !file.extractedType ||
+      file.extractedPointOfSale === null ||
+      file.extractedInvoiceNumber === null
     ) {
       toast.error(
         'Faltan datos obligatorios. Completá todos los campos antes de crear la factura.'
@@ -536,7 +533,7 @@
     }
 
     const confirmed = confirm(
-      `¿Crear factura ${pending.extractedType}-${String(pending.extractedPointOfSale).padStart(4, '0')}-${String(pending.extractedInvoiceNumber).padStart(8, '0')}?`
+      `¿Crear factura ${file.extractedType}-${String(file.extractedPointOfSale).padStart(4, '0')}-${String(file.extractedInvoiceNumber).padStart(8, '0')}?`
     );
     if (!confirmed) return;
 
@@ -545,18 +542,18 @@
 
     try {
       // Usar nuevo endpoint /api/invoices/from-file con datos de extracción
-      const response = await fetch(`/api/invoices/from-file/${pending.id}`, {
+      const response = await fetch(`/api/invoices/from-file/${file.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           source: 'extraction',
           data: {
-            cuit: pending.extractedCuit!,
-            invoiceType: pending.extractedType!,
-            pointOfSale: pending.extractedPointOfSale!,
-            invoiceNumber: pending.extractedInvoiceNumber!,
-            issueDate: pending.extractedDate!,
-            total: pending.extractedTotal || 0,
+            cuit: file.extractedCuit!,
+            invoiceType: file.extractedType!,
+            pointOfSale: file.extractedPointOfSale!,
+            invoiceNumber: file.extractedInvoiceNumber!,
+            issueDate: file.extractedDate!,
+            total: file.extractedTotal || 0,
             currency: 'ARS',
           },
         }),
@@ -586,9 +583,9 @@
   // Obtener ruta del archivo para preview
   const fileUrl = $derived.by(() => {
     // Para files (antes "pending"), usar el endpoint simplificado
-    if (comprobante.pending?.id) {
-      const url = `/api/comprobantes/pending:${comprobante.pending.id}/file`;
-      console.log('[FilePreview] URL para file (pending):', url, comprobante.pending);
+    if (comprobante.file?.id) {
+      const url = `/api/comprobantes/file:${comprobante.file.id}/file`;
+      console.log('[FilePreview] URL para file:', url, comprobante.file);
       return url;
     }
     if (comprobante.final?.id) {
@@ -606,8 +603,8 @@
   });
 
   const previewFilename = $derived.by(() => {
-    if (comprobante.pending?.originalFilename) {
-      return comprobante.pending.originalFilename;
+    if (comprobante.file?.originalFilename) {
+      return comprobante.file.originalFilename;
     }
     if (comprobante.final?.filePath) {
       return comprobante.final.filePath.split('/').pop() || 'documento';
@@ -635,12 +632,12 @@
   </header>
 
   <!-- Alerta de duplicados por hash (global, arriba) -->
-  {#if comprobante.final?.fileHash || comprobante.pending?.fileHash}
-    {@const fileHash = comprobante.final?.fileHash || comprobante.pending?.fileHash}
+  {#if comprobante.final?.fileHash || comprobante.file?.fileHash}
+    {@const fileHash = comprobante.final?.fileHash || comprobante.file?.fileHash}
     {@const currentType = comprobante.final ? 'invoice' : 'file'}
-    {@const currentId = comprobante.final?.id || comprobante.pending?.id || 0}
+    {@const currentId = comprobante.final?.id || comprobante.file?.id || 0}
     {@const linkedFileId = comprobante.final?.fileId || null}
-    {@const linkedInvoiceId = comprobante.pending?.linkedInvoiceId || null}
+    {@const linkedInvoiceId = comprobante.file?.linkedInvoiceId || null}
     <DuplicateHashAlert {fileHash} {currentId} {currentType} {linkedFileId} {linkedInvoiceId} />
   {/if}
 
@@ -892,18 +889,18 @@
       {/if}
 
       <!-- Accordion: Pending -->
-      {#if comprobante.pending}
-        {@const item = accordion.getItem({ id: 'pending' })}
+      {#if comprobante.file}
+        {@const item = accordion.getItem({ id: 'file' })}
         <div class="accordion">
           <h3 {...item.heading}>
             <button type="button" {...item.trigger} class="accordion-trigger">
-              <span>📦 Documento Subido (OCR Extraído)</span>
+              <span>📦 Archivo Subido (OCR Extraído)</span>
               <span class="accordion-icon">▼</span>
             </button>
           </h3>
           <div {...item.content} class="accordion-content">
             <div class="accordion-header">
-              <Button size="sm" variant="secondary" onclick={() => copyFromSection('pending')}>
+              <Button size="sm" variant="secondary" onclick={() => copyFromSection('file')}>
                 Copiar a Factura
               </Button>
               {#if hasExtraction}
@@ -930,46 +927,46 @@
             <div class="data-list">
               <div class="data-item">
                 <span class="label">Archivo:</span>
-                <span class="value">{comprobante.pending.originalFilename}</span>
+                <span class="value">{comprobante.file.originalFilename}</span>
               </div>
               <div class="data-item">
                 <span class="label">Estado:</span>
-                <span class="value">{comprobante.pending.status}</span>
+                <span class="value">{comprobante.file.status}</span>
               </div>
-              {#if comprobante.pending.fileHash}
+              {#if comprobante.file.fileHash}
                 <div class="data-item">
                   <span class="label">Hash SHA-256:</span>
                   <span class="value"
-                    ><code class="hash">{formatHash(comprobante.pending.fileHash)}</code></span
+                    ><code class="hash">{formatHash(comprobante.file.fileHash)}</code></span
                   >
                 </div>
               {/if}
 
-              {#if comprobante.pending.extractionConfidence !== null && comprobante.pending.extractionConfidence !== undefined}
+              {#if comprobante.file.extractionConfidence !== null && comprobante.file.extractionConfidence !== undefined}
                 <div class="data-item">
                   <span class="label">Confianza:</span>
                   <span
                     class="value confidence"
-                    class:high={comprobante.pending.extractionConfidence >= 90}
-                    class:medium={comprobante.pending.extractionConfidence >= 70 &&
-                      comprobante.pending.extractionConfidence < 90}
-                    class:low={comprobante.pending.extractionConfidence < 70}
+                    class:high={comprobante.file.extractionConfidence >= 90}
+                    class:medium={comprobante.file.extractionConfidence >= 70 &&
+                      comprobante.file.extractionConfidence < 90}
+                    class:low={comprobante.file.extractionConfidence < 70}
                   >
-                    {comprobante.pending.extractionConfidence}%
+                    {comprobante.file.extractionConfidence}%
                   </span>
                 </div>
               {/if}
 
-              {#if comprobante.pending.extractionMethod}
+              {#if comprobante.file.extractionMethod}
                 <div class="data-item">
                   <span class="label">Método:</span>
-                  <span class="value">{comprobante.pending.extractionMethod}</span>
+                  <span class="value">{comprobante.file.extractionMethod}</span>
                 </div>
               {/if}
 
               <div class="data-item">
                 <span class="label">CUIT (detectado):</span>
-                <span class="value">{comprobante.pending.extractedCuit || '—'}</span>
+                <span class="value">{comprobante.file.extractedCuit || '—'}</span>
               </div>
               {#if registeredEmitterForPending}
                 <div class="data-item">
@@ -980,10 +977,10 @@
               <div class="data-item">
                 <span class="label">Tipo:</span>
                 <span class="value">
-                  {#if comprobante.pending.extractedType}
-                    {getInvoiceTypeFromARCA(comprobante.pending.extractedType).icon}
-                    {getInvoiceTypeFromARCA(comprobante.pending.extractedType).description}
-                    ({comprobante.pending.extractedType})
+                  {#if comprobante.file.extractedType}
+                    {getInvoiceTypeFromARCA(comprobante.file.extractedType).icon}
+                    {getInvoiceTypeFromARCA(comprobante.file.extractedType).description}
+                    ({comprobante.file.extractedType})
                   {:else}
                     —
                   {/if}
@@ -991,30 +988,30 @@
               </div>
               <div class="data-item">
                 <span class="label">P.V.:</span>
-                <span class="value">{comprobante.pending.extractedPointOfSale ?? '—'}</span>
+                <span class="value">{comprobante.file.extractedPointOfSale ?? '—'}</span>
               </div>
               <div class="data-item">
                 <span class="label">Número:</span>
-                <span class="value">{comprobante.pending.extractedInvoiceNumber ?? '—'}</span>
+                <span class="value">{comprobante.file.extractedInvoiceNumber ?? '—'}</span>
               </div>
               <div class="data-item">
                 <span class="label">Fecha (detectada):</span>
-                <span class="value">{formatDateShort(comprobante.pending.extractedDate)}</span>
+                <span class="value">{formatDateShort(comprobante.file.extractedDate)}</span>
               </div>
               <div class="data-item">
                 <span class="label">Total (detectado):</span>
                 <span class="value"
-                  >{comprobante.pending.extractedTotal?.toLocaleString('es-AR', {
+                  >{comprobante.file.extractedTotal?.toLocaleString('es-AR', {
                     style: 'currency',
                     currency: 'ARS',
                   }) || '—'}</span
                 >
               </div>
 
-              {#if comprobante.pending.extractionErrors}
+              {#if comprobante.file.extractionErrors}
                 <div class="data-item full-width">
                   <span class="label">⚠️ Errores:</span>
-                  <span class="value error">{comprobante.pending.extractionErrors}</span>
+                  <span class="value error">{comprobante.file.extractionErrors}</span>
                 </div>
               {/if}
             </div>
@@ -1084,7 +1081,7 @@
   bind:open={deleteDialogOpen}
   title={comprobante.final
     ? '⚠️ Eliminar Factura'
-    : comprobante.pending
+    : comprobante.file
       ? '⚠️ Eliminar Archivo Pendiente'
       : '⚠️ Eliminar Comprobante'}
   description="Esta acción no se puede deshacer"
@@ -1100,7 +1097,7 @@
           <li>• Si tiene archivo pendiente vinculado, volverá a "en revisión"</li>
         </ul>
       </div>
-    {:else if comprobante.pending}
+    {:else if comprobante.file}
       <p>¿Estás seguro de que querés eliminar este archivo pendiente?</p>
       <div class="delete-info">
         <p><strong>Se eliminará:</strong></p>

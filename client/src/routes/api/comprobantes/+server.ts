@@ -38,7 +38,7 @@ export type Expected = {
   matchedPendingFileId?: number | null;
 };
 
-export type Pending = {
+export type FileData = {
   id: number;
   originalFilename: string;
   filePath: string;
@@ -54,16 +54,16 @@ export type Pending = {
 };
 
 export type Comprobante = {
-  /** ID único: "factura:123" | "expected:456" | "pending:789" */
+  /** ID único: "factura:123" | "expected:456" | "file:789" */
   id: string;
 
   /** Tipo de entidad principal */
-  kind: 'factura' | 'expected' | 'pending';
+  kind: 'factura' | 'expected' | 'file';
 
   // Las 3 entidades, cualquiera puede ser null
   final: Final | null;
   expected: Expected | null;
-  pending: Pending | null;
+  file: FileData | null;
 
   // Emisor asociado (si existe)
   emitterCuit?: string | null;
@@ -96,7 +96,7 @@ export async function GET() {
 
   // Get uploaded files (not yet associated to invoice)
   const uploadedFilesRaw = fileRepo.list({ status: 'uploaded' });
-  const pendingFiles: Pending[] = uploadedFilesRaw.map((file) => {
+  const uploadedFiles: FileData[] = uploadedFilesRaw.map((file) => {
     // Get extraction data if available
     const extraction = extractionRepo.findByFileId(file.id);
 
@@ -118,12 +118,12 @@ export async function GET() {
 
   const comprobantesMap = new Map<string, Comprobante>();
 
-  // Resolver nombres de emisor en batch para finales, esperadas y pendientes
+  // Resolver nombres de emisor en batch para finales, esperadas y archivos subidos
   // Usar displayName que ya viene calculado desde el repository
   const uniqueCuits = new Set<string>([
     ...invoices.map((i) => i.emitterCuit).filter((c): c is string => Boolean(c)),
     ...expectedInvoices.map((i) => i.cuit).filter((c): c is string => Boolean(c)),
-    ...pendingFiles.map((p) => p.extractedCuit).filter((c): c is string => Boolean(c)),
+    ...uploadedFiles.map((p) => p.extractedCuit).filter((c): c is string => Boolean(c)),
   ]);
   const emitterCache = new Map<string, string | null>();
   for (const cuit of uniqueCuits) {
@@ -157,7 +157,7 @@ export async function GET() {
       kind: 'factura',
       final: f,
       expected: null,
-      pending: null,
+      file: null,
       emitterCuit: f.cuit,
       emitterName: f.emitterName,
     });
@@ -196,7 +196,7 @@ export async function GET() {
         kind: 'expected',
         final: null,
         expected: e,
-        pending: null,
+        file: null,
         emitterCuit: e.cuit,
         emitterName: e.emitterName,
       });
@@ -205,7 +205,7 @@ export async function GET() {
 
   // 3) Agregar archivos subidos (no vinculados a factura)
   // Los archivos con status='uploaded' son por definición no asociados a factura
-  for (const p of pendingFiles) {
+  for (const p of uploadedFiles) {
     // Buscar si hay una expected vinculada a este file
     // NOTA: Por ahora buscamos por matchedPendingFileId (legacy) hasta que se actualice el repo
     const expectedLinked = expectedInvoices.find((e) => e.matchedPendingFileId === p.id);
@@ -227,13 +227,13 @@ export async function GET() {
       : null;
 
     // Archivo subido sin factura (pero puede tener expected vinculado)
-    const comprobanteId = `pending:${p.id}`;
+    const comprobanteId = `file:${p.id}`;
     comprobantesMap.set(comprobanteId, {
       id: comprobanteId,
-      kind: 'pending',
+      kind: 'file',
       final: null,
       expected: expectedData,
-      pending: p,
+      file: p,
       emitterCuit: p.extractedCuit,
       emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
     });
@@ -243,8 +243,8 @@ export async function GET() {
 
   // Ordenar: latest first por fecha donde esté disponible
   comprobantes.sort((a, b) => {
-    const dateA = a.final?.issueDate || a.expected?.issueDate || a.pending?.extractedDate;
-    const dateB = b.final?.issueDate || b.expected?.issueDate || b.pending?.extractedDate;
+    const dateA = a.final?.issueDate || a.expected?.issueDate || a.file?.extractedDate;
+    const dateB = b.final?.issueDate || b.expected?.issueDate || b.file?.extractedDate;
     if (dateA && dateB) return new Date(dateB).getTime() - new Date(dateA).getTime();
     if (!dateA && dateB) return 1;
     if (dateA && !dateB) return -1;
