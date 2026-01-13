@@ -84,6 +84,7 @@ export class InvoiceRepository {
     requiresReview?: boolean;
     expectedInvoiceId?: number;
     pendingFileId?: number;
+    fileId?: number; // Nuevo modelo
     categoryId?: number;
   }): Promise<Invoice> {
     const issueDateStr =
@@ -117,6 +118,7 @@ export class InvoiceRepository {
         requiereRevision: data.requiresReview ?? false,
         expectedInvoiceId: data.expectedInvoiceId ?? null,
         pendingFileId: data.pendingFileId ?? null,
+        fileId: data.fileId ?? null, // Nuevo modelo
         categoryId: data.categoryId ?? null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any)
@@ -144,6 +146,11 @@ export class InvoiceRepository {
 
   async findByFileId(fileId: number): Promise<Invoice[]> {
     const result = await db.select().from(facturas).where(eq(facturas.fileId, fileId));
+    return result.map((row) => this.mapDrizzleToInvoice(row));
+  }
+
+  async findByHash(fileHash: string): Promise<Invoice[]> {
+    const result = await db.select().from(facturas).where(eq(facturas.fileHash, fileHash));
     return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 

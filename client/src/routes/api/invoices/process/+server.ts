@@ -1,44 +1,42 @@
 /**
  * API endpoint para procesar facturas subidas
+ * Usa el nuevo modelo files + file_extraction_results
  */
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { join } from 'path';
 import { InvoiceProcessingService } from '@server/services/invoice-processing.service.js';
-import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
+import { FileRepository } from '@server/database/repositories/file.js';
+import { FileExtractionRepository } from '@server/database/repositories/file-extraction.js';
 
 export const POST: RequestHandler = async ({ request }) => {
   console.info('⚙️  [PROCESS] Iniciando procesamiento de facturas...');
 
   try {
     const body: unknown = await request.json();
-    const { pendingFileIds } = body as {
-      pendingFileIds?: number[];
+    const { fileIds } = body as {
+      fileIds?: number[];
     };
 
-    console.info(`⚙️  [PROCESS] Pending files a procesar: ${pendingFileIds?.length || 0}`);
+    console.info(`⚙️  [PROCESS] Files a procesar: ${fileIds?.length || 0}`);
 
-    if (!pendingFileIds || !Array.isArray(pendingFileIds) || pendingFileIds.length === 0) {
-      console.warn('⚠️  [PROCESS] No se recibió array de pendingFileIds');
-      return json(
-        { success: false, error: 'Se requiere un array de pendingFileIds' },
-        { status: 400 }
-      );
+    if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
+      console.warn('⚠️  [PROCESS] No se recibió array de fileIds');
+      return json({ success: false, error: 'Se requiere un array de fileIds' }, { status: 400 });
     }
 
-    const pendingFileRepo = new PendingFileRepository();
+    const fileRepo = new FileRepository();
+    const extractionRepo = new FileExtractionRepository();
     const processingService = new InvoiceProcessingService();
 
-    // Cargar pending files desde BD
-    const pendingFilesPromises = pendingFileIds.map((id) => pendingFileRepo.findById(id));
-    const pendingFilesResults = await Promise.all(pendingFilesPromises);
-    const pendingFiles = pendingFilesResults.filter((pf) => pf !== null);
+    // Cargar files desde BD
+    const filesPromises = fileIds.map((id) => fileRepo.findById(id));
+    const filesResults = await Promise.all(filesPromises);
+    const files = filesResults.filter((f) => f !== null);
 
-    if (pendingFiles.length === 0) {
-      return json(
-        { success: false, error: 'No se encontraron archivos pendientes' },
-        { status: 404 }
-      );
+    if (files.length === 0) {
+      return json({ success: false, error: 'No se encontraron archivos' }, { status: 404 });
     }
 
     console.info('⚙️  [PROCESS] Service inicializado, procesando...');
@@ -48,30 +46,64 @@ export const POST: RequestHandler = async ({ request }) => {
     let pendingCount = 0;
     let failedCount = 0;
 
-    for (const pendingFile of pendingFiles) {
-      console.info(
-        `📝 Procesando pending file ID ${pendingFile.id}: ${pendingFile.originalFilename}`
-      );
+    for (const file of files) {
+      console.info(`📝 Procesando file ID ${file.id}: ${file.originalFilename}`);
 
-      // Intentar procesar
-      const result = await processingService.processInvoice(
-        pendingFile.filePath,
-        pendingFile.originalFilename
-      );
+      // Resolver ruta absoluta
+      const absolutePath = file.storagePath.startsWith('/')
+        ? file.storagePath
+        : join(process.cwd(), '..', 'data', file.storagePath);
 
-      // Actualizar pending_file con datos extraídos
+      // Intentar procesar usando el MISMO servicio que upload
+      const result = await processingService.processInvoice(absolutePath, file.originalFilename);
+
+      // Actualizar/crear file_extraction_results con datos extraídos
       if (result.extractedData) {
-        console.info(`💾 Actualizando datos extraídos en pending file ${pendingFile.id}`);
-        await pendingFileRepo.updateExtractedData(pendingFile.id, {
-          extractedCuit: result.extractedData.cuit,
-          extractedDate: result.extractedData.date,
-          extractedTotal: result.extractedData.total,
-          extractedType: result.extractedData.invoiceType,
-          extractedPointOfSale: result.extractedData.pointOfSale,
-          extractedInvoiceNumber: result.extractedData.invoiceNumber,
-          extractionConfidence: result.confidence,
-          extractionErrors: result.error ? [result.error] : undefined,
-        });
+        console.info(`💾 Actualizando datos extraídos para file ${file.id}`);
+
+        // Verificar si ya existe extraction result
+        const existingExtraction = extractionRepo.findByFileId(file.id);
+
+        if (existingExtraction) {
+          // Actualizar existente
+          extractionRepo.update(existingExtraction.id, {
+            extractedCuit: result.extractedData.cuit || null,
+            extractedDate: result.extractedData.date || null,
+            extractedTotal: result.extractedData.total || null,
+            extractedType: result.extractedData.invoiceType || null,
+            extractedPointOfSale: result.extractedData.pointOfSale || null,
+            extractedInvoiceNumber: result.extractedData.invoiceNumber || null,
+            confidence: result.confidence || null,
+            method: (result.method || 'OCR') as
+              | 'TEMPLATE'
+              | 'GENERICO'
+              | 'MANUAL'
+              | 'PDF_TEXT'
+              | 'OCR'
+              | 'PDF_TEXT+OCR',
+            errors: result.error || null,
+          });
+        } else {
+          // Crear nuevo
+          extractionRepo.create({
+            fileId: file.id,
+            extractedCuit: result.extractedData.cuit || null,
+            extractedDate: result.extractedData.date || null,
+            extractedTotal: result.extractedData.total || null,
+            extractedType: result.extractedData.invoiceType || null,
+            extractedPointOfSale: result.extractedData.pointOfSale || null,
+            extractedInvoiceNumber: result.extractedData.invoiceNumber || null,
+            confidence: result.confidence || null,
+            method: (result.method || 'OCR') as
+              | 'TEMPLATE'
+              | 'GENERICO'
+              | 'MANUAL'
+              | 'PDF_TEXT'
+              | 'OCR'
+              | 'PDF_TEXT+OCR',
+            errors: result.error || null,
+          });
+        }
       }
 
       // Si procesamiento exitoso con confianza >= 80%
@@ -79,24 +111,24 @@ export const POST: RequestHandler = async ({ request }) => {
         console.info(
           `✅ Procesamiento exitoso (conf: ${result.confidence}%), vinculando con factura ${result.invoice.id}`
         );
-        await pendingFileRepo.updateStatus(pendingFile.id, 'processed');
+        await fileRepo.updateStatus(file.id, 'processed');
         processedCount++;
       } else if (result.requiresReview) {
         // Requiere revisión manual
         console.info(`⚠️  Requiere revisión manual (conf: ${result.confidence}%)`);
-        await pendingFileRepo.updateStatus(pendingFile.id, 'pending');
+        await fileRepo.updateStatus(file.id, 'uploaded');
         pendingCount++;
       } else {
         // Falló completamente
         console.warn(`❌ Procesamiento falló: ${result.error}`);
-        await pendingFileRepo.updateStatus(pendingFile.id, 'failed');
+        // Mantener en uploaded para poder reintentar
         failedCount++;
       }
 
       results.push({
-        pendingFileId: pendingFile.id,
+        fileId: file.id,
         success: result.success,
-        fileName: pendingFile.originalFilename,
+        fileName: file.originalFilename,
         invoice: result.invoice
           ? {
               id: result.invoice.id,

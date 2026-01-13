@@ -177,7 +177,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       requiresReview: false, // Si el usuario crea manualmente, ya está validado
       expectedInvoiceId: source === 'expected' ? expectedId : undefined,
       // NUEVO campo (Sprint 3)
-      // fileId: fileId,  // Descomentar cuando se agregue al schema
+      fileId: fileId,
     });
 
     console.info(`✅ [FROM-FILE] Factura creada: ID ${invoice.id}`);

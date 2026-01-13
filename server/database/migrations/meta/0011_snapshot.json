@@ -1,0 +1,1799 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "253ddf2f-bd70-4b3a-a080-95d84cb2893d",
+  "prevId": "c3956a4e-e98c-4585-810f-a2d49ab4aba3",
+  "tables": {
+    "categories": {
+      "name": "categories",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "categories_key_unique": {
+          "name": "categories_key_unique",
+          "columns": [
+            "key"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "emisor_templates_historial": {
+      "name": "emisor_templates_historial",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "emisor_cuit": {
+          "name": "emisor_cuit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "template_id": {
+          "name": "template_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "intentos": {
+          "name": "intentos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "exitos": {
+          "name": "exitos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "fallos": {
+          "name": "fallos",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "ultima_prueba": {
+          "name": "ultima_prueba",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "promovido_a_preferido": {
+          "name": "promovido_a_preferido",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "idx_historial_emisor": {
+          "name": "idx_historial_emisor",
+          "columns": [
+            "emisor_cuit"
+          ],
+          "isUnique": false
+        },
+        "idx_historial_template": {
+          "name": "idx_historial_template",
+          "columns": [
+            "template_id"
+          ],
+          "isUnique": false
+        },
+        "unique_emisor_template": {
+          "name": "unique_emisor_template",
+          "columns": [
+            "emisor_cuit",
+            "template_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "emisor_templates_historial_emisor_cuit_emisores_cuit_fk": {
+          "name": "emisor_templates_historial_emisor_cuit_emisores_cuit_fk",
+          "tableFrom": "emisor_templates_historial",
+          "tableTo": "emisores",
+          "columnsFrom": [
+            "emisor_cuit"
+          ],
+          "columnsTo": [
+            "cuit"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "emisor_templates_historial_template_id_templates_extraccion_id_fk": {
+          "name": "emisor_templates_historial_template_id_templates_extraccion_id_fk",
+          "tableFrom": "emisor_templates_historial",
+          "tableTo": "templates_extraccion",
+          "columnsFrom": [
+            "template_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "emisores": {
+      "name": "emisores",
+      "columns": {
+        "cuit": {
+          "name": "cuit",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "cuit_numerico": {
+          "name": "cuit_numerico",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "razon_social": {
+          "name": "razon_social",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "aliases": {
+          "name": "aliases",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "template_preferido_id": {
+          "name": "template_preferido_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "template_auto_detectado": {
+          "name": "template_auto_detectado",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": true
+        },
+        "config_override": {
+          "name": "config_override",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tipo_persona": {
+          "name": "tipo_persona",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "activo": {
+          "name": "activo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": true
+        },
+        "primera_factura_fecha": {
+          "name": "primera_factura_fecha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ultima_factura_fecha": {
+          "name": "ultima_factura_fecha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "total_facturas": {
+          "name": "total_facturas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "emisores_cuit_numerico_unique": {
+          "name": "emisores_cuit_numerico_unique",
+          "columns": [
+            "cuit_numerico"
+          ],
+          "isUnique": true
+        },
+        "idx_emisores_nombre": {
+          "name": "idx_emisores_nombre",
+          "columns": [
+            "nombre"
+          ],
+          "isUnique": false
+        },
+        "idx_emisores_cuit_num": {
+          "name": "idx_emisores_cuit_num",
+          "columns": [
+            "cuit_numerico"
+          ],
+          "isUnique": false
+        },
+        "idx_emisores_template": {
+          "name": "idx_emisores_template",
+          "columns": [
+            "template_preferido_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "emisores_template_preferido_id_templates_extraccion_id_fk": {
+          "name": "emisores_template_preferido_id_templates_extraccion_id_fk",
+          "tableFrom": "emisores",
+          "tableTo": "templates_extraccion",
+          "columnsFrom": [
+            "template_preferido_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "expected_invoices": {
+      "name": "expected_invoices",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "import_batch_id": {
+          "name": "import_batch_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cuit": {
+          "name": "cuit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "emitter_name": {
+          "name": "emitter_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "issue_date": {
+          "name": "issue_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "invoice_type": {
+          "name": "invoice_type",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "point_of_sale": {
+          "name": "point_of_sale",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "invoice_number": {
+          "name": "invoice_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total": {
+          "name": "total",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cae": {
+          "name": "cae",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cae_expiration": {
+          "name": "cae_expiration",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "currency": {
+          "name": "currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'ARS'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "matched_pending_file_id": {
+          "name": "matched_pending_file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "matched_file_id": {
+          "name": "matched_file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "match_confidence": {
+          "name": "match_confidence",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "import_date": {
+          "name": "import_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_expected_invoices_cuit": {
+          "name": "idx_expected_invoices_cuit",
+          "columns": [
+            "cuit"
+          ],
+          "isUnique": false
+        },
+        "idx_expected_invoices_status": {
+          "name": "idx_expected_invoices_status",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_expected_invoices_batch": {
+          "name": "idx_expected_invoices_batch",
+          "columns": [
+            "import_batch_id"
+          ],
+          "isUnique": false
+        },
+        "idx_expected_invoices_date": {
+          "name": "idx_expected_invoices_date",
+          "columns": [
+            "issue_date"
+          ],
+          "isUnique": false
+        },
+        "unique_expected_invoice": {
+          "name": "unique_expected_invoice",
+          "columns": [
+            "cuit",
+            "invoice_type",
+            "point_of_sale",
+            "invoice_number"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "expected_invoices_import_batch_id_import_batches_id_fk": {
+          "name": "expected_invoices_import_batch_id_import_batches_id_fk",
+          "tableFrom": "expected_invoices",
+          "tableTo": "import_batches",
+          "columnsFrom": [
+            "import_batch_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "expected_invoices_matched_pending_file_id_pending_files_id_fk": {
+          "name": "expected_invoices_matched_pending_file_id_pending_files_id_fk",
+          "tableFrom": "expected_invoices",
+          "tableTo": "pending_files",
+          "columnsFrom": [
+            "matched_pending_file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "expected_invoices_matched_file_id_files_id_fk": {
+          "name": "expected_invoices_matched_file_id_files_id_fk",
+          "tableFrom": "expected_invoices",
+          "tableTo": "files",
+          "columnsFrom": [
+            "matched_file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "facturas": {
+      "name": "facturas",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "emisor_cuit": {
+          "name": "emisor_cuit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "template_usado_id": {
+          "name": "template_usado_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "file_id": {
+          "name": "file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "fecha_emision": {
+          "name": "fecha_emision",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tipo_comprobante": {
+          "name": "tipo_comprobante",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "punto_venta": {
+          "name": "punto_venta",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "numero_comprobante": {
+          "name": "numero_comprobante",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "comprobante_completo": {
+          "name": "comprobante_completo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total": {
+          "name": "total",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "moneda": {
+          "name": "moneda",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'ARS'"
+        },
+        "archivo_original": {
+          "name": "archivo_original",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "archivo_procesado": {
+          "name": "archivo_procesado",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "finalized_file": {
+          "name": "finalized_file",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tipo_archivo": {
+          "name": "tipo_archivo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_hash": {
+          "name": "file_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "metodo_extraccion": {
+          "name": "metodo_extraccion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "confianza_extraccion": {
+          "name": "confianza_extraccion",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "validado_manualmente": {
+          "name": "validado_manualmente",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
+        "requiere_revision": {
+          "name": "requiere_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        },
+        "expected_invoice_id": {
+          "name": "expected_invoice_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "pending_file_id": {
+          "name": "pending_file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "category_id": {
+          "name": "category_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "procesado_en": {
+          "name": "procesado_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "facturas_archivo_procesado_unique": {
+          "name": "facturas_archivo_procesado_unique",
+          "columns": [
+            "archivo_procesado"
+          ],
+          "isUnique": true
+        },
+        "idx_facturas_emisor": {
+          "name": "idx_facturas_emisor",
+          "columns": [
+            "emisor_cuit"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_fecha": {
+          "name": "idx_facturas_fecha",
+          "columns": [
+            "fecha_emision"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_comprobante": {
+          "name": "idx_facturas_comprobante",
+          "columns": [
+            "comprobante_completo"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_total": {
+          "name": "idx_facturas_total",
+          "columns": [
+            "total"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_template": {
+          "name": "idx_facturas_template",
+          "columns": [
+            "template_usado_id"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_hash": {
+          "name": "idx_facturas_hash",
+          "columns": [
+            "file_hash"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_revision": {
+          "name": "idx_facturas_revision",
+          "columns": [
+            "requiere_revision"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_expected_invoice": {
+          "name": "idx_facturas_expected_invoice",
+          "columns": [
+            "expected_invoice_id"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_pending_file": {
+          "name": "idx_facturas_pending_file",
+          "columns": [
+            "pending_file_id"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_file": {
+          "name": "idx_facturas_file",
+          "columns": [
+            "file_id"
+          ],
+          "isUnique": false
+        },
+        "idx_facturas_category": {
+          "name": "idx_facturas_category",
+          "columns": [
+            "category_id"
+          ],
+          "isUnique": false
+        },
+        "unique_factura": {
+          "name": "unique_factura",
+          "columns": [
+            "emisor_cuit",
+            "tipo_comprobante",
+            "punto_venta",
+            "numero_comprobante"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "facturas_emisor_cuit_emisores_cuit_fk": {
+          "name": "facturas_emisor_cuit_emisores_cuit_fk",
+          "tableFrom": "facturas",
+          "tableTo": "emisores",
+          "columnsFrom": [
+            "emisor_cuit"
+          ],
+          "columnsTo": [
+            "cuit"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "facturas_template_usado_id_templates_extraccion_id_fk": {
+          "name": "facturas_template_usado_id_templates_extraccion_id_fk",
+          "tableFrom": "facturas",
+          "tableTo": "templates_extraccion",
+          "columnsFrom": [
+            "template_usado_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "facturas_file_id_files_id_fk": {
+          "name": "facturas_file_id_files_id_fk",
+          "tableFrom": "facturas",
+          "tableTo": "files",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "facturas_expected_invoice_id_expected_invoices_id_fk": {
+          "name": "facturas_expected_invoice_id_expected_invoices_id_fk",
+          "tableFrom": "facturas",
+          "tableTo": "expected_invoices",
+          "columnsFrom": [
+            "expected_invoice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "facturas_pending_file_id_pending_files_id_fk": {
+          "name": "facturas_pending_file_id_pending_files_id_fk",
+          "tableFrom": "facturas",
+          "tableTo": "pending_files",
+          "columnsFrom": [
+            "pending_file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "facturas_category_id_categories_id_fk": {
+          "name": "facturas_category_id_categories_id_fk",
+          "tableFrom": "facturas",
+          "tableTo": "categories",
+          "columnsFrom": [
+            "category_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "facturas_correcciones": {
+      "name": "facturas_correcciones",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "factura_id": {
+          "name": "factura_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "campo": {
+          "name": "campo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valor_original": {
+          "name": "valor_original",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "valor_corregido": {
+          "name": "valor_corregido",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "corregido_en": {
+          "name": "corregido_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "aplicado_a_template": {
+          "name": "aplicado_a_template",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "idx_correcciones_factura": {
+          "name": "idx_correcciones_factura",
+          "columns": [
+            "factura_id"
+          ],
+          "isUnique": false
+        },
+        "idx_correcciones_campo": {
+          "name": "idx_correcciones_campo",
+          "columns": [
+            "campo"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "facturas_correcciones_factura_id_facturas_id_fk": {
+          "name": "facturas_correcciones_factura_id_facturas_id_fk",
+          "tableFrom": "facturas_correcciones",
+          "tableTo": "facturas",
+          "columnsFrom": [
+            "factura_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "facturas_zonas_anotadas": {
+      "name": "facturas_zonas_anotadas",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "factura_id": {
+          "name": "factura_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "campo": {
+          "name": "campo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "x": {
+          "name": "x",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "y": {
+          "name": "y",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "valor_extraido": {
+          "name": "valor_extraido",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "anotado_en": {
+          "name": "anotado_en",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "anotado_por": {
+          "name": "anotado_por",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'usuario'"
+        },
+        "usado_para_template": {
+          "name": "usado_para_template",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {
+        "idx_zonas_factura": {
+          "name": "idx_zonas_factura",
+          "columns": [
+            "factura_id"
+          ],
+          "isUnique": false
+        },
+        "idx_zonas_campo": {
+          "name": "idx_zonas_campo",
+          "columns": [
+            "campo"
+          ],
+          "isUnique": false
+        },
+        "idx_zonas_template": {
+          "name": "idx_zonas_template",
+          "columns": [
+            "usado_para_template"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "facturas_zonas_anotadas_factura_id_facturas_id_fk": {
+          "name": "facturas_zonas_anotadas_factura_id_facturas_id_fk",
+          "tableFrom": "facturas_zonas_anotadas",
+          "tableTo": "facturas",
+          "columnsFrom": [
+            "factura_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "file_extraction_results": {
+      "name": "file_extraction_results",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "file_id": {
+          "name": "file_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "extracted_cuit": {
+          "name": "extracted_cuit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_date": {
+          "name": "extracted_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_total": {
+          "name": "extracted_total",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_type": {
+          "name": "extracted_type",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_point_of_sale": {
+          "name": "extracted_point_of_sale",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_invoice_number": {
+          "name": "extracted_invoice_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "confidence": {
+          "name": "confidence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "method": {
+          "name": "method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "template_id": {
+          "name": "template_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "errors": {
+          "name": "errors",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_at": {
+          "name": "extracted_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_file_extraction_file": {
+          "name": "idx_file_extraction_file",
+          "columns": [
+            "file_id"
+          ],
+          "isUnique": false
+        },
+        "idx_file_extraction_cuit": {
+          "name": "idx_file_extraction_cuit",
+          "columns": [
+            "extracted_cuit"
+          ],
+          "isUnique": false
+        },
+        "idx_file_extraction_date": {
+          "name": "idx_file_extraction_date",
+          "columns": [
+            "extracted_date"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "file_extraction_results_file_id_files_id_fk": {
+          "name": "file_extraction_results_file_id_files_id_fk",
+          "tableFrom": "file_extraction_results",
+          "tableTo": "files",
+          "columnsFrom": [
+            "file_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "file_extraction_results_template_id_templates_extraccion_id_fk": {
+          "name": "file_extraction_results_template_id_templates_extraccion_id_fk",
+          "tableFrom": "file_extraction_results",
+          "tableTo": "templates_extraccion",
+          "columnsFrom": [
+            "template_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "files": {
+      "name": "files",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "original_filename": {
+          "name": "original_filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_type": {
+          "name": "file_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_size": {
+          "name": "file_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "file_hash": {
+          "name": "file_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "storage_path": {
+          "name": "storage_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'uploaded'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "files_file_hash_unique": {
+          "name": "files_file_hash_unique",
+          "columns": [
+            "file_hash"
+          ],
+          "isUnique": true
+        },
+        "idx_files_status": {
+          "name": "idx_files_status",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_files_hash": {
+          "name": "idx_files_hash",
+          "columns": [
+            "file_hash"
+          ],
+          "isUnique": false
+        },
+        "idx_files_created": {
+          "name": "idx_files_created",
+          "columns": [
+            "created_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "import_batches": {
+      "name": "import_batches",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "filename": {
+          "name": "filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "total_rows": {
+          "name": "total_rows",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "imported_rows": {
+          "name": "imported_rows",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "skipped_rows": {
+          "name": "skipped_rows",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "error_rows": {
+          "name": "error_rows",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "import_date": {
+          "name": "import_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "pending_files": {
+      "name": "pending_files",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "original_filename": {
+          "name": "original_filename",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_path": {
+          "name": "file_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "file_size": {
+          "name": "file_size",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "upload_date": {
+          "name": "upload_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "file_hash": {
+          "name": "file_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_cuit": {
+          "name": "extracted_cuit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_date": {
+          "name": "extracted_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_total": {
+          "name": "extracted_total",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_type": {
+          "name": "extracted_type",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_point_of_sale": {
+          "name": "extracted_point_of_sale",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extracted_invoice_number": {
+          "name": "extracted_invoice_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extraction_confidence": {
+          "name": "extraction_confidence",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extraction_method": {
+          "name": "extraction_method",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "extraction_errors": {
+          "name": "extraction_errors",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "idx_pending_status": {
+          "name": "idx_pending_status",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        },
+        "idx_pending_upload_date": {
+          "name": "idx_pending_upload_date",
+          "columns": [
+            "upload_date"
+          ],
+          "isUnique": false
+        },
+        "idx_pending_files_hash": {
+          "name": "idx_pending_files_hash",
+          "columns": [
+            "file_hash"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "templates_extraccion": {
+      "name": "templates_extraccion",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "nombre": {
+          "name": "nombre",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "descripcion": {
+          "name": "descripcion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "categoria": {
+          "name": "categoria",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tipo_documento": {
+          "name": "tipo_documento",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "estrategia": {
+          "name": "estrategia",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "config_extraccion": {
+          "name": "config_extraccion",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "emisores_usando": {
+          "name": "emisores_usando",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "facturas_procesadas": {
+          "name": "facturas_procesadas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "facturas_exitosas": {
+          "name": "facturas_exitosas",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 0
+        },
+        "confianza_promedio": {
+          "name": "confianza_promedio",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": 50
+        },
+        "creado_desde_emisor_cuit": {
+          "name": "creado_desde_emisor_cuit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "activo": {
+          "name": "activo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        }
+      },
+      "indexes": {
+        "templates_extraccion_nombre_unique": {
+          "name": "templates_extraccion_nombre_unique",
+          "columns": [
+            "nombre"
+          ],
+          "isUnique": true
+        },
+        "idx_templates_categoria": {
+          "name": "idx_templates_categoria",
+          "columns": [
+            "categoria"
+          ],
+          "isUnique": false
+        },
+        "idx_templates_confianza": {
+          "name": "idx_templates_confianza",
+          "columns": [
+            "confianza_promedio"
+          ],
+          "isUnique": false
+        },
+        "idx_templates_activo": {
+          "name": "idx_templates_activo",
+          "columns": [
+            "activo"
+          ],
+          "isUnique": false
+        },
+        "idx_templates_nombre": {
+          "name": "idx_templates_nombre",
+          "columns": [
+            "nombre"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}
