@@ -8,7 +8,7 @@ Este documento describe el estado actual del proyecto y los próximos pasos a im
 
 | Área | Estado | Notas |
 |------|--------|-------|
-| **FASE 1: Archivos Pendientes** | ✅ Completa | Sistema de pending_files funcionando |
+| **FASE 1: Archivos Pendientes** | ✅ Completa → Refactorizado | Sistema migrado a `files` + `file_extraction_results` (Issue #40) |
 | **FASE 1.5: Matching Excel AFIP** | 🔶 85% | Backend completo, UI de comparación lista |
 | **FASE 2: Templates/Aprendizaje** | ⏳ Pendiente | Requiere completar FASE 1.5 |
 | **Build/TypeScript** | ✅ Limpio | svelte-check pasa sin errores |
@@ -17,12 +17,13 @@ Este documento describe el estado actual del proyecto y los próximos pasos a im
 
 ## ✅ Lo Que Ya Funciona (Implementado)
 
-### Sistema de Archivos Pendientes (FASE 1)
+### Sistema de Archivos (FASE 1 - Refactorizado en v0.4)
 
-- **Tabla `pending_files`**: Archivos subidos siempre se guardan aunque falle la extracción
-- **Estados**: pending → reviewing → processed/failed
-- **UI de 3 tabs**: Subir → Revisar → Facturas
+- **Tablas `files` + `file_extraction_results`**: Arquitectura simplificada separando archivo físico de datos extraídos
+- **Estados**: uploaded → processed
+- **UI de tabs**: "Archivos subidos" (status=uploaded) → "Facturas" (procesadas)
 - **Toast notifications**: Sistema moderno con svelte-sonner (sin alert())
+- **Deduplicación automática**: SHA-256 hash único previene archivos duplicados
 
 ### Sistema de Matching Excel AFIP (FASE 1.5)
 
@@ -185,7 +186,7 @@ Total:        50% (4/8)
 **Tareas:**
 
 1. Modificar PDF extractor para capturar coordenadas (x, y, width, height)
-2. Agregar campo `detection_zones` (JSON) en `pending_files`
+2. Agregar campo `detection_zones` (JSON) en `file_extraction_results`
 3. Renderizar rectángulos semitransparentes sobre el PDF preview
 4. Color verde (alta confianza), amarillo (baja), rojo (no detectado)
 
@@ -319,8 +320,14 @@ git log --oneline -10          # Últimos commits
 
 ### 2025-11-19: Monorepo + FASE 1
 - Refactor a estructura client/server
-- Tabla pending_files implementada
+- Tabla pending_files implementada (posteriormente reemplazada en v0.4)
 - UI de 3 tabs funcionando
+
+### 2026-01-13: Issue #40 - Simplificación de arquitectura
+- Migración de `pending_files` a `files` + `file_extraction_results`
+- Eliminación de tabla `pending_files`
+- Separación clara de responsabilidades: Archivo ≠ Extracción ≠ Factura
+- Actualización de documentación (SPEC, README, ROADMAP)
 
 ---
 

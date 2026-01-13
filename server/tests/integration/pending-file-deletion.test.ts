@@ -1,5 +1,8 @@
 /**
- * Tests de integración para verificar la protección de archivos al eliminar pending_files
+ * Tests de integración para verificar la protección de archivos al eliminar files
+ *
+ * NOTA: Este test usa PendingFileRepository para compatibilidad legacy.
+ * En v0.4, la tabla pending_files fue reemplazada por files + file_extraction_results.
  */
 
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';

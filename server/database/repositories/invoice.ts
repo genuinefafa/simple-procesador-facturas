@@ -392,14 +392,12 @@ export class InvoiceRepository {
         result.unlinkedExpected = invoice.expectedInvoiceId;
       }
 
-      // Si tiene pending file vinculado, revertir status a "reviewing"
-      if (invoice.pendingFileId) {
-        const { pendingFiles } = await import('../schema.js');
-        await db
-          .update(pendingFiles)
-          .set({ status: 'reviewing' })
-          .where(eq(pendingFiles.id, invoice.pendingFileId));
-        result.unlinkedPending = invoice.pendingFileId;
+      // Si tiene file vinculado, revertir status a "uploaded"
+      const fileIdToUnlink = invoice.fileId || invoice.pendingFileId;
+      if (fileIdToUnlink) {
+        const { files } = await import('../schema.js');
+        await db.update(files).set({ status: 'uploaded' }).where(eq(files.id, fileIdToUnlink));
+        result.unlinkedPending = fileIdToUnlink;
       }
 
       // Finalmente, eliminar la factura

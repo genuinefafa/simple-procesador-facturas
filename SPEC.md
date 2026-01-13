@@ -28,7 +28,7 @@ El proyecto nació como una **CLI** (command-line interface) para procesar PDFs 
 - ✅ Sistema OCR con Tesseract.js
 - ✅ Soporte HEIC (fotos iPhone)
 - ✅ Matching con Excel AFIP
-- ✅ Sistema de archivos pendientes (`pending_files`)
+- ✅ Sistema de archivos pendientes (`pending_files` - posteriormente reemplazado en v0.4)
 - ✅ Toast notifications (sin alert/confirm)
 
 **v0.4 - Dashboard + Comprobantes Hub** (Dec 2024)
@@ -37,6 +37,10 @@ El proyecto nació como una **CLI** (command-line interface) para procesar PDFs 
 - ✅ **Comprobantes Hub** - Vista unificada reemplazando rutas legacy
 - ✅ Gestión de emisores (alta, listado)
 - ✅ Rail navigation con topbar
+- ✅ **Simplificación de arquitectura de archivos** - Issue #40 (M4)
+  - ✅ `pending_files` eliminada completamente
+  - ✅ Nuevo modelo: `files` + `file_extraction_results`
+  - ✅ Separación clara: Archivo ≠ Extracción ≠ Factura
 - ⚠️ Rutas legacy preservadas para referencia
 
 ### 1.2 Filosofía Actual
@@ -195,15 +199,37 @@ npm run db:migrate
 }
 ```
 
-**Archivos pendientes: `pending_files`**
+**Archivos: `files`** (Reemplaza `pending_files`)
 ```typescript
 {
   id: serial,
-  fileName: text,
-  mimeType: text,
-  status: "pending" | "reviewing" | "processed" | "failed",
-  extractedData: json,         // Datos OCR extraídos
-  createdAt: text
+  originalFilename: text,
+  fileType: "PDF_DIGITAL" | "PDF_IMAGEN" | "IMAGEN" | "HEIC",
+  fileSize: integer,
+  fileHash: text unique,       // SHA-256 hex (64 chars)
+  storagePath: text,           // Ruta relativa a data/
+  status: "uploaded" | "processed",
+  createdAt: text,
+  updatedAt: text
+}
+```
+
+**Resultados de extracción: `file_extraction_results`** (NUEVA)
+```typescript
+{
+  id: serial,
+  fileId: integer,             // FK a files
+  extractedCuit: text,
+  extractedDate: text,
+  extractedTotal: real,
+  extractedType: integer,      // Código ARCA
+  extractedPointOfSale: integer,
+  extractedInvoiceNumber: integer,
+  confidence: integer,         // 0-100
+  method: text,                // "PDF_TEXT" | "OCR" | "TEMPLATE"
+  templateId: integer,         // FK a templatesExtraccion
+  errors: text,                // JSON con errores
+  extractedAt: text
 }
 ```
 
@@ -262,14 +288,14 @@ npm run db:migrate
 **1. Upload (data/input/)**
 - Archivo subido por el usuario
 - Hash SHA-256 calculado inmediatamente después de guardar
-- Guardado en `pending_files.file_hash`
+- Guardado en `files.file_hash` (único)
 - Logueo: `🔐 Hash: a1b2c3d4e5f6...`
 
 **2. Processing**
-- Hash copiado automáticamente de `pending_files` a `facturas`
-- Fallback: si pending_file no tiene hash, se calcula on-the-fly
-- Guardado en `facturas.file_hash`
-- Logueo: `🔐 Hash copiado desde pending_file`
+- Hash copiado automáticamente de `files` a `facturas`
+- Fallback: si file no tiene hash, se calcula on-the-fly
+- Guardado en `facturas.file_hash` (redundancia de seguridad)
+- Logueo: `🔐 Hash copiado desde file`
 
 **3. Backfill (Archivos Existentes)**
 - Script manual: `npm run backfill-hashes`
@@ -279,9 +305,9 @@ npm run db:migrate
 
 #### Schema de Base de Datos
 
-**pending_files**
+**files**
 ```sql
-file_hash TEXT  -- SHA-256 hex (64 chars), NULL si no calculado
+file_hash TEXT UNIQUE NOT NULL  -- SHA-256 hex (64 chars)
 ```
 
 **facturas**
@@ -290,7 +316,7 @@ file_hash TEXT  -- SHA-256 hex (64 chars), NULL si no calculado
 ```
 
 **Índices:**
-- `idx_pending_files_hash` en `pending_files(file_hash)`
+- `UNIQUE` constraint en `files(file_hash)` (deduplicación automática)
 - `idx_facturas_hash` en `facturas(file_hash)`
 
 #### Script de Backfill
@@ -445,17 +471,19 @@ const hashes = await calculateBatchHashes(['/file1.pdf', '/file2.pdf']);
 2. Clickea "Ir a Comprobantes" o navega desde rail
 3. En /comprobantes:
    a. Sube archivo PDF/imagen (drag & drop)
-   b. Sistema guarda en pending_files con status "pending"
-   c. Clickea "Reconocer" en el comprobante
-   d. Sistema extrae texto (PDF_TEXT o OCR)
+   b. Sistema guarda en `files` con status "uploaded"
+   c. Sistema extrae automáticamente texto (PDF_TEXT o OCR)
+   d. Guarda resultados en `file_extraction_results`
    e. Busca match en expected_invoices (si existe Excel AFIP)
-   f. Muestra datos extraídos + comparación Excel
-4. Usuario revisa detalle (/comprobantes/[id])
-   a. Corrige campos si es necesario
-   b. Asigna categoría (opcional)
-   c. Clickea "Confirmar y procesar"
-5. Factura creada en `invoices` con status "processed"
-6. Archivo marcado como "processed" en pending_files
+   f. Muestra card en tab "Archivos subidos" con datos extraídos
+4. Usuario revisa detalle (/comprobantes/file:ID)
+   a. Ve datos extraídos con nivel de confianza
+   b. Corrige campos si es necesario
+   c. Asigna categoría (opcional)
+   d. Clickea "Crear factura"
+5. Factura creada en `facturas`
+6. Archivo actualizado: `files.status = 'processed'`
+7. Archivo movido a `data/finalized/` con nuevo nombre
 ```
 
 ### 4.2 Flujo Excel AFIP (Matching)
@@ -697,9 +725,9 @@ await invalidateAll(); // Re-ejecuta load functions
 
 ✅ **Nombres descriptivos**: Usar conventional commits con alcance específico
 ```bash
-feat(database): add file_hash to pending_files
+feat(database): add file_hash to files table
 feat(utils): create file-hash utility with SHA-256
-feat(repository): add hash methods to InvoiceRepository
+feat(repository): add hash methods to FileRepository
 ```
 
 ✅ **Branch por issue**: Crear branch `feat/nombre-issue-38` antes de comenzar

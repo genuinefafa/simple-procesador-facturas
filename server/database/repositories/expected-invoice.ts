@@ -7,7 +7,7 @@ import { db } from '../db';
 import {
   expectedInvoices,
   importBatches,
-  pendingFiles,
+  files,
   emisores,
   type ExpectedInvoice as DrizzelExpectedInvoice,
   type ImportBatch as DrizzelImportBatch,
@@ -368,11 +368,11 @@ export class ExpectedInvoiceRepository {
     let query = db
       .select({
         expectedInvoice: expectedInvoices,
-        filePath: pendingFiles.filePath,
+        filePath: files.storagePath,
         emisorNombre: emisores.nombre,
       })
       .from(expectedInvoices)
-      .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
+      .leftJoin(files, eq(files.id, expectedInvoices.matchedPendingFileId))
       .leftJoin(
         emisores,
         sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
@@ -382,11 +382,11 @@ export class ExpectedInvoiceRepository {
       query = db
         .select({
           expectedInvoice: expectedInvoices,
-          filePath: pendingFiles.filePath,
+          filePath: files.storagePath,
           emisorNombre: emisores.nombre,
         })
         .from(expectedInvoices)
-        .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
+        .leftJoin(files, eq(files.id, expectedInvoices.matchedPendingFileId))
         .leftJoin(
           emisores,
           sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`

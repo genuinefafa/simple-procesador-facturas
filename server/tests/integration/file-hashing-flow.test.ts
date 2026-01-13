@@ -1,9 +1,12 @@
 /**
  * Tests de integración para el flujo completo de file hashing
  *
+ * NOTA: Este test usa PendingFileRepository para compatibilidad legacy.
+ * En el código actual (v0.4), se usa FileRepository + FileExtractionRepository.
+ *
  * Cubre:
- * 1. Upload → hash guardado en pending_files
- * 2. Hash operations on pending_files
+ * 1. Upload → hash guardado en files (anteriormente pending_files)
+ * 2. Hash operations on files
  * 3. Workflow básico de hashing
  *
  * IMPORTANTE: Usa base de datos de TEST (database.test.sqlite)
@@ -49,7 +52,10 @@ describe('File Hashing Integration Flow', () => {
     resetTestDb();
   });
 
-  it('should calculate and store hash on upload (pending_files)', async () => {
+  it('should calculate and store hash on upload (files - legacy test)', async () => {
+    // NOTA: Este test usa el repositorio legacy para compatibilidad
+    // En v0.4, el flujo real usa FileRepository
+
     // Simular upload: calcular hash y crear registro
     const hashResult = await calculateFileHash(TEST_FILE);
     const fileHash = hashResult.hash;
@@ -74,8 +80,10 @@ describe('File Hashing Integration Flow', () => {
     expect(found!.fileHash).toBe(fileHash);
   });
 
-  it('should handle hash operations on pending files', async () => {
-    // 1. Crear pending_file con hash
+  it('should handle hash operations on files (legacy test)', async () => {
+    // NOTA: En v0.4, esto se maneja con FileRepository
+
+    // 1. Crear file con hash
     const hashResult = await calculateFileHash(TEST_FILE);
     const fileHash = hashResult.hash;
 

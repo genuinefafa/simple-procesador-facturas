@@ -151,15 +151,17 @@ simple-procesador-facturas/
 1. Usuario accede a /dashboard
 2. Navega a /comprobantes
 3. Sube archivo PDF/imagen (drag & drop)
-   └─ Sistema guarda en pending_files con status "pending"
-4. Clickea "Reconocer" en el comprobante
-   └─ Sistema extrae texto (PDF_TEXT o OCR)
+   └─ Sistema guarda en `files` con status "uploaded"
+   └─ Sistema extrae automáticamente texto (PDF_TEXT o OCR)
+   └─ Guarda resultados en `file_extraction_results`
    └─ Busca match en expected_invoices (si existe Excel AFIP)
-5. Usuario revisa detalle (/comprobantes/[id])
+4. Usuario revisa detalle (/comprobantes/file:ID)
+   └─ Ve datos extraídos con nivel de confianza
    └─ Corrige campos si es necesario
    └─ Asigna categoría (opcional)
-   └─ Clickea "Confirmar y procesar"
-6. Factura creada en invoices con status "processed"
+   └─ Clickea "Crear factura"
+5. Factura creada en `facturas`
+6. Archivo actualizado: `files.status = 'processed'`
 ```
 
 ---
