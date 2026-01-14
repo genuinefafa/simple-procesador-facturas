@@ -13,7 +13,7 @@ import { OCRExtractor } from '../extractors/ocr-extractor.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '../validators/cuit.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import { InvoiceRepository } from '../database/repositories/invoice.js';
-import { PendingFileRepository } from '../database/repositories/pending-file.js';
+import { FileRepository } from '../database/repositories/file.js';
 import {
   ExpectedInvoiceRepository,
   type ExpectedInvoice,
@@ -55,7 +55,7 @@ export class InvoiceProcessingService {
   private ocrExtractor: OCRExtractor;
   private emitterRepo: EmitterRepository;
   private invoiceRepo: InvoiceRepository;
-  private pendingFileRepo: PendingFileRepository;
+  private fileRepo: FileRepository;
   private expectedInvoiceRepo: ExpectedInvoiceRepository;
 
   constructor() {
@@ -63,7 +63,7 @@ export class InvoiceProcessingService {
     this.ocrExtractor = new OCRExtractor();
     this.emitterRepo = new EmitterRepository();
     this.invoiceRepo = new InvoiceRepository();
-    this.pendingFileRepo = new PendingFileRepository();
+    this.fileRepo = new FileRepository();
     this.expectedInvoiceRepo = new ExpectedInvoiceRepository();
   }
 
@@ -528,15 +528,15 @@ export class InvoiceProcessingService {
         `   📊 Requiere revisión: ${confidence < 80 ? 'SÍ' : 'NO'} (confianza: ${confidence}%)`
       );
 
-      // 8. Copiar hash desde pending_file o calcular si no existe
+      // 8. Copiar hash desde file o calcular si no existe
       let fileHash: string | undefined;
       try {
-        const pendingFiles = await this.pendingFileRepo.list({ limit: 1000 });
-        const pendingFile = pendingFiles.find((pf) => pf.filePath === filePath);
+        const files = this.fileRepo.list({ limit: 1000 });
+        const file = files.find((f) => f.storagePath === filePath);
 
-        if (pendingFile?.fileHash) {
-          fileHash = pendingFile.fileHash;
-          console.info(`   🔐 Hash copiado desde pending_file: ${fileHash.substring(0, 16)}...`);
+        if (file?.fileHash) {
+          fileHash = file.fileHash;
+          console.info(`   🔐 Hash copiado desde file: ${fileHash.substring(0, 16)}...`);
         } else {
           const hashResult = await calculateFileHash(filePath);
           fileHash = hashResult.hash;

@@ -2,7 +2,7 @@
  * Script de backfill para generar hashes SHA-256 de archivos existentes
  *
  * Este script:
- * - Conecta a la BD y carga todos los registros de facturas Y pending files
+ * - Conecta a la BD y carga todos los registros de facturas Y files
  * - Filtra los que tienen archivo != NULL
  * - Calcula hash SHA-256 para archivos que no tienen hash
  * - Actualiza la BD con los hashes calculados
@@ -13,7 +13,7 @@
  */
 
 import { InvoiceRepository } from '../database/repositories/invoice.js';
-import { PendingFileRepository } from '../database/repositories/pending-file.js';
+import { FileRepository } from '../database/repositories/file.js';
 import { calculateFileHash } from '../utils/file-hash.js';
 import { existsSync } from 'fs';
 
@@ -29,13 +29,13 @@ async function backfillHashes(): Promise<BackfillStats> {
   console.log('🔐 Iniciando backfill de hashes...\n');
 
   const invoiceRepo = new InvoiceRepository();
-  const pendingRepo = new PendingFileRepository();
+  const fileRepo = new FileRepository();
 
   const allInvoices = await invoiceRepo.listAllProcessed();
-  const allPending = await pendingRepo.list();
+  const allFiles = fileRepo.list();
 
   const stats: BackfillStats = {
-    total: allInvoices.length + allPending.length,
+    total: allInvoices.length + allFiles.length,
     alreadyHashed: 0,
     hashed: 0,
     notFound: 0,
@@ -43,7 +43,7 @@ async function backfillHashes(): Promise<BackfillStats> {
   };
 
   console.log(`📊 Total de facturas procesadas: ${allInvoices.length}`);
-  console.log(`📊 Total de pending files: ${allPending.length}\n`);
+  console.log(`📊 Total de files: ${allFiles.length}\n`);
 
   for (let i = 0; i < allInvoices.length; i++) {
     const invoice = allInvoices[i];
@@ -82,19 +82,19 @@ async function backfillHashes(): Promise<BackfillStats> {
     }
   }
 
-  // Procesar pending files
-  console.log('\n🔄 Procesando pending files...\n');
-  for (let i = 0; i < allPending.length; i++) {
-    const pending = allPending[i];
-    if (!pending) continue;
+  // Procesar files
+  console.log('\n🔄 Procesando files...\n');
+  for (let i = 0; i < allFiles.length; i++) {
+    const file = allFiles[i];
+    if (!file) continue;
 
     // Skip si ya tiene hash
-    if (pending.fileHash) {
+    if (file.fileHash) {
       stats.alreadyHashed++;
       continue;
     }
 
-    const filePath = pending.filePath;
+    const filePath = file.storagePath;
 
     // Verificar que existe
     if (!existsSync(filePath)) {
@@ -106,18 +106,18 @@ async function backfillHashes(): Promise<BackfillStats> {
     // Calcular hash
     try {
       const hashResult = await calculateFileHash(filePath);
-      await pendingRepo.updateFileHash(pending.id, hashResult.hash);
+      fileRepo.updateHash(file.id, hashResult.hash);
 
       stats.hashed++;
 
       // Progress cada 10 archivos
       if ((i + 1) % 10 === 0) {
         console.log(
-          `⏳ Progreso pending: ${i + 1}/${allPending.length} (${stats.hashed} hasheados total)`
+          `⏳ Progreso files: ${i + 1}/${allFiles.length} (${stats.hashed} hasheados total)`
         );
       }
     } catch (error) {
-      console.error(`❌ Error hasheando ${pending.filePath}:`, error);
+      console.error(`❌ Error hasheando ${file.storagePath}:`, error);
       stats.errors++;
     }
   }

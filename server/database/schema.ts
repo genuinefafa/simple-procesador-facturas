@@ -6,9 +6,7 @@
 import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
-// Forward declarations for circular references
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare let _pendingFiles: any;
+// Forward declarations for circular references (TypeScript only)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare let _expectedInvoices: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,13 +169,11 @@ const expectedInvoices_ = sqliteTable(
     status: text('status', {
       enum: ['pending', 'matched', 'discrepancy', 'manual', 'ignored'],
     }).default('pending'),
-    // DEPRECATED: matchedPendingFileId será eliminado en migración 0011 (usar matchedFileId)
-    matchedPendingFileId: integer('matched_pending_file_id').references(() => pendingFiles_.id, {
-      onDelete: 'set null',
-    }),
-    matchedFileId: integer('matched_file_id').references(() => files_.id, {
-      onDelete: 'set null',
-    }),
+    // LEGACY: matchedPendingFileId mantiene la columna por compatibilidad con datos existentes
+    // pero ya NO tiene foreign key constraint (la tabla pending_files fue eliminada)
+    matchedPendingFileId: integer('matched_pending_file_id'),
+    // FK a files (constraint definido en la DB, sin referencia circular en Drizzle)
+    matchedFileId: integer('matched_file_id'),
     matchConfidence: real('match_confidence'),
 
     // Metadata
@@ -215,10 +211,8 @@ const facturas_ = sqliteTable(
       onDelete: 'set null',
     }),
 
-    // FK al nuevo modelo files (temporal, convive con pendingFileId durante migración)
-    fileId: integer('file_id').references(() => files_.id, {
-      onDelete: 'set null',
-    }),
+    // FK a files (constraint definido en la DB, sin referencia circular en Drizzle)
+    fileId: integer('file_id'),
 
     // Datos de la factura
     fechaEmision: text('fecha_emision').notNull(),
@@ -250,10 +244,9 @@ const facturas_ = sqliteTable(
     expectedInvoiceId: integer('expected_invoice_id').references(() => expectedInvoices_.id, {
       onDelete: 'set null',
     }),
-    // DEPRECATED: pendingFileId será eliminado en migración 0011 (usar fileId)
-    pendingFileId: integer('pending_file_id').references(() => pendingFiles_.id, {
-      onDelete: 'set null',
-    }),
+    // LEGACY: pendingFileId mantiene la columna por compatibilidad con datos existentes
+    // pero ya NO tiene foreign key constraint (la tabla pending_files fue eliminada)
+    pendingFileId: integer('pending_file_id'),
 
     // Categorización
     categoryId: integer('category_id').references(() => categories_.id, {
@@ -399,9 +392,7 @@ export type NewFacturaCorreccion = typeof facturasCorrecciones_.$inferInsert;
 export type FacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferSelect;
 export type NewFacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferInsert;
 
-// DEPRECATED: PendingFile types (usar File types en su lugar)
-export type PendingFile = typeof pendingFiles_.$inferSelect;
-export type NewPendingFile = typeof pendingFiles_.$inferInsert;
+// NOTA: PendingFile types fueron eliminados - usar File types
 
 export type ImportBatch = typeof importBatches_.$inferSelect;
 export type NewImportBatch = typeof importBatches_.$inferInsert;

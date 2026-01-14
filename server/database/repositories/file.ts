@@ -13,6 +13,7 @@ export interface FileRepository {
   findByHash(hash: string): File | null;
   updateStatus(id: number, status: 'uploaded' | 'processed'): void;
   updatePath(id: number, newPath: string): void;
+  updateHash(id: number, hash: string): void;
   getUploadedFiles(): File[];
   delete(id: number): void;
   list(params?: { limit?: number; status?: 'uploaded' | 'processed' }): File[];
@@ -74,6 +75,19 @@ export class FileRepository implements FileRepository {
     db.update(files)
       .set({
         storagePath: newPath,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(files.id, id))
+      .run();
+  }
+
+  /**
+   * Actualiza el hash de un archivo
+   */
+  updateHash(id: number, hash: string): void {
+    db.update(files)
+      .set({
+        fileHash: hash,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(files.id, id))
