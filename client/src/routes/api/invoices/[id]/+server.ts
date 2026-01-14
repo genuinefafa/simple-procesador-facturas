@@ -121,7 +121,7 @@ export const GET: RequestHandler = async ({ params }) => {
         manuallyValidated: invoice.manuallyValidated,
         categoryId: invoice.categoryId ?? null,
         expectedInvoiceId: invoice.expectedInvoiceId ?? null,
-        pendingFileId: invoice.pendingFileId ?? null,
+        fileId: invoice.fileId ?? null,
         processedAt: invoice.processedAt,
       },
       extractedValues: {

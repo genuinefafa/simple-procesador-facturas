@@ -19,7 +19,7 @@ export type Final = {
   file?: string;
   fileHash?: string | null;
   categoryId?: number | null;
-  pendingFileId?: number | null;
+  fileId?: number | null;
   expectedInvoiceId?: number | null;
 };
 
@@ -146,7 +146,7 @@ export async function GET() {
     file: inv.processedFile || inv.originalFile,
     fileHash: (inv as any).fileHash ?? null,
     categoryId: inv.categoryId ?? null,
-    pendingFileId: inv.pendingFileId ?? null,
+    fileId: inv.fileId ?? null,
     expectedInvoiceId: inv.expectedInvoiceId ?? null,
   }));
 
