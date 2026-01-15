@@ -253,7 +253,7 @@ function matchesFreeText(c: Comprobante, query: string): boolean {
     return true;
   }
 
-  // Nombre de archivo (pending)
+  // Nombre de archivo (file)
   if (c.file && c.file.originalFilename.toLowerCase().includes(queryLower)) {
     return true;
   }

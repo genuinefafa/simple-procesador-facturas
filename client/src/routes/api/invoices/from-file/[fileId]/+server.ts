@@ -162,6 +162,9 @@ export const POST: RequestHandler = async ({ params, request }) => {
     // 8. Crear factura
     const invoiceRepo = new InvoiceRepository();
 
+    // Actualizar storagePath en files a la nueva ubicación
+    fileRepo.updatePath(fileId, newRelativePath);
+
     const invoice = await invoiceRepo.create({
       emitterCuit: normalizedCuit,
       issueDate: data.issueDate,
@@ -169,25 +172,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
       pointOfSale: data.pointOfSale,
       invoiceNumber: data.invoiceNumber,
       total: data.total,
-      currency: (data.currency || 'ARS') as 'ARS' | 'USD',
-      // Legacy fields (mantener por ahora, serán removidos en Sprint 4)
-      originalFile: absoluteSourcePath,
-      processedFile: newPath,
-      finalizedFile: newRelativePath,
+      fileId: fileId, // FK a files - fuente de verdad para rutas
       fileType: file.fileType as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN',
-      fileHash: file.fileHash,
-      extractionMethod: (extraction?.method || 'MANUAL') as
-        | 'TEMPLATE'
-        | 'GENERICO'
-        | 'MANUAL'
-        | 'PDF_TEXT'
-        | 'OCR'
-        | 'PDF_TEXT+OCR',
+      extractionMethod: (extraction?.method || 'MANUAL') as 'TEMPLATE' | 'GENERICO' | 'MANUAL',
       extractionConfidence: extraction?.confidence ?? undefined,
       requiresReview: false, // Si el usuario crea manualmente, ya está validado
       expectedInvoiceId: source === 'expected' ? expectedId : undefined,
-      // NUEVO campo (Sprint 3)
-      fileId: fileId,
       categoryId: categoryId,
     });
 

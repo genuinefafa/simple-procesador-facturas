@@ -34,7 +34,7 @@ export const GET: RequestHandler = async ({ params }) => {
     // Obtener datos de extracción si existen
     const extraction = extractionRepo.findByFileId(id);
 
-    // Formato compatible con el frontend (similar a pending_file)
+    // Formato compatible con el frontend
     const response = {
       id: file.id,
       originalFilename: file.originalFilename,
@@ -58,7 +58,7 @@ export const GET: RequestHandler = async ({ params }) => {
 
     return json({
       success: true,
-      pendingFile: response, // Mantener nombre por compatibilidad con frontend
+      file: response,
     });
   } catch (error) {
     console.error('❌ [FILE] Error:', error);

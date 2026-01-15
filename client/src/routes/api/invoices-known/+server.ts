@@ -1,6 +1,7 @@
 import { json } from '@sveltejs/kit';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
+import { FileRepository } from '@server/database/repositories/file';
 
 type ExpectedInvoice = {
   source: 'expected';
@@ -14,7 +15,7 @@ type ExpectedInvoice = {
   total?: number | null;
   status?: string;
   file?: string;
-  matchedPendingFileId?: number | null;
+  matchedFileId?: number | null;
 };
 
 type FinalInvoice = {
@@ -30,13 +31,14 @@ type FinalInvoice = {
   file?: string;
   fileHash?: string | null;
   categoryId?: number | null;
-  pendingFileId?: number | null;
+  fileId?: number | null;
   expectedInvoiceId?: number | null;
 };
 
 export async function GET() {
   const invoiceRepo = new InvoiceRepository();
   const expectedRepo = new ExpectedInvoiceRepository();
+  const fileRepo = new FileRepository();
 
   const invoices = await invoiceRepo.list();
   const expectedInvoices = await expectedRepo.listWithFiles({
@@ -49,25 +51,37 @@ export async function GET() {
     return value.toISOString().slice(0, 10);
   };
 
-  const finals: FinalInvoice[] = invoices.map((inv) => ({
-    source: 'final',
-    id: inv.id,
-    cuit: inv.emitterCuit,
-    emitterName: undefined,
-    issueDate: toISODate(inv.issueDate),
-    invoiceType: inv.invoiceType,
-    pointOfSale: inv.pointOfSale,
-    invoiceNumber: inv.invoiceNumber,
-    total: inv.total ?? null,
-    file: inv.processedFile || inv.originalFile,
-    fileHash: (inv as any).fileHash ?? null,
-    categoryId: inv.categoryId ?? null,
-    pendingFileId: inv.pendingFileId ?? null,
-    expectedInvoiceId: inv.expectedInvoiceId ?? null,
-  }));
+  const finals: FinalInvoice[] = invoices.map((inv) => {
+    // Obtener datos de archivo via fileId
+    let filePath: string | undefined;
+    let fileHash: string | null = null;
+    if (inv.fileId) {
+      const file = fileRepo.findById(inv.fileId);
+      if (file) {
+        filePath = file.storagePath;
+        fileHash = file.fileHash ?? null;
+      }
+    }
+    return {
+      source: 'final',
+      id: inv.id,
+      cuit: inv.emitterCuit,
+      emitterName: undefined,
+      issueDate: toISODate(inv.issueDate),
+      invoiceType: inv.invoiceType,
+      pointOfSale: inv.pointOfSale,
+      invoiceNumber: inv.invoiceNumber,
+      total: inv.total ?? null,
+      file: filePath,
+      fileHash,
+      categoryId: inv.categoryId ?? null,
+      fileId: inv.fileId ?? null,
+      expectedInvoiceId: inv.expectedInvoiceId ?? null,
+    };
+  });
 
   const expecteds: ExpectedInvoice[] = expectedInvoices
-    .filter((inv) => inv.matchedPendingFileId == null)
+    .filter((inv) => inv.matchedFileId == null)
     .map((inv) => ({
       source: 'expected',
       id: inv.id,
@@ -80,7 +94,7 @@ export async function GET() {
       total: inv.total,
       status: inv.status,
       file: inv.filePath || undefined,
-      matchedPendingFileId: inv.matchedPendingFileId ?? null,
+      matchedFileId: inv.matchedFileId ?? null,
     }));
 
   const items = [...expecteds, ...finals];

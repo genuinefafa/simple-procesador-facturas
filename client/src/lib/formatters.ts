@@ -230,11 +230,11 @@ export function formatCurrency(value?: number | null): string {
 }
 
 /**
- * Formatea el estado de un pending_file a español
- * @param status Estado del pending_file
+ * Formatea el estado de un file a español
+ * @param status Estado del file
  * @returns Estado traducido
  */
-export function formatPendingStatus(status?: 'uploaded' | 'processed' | null): string {
+export function formatFileStatus(status?: 'uploaded' | 'processed' | null): string {
   const statusMap: Record<string, string> = {
     uploaded: 'Subido',
     processed: 'Procesado',
@@ -265,11 +265,11 @@ export function formatExpectedStatus(
  * @param kind Tipo de comprobante
  * @returns Tipo traducido
  */
-export function formatComprobanteKind(kind?: 'factura' | 'expected' | 'pending' | null): string {
+export function formatComprobanteKind(kind?: 'factura' | 'expected' | 'file' | null): string {
   const kindMap: Record<string, string> = {
     factura: 'Factura',
     expected: 'Esperada',
-    pending: 'Pendiente',
+    file: 'Archivo',
   };
   return kind ? kindMap[kind] || kind : '—';
 }

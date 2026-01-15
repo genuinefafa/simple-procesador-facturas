@@ -29,7 +29,7 @@ export interface ExpectedInvoice {
   caeExpiration: string | null;
   currency: string | null;
   status: ExpectedInvoiceStatus;
-  matchedPendingFileId: number | null;
+  matchedFileId: number | null;
   matchConfidence: number | null;
   importDate: string | null;
   notes: string | null;
@@ -69,7 +69,7 @@ export class ExpectedInvoiceRepository {
       caeExpiration: row.caeExpiration || null,
       currency: row.currency || 'ARS',
       status: (row.status as ExpectedInvoiceStatus) || 'pending',
-      matchedPendingFileId: row.matchedPendingFileId || null,
+      matchedFileId: row.matchedFileId || null,
       matchConfidence: row.matchConfidence || null,
       importDate: row.importDate || null,
       notes: row.notes || null,
@@ -275,15 +275,6 @@ export class ExpectedInvoiceRepository {
     return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
   }
 
-  async findByMatchedPendingFileId(pendingFileId: number): Promise<ExpectedInvoice | null> {
-    const result = await db
-      .select()
-      .from(expectedInvoices)
-      .where(eq(expectedInvoices.matchedPendingFileId, pendingFileId));
-
-    return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
-  }
-
   async findByMatchedFileId(fileId: number): Promise<ExpectedInvoice | null> {
     const result = await db
       .select()
@@ -372,7 +363,7 @@ export class ExpectedInvoiceRepository {
         emisorNombre: emisores.nombre,
       })
       .from(expectedInvoices)
-      .leftJoin(files, eq(files.id, expectedInvoices.matchedPendingFileId))
+      .leftJoin(files, eq(files.id, expectedInvoices.matchedFileId))
       .leftJoin(
         emisores,
         sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
@@ -386,7 +377,7 @@ export class ExpectedInvoiceRepository {
           emisorNombre: emisores.nombre,
         })
         .from(expectedInvoices)
-        .leftJoin(files, eq(files.id, expectedInvoices.matchedPendingFileId))
+        .leftJoin(files, eq(files.id, expectedInvoices.matchedFileId))
         .leftJoin(
           emisores,
           sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
@@ -571,7 +562,7 @@ export class ExpectedInvoiceRepository {
     // Prefiltrar inteligentemente para no perder candidatos por el límite
     const conditions: (SQL | undefined)[] = [
       eq(expectedInvoices.status, 'pending'),
-      isNull(expectedInvoices.matchedPendingFileId),
+      isNull(expectedInvoices.matchedFileId),
     ];
 
     // Aplicar SOLO prefilter de CUIT si disponible (más laxo)
@@ -767,16 +758,12 @@ export class ExpectedInvoiceRepository {
     });
   }
 
-  async markAsMatched(
-    id: number,
-    pendingFileId: number,
-    confidence: number
-  ): Promise<ExpectedInvoice> {
+  async markAsMatched(id: number, fileId: number, confidence: number): Promise<ExpectedInvoice> {
     const result = await db
       .update(expectedInvoices)
       .set({
         status: 'matched',
-        matchedPendingFileId: pendingFileId,
+        matchedFileId: fileId,
         matchConfidence: confidence,
       })
       .where(eq(expectedInvoices.id, id))

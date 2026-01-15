@@ -53,39 +53,15 @@ export const GET: RequestHandler = async ({ params }) => {
         throw error(404, 'Factura no encontrada');
       }
 
-      if (invoice.fileId) {
-        // Caso normal: factura tiene fileId
-        file = fileRepo.findById(invoice.fileId);
-        if (!file) {
-          throw error(404, 'Archivo no encontrado en BD');
-        }
-        filename = file.originalFilename;
-        console.log(`📄 [FILE-SERVER] Factura ${id} → File ${file.id}: ${filename}`);
-      } else if (invoice.fileHash) {
-        // Fallback: buscar file por hash (para facturas sin fileId migrando)
-        console.log(`⚠️  [FILE-SERVER] Factura ${id} sin fileId, buscando por hash...`);
-        file = fileRepo.findByHash(invoice.fileHash);
-        if (file) {
-          filename = file.originalFilename;
-          console.log(`📄 [FILE-SERVER] Factura ${id} → File ${file.id} (via hash): ${filename}`);
-        } else {
-          // Último fallback: usar campos legacy de la factura
-          console.log(`⚠️  [FILE-SERVER] No se encontró file por hash, usando campos legacy`);
-          const legacyPath = invoice.finalizedFile || invoice.processedFile || invoice.originalFile;
-          if (!legacyPath) {
-            throw error(404, 'Factura sin archivo asociado');
-          }
-          // Construir objeto file-like para mantener compatibilidad
-          file = {
-            storagePath: legacyPath,
-            originalFilename: legacyPath.split('/').pop() || 'factura.pdf',
-          };
-          filename = file.originalFilename;
-          console.log(`📄 [FILE-SERVER] Factura ${id} usando legacy path: ${legacyPath}`);
-        }
-      } else {
-        throw error(404, 'Factura sin archivo asociado (ni fileId ni fileHash)');
+      if (!invoice.fileId) {
+        throw error(404, 'Factura sin archivo asociado (fileId es null)');
       }
+      file = fileRepo.findById(invoice.fileId);
+      if (!file) {
+        throw error(404, 'Archivo no encontrado en BD');
+      }
+      filename = file.originalFilename;
+      console.log(`📄 [FILE-SERVER] Factura ${id} → File ${file.id}: ${filename}`);
     } else if (type === 'pending' || type === 'file') {
       // "pending:N" es legacy, ahora es "file:N" pero mantenemos compatibilidad
       file = fileRepo.findById(id);
@@ -116,11 +92,15 @@ export const GET: RequestHandler = async ({ params }) => {
     // Crear stream y servir archivo
     const stream = createReadStream(absolutePath);
 
+    // Encodear filename para HTTP headers (RFC 5987 para UTF-8)
+    const safeFilename = filename.replace(/[^\x20-\x7E]/g, '_'); // ASCII-safe fallback
+    const encodedFilename = encodeURIComponent(filename);
+
     return new Response(stream as any, {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Length': fileStats.size.toString(),
-        'Content-Disposition': `inline; filename="${filename}"`,
+        'Content-Disposition': `inline; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
         'Cache-Control': 'public, max-age=3600',
       },
     });

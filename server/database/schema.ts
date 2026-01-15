@@ -169,10 +169,7 @@ const expectedInvoices_ = sqliteTable(
     status: text('status', {
       enum: ['pending', 'matched', 'discrepancy', 'manual', 'ignored'],
     }).default('pending'),
-    // LEGACY: matchedPendingFileId mantiene la columna por compatibilidad con datos existentes
-    // pero ya NO tiene foreign key constraint (la tabla pending_files fue eliminada)
-    matchedPendingFileId: integer('matched_pending_file_id'),
-    // FK a files (constraint definido en la DB, sin referencia circular en Drizzle)
+    // FK a files
     matchedFileId: integer('matched_file_id'),
     matchConfidence: real('match_confidence'),
 
@@ -224,13 +221,11 @@ const facturas_ = sqliteTable(
     moneda: text('moneda', { enum: ['ARS', 'USD', 'EUR'] }).default('ARS'),
 
     // Archivos
-    archivoOriginal: text('archivo_original').notNull(),
-    archivoProcesado: text('archivo_procesado').notNull().unique(),
-    finalizedFile: text('finalized_file'), // Ruta relativa a data/ (ej: finalized/2025-12/file.pdf)
+    // NOTA: archivo_original, file_hash, archivo_procesado, finalized_file eliminados
+    // Usar files.storage_path y files.original_filename via fileId
     tipoArchivo: text('tipo_archivo', {
       enum: ['PDF_DIGITAL', 'PDF_IMAGEN', 'IMAGEN'],
     }).notNull(),
-    fileHash: text('file_hash'),
 
     // Calidad de extracción
     metodoExtraccion: text('metodo_extraccion', {
@@ -244,9 +239,6 @@ const facturas_ = sqliteTable(
     expectedInvoiceId: integer('expected_invoice_id').references(() => expectedInvoices_.id, {
       onDelete: 'set null',
     }),
-    // LEGACY: pendingFileId mantiene la columna por compatibilidad con datos existentes
-    // pero ya NO tiene foreign key constraint (la tabla pending_files fue eliminada)
-    pendingFileId: integer('pending_file_id'),
 
     // Categorización
     categoryId: integer('category_id').references(() => categories_.id, {
@@ -261,10 +253,9 @@ const facturas_ = sqliteTable(
     comprobanteIdx: index('idx_facturas_comprobante').on(table.comprobanteCompleto),
     totalIdx: index('idx_facturas_total').on(table.total),
     templateIdx: index('idx_facturas_template').on(table.templateUsadoId),
-    hashIdx: index('idx_facturas_hash').on(table.fileHash),
+    // hashIdx eliminado en migración 0013 (columna file_hash eliminada)
     revisionIdx: index('idx_facturas_revision').on(table.requiereRevision),
     expectedInvoiceIdx: index('idx_facturas_expected_invoice').on(table.expectedInvoiceId),
-    pendingFileIdx: index('idx_facturas_pending_file').on(table.pendingFileId),
     fileIdx: index('idx_facturas_file').on(table.fileId),
     categoryIdx: index('idx_facturas_category').on(table.categoryId),
     uniqueFactura: index('unique_factura').on(

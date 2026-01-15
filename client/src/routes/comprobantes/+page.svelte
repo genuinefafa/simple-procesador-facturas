@@ -15,7 +15,7 @@
     getFriendlyType,
     formatDateShort,
     formatEmitterName,
-    formatPendingStatus,
+    formatFileStatus,
     formatComprobanteKind,
   } from '$lib/formatters';
   import { createFilterMatcher, serializeFilters, type FilterNode } from '$lib/search';
@@ -595,7 +595,7 @@
             {/if}
           {:else if comp.file}
             <span class="tag neutral">Pendiente</span>
-            <span class="tag info">{formatPendingStatus(comp.file.status)}</span>
+            <span class="tag info">{formatFileStatus(comp.file.status)}</span>
           {/if}
         </span>
         <span class="col-hash"

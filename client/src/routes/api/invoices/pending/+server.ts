@@ -33,7 +33,7 @@ export const GET: RequestHandler = async () => {
         invoiceType: invoice.invoiceType,
         fullInvoiceNumber: invoice.fullInvoiceNumber,
         total: invoice.total,
-        originalFile: invoice.originalFile,
+        fileId: invoice.fileId,
         extractionConfidence: invoice.extractionConfidence,
         requiresReview: invoice.requiresReview,
         manuallyValidated: invoice.manuallyValidated,

@@ -505,7 +505,47 @@ export class InvoiceProcessingService {
       }
       console.info(`   📅 Fecha formateada: ${formattedDate}`);
 
-      // 7. Crear factura en BD
+      // 7. Crear o buscar file entry
+      console.info(`   💾 Preparando registro de archivo...`);
+      let fileId: number;
+      let fileHash: string | undefined;
+
+      // Buscar file existente o crear nuevo
+      const existingFiles = this.fileRepo.list({ limit: 1000 });
+      let file = existingFiles.find(
+        (f) => f.storagePath === filePath || f.originalFilename === fileName
+      );
+
+      if (file) {
+        fileId = file.id;
+        fileHash = file.fileHash ?? undefined;
+        console.info(`   📁 File existente encontrado: ID ${fileId}`);
+      } else {
+        // Calcular hash
+        const hashResult = await calculateFileHash(filePath);
+        fileHash = hashResult.hash;
+
+        // Verificar si existe por hash
+        const existingByHash = this.fileRepo.findByHash(fileHash);
+        if (existingByHash) {
+          file = existingByHash;
+          fileId = file.id;
+          console.info(`   📁 File encontrado por hash: ID ${fileId}`);
+        } else {
+          // Crear nuevo file
+          file = this.fileRepo.create({
+            originalFilename: fileName,
+            fileType: documentType,
+            fileHash: fileHash,
+            storagePath: filePath,
+            status: 'processed',
+          });
+          fileId = file.id;
+          console.info(`   📁 File creado: ID ${fileId}`);
+        }
+      }
+
+      // 8. Crear factura en BD
       console.info(`   💾 Guardando factura en base de datos...`);
       const invoice = await this.invoiceRepo.create({
         emitterCuit: normalizedCuit,
@@ -514,9 +554,7 @@ export class InvoiceProcessingService {
         pointOfSale: data.pointOfSale,
         invoiceNumber: data.invoiceNumber,
         total: data.total,
-        currency: 'ARS',
-        originalFile: fileName,
-        processedFile: fileName, // Se actualizará cuando se renombre
+        fileId: fileId,
         fileType: documentType,
         extractionMethod: extractionMethod,
         extractionConfidence: confidence,
@@ -527,26 +565,6 @@ export class InvoiceProcessingService {
       console.info(
         `   📊 Requiere revisión: ${confidence < 80 ? 'SÍ' : 'NO'} (confianza: ${confidence}%)`
       );
-
-      // 8. Copiar hash desde file o calcular si no existe
-      let fileHash: string | undefined;
-      try {
-        const files = this.fileRepo.list({ limit: 1000 });
-        const file = files.find((f) => f.storagePath === filePath);
-
-        if (file?.fileHash) {
-          fileHash = file.fileHash;
-          console.info(`   🔐 Hash copiado desde file: ${fileHash.substring(0, 16)}...`);
-        } else {
-          const hashResult = await calculateFileHash(filePath);
-          fileHash = hashResult.hash;
-          console.info(`   🔐 Hash calculado: ${fileHash.substring(0, 16)}...`);
-        }
-
-        await this.invoiceRepo.updateFileHash(invoice.id, fileHash);
-      } catch (error) {
-        console.warn(`   ⚠️  Error con hash:`, error);
-      }
 
       return {
         success: true,

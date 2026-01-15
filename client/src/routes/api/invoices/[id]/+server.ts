@@ -6,11 +6,10 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
+import { FileRepository } from '@server/database/repositories/file.js';
 import { ZoneAnnotationRepository } from '@server/database/repositories/zone-annotation.js';
 import { CategoryRepository } from '@server/database/repositories/category.js';
-import { getDatabase } from '@server/database/connection.js';
 import { generateProcessedFilename, generateSubdirectory } from '@server/utils/file-naming.js';
-import { calculateFileHash } from '@server/utils/file-hash.js';
 import { join, dirname } from 'path';
 import { copyFile, mkdir } from 'fs/promises';
 import { existsSync, readdirSync, statSync } from 'fs';
@@ -68,28 +67,25 @@ export const GET: RequestHandler = async ({ params }) => {
 
     const invoiceRepo = new InvoiceRepository();
     const emitterRepo = new EmitterRepository();
+    const fileRepo = new FileRepository();
     const zoneRepo = new ZoneAnnotationRepository();
 
-    let invoice = await invoiceRepo.findById(invoiceId);
+    const invoice = await invoiceRepo.findById(invoiceId);
 
     if (!invoice) {
       return json({ success: false, error: 'Factura no encontrada' }, { status: 404 });
     }
 
-    // Calcular hash on-the-fly si no existe
-    if (!invoice.fileHash && existsSync(invoice.processedFile)) {
-      console.info(`🔐 [INVOICE] Calculando hash on-the-fly para factura #${invoiceId}...`);
-      try {
-        const hashResult = await calculateFileHash(invoice.processedFile);
-        await invoiceRepo.updateFileHash(invoiceId, hashResult.hash);
-        // Refrescar para incluir el hash en la respuesta (sabemos que existe porque acabamos de actualizarlo)
-        invoice = (await invoiceRepo.findById(invoiceId))!;
-        console.info(
-          `✅ [INVOICE] Hash calculado y guardado: ${hashResult.hash.substring(0, 16)}...`
-        );
-      } catch (hashError) {
-        console.error(`❌ [INVOICE] Error calculando hash:`, hashError);
-        // No fallar la request, solo loguear
+    // Obtener datos del archivo via fileId
+    let originalFile: string | null = null;
+    let storagePath: string | null = null;
+    let fileHash: string | null = null;
+    if (invoice.fileId) {
+      const file = fileRepo.findById(invoice.fileId);
+      if (file) {
+        originalFile = file.originalFilename;
+        storagePath = file.storagePath;
+        fileHash = file.fileHash ?? null;
       }
     }
 
@@ -110,12 +106,10 @@ export const GET: RequestHandler = async ({ params }) => {
         fullInvoiceNumber: invoice.fullInvoiceNumber,
         total: invoice.total,
         currency: invoice.currency,
-        originalFile: invoice.originalFile,
-        processedFile: invoice.processedFile,
-        finalizedFile: invoice.finalizedFile ?? null,
-        usingFallbackFile: !invoice.finalizedFile, // TRUE si usa rutas legacy
+        originalFile: originalFile,
+        storagePath: storagePath,
         fileType: invoice.fileType,
-        fileHash: invoice.fileHash,
+        fileHash: fileHash,
         extractionConfidence: invoice.extractionConfidence,
         requiresReview: invoice.requiresReview,
         manuallyValidated: invoice.manuallyValidated,
@@ -254,70 +248,79 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       try {
         const emitterRepo = new EmitterRepository();
         const categoryRepo = new CategoryRepository();
+        const fileRepo = new FileRepository();
 
         const emitter = await emitterRepo.findByCUIT(final.emitterCuit);
         if (!emitter) {
           console.warn(`[PATCH] Emisor no encontrado: ${final.emitterCuit}`);
+        } else if (!final.fileId) {
+          console.warn(`[PATCH] Factura sin fileId, no se puede renombrar archivo`);
         } else {
-          // Obtener categoryKey si tiene categoría
-          let categoryKey: string | null = null;
-          if (final.categoryId) {
-            const category = await categoryRepo.findById(final.categoryId);
-            categoryKey = category?.key || null;
-          }
+          const file = fileRepo.findById(final.fileId);
+          if (!file) {
+            console.warn(`[PATCH] File no encontrado: ${final.fileId}`);
+          } else {
+            // Obtener categoryKey si tiene categoría
+            let categoryKey: string | null = null;
+            if (final.categoryId) {
+              const category = await categoryRepo.findById(final.categoryId);
+              categoryKey = category?.key || null;
+            }
 
-          // Generar nuevo nombre y ruta
-          const issueDate = new Date(final.issueDate);
-          const subdir = generateSubdirectory(issueDate);
-          const newFileName = generateProcessedFilename(
-            issueDate,
-            emitter,
-            final.invoiceType,
-            final.pointOfSale,
-            final.invoiceNumber,
-            final.originalFile,
-            categoryKey
-          );
-
-          const newPath = join(FINALIZED_DIR, subdir, newFileName);
-
-          // Buscar archivo actual (puede estar en ruta diferente)
-          let actualOldPath: string | null = null;
-          if (existsSync(final.processedFile)) {
-            actualOldPath = final.processedFile;
-          } else if (final.invoiceType !== null) {
-            actualOldPath = await findFileByInvoiceData(
-              final.emitterCuit,
+            // Generar nuevo nombre y ruta
+            const issueDate = new Date(final.issueDate);
+            const subdir = generateSubdirectory(issueDate);
+            const newFileName = generateProcessedFilename(
+              issueDate,
+              emitter,
               final.invoiceType,
               final.pointOfSale,
-              final.invoiceNumber
+              final.invoiceNumber,
+              file.originalFilename,
+              categoryKey
             );
-          }
 
-          if (actualOldPath && actualOldPath !== newPath) {
-            // Crear directorio destino si no existe
-            await mkdir(dirname(newPath), { recursive: true });
+            const newPath = join(FINALIZED_DIR, subdir, newFileName);
+            const newRelativePath = `finalized/${subdir}/${newFileName}`;
+            const DATA_DIR = join(process.cwd(), '..', 'data');
 
-            // Si el archivo ya está en finalized/, MOVER (rename)
-            // Si viene de uploaded/input, COPIAR (preserve original)
-            const isInFinalized = actualOldPath.includes('/finalized/');
-
-            if (isInFinalized) {
-              const { rename } = await import('fs/promises');
-              await rename(actualOldPath, newPath);
-              console.log(`[PATCH] ✅ Archivo movido (rename): ${actualOldPath} -> ${newPath}`);
-            } else {
-              await copyFile(actualOldPath, newPath);
-              console.log(
-                `[PATCH] ✅ Archivo copiado (desde uploaded): ${actualOldPath} -> ${newPath}`
+            // Buscar archivo actual usando storagePath
+            let actualOldPath: string | null = null;
+            const absoluteStoragePath = join(DATA_DIR, file.storagePath);
+            if (existsSync(absoluteStoragePath)) {
+              actualOldPath = absoluteStoragePath;
+            } else if (final.invoiceType !== null) {
+              actualOldPath = await findFileByInvoiceData(
+                final.emitterCuit,
+                final.invoiceType,
+                final.pointOfSale,
+                final.invoiceNumber
               );
             }
 
-            // Calcular ruta relativa: finalized/yyyy-mm/nombre.pdf
-            const relativePath = join('finalized', subdir, newFileName);
+            if (actualOldPath && actualOldPath !== newPath) {
+              // Crear directorio destino si no existe
+              await mkdir(dirname(newPath), { recursive: true });
 
-            // Actualizar ruta en DB (absoluta y relativa)
-            await invoiceRepo.updateProcessedFile(invoiceId, newPath, relativePath);
+              // Si el archivo ya está en finalized/, MOVER (rename)
+              // Si viene de uploaded/input, COPIAR (preserve original)
+              const isInFinalized = actualOldPath.includes('/finalized/');
+
+              if (isInFinalized) {
+                const { rename } = await import('fs/promises');
+                await rename(actualOldPath, newPath);
+                console.log(`[PATCH] ✅ Archivo movido (rename): ${actualOldPath} -> ${newPath}`);
+              } else {
+                await copyFile(actualOldPath, newPath);
+                console.log(
+                  `[PATCH] ✅ Archivo copiado (desde uploaded): ${actualOldPath} -> ${newPath}`
+                );
+              }
+
+              // Actualizar storagePath en files
+              fileRepo.updatePath(final.fileId, newRelativePath);
+              console.log(`[PATCH] ✅ storagePath actualizado: ${newRelativePath}`);
+            }
           }
         }
       } catch (err) {
@@ -367,17 +370,15 @@ export const DELETE: RequestHandler = async ({ params }) => {
         `Factura esperada #${result.unlinkedExpected} desvinculada y marcada como pendiente`
       );
     }
-    if (result.unlinkedPending) {
-      messages.push(
-        `Archivo pendiente #${result.unlinkedPending} desvinculado y marcado para revisión`
-      );
+    if (result.unlinkedFile) {
+      messages.push(`Archivo #${result.unlinkedFile} desvinculado y marcado como subido`);
     }
 
     return json({
       success: true,
       message: messages.join('. '),
       unlinkedExpected: result.unlinkedExpected,
-      unlinkedPending: result.unlinkedPending,
+      unlinkedFile: result.unlinkedFile,
     });
   } catch (error) {
     console.error('Error deleting invoice:', error);

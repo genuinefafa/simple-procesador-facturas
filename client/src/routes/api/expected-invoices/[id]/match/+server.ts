@@ -117,14 +117,11 @@ export const POST: RequestHandler = async ({ params, request }) => {
       pointOfSale: expected.pointOfSale,
       invoiceNumber: expected.invoiceNumber,
       total: expected.total || undefined,
-      currency: (expected.currency || 'ARS') as Currency,
-      originalFile: file.originalFilename,
-      processedFile: file.storagePath,
+      fileId: fileId, // FK a files - fuente de verdad para rutas
       fileType: 'PDF_DIGITAL',
       extractionMethod: 'MANUAL', // Matching confirmado manualmente
       extractionConfidence: 95,
       requiresReview: false,
-      fileId: fileId,
     });
 
     console.info(`   ✅ Factura creada - ID: ${invoice.id}`);

@@ -3,12 +3,15 @@ import type { RequestHandler } from './$types';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
 import { CategoryRepository } from '@server/database/repositories/category';
 import { EmitterRepository } from '@server/database/repositories/emitter';
+import { FileRepository } from '@server/database/repositories/file';
 import { generateProcessedFilename, generateSubdirectory } from '@server/utils/file-naming.js';
 import { join, dirname } from 'path';
-import { copyFile, mkdir } from 'fs/promises';
+import { mkdir, rename } from 'fs/promises';
 import { existsSync, readdirSync, statSync } from 'fs';
 
-const FINALIZED_DIR = join(process.cwd(), '..', 'data', 'finalized');
+const PROJECT_ROOT = join(process.cwd(), '..');
+const DATA_DIR = join(PROJECT_ROOT, 'data');
+const FINALIZED_DIR = join(DATA_DIR, 'finalized');
 
 /**
  * Busca un archivo en el filesystem basándose en CUIT y número de factura
@@ -72,6 +75,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
   }
 
   const invoiceRepo = new InvoiceRepository();
+  const fileRepo = new FileRepository();
+
   try {
     // Obtener factura actual
     const invoice = await invoiceRepo.findById(id);
@@ -84,6 +89,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
       return json({ ok: false, error: 'Emitter not found' }, { status: 404 });
     }
 
+    // Obtener archivo asociado para la extensión
+    let originalFilename = 'invoice.pdf';
+    if (invoice.fileId) {
+      const file = fileRepo.findById(invoice.fileId);
+      if (file) {
+        originalFilename = file.originalFilename;
+      }
+    }
+
     // Generar nuevo nombre de archivo
     const issueDate = new Date(invoice.issueDate);
     const subdir = generateSubdirectory(issueDate);
@@ -93,32 +107,30 @@ export const POST: RequestHandler = async ({ params, request }) => {
       invoice.invoiceType,
       invoice.pointOfSale,
       invoice.invoiceNumber,
-      invoice.originalFile,
+      originalFilename, // Para obtener extensión
       categoryKey
     );
 
     // Rutas de archivos
     const newPath = join(FINALIZED_DIR, subdir, newFileName);
-    console.log(`[CATEGORY] Nueva ruta destino: ${newPath}`);
-    console.log(`[CATEGORY] Ruta en DB (processedFile): ${invoice.processedFile}`);
-    console.log(`[CATEGORY] Ruta en DB (originalFile): ${invoice.originalFile}`);
+    const relativePath = `finalized/${subdir}/${newFileName}`;
 
-    // Buscar archivo actual (puede estar en ruta diferente por cambios previos)
+    // Buscar archivo actual via fileId -> files.storage_path
     let actualOldPath: string | null = null;
+    if (invoice.fileId) {
+      const file = fileRepo.findById(invoice.fileId);
+      if (file) {
+        const absoluteStoragePath = join(DATA_DIR, file.storagePath);
+        if (existsSync(absoluteStoragePath)) {
+          actualOldPath = absoluteStoragePath;
+          console.log(`[CATEGORY] ✅ Encontrado via fileId: ${actualOldPath}`);
+        }
+      }
+    }
 
-    // 1. Intentar con processedFile
-    if (existsSync(invoice.processedFile)) {
-      actualOldPath = invoice.processedFile;
-      console.log(`[CATEGORY] ✅ Encontrado en processedFile: ${actualOldPath}`);
-    }
-    // 2. Intentar con originalFile (puede estar en input/)
-    else if (existsSync(invoice.originalFile)) {
-      actualOldPath = invoice.originalFile;
-      console.log(`[CATEGORY] ✅ Encontrado en originalFile: ${actualOldPath}`);
-    }
-    // 3. Buscar en finalized por CUIT/número
-    else if (invoice.invoiceType !== null) {
-      console.log(`[CATEGORY] ⚠️ No encontrado en rutas DB, buscando por CUIT/número...`);
+    // Fallback: buscar en finalized por CUIT/número
+    if (!actualOldPath && invoice.invoiceType !== null) {
+      console.log(`[CATEGORY] ⚠️ No encontrado via fileId, buscando por CUIT/número...`);
       actualOldPath = await findFileByInvoiceData(
         invoice.emitterCuit,
         invoice.invoiceType,
@@ -132,45 +144,35 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     if (!actualOldPath) {
       console.error(`[CATEGORY] ❌ No se encontró el archivo físico para factura ${id}`);
+      // Continuar de todas formas para actualizar la categoría en DB
     }
 
-    // Mover/copiar archivo a finalized si existe y la ruta cambió
+    // Mover archivo si existe y la ruta cambió
     if (actualOldPath && actualOldPath !== newPath) {
       try {
         // Crear directorio destino si no existe
         await mkdir(dirname(newPath), { recursive: true });
 
-        // Si el archivo ya está en finalized/, MOVER (rename)
-        // Si viene de uploaded/input, COPIAR (preserve original)
-        const isInFinalized = actualOldPath.includes('/finalized/');
-
-        if (isInFinalized) {
-          const { rename } = await import('fs/promises');
-          await rename(actualOldPath, newPath);
-          console.log(`[CATEGORY] ✅ Archivo movido (rename): ${actualOldPath} -> ${newPath}`);
-        } else {
-          await copyFile(actualOldPath, newPath);
-          console.log(
-            `[CATEGORY] ✅ Archivo copiado (desde uploaded): ${actualOldPath} -> ${newPath}`
-          );
-        }
+        // Renombrar archivo
+        await rename(actualOldPath, newPath);
+        console.log(`[CATEGORY] ✅ Archivo movido: ${actualOldPath} -> ${newPath}`);
       } catch (err) {
-        console.error(`[CATEGORY] ❌ Error copiando archivo: ${err}`);
+        console.error(`[CATEGORY] ❌ Error moviendo archivo: ${err}`);
         // Continuar de todas formas
       }
     } else if (actualOldPath === newPath) {
       console.log(`[CATEGORY] ℹ️ Archivo ya está en la ubicación correcta`);
     }
 
-    // Actualizar en la base de datos
+    // Actualizar categoría en la base de datos
     const updated = await invoiceRepo.updateLinking(id, { categoryId: categoryId ?? null });
     if (!updated) return json({ ok: false, error: 'Invoice not found' }, { status: 404 });
 
-    // Calcular ruta relativa: finalized/yyyy-mm/nombre.pdf
-    const relativePath = join('finalized', subdir, newFileName);
-
-    // Actualizar ruta del archivo procesado (absoluta y relativa)
-    await invoiceRepo.updateProcessedFile(id, newPath, relativePath);
+    // Actualizar storagePath en files
+    if (invoice.fileId) {
+      fileRepo.updatePath(invoice.fileId, relativePath);
+      console.log(`[CATEGORY] ✅ storagePath actualizado: ${relativePath}`);
+    }
 
     return json({
       ok: true,

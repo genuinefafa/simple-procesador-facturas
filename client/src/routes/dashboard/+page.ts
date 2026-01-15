@@ -6,17 +6,15 @@ type ExpectedStats = {
   total: number;
 };
 
-type PendingStats = {
+type FileStats = {
+  uploaded: number;
   processed: number;
-  pending: number;
-  reviewing: number;
-  failed: number;
   total: number;
 };
 
 type DashboardData = {
   expected: ExpectedStats;
-  pendingFiles: PendingStats;
+  files: FileStats;
   linkedInvoices: number;
 };
 
@@ -26,23 +24,21 @@ const emptyExpected: ExpectedStats = {
   total: 0,
 };
 
-const emptyPending: PendingStats = {
+const emptyFiles: FileStats = {
+  uploaded: 0,
   processed: 0,
-  pending: 0,
-  reviewing: 0,
-  failed: 0,
   total: 0,
 };
 
 export const load: PageLoad = async ({ fetch }) => {
-  const [expectedRes, pendingRes, knownRes] = await Promise.all([
+  const [expectedRes, filesRes, knownRes] = await Promise.all([
     fetch('/api/expected-invoices'),
-    fetch('/api/pending-files'),
+    fetch('/api/files'),
     fetch('/api/invoices-known'),
   ]);
 
   let expected = emptyExpected;
-  let pendingFiles = emptyPending;
+  let files = emptyFiles;
   let linkedInvoices = 0;
 
   try {
@@ -60,19 +56,17 @@ export const load: PageLoad = async ({ fetch }) => {
   }
 
   try {
-    if (pendingRes.ok) {
-      const data = (await pendingRes.json()) as any;
+    if (filesRes.ok) {
+      const data = (await filesRes.json()) as any;
       const stats = data?.stats || {};
-      pendingFiles = {
+      files = {
+        uploaded: stats.uploaded ?? 0,
         processed: stats.processed ?? 0,
-        pending: stats.pending ?? 0,
-        reviewing: stats.reviewing ?? 0,
-        failed: stats.failed ?? 0,
         total: stats.total ?? 0,
-      } satisfies PendingStats;
+      } satisfies FileStats;
     }
   } catch (error) {
-    console.error('Dashboard load pending files error', error);
+    console.error('Dashboard load files error', error);
   }
 
   try {
@@ -80,7 +74,7 @@ export const load: PageLoad = async ({ fetch }) => {
       const data = (await knownRes.json()) as any;
       const items = data?.items || [];
       linkedInvoices = items.filter(
-        (item: any) => item?.expectedInvoiceId != null || item?.pendingFileId != null
+        (item: any) => item?.expectedInvoiceId != null || item?.fileId != null
       ).length;
     }
   } catch (error) {
@@ -89,7 +83,7 @@ export const load: PageLoad = async ({ fetch }) => {
 
   const stats: DashboardData = {
     expected,
-    pendingFiles,
+    files,
     linkedInvoices,
   };
 

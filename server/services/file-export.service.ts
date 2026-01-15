@@ -2,8 +2,8 @@
  * Servicio para exportar y renombrar archivos procesados
  *
  * Estructura de salida:
- * - Directorio: processed/yyyy-mm/
- * - Nombre: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV NUM.ext
+ * - Directorio: finalized/yyyy-mm/
+ * - Nombre: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV-NUM [CATEGORIA].ext
  */
 
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
@@ -11,15 +11,12 @@ import { join } from 'path';
 import type { Invoice } from '../utils/types.js';
 import { InvoiceRepository } from '../database/repositories/invoice.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
-import {
-  generateSubdirectory,
-  generateProcessedFilename,
-  type DocumentKind,
-} from '../utils/file-naming.js';
+import { generateSubdirectory, generateProcessedFilename } from '../utils/file-naming.js';
 
 export interface ExportOptions {
   outputDir?: string;
-  documentKind?: DocumentKind;
+  /** Key de la categoría (ej: "3f", "sw", "Fa") - aparece en el nombre como [key] */
+  categoryKey?: string | null;
 }
 
 export interface ExportResult {
@@ -37,7 +34,7 @@ export class FileExportService {
   constructor(outputDir?: string) {
     this.invoiceRepo = new InvoiceRepository();
     this.emitterRepo = new EmitterRepository();
-    this.defaultOutputDir = outputDir || './data/processed';
+    this.defaultOutputDir = outputDir || './data/finalized';
   }
 
   /**
@@ -56,7 +53,7 @@ export class FileExportService {
   ): Promise<ExportResult> {
     try {
       const outputDir = options.outputDir || this.defaultOutputDir;
-      const documentKind = options.documentKind || 'FAC';
+      const categoryKey = options.categoryKey ?? null;
 
       // Obtener el emisor para el nombre
       const emitter = this.emitterRepo.findByCUIT(invoice.emitterCuit);
@@ -78,7 +75,7 @@ export class FileExportService {
         console.info(`   📁 Directorio creado: ${fullOutputDir}`);
       }
 
-      // Generar nombre del archivo
+      // Generar nombre del archivo usando categoryKey
       const newFileName = generateProcessedFilename(
         issueDate,
         emitter,
@@ -86,7 +83,7 @@ export class FileExportService {
         invoice.pointOfSale,
         invoice.invoiceNumber,
         originalPath,
-        documentKind
+        categoryKey
       );
 
       const newPath = join(fullOutputDir, newFileName);
@@ -133,13 +130,13 @@ export class FileExportService {
       invoiceType: Invoice['invoiceType'];
       pointOfSale: number;
       invoiceNumber: number;
-      documentKind?: DocumentKind;
+      categoryKey?: string | null;
     },
     options: ExportOptions = {}
   ): ExportResult {
     try {
       const outputDir = options.outputDir || this.defaultOutputDir;
-      const documentKind = data.documentKind || options.documentKind || 'FAC';
+      const categoryKey = data.categoryKey ?? options.categoryKey ?? null;
 
       // Obtener el emisor para el nombre
       const emitter = this.emitterRepo.findByCUIT(data.emitterCuit);
@@ -160,7 +157,7 @@ export class FileExportService {
         console.info(`   📁 Directorio creado: ${fullOutputDir}`);
       }
 
-      // Generar nombre del archivo
+      // Generar nombre del archivo usando categoryKey
       const newFileName = generateProcessedFilename(
         data.issueDate,
         emitter,
@@ -168,7 +165,7 @@ export class FileExportService {
         data.pointOfSale,
         data.invoiceNumber,
         originalPath,
-        documentKind
+        categoryKey
       );
 
       const newPath = join(fullOutputDir, newFileName);
@@ -236,7 +233,7 @@ export class FileExportService {
     options: ExportOptions = {}
   ): { subdir: string; filename: string; fullPath: string } | null {
     const outputDir = options.outputDir || this.defaultOutputDir;
-    const documentKind = options.documentKind || 'FAC';
+    const categoryKey = options.categoryKey ?? null;
 
     const emitter = this.emitterRepo.findByCUIT(invoice.emitterCuit);
     if (!emitter) {
@@ -253,7 +250,7 @@ export class FileExportService {
       invoice.pointOfSale,
       invoice.invoiceNumber,
       originalPath,
-      documentKind
+      categoryKey
     );
 
     return {

@@ -17,7 +17,6 @@ export type Final = {
   filePath?: string;
   fileHash?: string | null;
   categoryId?: number | null;
-  pendingFileId?: number | null;
   fileId?: number | null;
   expectedInvoiceId?: number | null;
 };
@@ -35,7 +34,7 @@ export type Expected = {
   status?: string;
   file?: string;
   filePath?: string;
-  matchedPendingFileId?: number | null;
+  matchedFileId?: number | null;
 };
 
 export type FileData = {
@@ -122,7 +121,6 @@ export const load: PageLoad = async ({ fetch, params }) => {
           fileHash: base.fileHash,
           categoryId: base.categoryId ?? null,
           expectedInvoiceId: base.expectedInvoiceId,
-          pendingFileId: base.pendingFileId,
           fileId: base.fileId ?? null,
         };
         console.log('[LOADER] final object:', { id: final.id, categoryId: final.categoryId });
@@ -147,20 +145,20 @@ export const load: PageLoad = async ({ fetch, params }) => {
                 status: exp.status,
                 file: exp.filePath,
                 filePath: exp.filePath,
-                matchedPendingFileId: exp.matchedPendingFileId ?? null,
+                matchedFileId: exp.matchedFileId ?? null,
               };
             }
           }
         }
 
-        // Cargar archivo asociado (si existe fileId o pendingFileId legacy)
+        // Cargar archivo asociado (si existe fileId)
         let file: FileData | null = null;
-        const fileIdToLoad = final.fileId || final.pendingFileId;
+        const fileIdToLoad = final.fileId;
         if (fileIdToLoad) {
           const fileRes = await fetch(`/api/files/${fileIdToLoad}`);
           if (fileRes.ok) {
             const fileData = await fileRes.json();
-            const d = fileData.pendingFile || fileData; // API retorna 'pendingFile' por compatibilidad
+            const d = fileData.file || fileData;
             file = {
               id: d.id,
               originalFilename: d.originalFilename,
@@ -209,7 +207,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
             status: exp.status,
             file: exp.filePath,
             filePath: exp.filePath,
-            matchedPendingFileId: exp.matchedPendingFileId ?? null,
+            matchedFileId: exp.matchedFileId ?? null,
           };
           comprobante = {
             id: `expected:${expected.id}`,
@@ -228,13 +226,12 @@ export const load: PageLoad = async ({ fetch, params }) => {
       const res = await fetch(`/api/files/${id}`);
       if (res.ok) {
         const response = await res.json();
-        const data = response.pendingFile; // { success, pendingFile }
+        const data = response.file;
 
         // IMPORTANTE: Si el archivo ya tiene una factura vinculada, redirigir automáticamente
         // Esto evita que el usuario pueda crear facturas duplicadas desde un archivo ya procesado
         let linkedInvoiceId: number | null = null;
         try {
-          // Usar fileId (nuevo modelo) en lugar de pendingFileId (legacy)
           const invoicesRes = await fetch(`/api/invoices?fileId=${id}`);
           if (invoicesRes.ok) {
             const invoicesData = await invoicesRes.json();

@@ -6,10 +6,10 @@
 import { getGoogleIntegrationService } from './google-integration.service.js';
 import { EmitterRepository } from '../../database/repositories/emitter.js';
 import { InvoiceRepository } from '../../database/repositories/invoice.js';
+import { FileRepository } from '../../database/repositories/file.js';
 import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice.js';
 import { getConfig } from '../../utils/config-loader.js';
 import type { InvoiceData } from './google-integration.service.js';
-import type { Currency } from '../../utils/types.js';
 import { format } from 'date-fns';
 import { getARCACodeFromFriendlyType, getFriendlyType } from '../../utils/afip-codes.js';
 
@@ -248,7 +248,7 @@ export class GoogleSyncService {
               confianzaExtraccion: invoice.extractionConfidence || 0,
               validadoManualmente: !invoice.requiresReview,
               requiereRevision: invoice.requiresReview,
-              archivoOriginal: invoice.originalFile || '',
+              archivoOriginal: '', // Campo legacy - ahora las rutas están en files
             };
 
             // Nota: saveInvoice también intenta subir archivo a Drive
@@ -317,6 +317,17 @@ export class GoogleSyncService {
               });
             }
 
+            // Crear file placeholder para facturas importadas de Google
+            const fileRepo = new FileRepository();
+            const placeholderFile = fileRepo.create({
+              originalFilename:
+                googleInvoice.archivoLink || `google-import-${googleInvoice.id}.pdf`,
+              fileType: googleInvoice.tipoArchivo || 'PDF_DIGITAL',
+              fileHash: `google-${googleInvoice.emisorCuit}-${googleInvoice.puntoVenta}-${googleInvoice.numeroComprobante}`,
+              storagePath: googleInvoice.archivoLink || '',
+              status: 'processed',
+            });
+
             // Crear factura local
             await this.invoiceRepo.create({
               emitterCuit: googleInvoice.emisorCuit,
@@ -325,9 +336,7 @@ export class GoogleSyncService {
               pointOfSale: googleInvoice.puntoVenta,
               invoiceNumber: googleInvoice.numeroComprobante,
               total: googleInvoice.total,
-              currency: (googleInvoice.moneda as Currency) || 'ARS',
-              originalFile: googleInvoice.archivoLink || '',
-              processedFile: googleInvoice.archivoLink || '',
+              fileId: placeholderFile.id,
               fileType: googleInvoice.tipoArchivo,
               extractionMethod: googleInvoice.metodoExtraccion,
               extractionConfidence: googleInvoice.confianzaExtraccion,

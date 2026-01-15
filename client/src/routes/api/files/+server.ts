@@ -6,6 +6,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
+import { FileRepository } from '@server/database/repositories/file.js';
 import { readdirSync, existsSync, statSync } from 'fs';
 import { join } from 'path';
 
@@ -33,6 +34,7 @@ interface FileStatus {
 export const GET: RequestHandler = async () => {
   try {
     const invoiceRepo = new InvoiceRepository();
+    const fileRepo = new FileRepository();
     const filesMap = new Map<string, FileStatus>();
 
     // 1. Leer archivos del filesystem
@@ -57,7 +59,14 @@ export const GET: RequestHandler = async () => {
     const invoices = await invoiceRepo.list({ limit: 1000 });
 
     for (const invoice of invoices) {
-      const fileName = invoice.originalFile;
+      // Obtener nombre de archivo via fileId
+      let fileName = 'unknown.pdf';
+      if (invoice.fileId) {
+        const file = fileRepo.findById(invoice.fileId);
+        if (file) {
+          fileName = file.originalFilename;
+        }
+      }
       const filePath = join(INPUT_DIR, fileName);
       const fileExists = existsSync(filePath);
 

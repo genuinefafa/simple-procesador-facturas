@@ -1,10 +1,10 @@
 import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
-import { PendingFileRepository } from '../../database/repositories/pending-file.js';
+import { FileRepository } from '../../database/repositories/file.js';
 import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice.js';
 import { runTestMigrations, resetTestDb } from '../../database/db-test.js';
 
 describe('Matches API - findPartialMatches', () => {
-  let _pendingRepo: PendingFileRepository;
+  let _fileRepo: FileRepository;
   let expectedRepo: ExpectedInvoiceRepository;
 
   beforeAll(async () => {
@@ -13,7 +13,7 @@ describe('Matches API - findPartialMatches', () => {
 
   beforeEach(() => {
     resetTestDb();
-    _pendingRepo = new PendingFileRepository();
+    _fileRepo = new FileRepository();
     expectedRepo = new ExpectedInvoiceRepository();
   });
 

@@ -35,7 +35,7 @@ export type Expected = {
   total?: number | null;
   status?: string;
   file?: string;
-  matchedPendingFileId?: number | null;
+  matchedFileId?: number | null;
 };
 
 export type FileData = {
@@ -132,23 +132,35 @@ export async function GET() {
   }
 
   // 1) Agregar facturas como comprobantes principales
-  const finals: Final[] = invoices.map((inv) => ({
-    source: 'final',
-    id: inv.id,
-    cuit: inv.emitterCuit,
-    emitterName: emitterCache.get(inv.emitterCuit) || undefined,
-    issueDate: toISODate(inv.issueDate),
-    processedAt: inv.processedAt ? inv.processedAt.toString() : null,
-    invoiceType: inv.invoiceType,
-    pointOfSale: inv.pointOfSale,
-    invoiceNumber: inv.invoiceNumber,
-    total: inv.total ?? null,
-    file: inv.processedFile || inv.originalFile,
-    fileHash: (inv as any).fileHash ?? null,
-    categoryId: inv.categoryId ?? null,
-    fileId: inv.fileId ?? null,
-    expectedInvoiceId: inv.expectedInvoiceId ?? null,
-  }));
+  // Obtener rutas de archivo via fileId -> files.storage_path
+  const finals: Final[] = invoices.map((inv) => {
+    let filePath: string | undefined;
+    let fileHash: string | null = null;
+    if (inv.fileId) {
+      const file = fileRepo.findById(inv.fileId);
+      if (file) {
+        filePath = file.storagePath;
+        fileHash = file.fileHash ?? null;
+      }
+    }
+    return {
+      source: 'final',
+      id: inv.id,
+      cuit: inv.emitterCuit,
+      emitterName: emitterCache.get(inv.emitterCuit) || undefined,
+      issueDate: toISODate(inv.issueDate),
+      processedAt: inv.processedAt ? inv.processedAt.toString() : null,
+      invoiceType: inv.invoiceType,
+      pointOfSale: inv.pointOfSale,
+      invoiceNumber: inv.invoiceNumber,
+      total: inv.total ?? null,
+      file: filePath,
+      fileHash,
+      categoryId: inv.categoryId ?? null,
+      fileId: inv.fileId ?? null,
+      expectedInvoiceId: inv.expectedInvoiceId ?? null,
+    };
+  });
 
   for (const f of finals) {
     const comprobanteId = `factura:${f.id}`;
@@ -165,7 +177,7 @@ export async function GET() {
 
   // 2) Agregar esperadas no vinculadas a factura
   const expecteds: Expected[] = expectedInvoices
-    .filter((inv) => inv.matchedPendingFileId == null)
+    .filter((inv) => inv.matchedFileId == null)
     .map((inv) => ({
       source: 'expected',
       id: inv.id,
@@ -178,7 +190,7 @@ export async function GET() {
       total: inv.total,
       status: inv.status,
       file: inv.filePath || undefined,
-      matchedPendingFileId: inv.matchedPendingFileId ?? null,
+      matchedFileId: inv.matchedFileId ?? null,
     }));
 
   for (const e of expecteds) {
@@ -207,8 +219,8 @@ export async function GET() {
   // Los archivos con status='uploaded' son por definición no asociados a factura
   for (const p of uploadedFiles) {
     // Buscar si hay una expected vinculada a este file
-    // NOTA: Por ahora buscamos por matchedPendingFileId (legacy) hasta que se actualice el repo
-    const expectedLinked = expectedInvoices.find((e) => e.matchedPendingFileId === p.id);
+    // Buscar si hay una expected vinculada a este file por matchedFileId
+    const expectedLinked = expectedInvoices.find((e) => e.matchedFileId === p.id);
     const expectedData = expectedLinked
       ? {
           source: 'expected' as const,
@@ -222,7 +234,7 @@ export async function GET() {
           total: expectedLinked.total,
           status: expectedLinked.status,
           file: expectedLinked.filePath || undefined,
-          matchedPendingFileId: expectedLinked.matchedPendingFileId ?? null,
+          matchedFileId: expectedLinked.matchedFileId ?? null,
         }
       : null;
 

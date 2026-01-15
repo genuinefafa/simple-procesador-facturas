@@ -17,16 +17,6 @@ export const GET: RequestHandler = async ({ url }) => {
       }
     }
 
-    // Filtro opcional por pendingFileId (legacy, mantener por compatibilidad)
-    const pendingFileIdParam = url.searchParams.get('pendingFileId');
-    if (pendingFileIdParam) {
-      const pendingFileId = parseInt(pendingFileIdParam, 10);
-      if (!isNaN(pendingFileId)) {
-        const invoices = await repo.findByPendingFileId(pendingFileId);
-        return json({ success: true, invoices });
-      }
-    }
-
     const invoices = await repo.list();
 
     return json({ success: true, invoices });
