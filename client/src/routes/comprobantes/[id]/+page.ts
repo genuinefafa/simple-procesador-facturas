@@ -178,12 +178,34 @@ export const load: PageLoad = async ({ fetch, params }) => {
           }
         }
 
+        // Cargar matches si la factura no tiene expected vinculado y tiene archivo
+        let matches: Match[] = [];
+        if (!final.expectedInvoiceId && fileIdToLoad) {
+          try {
+            const matchRes = await fetch(`/api/files/${fileIdToLoad}/matches`);
+            if (matchRes.ok) {
+              const matchData = await matchRes.json();
+              if (matchData.hasExactMatch && matchData.exactMatch) {
+                matches = [matchData.exactMatch];
+              }
+              const additional = matchData.partialMatches || matchData.candidates || [];
+              matches = [
+                ...matches,
+                ...additional.filter((m: any) => !matches.find((e) => e.id === m.id)),
+              ];
+            }
+          } catch (err) {
+            console.warn('No se pudieron cargar matches para factura:', err);
+          }
+        }
+
         comprobante = {
           id: `factura:${final.id}`,
           kind: 'factura',
           final,
           expected,
           file,
+          matches,
           emitterCuit: final.cuit,
           emitterName: final.emitterName,
         };

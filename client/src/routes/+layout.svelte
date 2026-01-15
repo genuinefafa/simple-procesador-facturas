@@ -90,7 +90,7 @@
           <ul class="search-dropdown">
             {#each searchResults as result}
               <li>
-                <a href={`/facturas?id=${result.id}`} onclick={clearSearch}>
+                <a href={`/comprobantes/factura:${result.id}`} onclick={clearSearch}>
                   <span class="result-number">{result.fullInvoiceNumber ?? '—'}</span>
                   <span class="result-cuit">{result.emitterCuit}</span>
                 </a>

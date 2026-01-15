@@ -519,7 +519,13 @@ export class InvoiceProcessingService {
       if (file) {
         fileId = file.id;
         fileHash = file.fileHash ?? undefined;
-        console.info(`   📁 File existente encontrado: ID ${fileId}`);
+        // Actualizar status a 'processed' si no lo está
+        if (file.status !== 'processed') {
+          this.fileRepo.updateStatus(fileId, 'processed');
+          console.info(`   📁 File existente actualizado a processed: ID ${fileId}`);
+        } else {
+          console.info(`   📁 File existente encontrado: ID ${fileId}`);
+        }
       } else {
         // Calcular hash
         const hashResult = await calculateFileHash(filePath);

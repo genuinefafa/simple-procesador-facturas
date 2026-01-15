@@ -805,6 +805,62 @@
             </button>
           </div>
         {/if}
+
+        <!-- Matches para vincular (en modo edición, sin expected vinculado) -->
+        {#if editMode && !selectedExpectedId && comprobante.matches && comprobante.matches.length > 0}
+          <div class="matches-section in-form">
+            <h4>
+              🎯 Facturas esperadas similares ({comprobante.matches.length})
+            </h4>
+            <p class="matches-hint">
+              Seleccioná una para vincular y copiar los datos del fisco (fuente de verdad)
+            </p>
+            <div class="matches-list">
+              {#each comprobante.matches as match}
+                <div class="match-card">
+                  <div class="match-header">
+                    <span class="match-title">
+                      {getFriendlyType(match.invoiceType)}
+                      {String(match.pointOfSale).padStart(4, '0')}-{String(
+                        match.invoiceNumber
+                      ).padStart(8, '0')}
+                    </span>
+                    <span
+                      class="match-score"
+                      class:high={match.matchScore >= 80}
+                      class:medium={match.matchScore >= 50 && match.matchScore < 80}
+                      class:low={match.matchScore < 50}
+                    >
+                      {match.matchScore}% match
+                    </span>
+                  </div>
+                  <div class="match-details">
+                    <span>CUIT: {match.cuit}</span>
+                    {#if match.emitterName}
+                      <span>Emisor: {match.emitterName}</span>
+                    {/if}
+                    <span>Fecha: {match.issueDate}</span>
+                    {#if match.total}
+                      <span
+                        >Total: {match.total.toLocaleString('es-AR', {
+                          style: 'currency',
+                          currency: 'ARS',
+                        })}</span
+                      >
+                    {/if}
+                    {#if match.status}
+                      <span class="status">Estado: {match.status}</span>
+                    {/if}
+                  </div>
+                  <Button size="sm" variant="secondary" onclick={() => copyFromMatch(match)}>
+                    📋 Usar estos datos
+                  </Button>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
         {#if !isExpectedWithoutFile}
           <div class="actions">
             {#if comprobante.kind === 'factura'}
@@ -1471,10 +1527,23 @@
     border-radius: var(--radius-md);
   }
 
+  .matches-section.in-form {
+    margin-top: var(--spacing-3);
+    margin-bottom: var(--spacing-3);
+    background: var(--color-primary-50);
+    border: 1px solid var(--color-primary-200);
+  }
+
   .matches-section h4 {
     margin: 0 0 var(--spacing-3) 0;
     font-size: var(--font-size-md);
     color: var(--color-text-primary);
+  }
+
+  .matches-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0 0 var(--spacing-2) 0;
   }
 
   .matches-list {

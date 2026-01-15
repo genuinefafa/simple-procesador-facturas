@@ -217,10 +217,32 @@ export async function GET() {
 
   // 3) Agregar archivos subidos (no vinculados a factura)
   // Los archivos con status='uploaded' son por definición no asociados a factura
+  // Pero verificamos también que no estén referenciados por ninguna factura (defensa en profundidad)
+  const fileIdsUsedByInvoices = new Set(
+    finals.map((f) => f.fileId).filter((id): id is number => id != null)
+  );
+
   for (const p of uploadedFiles) {
-    // Buscar si hay una expected vinculada a este file
+    // Saltar si este file ya está asociado a una factura
+    if (fileIdsUsedByInvoices.has(p.id)) {
+      console.warn(`[COMPROBANTES] Saltando file:${p.id} - ya asociado a factura`);
+      continue;
+    }
+
     // Buscar si hay una expected vinculada a este file por matchedFileId
     const expectedLinked = expectedInvoices.find((e) => e.matchedFileId === p.id);
+
+    // Si hay expected vinculada Y esa expected ya está vinculada a una factura, saltar
+    if (expectedLinked) {
+      const facturaWithExpected = finals.find((f) => f.expectedInvoiceId === expectedLinked.id);
+      if (facturaWithExpected) {
+        console.warn(
+          `[COMPROBANTES] Saltando file:${p.id} - expected:${expectedLinked.id} ya vinculada a factura:${facturaWithExpected.id}`
+        );
+        continue;
+      }
+    }
+
     const expectedData = expectedLinked
       ? {
           source: 'expected' as const,
