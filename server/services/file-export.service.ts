@@ -46,11 +46,7 @@ export class FileExportService {
    * @param options - Opciones de exportación
    * @returns Resultado de la exportación
    */
-  exportInvoice(
-    invoice: Invoice,
-    originalPath: string,
-    options: ExportOptions = {}
-  ): ExportResult {
+  exportInvoice(invoice: Invoice, originalPath: string, options: ExportOptions = {}): ExportResult {
     try {
       const outputDir = options.outputDir || this.defaultOutputDir;
       const categoryKey = options.categoryKey ?? null;

@@ -213,11 +213,7 @@ export class InvoiceRepository {
    * @deprecated Columnas archivo_procesado y finalized_file eliminadas.
    * Usar FileRepository.updatePath() para actualizar files.storage_path
    */
-  updateProcessedFile(
-    _id: number,
-    _processedFile: string,
-    _finalizedFile?: string
-  ): void {
+  updateProcessedFile(_id: number, _processedFile: string, _finalizedFile?: string): void {
     console.warn(
       '[DEPRECATED] InvoiceRepository.updateProcessedFile() - usar FileRepository.updatePath()'
     );
