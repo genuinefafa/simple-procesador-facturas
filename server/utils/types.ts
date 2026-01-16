@@ -79,6 +79,7 @@ export interface ExtractionTemplate {
 
 /**
  * Factura procesada
+ * NOTA: Las rutas de archivo se obtienen via fileId -> files.storage_path
  */
 export interface Invoice {
   id: number;
@@ -91,14 +92,15 @@ export interface Invoice {
   fullInvoiceNumber: string; // "A-0001-00000123"
   total: number;
   currency: Currency;
-  originalFile: string;
-  processedFile: string;
+  fileId?: number; // FK a files - fuente de verdad para rutas
   fileType: DocumentType;
   extractionMethod: ExtractionMethod;
   extractionConfidence?: number;
   manuallyValidated: boolean;
   requiresReview: boolean;
   processedAt: Date;
+  categoryId?: number;
+  expectedInvoiceId?: number;
 }
 
 /**

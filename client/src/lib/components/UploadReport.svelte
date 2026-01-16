@@ -2,7 +2,7 @@
   import { goto } from '$app/navigation';
 
   interface UploadedFile {
-    pendingFileId: number;
+    fileId: number;
     name: string;
     size: number;
     hashPreview?: string;
@@ -12,7 +12,7 @@
     name: string;
     error: string;
     type?: 'duplicate';
-    duplicateType?: 'pending' | 'invoice';
+    duplicateType?: 'file' | 'invoice';
     duplicateId?: number;
     duplicateFilename?: string;
   }
@@ -29,8 +29,8 @@
   const duplicateCount = errors.filter((e) => e.type === 'duplicate').length;
   const errorCount = errors.length - duplicateCount;
 
-  function handleComprobanteClick(type: 'pending' | 'invoice', id: number) {
-    const comprobanteId = type === 'pending' ? `pending:${id}` : `factura:${id}`;
+  function handleComprobanteClick(type: 'file' | 'invoice', id: number) {
+    const comprobanteId = type === 'file' ? `file:${id}` : `factura:${id}`;
     goto(`/comprobantes/${comprobanteId}`);
   }
 </script>
@@ -90,7 +90,7 @@
                 class="link-button"
                 onclick={() => handleComprobanteClick(err.duplicateType!, err.duplicateId!)}
               >
-                {err.duplicateType === 'pending' ? 'pendiente' : 'factura'}:{err.duplicateId}
+                {err.duplicateType === 'file' ? 'archivo' : 'factura'}:{err.duplicateId}
               </button>
             {:else}
               <span class="duplicate-info">{err.error}</span>
@@ -103,17 +103,14 @@
 
   {#if successCount > 0}
     <div class="section">
-      <h4>Nuevos pendientes creados:</h4>
+      <h4>Nuevos archivos creados:</h4>
       <ul class="file-list">
         {#each uploadedFiles as file}
           <li class="success-item">
             <span class="filename">{file.name}</span>
             <span class="arrow">→</span>
-            <button
-              class="link-button"
-              onclick={() => handleComprobanteClick('pending', file.pendingFileId)}
-            >
-              pending:{file.pendingFileId}
+            <button class="link-button" onclick={() => handleComprobanteClick('file', file.fileId)}>
+              file:{file.fileId}
             </button>
             {#if file.hashPreview}
               <span class="hash">{file.hashPreview}...</span>

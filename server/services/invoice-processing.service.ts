@@ -13,7 +13,7 @@ import { OCRExtractor } from '../extractors/ocr-extractor.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '../validators/cuit.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import { InvoiceRepository } from '../database/repositories/invoice.js';
-import { PendingFileRepository } from '../database/repositories/pending-file.js';
+import { FileRepository } from '../database/repositories/file.js';
 import {
   ExpectedInvoiceRepository,
   type ExpectedInvoice,
@@ -55,7 +55,7 @@ export class InvoiceProcessingService {
   private ocrExtractor: OCRExtractor;
   private emitterRepo: EmitterRepository;
   private invoiceRepo: InvoiceRepository;
-  private pendingFileRepo: PendingFileRepository;
+  private fileRepo: FileRepository;
   private expectedInvoiceRepo: ExpectedInvoiceRepository;
 
   constructor() {
@@ -63,7 +63,7 @@ export class InvoiceProcessingService {
     this.ocrExtractor = new OCRExtractor();
     this.emitterRepo = new EmitterRepository();
     this.invoiceRepo = new InvoiceRepository();
-    this.pendingFileRepo = new PendingFileRepository();
+    this.fileRepo = new FileRepository();
     this.expectedInvoiceRepo = new ExpectedInvoiceRepository();
   }
 
@@ -505,7 +505,53 @@ export class InvoiceProcessingService {
       }
       console.info(`   📅 Fecha formateada: ${formattedDate}`);
 
-      // 7. Crear factura en BD
+      // 7. Crear o buscar file entry
+      console.info(`   💾 Preparando registro de archivo...`);
+      let fileId: number;
+      let fileHash: string | undefined;
+
+      // Buscar file existente o crear nuevo
+      const existingFiles = this.fileRepo.list({ limit: 1000 });
+      let file = existingFiles.find(
+        (f) => f.storagePath === filePath || f.originalFilename === fileName
+      );
+
+      if (file) {
+        fileId = file.id;
+        fileHash = file.fileHash ?? undefined;
+        // Actualizar status a 'processed' si no lo está
+        if (file.status !== 'processed') {
+          this.fileRepo.updateStatus(fileId, 'processed');
+          console.info(`   📁 File existente actualizado a processed: ID ${fileId}`);
+        } else {
+          console.info(`   📁 File existente encontrado: ID ${fileId}`);
+        }
+      } else {
+        // Calcular hash
+        const hashResult = await calculateFileHash(filePath);
+        fileHash = hashResult.hash;
+
+        // Verificar si existe por hash
+        const existingByHash = this.fileRepo.findByHash(fileHash);
+        if (existingByHash) {
+          file = existingByHash;
+          fileId = file.id;
+          console.info(`   📁 File encontrado por hash: ID ${fileId}`);
+        } else {
+          // Crear nuevo file
+          file = this.fileRepo.create({
+            originalFilename: fileName,
+            fileType: documentType,
+            fileHash: fileHash,
+            storagePath: filePath,
+            status: 'processed',
+          });
+          fileId = file.id;
+          console.info(`   📁 File creado: ID ${fileId}`);
+        }
+      }
+
+      // 8. Crear factura en BD
       console.info(`   💾 Guardando factura en base de datos...`);
       const invoice = await this.invoiceRepo.create({
         emitterCuit: normalizedCuit,
@@ -514,9 +560,7 @@ export class InvoiceProcessingService {
         pointOfSale: data.pointOfSale,
         invoiceNumber: data.invoiceNumber,
         total: data.total,
-        currency: 'ARS',
-        originalFile: fileName,
-        processedFile: fileName, // Se actualizará cuando se renombre
+        fileId: fileId,
         fileType: documentType,
         extractionMethod: extractionMethod,
         extractionConfidence: confidence,
@@ -527,26 +571,6 @@ export class InvoiceProcessingService {
       console.info(
         `   📊 Requiere revisión: ${confidence < 80 ? 'SÍ' : 'NO'} (confianza: ${confidence}%)`
       );
-
-      // 8. Copiar hash desde pending_file o calcular si no existe
-      let fileHash: string | undefined;
-      try {
-        const pendingFiles = await this.pendingFileRepo.list({ limit: 1000 });
-        const pendingFile = pendingFiles.find((pf) => pf.filePath === filePath);
-
-        if (pendingFile?.fileHash) {
-          fileHash = pendingFile.fileHash;
-          console.info(`   🔐 Hash copiado desde pending_file: ${fileHash.substring(0, 16)}...`);
-        } else {
-          const hashResult = await calculateFileHash(filePath);
-          fileHash = hashResult.hash;
-          console.info(`   🔐 Hash calculado: ${fileHash.substring(0, 16)}...`);
-        }
-
-        await this.invoiceRepo.updateFileHash(invoice.id, fileHash);
-      } catch (error) {
-        console.warn(`   ⚠️  Error con hash:`, error);
-      }
 
       return {
         success: true,

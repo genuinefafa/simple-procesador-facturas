@@ -6,9 +6,7 @@
 import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
-// Forward declarations for circular references
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-declare let _pendingFiles: any;
+// Forward declarations for circular references (TypeScript only)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare let _expectedInvoices: any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -135,49 +133,11 @@ const importBatches_ = sqliteTable('import_batches', {
 export { importBatches_ as importBatches };
 
 // =============================================================================
-// ARCHIVOS PENDIENTES
+// ARCHIVOS PENDIENTES - ELIMINADA (migración 0011)
 // =============================================================================
-
-const pendingFiles_ = sqliteTable(
-  'pending_files',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    originalFilename: text('original_filename').notNull(),
-    filePath: text('file_path').notNull(),
-    fileSize: integer('file_size'),
-    uploadDate: text('upload_date').default(sql`CURRENT_TIMESTAMP`),
-    fileHash: text('file_hash'), // SHA-256 hash del archivo
-
-    // Datos extraídos (pueden estar incompletos/nulos)
-    extractedCuit: text('extracted_cuit'),
-    // CHECK constraint aplicado en migración 0009 (Drizzle no soporta .check() actualmente)
-    // Formato: YYYY-MM-DD (ISO 8601), validado por DB
-    extractedDate: text('extracted_date'),
-    extractedTotal: real('extracted_total'),
-    extractedType: integer('extracted_type'), // Código ARCA (1, 6, 11, etc.), null si desconocido
-    extractedPointOfSale: integer('extracted_point_of_sale'),
-    extractedInvoiceNumber: integer('extracted_invoice_number'),
-
-    extractionConfidence: integer('extraction_confidence'),
-    extractionMethod: text('extraction_method'),
-    extractionErrors: text('extraction_errors'),
-
-    // Estados: pending, reviewing, processed, failed
-    status: text('status', {
-      enum: ['pending', 'reviewing', 'processed', 'failed'],
-    }).default('pending'),
-
-    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => ({
-    statusIdx: index('idx_pending_status').on(table.status),
-    uploadDateIdx: index('idx_pending_upload_date').on(table.uploadDate),
-    hashIdx: index('idx_pending_files_hash').on(table.fileHash),
-  })
-);
-
-export { pendingFiles_ as pendingFiles };
+// Esta tabla YA NO EXISTE. Fue completamente eliminada en migración 0011.
+// Reemplazada por: files + file_extraction_results
+// NO DESCOMENTAR NI USAR.
 
 // =============================================================================
 // FACTURAS ESPERADAS (DESDE EXCEL AFIP)
@@ -209,9 +169,8 @@ const expectedInvoices_ = sqliteTable(
     status: text('status', {
       enum: ['pending', 'matched', 'discrepancy', 'manual', 'ignored'],
     }).default('pending'),
-    matchedPendingFileId: integer('matched_pending_file_id').references(() => pendingFiles_.id, {
-      onDelete: 'set null',
-    }),
+    // FK a files
+    matchedFileId: integer('matched_file_id'),
     matchConfidence: real('match_confidence'),
 
     // Metadata
@@ -244,10 +203,13 @@ const facturas_ = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     emisorCuit: text('emisor_cuit')
       .notNull()
-      .references(() => emisores.cuit, { onDelete: 'cascade' }),
+      .references(() => emisores.cuit, { onDelete: 'cascade' }), // TEMPORALMENTE CASCADE - cambiar a RESTRICT en migración posterior
     templateUsadoId: integer('template_usado_id').references(() => templatesExtraccion.id, {
       onDelete: 'set null',
     }),
+
+    // FK a files (constraint definido en la DB, sin referencia circular en Drizzle)
+    fileId: integer('file_id'),
 
     // Datos de la factura
     fechaEmision: text('fecha_emision').notNull(),
@@ -259,13 +221,11 @@ const facturas_ = sqliteTable(
     moneda: text('moneda', { enum: ['ARS', 'USD', 'EUR'] }).default('ARS'),
 
     // Archivos
-    archivoOriginal: text('archivo_original').notNull(),
-    archivoProcesado: text('archivo_procesado').notNull().unique(),
-    finalizedFile: text('finalized_file'), // Ruta relativa a data/ (ej: finalized/2025-12/file.pdf)
+    // NOTA: archivo_original, file_hash, archivo_procesado, finalized_file eliminados
+    // Usar files.storage_path y files.original_filename via fileId
     tipoArchivo: text('tipo_archivo', {
       enum: ['PDF_DIGITAL', 'PDF_IMAGEN', 'IMAGEN'],
     }).notNull(),
-    fileHash: text('file_hash'),
 
     // Calidad de extracción
     metodoExtraccion: text('metodo_extraccion', {
@@ -277,9 +237,6 @@ const facturas_ = sqliteTable(
 
     // Vinculación a datos de origen
     expectedInvoiceId: integer('expected_invoice_id').references(() => expectedInvoices_.id, {
-      onDelete: 'set null',
-    }),
-    pendingFileId: integer('pending_file_id').references(() => pendingFiles_.id, {
       onDelete: 'set null',
     }),
 
@@ -296,10 +253,10 @@ const facturas_ = sqliteTable(
     comprobanteIdx: index('idx_facturas_comprobante').on(table.comprobanteCompleto),
     totalIdx: index('idx_facturas_total').on(table.total),
     templateIdx: index('idx_facturas_template').on(table.templateUsadoId),
-    hashIdx: index('idx_facturas_hash').on(table.fileHash),
+    // hashIdx eliminado en migración 0013 (columna file_hash eliminada)
     revisionIdx: index('idx_facturas_revision').on(table.requiereRevision),
     expectedInvoiceIdx: index('idx_facturas_expected_invoice').on(table.expectedInvoiceId),
-    pendingFileIdx: index('idx_facturas_pending_file').on(table.pendingFileId),
+    fileIdx: index('idx_facturas_file').on(table.fileId),
     categoryIdx: index('idx_facturas_category').on(table.categoryId),
     uniqueFactura: index('unique_factura').on(
       table.emisorCuit,
@@ -426,8 +383,7 @@ export type NewFacturaCorreccion = typeof facturasCorrecciones_.$inferInsert;
 export type FacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferSelect;
 export type NewFacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferInsert;
 
-export type PendingFile = typeof pendingFiles_.$inferSelect;
-export type NewPendingFile = typeof pendingFiles_.$inferInsert;
+// NOTA: PendingFile types fueron eliminados - usar File types
 
 export type ImportBatch = typeof importBatches_.$inferSelect;
 export type NewImportBatch = typeof importBatches_.$inferInsert;
@@ -437,3 +393,89 @@ export type NewExpectedInvoice = typeof expectedInvoices_.$inferInsert;
 
 export type Category = typeof categories_.$inferSelect;
 export type NewCategory = typeof categories_.$inferInsert;
+
+// =============================================================================
+// FILES (reemplaza pending_files)
+// =============================================================================
+
+const files_ = sqliteTable(
+  'files',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+
+    // Metadatos del archivo
+    originalFilename: text('original_filename').notNull(),
+    fileType: text('file_type', {
+      enum: ['PDF_DIGITAL', 'PDF_IMAGEN', 'IMAGEN', 'HEIC'],
+    }).notNull(),
+    fileSize: integer('file_size'),
+    fileHash: text('file_hash').notNull().unique(), // SHA-256
+    storagePath: text('storage_path').notNull(), // Ruta relativa a data/
+
+    // Estado simple
+    status: text('status', {
+      enum: ['uploaded', 'processed'],
+    })
+      .notNull()
+      .default('uploaded'),
+    // uploaded: recién subido, visible en tab "Archivos subidos"
+    // processed: ya tiene factura asociada
+
+    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    statusIdx: index('idx_files_status').on(table.status),
+    hashIdx: index('idx_files_hash').on(table.fileHash),
+    createdIdx: index('idx_files_created').on(table.createdAt),
+  })
+);
+
+export { files_ as files };
+
+// =============================================================================
+// FILE EXTRACTION RESULTS (nueva tabla)
+// =============================================================================
+
+const fileExtractionResults_ = sqliteTable(
+  'file_extraction_results',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    fileId: integer('file_id')
+      .notNull()
+      .references(() => files_.id, {
+        onDelete: 'cascade',
+      }),
+
+    // Datos extraídos automáticamente
+    extractedCuit: text('extracted_cuit'),
+    extractedDate: text('extracted_date'), // ISO YYYY-MM-DD
+    extractedTotal: real('extracted_total'),
+    extractedType: integer('extracted_type'), // Código ARCA
+    extractedPointOfSale: integer('extracted_point_of_sale'),
+    extractedInvoiceNumber: integer('extracted_invoice_number'),
+
+    // Metadata de extracción
+    confidence: integer('confidence'), // 0-100
+    method: text('method'), // 'PDF_TEXT', 'OCR', 'TEMPLATE', 'PDF_TEXT+OCR'
+    templateId: integer('template_id').references(() => templatesExtraccion.id, {
+      onDelete: 'set null',
+    }),
+    errors: text('errors'), // JSON con errores
+
+    extractedAt: text('extracted_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    fileIdx: index('idx_file_extraction_file').on(table.fileId),
+    cuitIdx: index('idx_file_extraction_cuit').on(table.extractedCuit),
+    dateIdx: index('idx_file_extraction_date').on(table.extractedDate),
+  })
+);
+
+export { fileExtractionResults_ as fileExtractionResults };
+
+export type File = typeof files_.$inferSelect;
+export type NewFile = typeof files_.$inferInsert;
+
+export type FileExtractionResult = typeof fileExtractionResults_.$inferSelect;
+export type NewFileExtractionResult = typeof fileExtractionResults_.$inferInsert;

@@ -6,10 +6,11 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { FileExportService } from '@server/services/file-export.service.js';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
+import { FileRepository } from '@server/database/repositories/file.js';
 import { join } from 'path';
 
-const INPUT_DIR = join(process.cwd(), '..', 'data', 'input');
-const OUTPUT_DIR = join(process.cwd(), '..', 'data', 'processed');
+const DATA_DIR = join(process.cwd(), '..', 'data');
+const OUTPUT_DIR = join(process.cwd(), '..', 'data', 'finalized');
 
 export const POST: RequestHandler = async ({ request }) => {
   try {
@@ -24,6 +25,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     const invoiceRepo = new InvoiceRepository();
+    const fileRepo = new FileRepository();
     const exportService = new FileExportService(OUTPUT_DIR);
 
     const invoices = (await Promise.all(invoiceIds.map((id) => invoiceRepo.findById(id)))).filter(
@@ -37,7 +39,14 @@ export const POST: RequestHandler = async ({ request }) => {
     // Exportar cada factura
     const results = await Promise.all(
       invoices.map(async (invoice) => {
-        const originalPath = join(INPUT_DIR, invoice.originalFile);
+        // Obtener ruta del archivo via fileId
+        let originalPath = '';
+        if (invoice.fileId) {
+          const file = fileRepo.findById(invoice.fileId);
+          if (file) {
+            originalPath = join(DATA_DIR, file.storagePath);
+          }
+        }
         return {
           invoice,
           result: await exportService.exportInvoice(invoice, originalPath),

@@ -5,17 +5,17 @@
   interface Props {
     fileHash?: string | null;
     currentId: number;
-    currentType: 'pending' | 'invoice';
-    linkedPendingId?: number | null; // Si es factura, el pending_file_id asociado
-    linkedInvoiceId?: number | null; // Si es pending, el invoice_id asociado (si existe)
+    currentType: 'file' | 'invoice';
+    linkedFileId?: number | null; // Si es factura, el file_id asociado
+    linkedInvoiceId?: number | null; // Si es file, el invoice_id asociado (si existe)
   }
 
-  let { fileHash, currentId, currentType, linkedPendingId, linkedInvoiceId }: Props = $props();
+  let { fileHash, currentId, currentType, linkedFileId, linkedInvoiceId }: Props = $props();
 
   interface DuplicateResult {
     found: boolean;
     results: {
-      pendingFiles: Array<{
+      files: Array<{
         id: number;
         filename: string;
         status: string;
@@ -54,13 +54,12 @@
       .then((data: DuplicateResult) => {
         // Filtrar el archivo actual Y las relaciones existentes de los resultados
         if (data.found && data.results) {
-          const filteredPending = data.results.pendingFiles.filter((p) => {
-            // No mostrar el propio pending
-            if (currentType === 'pending' && p.id === currentId) return false;
+          const filteredFiles = data.results.files.filter((f) => {
+            // No mostrar el propio file
+            if (currentType === 'file' && f.id === currentId) return false;
 
-            // Si es factura actual y este pending está vinculado a ella, no mostrar
-            if (currentType === 'invoice' && linkedPendingId && p.id === linkedPendingId)
-              return false;
+            // Si es factura actual y este file está vinculado a ella, no mostrar
+            if (currentType === 'invoice' && linkedFileId && f.id === linkedFileId) return false;
 
             return true;
           });
@@ -69,10 +68,10 @@
             // No mostrar la propia factura
             if (currentType === 'invoice' && i.id === currentId) return false;
 
-            // IMPORTANTE: Si estamos en un pending, SÍ mostrar la factura vinculada
+            // IMPORTANTE: Si estamos en un file, SÍ mostrar la factura vinculada
             // Esto permite que el usuario vea que ya existe una factura para este archivo
             // (antes esto se filtraba y causaba que se pudieran crear duplicados)
-            // if (currentType === 'pending' && linkedInvoiceId && i.id === linkedInvoiceId)
+            // if (currentType === 'file' && linkedInvoiceId && i.id === linkedInvoiceId)
             //   return false;
 
             return true;
@@ -81,10 +80,10 @@
           duplicates = {
             ...data,
             results: {
-              pendingFiles: filteredPending,
+              files: filteredFiles,
               invoices: filteredInvoices,
             },
-            totalFound: filteredPending.length + filteredInvoices.length,
+            totalFound: filteredFiles.length + filteredInvoices.length,
           };
         } else {
           duplicates = null;
@@ -103,11 +102,11 @@
   const hasDuplicates = $derived(
     duplicates &&
       duplicates.totalFound > 0 &&
-      (duplicates.results.pendingFiles.length > 0 || duplicates.results.invoices.length > 0)
+      (duplicates.results.files.length > 0 || duplicates.results.invoices.length > 0)
   );
 
-  function handleClick(type: 'pending' | 'invoice', id: number) {
-    const comprobanteId = type === 'pending' ? `pending:${id}` : `factura:${id}`;
+  function handleClick(type: 'file' | 'invoice', id: number) {
+    const comprobanteId = type === 'file' ? `file:${id}` : `factura:${id}`;
     goto(`/comprobantes/${comprobanteId}`);
   }
 </script>
@@ -136,20 +135,20 @@
       Este archivo comparte el mismo hash SHA-256 con otros archivos en el sistema:
     </p>
 
-    {#if duplicates?.results.pendingFiles && duplicates.results.pendingFiles.length > 0}
+    {#if duplicates?.results.files && duplicates.results.files.length > 0}
       <div class="duplicates-section">
-        <h4>Archivos pendientes:</h4>
+        <h4>Archivos sin factura:</h4>
         <ul class="duplicates-list">
-          {#each duplicates.results.pendingFiles as pending}
+          {#each duplicates.results.files as file}
             <li class="duplicate-item">
-              <button class="duplicate-link" onclick={() => handleClick('pending', pending.id)}>
-                <span class="duplicate-label">pending:{pending.id}</span>
-                <span class="duplicate-info">{pending.filename}</span>
-                {#if pending.extractedCuit}
-                  <span class="duplicate-meta">{pending.extractedCuit}</span>
+              <button class="duplicate-link" onclick={() => handleClick('file', file.id)}>
+                <span class="duplicate-label">file:{file.id}</span>
+                <span class="duplicate-info">{file.filename}</span>
+                {#if file.extractedCuit}
+                  <span class="duplicate-meta">{file.extractedCuit}</span>
                 {/if}
-                {#if pending.extractedDate}
-                  <span class="duplicate-meta">{formatDateShort(pending.extractedDate)}</span>
+                {#if file.extractedDate}
+                  <span class="duplicate-meta">{formatDateShort(file.extractedDate)}</span>
                 {/if}
               </button>
             </li>

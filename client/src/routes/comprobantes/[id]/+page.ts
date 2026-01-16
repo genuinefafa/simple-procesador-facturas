@@ -17,7 +17,7 @@ export type Final = {
   filePath?: string;
   fileHash?: string | null;
   categoryId?: number | null;
-  pendingFileId?: number | null;
+  fileId?: number | null;
   expectedInvoiceId?: number | null;
 };
 
@@ -34,15 +34,15 @@ export type Expected = {
   status?: string;
   file?: string;
   filePath?: string;
-  matchedPendingFileId?: number | null;
+  matchedFileId?: number | null;
 };
 
-export type Pending = {
+export type FileData = {
   id: number;
   originalFilename: string;
   filePath: string;
   fileHash?: string | null;
-  status: 'pending' | 'reviewing' | 'processed' | 'failed';
+  status: 'uploaded' | 'processed' | 'failed';
   extractedCuit?: string | null;
   extractedDate?: string | null;
   extractedTotal?: number | null;
@@ -52,7 +52,7 @@ export type Pending = {
   extractionConfidence?: number | null;
   extractionMethod?: string | null;
   extractionErrors?: string | null;
-  linkedInvoiceId?: number | null; // ID de la factura que referencia este pending
+  linkedInvoiceId?: number | null; // ID de la factura vinculada a este archivo
 };
 
 export type Match = {
@@ -70,10 +70,10 @@ export type Match = {
 
 export type Comprobante = {
   id: string;
-  kind: 'factura' | 'expected' | 'pending';
+  kind: 'factura' | 'expected' | 'file';
   final: Final | null;
   expected: Expected | null;
-  pending: Pending | null;
+  file: FileData | null; // Archivo sin factura asociada
   matches?: Match[];
   emitterCuit?: string | null;
   emitterName?: string | null;
@@ -121,7 +121,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           fileHash: base.fileHash,
           categoryId: base.categoryId ?? null,
           expectedInvoiceId: base.expectedInvoiceId,
-          pendingFileId: base.pendingFileId,
+          fileId: base.fileId ?? null,
         };
         console.log('[LOADER] final object:', { id: final.id, categoryId: final.categoryId });
 
@@ -145,19 +145,21 @@ export const load: PageLoad = async ({ fetch, params }) => {
                 status: exp.status,
                 file: exp.filePath,
                 filePath: exp.filePath,
-                matchedPendingFileId: exp.matchedPendingFileId ?? null,
+                matchedFileId: exp.matchedFileId ?? null,
               };
             }
           }
         }
 
-        let pending: Pending | null = null;
-        if (final.pendingFileId) {
-          const pRes = await fetch(`/api/pending-files/${final.pendingFileId}`);
-          if (pRes.ok) {
-            const pData = await pRes.json();
-            const d = pData.pendingFile || pData;
-            pending = {
+        // Cargar archivo asociado (si existe fileId)
+        let file: FileData | null = null;
+        const fileIdToLoad = final.fileId;
+        if (fileIdToLoad) {
+          const fileRes = await fetch(`/api/files/${fileIdToLoad}`);
+          if (fileRes.ok) {
+            const fileData = await fileRes.json();
+            const d = fileData.file || fileData;
+            file = {
               id: d.id,
               originalFilename: d.originalFilename,
               filePath: d.filePath,
@@ -176,12 +178,34 @@ export const load: PageLoad = async ({ fetch, params }) => {
           }
         }
 
+        // Cargar matches si la factura no tiene expected vinculado y tiene archivo
+        let matches: Match[] = [];
+        if (!final.expectedInvoiceId && fileIdToLoad) {
+          try {
+            const matchRes = await fetch(`/api/files/${fileIdToLoad}/matches`);
+            if (matchRes.ok) {
+              const matchData = await matchRes.json();
+              if (matchData.hasExactMatch && matchData.exactMatch) {
+                matches = [matchData.exactMatch];
+              }
+              const additional = matchData.partialMatches || matchData.candidates || [];
+              matches = [
+                ...matches,
+                ...additional.filter((m: any) => !matches.find((e) => e.id === m.id)),
+              ];
+            }
+          } catch (err) {
+            console.warn('No se pudieron cargar matches para factura:', err);
+          }
+        }
+
         comprobante = {
           id: `factura:${final.id}`,
           kind: 'factura',
           final,
           expected,
-          pending,
+          file,
+          matches,
           emitterCuit: final.cuit,
           emitterName: final.emitterName,
         };
@@ -205,30 +229,32 @@ export const load: PageLoad = async ({ fetch, params }) => {
             status: exp.status,
             file: exp.filePath,
             filePath: exp.filePath,
-            matchedPendingFileId: exp.matchedPendingFileId ?? null,
+            matchedFileId: exp.matchedFileId ?? null,
           };
           comprobante = {
             id: `expected:${expected.id}`,
             kind: 'expected',
             final: null,
             expected,
-            pending: null,
+            file: null,
             emitterCuit: expected.cuit,
             emitterName: expected.emitterName,
           };
         }
       }
-    } else if (idType === 'pending') {
-      const res = await fetch(`/api/pending-files/${id}`);
+    } else if (idType === 'file' || idType === 'pending') {
+      // Soportar tanto 'file:N' (nuevo) como 'pending:N' (legacy)
+      // Usar endpoint /api/files
+      const res = await fetch(`/api/files/${id}`);
       if (res.ok) {
         const response = await res.json();
-        const data = response.pendingFile; // { success, pendingFile }
+        const data = response.file;
 
-        // IMPORTANTE: Si el pending ya tiene una factura vinculada, redirigir automáticamente
-        // Esto evita que el usuario pueda crear facturas duplicadas desde un pending ya procesado
+        // IMPORTANTE: Si el archivo ya tiene una factura vinculada, redirigir automáticamente
+        // Esto evita que el usuario pueda crear facturas duplicadas desde un archivo ya procesado
         let linkedInvoiceId: number | null = null;
         try {
-          const invoicesRes = await fetch(`/api/invoices?pendingFileId=${id}`);
+          const invoicesRes = await fetch(`/api/invoices?fileId=${id}`);
           if (invoicesRes.ok) {
             const invoicesData = await invoicesRes.json();
             if (invoicesData.invoices && invoicesData.invoices.length > 0) {
@@ -236,7 +262,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
 
               // Redirigir automáticamente a la factura (HTTP 302)
               console.info(
-                `[PENDING→FACTURA] Redirigiendo de pending:${id} a factura:${linkedInvoiceId}`
+                `[FILE→FACTURA] Redirigiendo de file:${id} a factura:${linkedInvoiceId}`
               );
               throw redirect(302, `/comprobantes/factura:${linkedInvoiceId}`);
             }
@@ -249,7 +275,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           console.warn('No se pudo verificar factura vinculada:', err);
         }
 
-        const pending: Pending = {
+        const file: FileData = {
           id: data.id,
           originalFilename: data.originalFilename,
           filePath: data.filePath,
@@ -269,7 +295,8 @@ export const load: PageLoad = async ({ fetch, params }) => {
 
         let matches: Match[] = [];
         try {
-          const matchRes = await fetch(`/api/pending-files/${id}/matches`);
+          // Usar nuevo endpoint /api/files/[id]/matches
+          const matchRes = await fetch(`/api/files/${id}/matches`);
           if (matchRes.ok) {
             const matchData = await matchRes.json();
             if (matchData.hasExactMatch && matchData.exactMatch) {
@@ -286,17 +313,21 @@ export const load: PageLoad = async ({ fetch, params }) => {
         }
 
         comprobante = {
-          id: `pending:${pending.id}`,
-          kind: 'pending',
+          id: `file:${file.id}`,
+          kind: 'file',
           final: null,
           expected: null,
-          pending,
+          file,
           matches,
-          emitterCuit: pending.extractedCuit,
+          emitterCuit: file.extractedCuit,
         };
       }
     }
   } catch (e) {
+    // IMPORTANTE: Si es un redirect de SvelteKit, re-lanzarlo sin convertir a error
+    if (e && typeof e === 'object' && 'status' in e && 'location' in e) {
+      throw e; // Re-lanzar redirect
+    }
     console.error('Error loading comprobante:', e);
   }
 

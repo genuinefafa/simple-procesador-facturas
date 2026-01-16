@@ -7,12 +7,12 @@ export const GET: RequestHandler = async ({ url }) => {
   try {
     const repo = new InvoiceRepository();
 
-    // Filtro opcional por pendingFileId
-    const pendingFileIdParam = url.searchParams.get('pendingFileId');
-    if (pendingFileIdParam) {
-      const pendingFileId = parseInt(pendingFileIdParam, 10);
-      if (!isNaN(pendingFileId)) {
-        const invoices = await repo.findByPendingFileId(pendingFileId);
+    // Filtro opcional por fileId (nuevo modelo)
+    const fileIdParam = url.searchParams.get('fileId');
+    if (fileIdParam) {
+      const fileId = parseInt(fileIdParam, 10);
+      if (!isNaN(fileId)) {
+        const invoices = await repo.findByFileId(fileId);
         return json({ success: true, invoices });
       }
     }

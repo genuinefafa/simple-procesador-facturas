@@ -7,7 +7,10 @@ import { db } from '../db';
 import { facturas, type Factura } from '../schema';
 import type { InvoiceType, Currency, ExtractionMethod } from '../../utils/types';
 
-// For backward compatibility
+/**
+ * Invoice interface - rutas de archivo se obtienen via fileId -> files table
+ * Las columnas archivo_procesado y finalized_file fueron eliminadas en migración 0014
+ */
 export interface Invoice {
   id: number;
   emitterCuit: string;
@@ -19,10 +22,7 @@ export interface Invoice {
   fullInvoiceNumber: string;
   total: number;
   currency: Currency;
-  originalFile: string;
-  processedFile: string;
-  finalizedFile?: string; // Ruta relativa a data/ (ej: finalized/2025-12/file.pdf)
-  fileHash?: string;
+  fileId?: number; // FK a files - fuente de verdad para rutas
   fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
   extractionMethod: ExtractionMethod;
   extractionConfidence?: number;
@@ -30,7 +30,6 @@ export interface Invoice {
   requiresReview: boolean;
   processedAt: Date;
   expectedInvoiceId?: number;
-  pendingFileId?: number;
   categoryId?: number;
 }
 
@@ -47,10 +46,7 @@ export class InvoiceRepository {
       fullInvoiceNumber: row.comprobanteCompleto,
       total: row.total || 0,
       currency: row.moneda || 'ARS',
-      originalFile: row.archivoOriginal,
-      processedFile: row.archivoProcesado,
-      finalizedFile: row.finalizedFile || undefined,
-      fileHash: row.fileHash || undefined,
+      fileId: row.fileId || undefined,
       fileType: row.tipoArchivo,
       extractionMethod: row.metodoExtraccion as ExtractionMethod,
       extractionConfidence: row.confianzaExtraccion || undefined,
@@ -58,7 +54,6 @@ export class InvoiceRepository {
       requiresReview: row.requiereRevision ?? false,
       processedAt: row.procesadoEn ? new Date(row.procesadoEn) : new Date(),
       expectedInvoiceId: row.expectedInvoiceId || undefined,
-      pendingFileId: row.pendingFileId || undefined,
       categoryId: row.categoryId || undefined,
     };
   }
@@ -72,53 +67,41 @@ export class InvoiceRepository {
     invoiceNumber: number;
     total?: number;
     currency?: Currency;
-    originalFile: string;
-    processedFile: string;
-    finalizedFile?: string;
+    fileId: number; // Requerido - FK a files
     fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
-    fileHash?: string;
     extractionMethod: ExtractionMethod;
     extractionConfidence?: number;
     requiresReview?: boolean;
     expectedInvoiceId?: number;
-    pendingFileId?: number;
     categoryId?: number;
   }): Promise<Invoice> {
-    const issueDateStr =
+    const issueDateStr: string =
       typeof data.issueDate === 'string'
         ? data.issueDate
-        : data.issueDate.toISOString().split('T')[0];
+        : data.issueDate.toISOString().slice(0, 10);
 
     const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(4, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
 
-    const result = await db
-      .insert(facturas)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-      .values({
-        emisorCuit: data.emitterCuit,
-        templateUsadoId: data.templateUsedId ?? null,
-        fechaEmision: issueDateStr,
-        tipoComprobante: data.invoiceType,
-        puntoVenta: data.pointOfSale,
-        numeroComprobante: data.invoiceNumber,
-        comprobanteCompleto: fullInvoiceNumber,
-        total: data.total ?? null,
-        moneda: data.currency || 'ARS',
-        archivoOriginal: data.originalFile,
-        archivoProcesado: data.processedFile,
-        finalizedFile: data.finalizedFile ?? null,
-        tipoArchivo: data.fileType,
-        fileHash: data.fileHash ?? null,
-        metodoExtraccion: data.extractionMethod,
-        confianzaExtraccion: data.extractionConfidence ?? null,
-        validadoManualmente: false,
-        requiereRevision: data.requiresReview ?? false,
-        expectedInvoiceId: data.expectedInvoiceId ?? null,
-        pendingFileId: data.pendingFileId ?? null,
-        categoryId: data.categoryId ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any)
-      .returning();
+    const insertData = {
+      emisorCuit: data.emitterCuit,
+      templateUsadoId: data.templateUsedId ?? null,
+      fechaEmision: issueDateStr,
+      tipoComprobante: data.invoiceType,
+      puntoVenta: data.pointOfSale,
+      numeroComprobante: data.invoiceNumber,
+      comprobanteCompleto: fullInvoiceNumber,
+      total: data.total ?? null,
+      moneda: data.currency || 'ARS',
+      fileId: data.fileId,
+      tipoArchivo: data.fileType,
+      metodoExtraccion: data.extractionMethod as 'TEMPLATE' | 'GENERICO' | 'MANUAL',
+      confianzaExtraccion: data.extractionConfidence ?? null,
+      validadoManualmente: false,
+      requiereRevision: data.requiresReview ?? false,
+      expectedInvoiceId: data.expectedInvoiceId ?? null,
+      categoryId: data.categoryId ?? null,
+    };
+    const result = await db.insert(facturas).values(insertData).returning();
 
     if (!result || result.length === 0) {
       throw new Error('Failed to create invoice');
@@ -132,12 +115,21 @@ export class InvoiceRepository {
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
   }
 
-  async findByPendingFileId(pendingFileId: number): Promise<Invoice[]> {
-    const result = await db
-      .select()
-      .from(facturas)
-      .where(eq(facturas.pendingFileId, pendingFileId));
+  async findByFileId(fileId: number): Promise<Invoice[]> {
+    const result = await db.select().from(facturas).where(eq(facturas.fileId, fileId));
     return result.map((row) => this.mapDrizzleToInvoice(row));
+  }
+
+  /**
+   * @deprecated Columna file_hash eliminada en migración 0013.
+   * Usar FileRepository.findByHash() y luego findByFileId() en su lugar.
+   */
+  findByHash(_fileHash: string): Invoice[] {
+    console.warn(
+      '[DEPRECATED] InvoiceRepository.findByHash() - usar FileRepository.findByHash() + findByFileId()'
+    );
+    // Columna eliminada, retornar vacío
+    return [];
   }
 
   async findByInvoiceNumber(
@@ -217,18 +209,15 @@ export class InvoiceRepository {
       .where(eq(facturas.id, id));
   }
 
-  async updateProcessedFile(
-    id: number,
-    processedFile: string,
-    finalizedFile?: string
-  ): Promise<void> {
-    await db
-      .update(facturas)
-      .set({
-        archivoProcesado: processedFile,
-        finalizedFile: finalizedFile ?? null,
-      })
-      .where(eq(facturas.id, id));
+  /**
+   * @deprecated Columnas archivo_procesado y finalized_file eliminadas.
+   * Usar FileRepository.updatePath() para actualizar files.storage_path
+   */
+  updateProcessedFile(_id: number, _processedFile: string, _finalizedFile?: string): void {
+    console.warn(
+      '[DEPRECATED] InvoiceRepository.updateProcessedFile() - usar FileRepository.updatePath()'
+    );
+    // No-op: columnas eliminadas
   }
 
   async findByEmitterAndNumber(
@@ -270,13 +259,7 @@ export class InvoiceRepository {
     const rows = await db
       .select()
       .from(facturas)
-      .where(
-        or(
-          like(facturas.comprobanteCompleto, pattern),
-          like(facturas.emisorCuit, pattern),
-          like(facturas.archivoOriginal, pattern)
-        )
-      )
+      .where(or(like(facturas.comprobanteCompleto, pattern), like(facturas.emisorCuit, pattern)))
       .limit(limit);
 
     return rows
@@ -288,13 +271,13 @@ export class InvoiceRepository {
     id: number,
     data: {
       expectedInvoiceId?: number | null;
-      pendingFileId?: number | null;
+      fileId?: number | null;
       categoryId?: number | null;
     }
   ): Promise<Invoice | null> {
     const updates: Record<string, number | null> = {};
     if (data.expectedInvoiceId !== undefined) updates.expectedInvoiceId = data.expectedInvoiceId;
-    if (data.pendingFileId !== undefined) updates.pendingFileId = data.pendingFileId;
+    if (data.fileId !== undefined) updates.fileId = data.fileId;
     if (data.categoryId !== undefined) updates.categoryId = data.categoryId;
 
     if (Object.keys(updates).length === 0) {
@@ -348,13 +331,13 @@ export class InvoiceRepository {
   /**
    * Elimina una factura con desvinculación segura:
    * - Si tiene expected_invoice_id, vuelve el expected a "pending"
-   * - Si tiene pending_file_id, vuelve el pending a "reviewing"
+   * - Si tiene file_id, vuelve el file a "uploaded"
    * - Mantiene archivos físicos intactos
    */
   async deleteWithUnlink(
     id: number
   ): Promise<
-    | { success: true; unlinkedExpected?: number; unlinkedPending?: number }
+    | { success: true; unlinkedExpected?: number; unlinkedFile?: number }
     | { success: false; error: string }
   > {
     try {
@@ -364,7 +347,7 @@ export class InvoiceRepository {
         return { success: false, error: 'Factura no encontrada' };
       }
 
-      const result: { success: true; unlinkedExpected?: number; unlinkedPending?: number } = {
+      const result: { success: true; unlinkedExpected?: number; unlinkedFile?: number } = {
         success: true,
       };
 
@@ -378,14 +361,11 @@ export class InvoiceRepository {
         result.unlinkedExpected = invoice.expectedInvoiceId;
       }
 
-      // Si tiene pending file vinculado, revertir status a "reviewing"
-      if (invoice.pendingFileId) {
-        const { pendingFiles } = await import('../schema.js');
-        await db
-          .update(pendingFiles)
-          .set({ status: 'reviewing' })
-          .where(eq(pendingFiles.id, invoice.pendingFileId));
-        result.unlinkedPending = invoice.pendingFileId;
+      // Si tiene file vinculado, revertir status a "uploaded"
+      if (invoice.fileId) {
+        const { files } = await import('../schema.js');
+        await db.update(files).set({ status: 'uploaded' }).where(eq(files.id, invoice.fileId));
+        result.unlinkedFile = invoice.fileId;
       }
 
       // Finalmente, eliminar la factura
@@ -401,14 +381,26 @@ export class InvoiceRepository {
     }
   }
 
-  async updateFileHash(id: number, fileHash: string): Promise<void> {
-    await db.update(facturas).set({ fileHash: fileHash }).where(eq(facturas.id, id));
+  /**
+   * @deprecated Columna file_hash eliminada en migración 0013.
+   * Usar FileRepository.updateHash() en su lugar.
+   */
+  updateFileHash(_id: number, _fileHash: string): void {
+    console.warn(
+      '[DEPRECATED] InvoiceRepository.updateFileHash() - usar FileRepository.updateHash()'
+    );
+    // No-op: columna eliminada
   }
 
-  async findByFileHash(hash: string): Promise<Invoice[]> {
-    const result = await db.select().from(facturas).where(eq(facturas.fileHash, hash));
-
-    return result.map((row) => this.mapDrizzleToInvoice(row));
+  /**
+   * @deprecated Columna file_hash eliminada en migración 0013.
+   * Usar FileRepository.findByHash() y luego findByFileId() en su lugar.
+   */
+  findByFileHash(_hash: string): Invoice[] {
+    console.warn(
+      '[DEPRECATED] InvoiceRepository.findByFileHash() - usar FileRepository.findByHash() + findByFileId()'
+    );
+    return [];
   }
 
   async listAllProcessed(): Promise<Invoice[]> {

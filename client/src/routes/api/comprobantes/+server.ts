@@ -1,7 +1,8 @@
 import { json } from '@sveltejs/kit';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
-import { PendingFileRepository } from '@server/database/repositories/pending-file';
+import { FileRepository } from '@server/database/repositories/file';
+import { FileExtractionRepository } from '@server/database/repositories/file-extraction';
 import { EmitterRepository } from '@server/database/repositories/emitter';
 
 export type Final = {
@@ -18,7 +19,7 @@ export type Final = {
   file?: string;
   fileHash?: string | null;
   categoryId?: number | null;
-  pendingFileId?: number | null;
+  fileId?: number | null;
   expectedInvoiceId?: number | null;
 };
 
@@ -34,32 +35,35 @@ export type Expected = {
   total?: number | null;
   status?: string;
   file?: string;
-  matchedPendingFileId?: number | null;
+  matchedFileId?: number | null;
 };
 
-export type Pending = {
+export type FileData = {
   id: number;
   originalFilename: string;
   filePath: string;
   fileHash?: string | null;
-  status: 'pending' | 'reviewing' | 'processed' | 'failed';
+  status: 'uploaded' | 'processed';
   uploadDate?: string | null;
   extractedCuit?: string | null;
   extractedDate?: string | null;
   extractedTotal?: number | null;
+  extractedType?: number | null;
+  extractedPointOfSale?: number | null;
+  extractedInvoiceNumber?: number | null;
 };
 
 export type Comprobante = {
-  /** ID único: "factura:123" | "expected:456" | "pending:789" */
+  /** ID único: "factura:123" | "expected:456" | "file:789" */
   id: string;
 
   /** Tipo de entidad principal */
-  kind: 'factura' | 'expected' | 'pending';
+  kind: 'factura' | 'expected' | 'file';
 
   // Las 3 entidades, cualquiera puede ser null
   final: Final | null;
   expected: Expected | null;
-  pending: Pending | null;
+  file: FileData | null;
 
   // Emisor asociado (si existe)
   emitterCuit?: string | null;
@@ -69,7 +73,8 @@ export type Comprobante = {
 export async function GET() {
   const invoiceRepo = new InvoiceRepository();
   const expectedRepo = new ExpectedInvoiceRepository();
-  const pendingRepo = new PendingFileRepository();
+  const fileRepo = new FileRepository();
+  const extractionRepo = new FileExtractionRepository();
   const emitterRepo = new EmitterRepository();
 
   const invoices = await invoiceRepo.list();
@@ -77,33 +82,48 @@ export async function GET() {
     status: ['pending', 'discrepancy', 'manual', 'ignored'],
   });
 
-  const pendingFilesRaw = await pendingRepo.list();
-  const pendingFiles: Pending[] = pendingFilesRaw.map((pf) => ({
-    id: pf.id,
-    originalFilename: pf.originalFilename,
-    filePath: pf.filePath,
-    fileHash: pf.fileHash ?? null,
-    status: pf.status,
-    uploadDate: pf.uploadDate,
-    extractedCuit: pf.extractedCuit,
-    extractedDate: pf.extractedDate,
-    extractedTotal: pf.extractedTotal,
-  }));
-
   const toISODate = (value: Date | string | null | undefined) => {
     if (!value) return null;
-    if (typeof value === 'string') return value;
+    if (typeof value === 'string') {
+      // Si ya es ISO date (YYYY-MM-DD), retornar tal cual
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+      // Si es ISO timestamp, extraer solo la fecha
+      if (value.includes('T')) return value.split('T')[0];
+      return value;
+    }
     return value.toISOString().slice(0, 10);
   };
 
+  // Get uploaded files (not yet associated to invoice)
+  const uploadedFilesRaw = fileRepo.list({ status: 'uploaded' });
+  const uploadedFiles: FileData[] = uploadedFilesRaw.map((file) => {
+    // Get extraction data if available
+    const extraction = extractionRepo.findByFileId(file.id);
+
+    return {
+      id: file.id,
+      originalFilename: file.originalFilename,
+      filePath: file.storagePath,
+      fileHash: file.fileHash ?? null,
+      status: file.status,
+      uploadDate: toISODate(file.createdAt),
+      extractedCuit: extraction?.extractedCuit ?? null,
+      extractedDate: extraction?.extractedDate ?? null,
+      extractedTotal: extraction?.extractedTotal ?? null,
+      extractedType: extraction?.extractedType ?? null,
+      extractedPointOfSale: extraction?.extractedPointOfSale ?? null,
+      extractedInvoiceNumber: extraction?.extractedInvoiceNumber ?? null,
+    };
+  });
+
   const comprobantesMap = new Map<string, Comprobante>();
 
-  // Resolver nombres de emisor en batch para finales, esperadas y pendientes
+  // Resolver nombres de emisor en batch para finales, esperadas y archivos subidos
   // Usar displayName que ya viene calculado desde el repository
   const uniqueCuits = new Set<string>([
     ...invoices.map((i) => i.emitterCuit).filter((c): c is string => Boolean(c)),
     ...expectedInvoices.map((i) => i.cuit).filter((c): c is string => Boolean(c)),
-    ...pendingFiles.map((p) => p.extractedCuit).filter((c): c is string => Boolean(c)),
+    ...uploadedFiles.map((p) => p.extractedCuit).filter((c): c is string => Boolean(c)),
   ]);
   const emitterCache = new Map<string, string | null>();
   for (const cuit of uniqueCuits) {
@@ -112,23 +132,35 @@ export async function GET() {
   }
 
   // 1) Agregar facturas como comprobantes principales
-  const finals: Final[] = invoices.map((inv) => ({
-    source: 'final',
-    id: inv.id,
-    cuit: inv.emitterCuit,
-    emitterName: emitterCache.get(inv.emitterCuit) || undefined,
-    issueDate: toISODate(inv.issueDate),
-    processedAt: inv.processedAt ? inv.processedAt.toString() : null,
-    invoiceType: inv.invoiceType,
-    pointOfSale: inv.pointOfSale,
-    invoiceNumber: inv.invoiceNumber,
-    total: inv.total ?? null,
-    file: inv.processedFile || inv.originalFile,
-    fileHash: (inv as any).fileHash ?? null,
-    categoryId: inv.categoryId ?? null,
-    pendingFileId: inv.pendingFileId ?? null,
-    expectedInvoiceId: inv.expectedInvoiceId ?? null,
-  }));
+  // Obtener rutas de archivo via fileId -> files.storage_path
+  const finals: Final[] = invoices.map((inv) => {
+    let filePath: string | undefined;
+    let fileHash: string | null = null;
+    if (inv.fileId) {
+      const file = fileRepo.findById(inv.fileId);
+      if (file) {
+        filePath = file.storagePath;
+        fileHash = file.fileHash ?? null;
+      }
+    }
+    return {
+      source: 'final',
+      id: inv.id,
+      cuit: inv.emitterCuit,
+      emitterName: emitterCache.get(inv.emitterCuit) || undefined,
+      issueDate: toISODate(inv.issueDate),
+      processedAt: inv.processedAt ? inv.processedAt.toString() : null,
+      invoiceType: inv.invoiceType,
+      pointOfSale: inv.pointOfSale,
+      invoiceNumber: inv.invoiceNumber,
+      total: inv.total ?? null,
+      file: filePath,
+      fileHash,
+      categoryId: inv.categoryId ?? null,
+      fileId: inv.fileId ?? null,
+      expectedInvoiceId: inv.expectedInvoiceId ?? null,
+    };
+  });
 
   for (const f of finals) {
     const comprobanteId = `factura:${f.id}`;
@@ -137,7 +169,7 @@ export async function GET() {
       kind: 'factura',
       final: f,
       expected: null,
-      pending: null,
+      file: null,
       emitterCuit: f.cuit,
       emitterName: f.emitterName,
     });
@@ -145,7 +177,7 @@ export async function GET() {
 
   // 2) Agregar esperadas no vinculadas a factura
   const expecteds: Expected[] = expectedInvoices
-    .filter((inv) => inv.matchedPendingFileId == null)
+    .filter((inv) => inv.matchedFileId == null)
     .map((inv) => ({
       source: 'expected',
       id: inv.id,
@@ -158,12 +190,8 @@ export async function GET() {
       total: inv.total,
       status: inv.status,
       file: inv.filePath || undefined,
-      matchedPendingFileId: inv.matchedPendingFileId ?? null,
+      matchedFileId: inv.matchedFileId ?? null,
     }));
-
-  const linkedPendingIds = new Set<number>(
-    finals.map((f) => f.pendingFileId).filter(Boolean) as number[]
-  );
 
   for (const e of expecteds) {
     const facturaLinked = finals.find((f) => f.expectedInvoiceId === e.id);
@@ -180,63 +208,77 @@ export async function GET() {
         kind: 'expected',
         final: null,
         expected: e,
-        pending: null,
+        file: null,
         emitterCuit: e.cuit,
         emitterName: e.emitterName,
       });
     }
   }
 
-  // 3) Agregar pendientes no vinculadas a factura
-  for (const p of pendingFiles) {
-    if (!linkedPendingIds.has(p.id)) {
-      const facturaLinked = finals.find((f) => f.pendingFileId === p.id);
-      if (facturaLinked) {
-        // Ya incluida en factura
-        const factId = `factura:${facturaLinked.id}`;
-        const comp = comprobantesMap.get(factId)!;
-        comp.pending = p;
-      } else {
-        // Buscar si hay una expected vinculada a este pending
-        const expectedLinked = expectedInvoices.find((e) => e.matchedPendingFileId === p.id);
-        const expectedData = expectedLinked
-          ? {
-              source: 'expected' as const,
-              id: expectedLinked.id,
-              cuit: expectedLinked.cuit,
-              emitterName: emitterCache.get(expectedLinked.cuit) || expectedLinked.emitterName,
-              issueDate: expectedLinked.issueDate,
-              invoiceType: expectedLinked.invoiceType,
-              pointOfSale: expectedLinked.pointOfSale,
-              invoiceNumber: expectedLinked.invoiceNumber,
-              total: expectedLinked.total,
-              status: expectedLinked.status,
-              file: expectedLinked.filePath || undefined,
-              matchedPendingFileId: expectedLinked.matchedPendingFileId ?? null,
-            }
-          : null;
+  // 3) Agregar archivos subidos (no vinculados a factura)
+  // Los archivos con status='uploaded' son por definición no asociados a factura
+  // Pero verificamos también que no estén referenciados por ninguna factura (defensa en profundidad)
+  const fileIdsUsedByInvoices = new Set(
+    finals.map((f) => f.fileId).filter((id): id is number => id != null)
+  );
 
-        // Pendiente sin factura (pero puede tener expected)
-        const comprobanteId = `pending:${p.id}`;
-        comprobantesMap.set(comprobanteId, {
-          id: comprobanteId,
-          kind: 'pending',
-          final: null,
-          expected: expectedData,
-          pending: p,
-          emitterCuit: p.extractedCuit,
-          emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
-        });
+  for (const p of uploadedFiles) {
+    // Saltar si este file ya está asociado a una factura
+    if (fileIdsUsedByInvoices.has(p.id)) {
+      console.warn(`[COMPROBANTES] Saltando file:${p.id} - ya asociado a factura`);
+      continue;
+    }
+
+    // Buscar si hay una expected vinculada a este file por matchedFileId
+    const expectedLinked = expectedInvoices.find((e) => e.matchedFileId === p.id);
+
+    // Si hay expected vinculada Y esa expected ya está vinculada a una factura, saltar
+    if (expectedLinked) {
+      const facturaWithExpected = finals.find((f) => f.expectedInvoiceId === expectedLinked.id);
+      if (facturaWithExpected) {
+        console.warn(
+          `[COMPROBANTES] Saltando file:${p.id} - expected:${expectedLinked.id} ya vinculada a factura:${facturaWithExpected.id}`
+        );
+        continue;
       }
     }
+
+    const expectedData = expectedLinked
+      ? {
+          source: 'expected' as const,
+          id: expectedLinked.id,
+          cuit: expectedLinked.cuit,
+          emitterName: emitterCache.get(expectedLinked.cuit) || expectedLinked.emitterName,
+          issueDate: expectedLinked.issueDate,
+          invoiceType: expectedLinked.invoiceType,
+          pointOfSale: expectedLinked.pointOfSale,
+          invoiceNumber: expectedLinked.invoiceNumber,
+          total: expectedLinked.total,
+          status: expectedLinked.status,
+          file: expectedLinked.filePath || undefined,
+          matchedFileId: expectedLinked.matchedFileId ?? null,
+        }
+      : null;
+
+    // Archivo subido sin factura (pero puede tener expected vinculado)
+    const comprobanteId = `file:${p.id}`;
+    comprobantesMap.set(comprobanteId, {
+      id: comprobanteId,
+      kind: 'file',
+      final: null,
+      expected: expectedData,
+      file: p,
+      emitterCuit: p.extractedCuit,
+      emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
+    });
   }
 
   const comprobantes = Array.from(comprobantesMap.values());
 
   // Ordenar: latest first por fecha donde esté disponible
   comprobantes.sort((a, b) => {
-    const dateA = a.final?.issueDate || a.expected?.issueDate || a.pending?.extractedDate;
-    const dateB = b.final?.issueDate || b.expected?.issueDate || b.pending?.extractedDate;
+    const dateA = a.final?.issueDate || a.expected?.issueDate || a.file?.extractedDate;
+    const dateB = b.final?.issueDate || b.expected?.issueDate || b.file?.extractedDate;
     if (dateA && dateB) return new Date(dateB).getTime() - new Date(dateA).getTime();
     if (!dateA && dateB) return 1;
     if (dateA && !dateB) return -1;

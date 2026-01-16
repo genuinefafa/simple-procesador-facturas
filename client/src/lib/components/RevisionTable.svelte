@@ -22,7 +22,7 @@
     year?: string;
     categoryId?: number | null;
     expectedInvoiceId?: number | null;
-    pendingFileId?: number | null;
+    fileId?: number | null;
   }
 
   interface Category {
@@ -43,7 +43,7 @@
 
   const getOriginIcon = (item: KnownInvoice) => {
     const hasExcel = item.source === 'expected' || !!item.expectedInvoiceId;
-    const hasProcessed = item.source === 'final' || !!item.pendingFileId;
+    const hasProcessed = item.source === 'final' || !!item.fileId;
     if (hasExcel && hasProcessed) return '📊📄';
     if (hasExcel) return '📊';
     return '📄';
@@ -51,7 +51,7 @@
 
   const getOriginTitle = (item: KnownInvoice) => {
     const hasExcel = item.source === 'expected' || !!item.expectedInvoiceId;
-    const hasProcessed = item.source === 'final' || !!item.pendingFileId;
+    const hasProcessed = item.source === 'final' || !!item.fileId;
     if (hasExcel && hasProcessed) return 'Excel AFIP y PDF procesado';
     if (hasExcel) return 'Excel AFIP';
     return 'PDF procesado';

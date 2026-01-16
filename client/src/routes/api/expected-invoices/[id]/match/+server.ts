@@ -7,8 +7,8 @@ import type { RequestHandler } from './$types';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice.js';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
-import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
-import { getPersonType, normalizeCUIT } from '@server/validators/cuit.js';
+import { FileRepository } from '@server/database/repositories/file.js';
+import { getPersonType } from '@server/validators/cuit.js';
 import type { InvoiceType, Currency } from '@server/utils/types.js';
 
 export const POST: RequestHandler = async ({ params, request }) => {
@@ -16,20 +16,20 @@ export const POST: RequestHandler = async ({ params, request }) => {
   console.info(`\n🔗 [API] POST /api/expected-invoices/${id}/match`);
 
   try {
-    const { pendingFileId, confirmed } = await request.json();
+    const { fileId, confirmed } = await request.json();
 
-    if (!pendingFileId || confirmed === undefined) {
+    if (!fileId || confirmed === undefined) {
       return json(
         {
           success: false,
-          error: 'Faltan parámetros: pendingFileId y confirmed son requeridos',
+          error: 'Faltan parámetros: fileId y confirmed son requeridos',
         },
         { status: 400 }
       );
     }
 
     console.info(`   📋 Expected Invoice ID: ${id}`);
-    console.info(`   📄 Pending File ID: ${pendingFileId}`);
+    console.info(`   📄 File ID: ${fileId}`);
     console.info(`   ✅ Confirmado: ${confirmed}`);
 
     if (!confirmed) {
@@ -54,15 +54,15 @@ export const POST: RequestHandler = async ({ params, request }) => {
       );
     }
 
-    // Obtener el archivo pendiente
-    const pendingRepo = new PendingFileRepository();
-    const pendingFile = await pendingRepo.findById(pendingFileId);
+    // Obtener el archivo
+    const fileRepo = new FileRepository();
+    const file = fileRepo.findById(fileId);
 
-    if (!pendingFile) {
+    if (!file) {
       return json(
         {
           success: false,
-          error: 'Archivo pendiente no encontrado',
+          error: 'Archivo no encontrado',
         },
         { status: 404 }
       );
@@ -117,9 +117,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       pointOfSale: expected.pointOfSale,
       invoiceNumber: expected.invoiceNumber,
       total: expected.total || undefined,
-      currency: (expected.currency || 'ARS') as Currency,
-      originalFile: pendingFile.originalFilename,
-      processedFile: pendingFile.originalFilename, // Se renombrará después si es necesario
+      fileId: fileId, // FK a files - fuente de verdad para rutas
       fileType: 'PDF_DIGITAL',
       extractionMethod: 'MANUAL', // Matching confirmado manualmente
       extractionConfidence: 95,
@@ -128,12 +126,12 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     console.info(`   ✅ Factura creada - ID: ${invoice.id}`);
 
-    // Actualizar pending file
-    await pendingRepo.updateStatus(pendingFileId, 'processed');
-    console.info(`   🔗 Archivo pendiente marcado como procesado`);
+    // Actualizar archivo a procesado
+    fileRepo.updateStatus(fileId, 'processed');
+    console.info(`   🔗 Archivo marcado como procesado`);
 
     // Marcar expected invoice como matched
-    await expectedRepo.markAsMatched(parseInt(id), pendingFileId, invoice.id);
+    await expectedRepo.markAsMatched(parseInt(id), fileId, invoice.id);
     console.info(`   ✅ Factura esperada marcada como matched`);
 
     return json({

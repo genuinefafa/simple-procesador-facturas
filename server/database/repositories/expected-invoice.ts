@@ -7,7 +7,7 @@ import { db } from '../db';
 import {
   expectedInvoices,
   importBatches,
-  pendingFiles,
+  files,
   emisores,
   type ExpectedInvoice as DrizzelExpectedInvoice,
   type ImportBatch as DrizzelImportBatch,
@@ -29,7 +29,7 @@ export interface ExpectedInvoice {
   caeExpiration: string | null;
   currency: string | null;
   status: ExpectedInvoiceStatus;
-  matchedPendingFileId: number | null;
+  matchedFileId: number | null;
   matchConfidence: number | null;
   importDate: string | null;
   notes: string | null;
@@ -69,7 +69,7 @@ export class ExpectedInvoiceRepository {
       caeExpiration: row.caeExpiration || null,
       currency: row.currency || 'ARS',
       status: (row.status as ExpectedInvoiceStatus) || 'pending',
-      matchedPendingFileId: row.matchedPendingFileId || null,
+      matchedFileId: row.matchedFileId || null,
       matchConfidence: row.matchConfidence || null,
       importDate: row.importDate || null,
       notes: row.notes || null,
@@ -275,11 +275,11 @@ export class ExpectedInvoiceRepository {
     return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
   }
 
-  async findByMatchedPendingFileId(pendingFileId: number): Promise<ExpectedInvoice | null> {
+  async findByMatchedFileId(fileId: number): Promise<ExpectedInvoice | null> {
     const result = await db
       .select()
       .from(expectedInvoices)
-      .where(eq(expectedInvoices.matchedPendingFileId, pendingFileId));
+      .where(eq(expectedInvoices.matchedFileId, fileId));
 
     return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
   }
@@ -359,11 +359,11 @@ export class ExpectedInvoiceRepository {
     let query = db
       .select({
         expectedInvoice: expectedInvoices,
-        filePath: pendingFiles.filePath,
+        filePath: files.storagePath,
         emisorNombre: emisores.nombre,
       })
       .from(expectedInvoices)
-      .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
+      .leftJoin(files, eq(files.id, expectedInvoices.matchedFileId))
       .leftJoin(
         emisores,
         sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
@@ -373,11 +373,11 @@ export class ExpectedInvoiceRepository {
       query = db
         .select({
           expectedInvoice: expectedInvoices,
-          filePath: pendingFiles.filePath,
+          filePath: files.storagePath,
           emisorNombre: emisores.nombre,
         })
         .from(expectedInvoices)
-        .leftJoin(pendingFiles, eq(pendingFiles.id, expectedInvoices.matchedPendingFileId))
+        .leftJoin(files, eq(files.id, expectedInvoices.matchedFileId))
         .leftJoin(
           emisores,
           sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
@@ -524,6 +524,26 @@ export class ExpectedInvoiceRepository {
     return this.mapDrizzleToExpectedInvoice(result[0]);
   }
 
+  /**
+   * Actualiza el estado de una expected invoice
+   */
+  updateStatus(
+    id: number,
+    status: 'pending' | 'matched' | 'discrepancy' | 'manual' | 'ignored'
+  ): void {
+    db.update(expectedInvoices).set({ status }).where(eq(expectedInvoices.id, id)).run();
+  }
+
+  /**
+   * Vincula una expected invoice a un file
+   */
+  linkToFile(expectedInvoiceId: number, fileId: number): void {
+    db.update(expectedInvoices)
+      .set({ matchedFileId: fileId })
+      .where(eq(expectedInvoices.id, expectedInvoiceId))
+      .run();
+  }
+
   async findPartialMatches(criteria: {
     cuit?: string;
     cuitPartial?: string; // middle-8 digits or any stable core segment
@@ -541,7 +561,7 @@ export class ExpectedInvoiceRepository {
     // Prefiltrar inteligentemente para no perder candidatos por el límite
     const conditions: (SQL | undefined)[] = [
       eq(expectedInvoices.status, 'pending'),
-      isNull(expectedInvoices.matchedPendingFileId),
+      isNull(expectedInvoices.matchedFileId),
     ];
 
     // Aplicar SOLO prefilter de CUIT si disponible (más laxo)
@@ -737,16 +757,12 @@ export class ExpectedInvoiceRepository {
     });
   }
 
-  async markAsMatched(
-    id: number,
-    pendingFileId: number,
-    confidence: number
-  ): Promise<ExpectedInvoice> {
+  async markAsMatched(id: number, fileId: number, confidence: number): Promise<ExpectedInvoice> {
     const result = await db
       .update(expectedInvoices)
       .set({
         status: 'matched',
-        matchedPendingFileId: pendingFileId,
+        matchedFileId: fileId,
         matchConfidence: confidence,
       })
       .where(eq(expectedInvoices.id, id))

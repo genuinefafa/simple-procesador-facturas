@@ -10,7 +10,7 @@ function createTestComprobante(overrides: Partial<Comprobante> = {}): Comprobant
     kind: 'factura',
     final: null,
     expected: null,
-    pending: null,
+    file: null,
     emitterCuit: null,
     emitterName: null,
     ...overrides,
@@ -241,11 +241,11 @@ describe('Filter Executor', () => {
     it('should NOT match comprobante without date', () => {
       const comprobante = createTestComprobante({
         final: null,
-        pending: {
+        file: {
           id: 1,
           originalFilename: 'test.pdf',
           filePath: '/test.pdf',
-          status: 'pending',
+          status: 'uploaded',
           extractedDate: null,
         },
       });
@@ -384,11 +384,11 @@ describe('Filter Executor', () => {
 
     it('should match pending filename', () => {
       const comprobante = createTestComprobante({
-        pending: {
+        file: {
           id: 1,
           originalFilename: 'factura-coto-123.pdf',
           filePath: '/test.pdf',
-          status: 'pending',
+          status: 'uploaded',
         },
       });
 
@@ -547,11 +547,11 @@ describe('Filter Executor', () => {
 
     it('should match filename in freetext', () => {
       const comprobante = createTestComprobante({
-        pending: {
+        file: {
           id: 1,
           originalFilename: 'factura-coto.pdf',
           filePath: '/test.pdf',
-          status: 'pending',
+          status: 'uploaded',
         },
       });
 

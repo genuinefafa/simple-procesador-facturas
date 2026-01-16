@@ -13,7 +13,7 @@
     fullInvoiceNumber?: string | null;
     total?: number | null;
     issueDate?: string | null;
-    pendingFileId?: number | null;
+    fileId?: number | null;
     expectedInvoiceId?: number | null;
     originalFile?: string | null;
   };
@@ -113,17 +113,17 @@
   </div>
 
   <div class="stat-card">
-    <div class="stat-label">Archivos pendientes</div>
+    <div class="stat-label">Archivos subidos</div>
     <div class="stat-value">
-      {formatInt(stats.pendingFiles.pending)} / {formatInt(stats.pendingFiles.total)}
+      {formatInt(stats.files.uploaded)} / {formatInt(stats.files.total)}
     </div>
-    <p class="stat-hint">En cola / total subidos</p>
+    <p class="stat-hint">Sin procesar / total subidos</p>
   </div>
 
   <div class="stat-card">
     <div class="stat-label">Facturas vinculadas</div>
     <div class="stat-value">{formatInt(stats.linkedInvoices)}</div>
-    <p class="stat-hint">Con expected o pending asociado</p>
+    <p class="stat-hint">Con expected o file asociado</p>
   </div>
 </section>
 
@@ -176,8 +176,8 @@
             {#if item.expectedInvoiceId != null}
               <span class="tag">Expected #{item.expectedInvoiceId}</span>
             {/if}
-            {#if item.pendingFileId != null}
-              <span class="tag subtle">Pending #{item.pendingFileId}</span>
+            {#if item.fileId != null}
+              <span class="tag subtle">File #{item.fileId}</span>
             {/if}
           </div>
         </li>

@@ -2,12 +2,13 @@
  * API endpoint para buscar archivos por hash
  * GET /api/files/hash/:hash
  *
- * Busca tanto en pending_files como en facturas
+ * Busca tanto en files como en facturas
  */
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { PendingFileRepository } from '@server/database/repositories/pending-file.js';
+import { FileRepository } from '@server/database/repositories/file.js';
+import { FileExtractionRepository } from '@server/database/repositories/file-extraction.js';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -18,44 +19,50 @@ export const GET: RequestHandler = async ({ params }) => {
   }
 
   try {
-    const pendingFileRepo = new PendingFileRepository();
+    const fileRepo = new FileRepository();
+    const extractionRepo = new FileExtractionRepository();
     const invoiceRepo = new InvoiceRepository();
 
-    // Buscar en pending files
-    const pendingFiles = await pendingFileRepo.findByHash(hash);
+    // Buscar en files
+    const file = fileRepo.findByHash(hash);
+    const files = file ? [file] : [];
 
     // Buscar en invoices (facturas)
     const invoices = await invoiceRepo.findByFileHash(hash);
 
     // También intentar con hash corto (primeros 16 chars) si no se encontró con hash completo
-    let pendingFilesShort: typeof pendingFiles = [];
+    let filesShort: typeof files = [];
     let invoicesShort: typeof invoices = [];
 
-    if (hash.length > 16 && pendingFiles.length === 0 && invoices.length === 0) {
+    if (hash.length > 16 && files.length === 0 && invoices.length === 0) {
       const shortHash = hash.substring(0, 16);
-      pendingFilesShort = await pendingFileRepo.findByHash(shortHash);
+      const fileShort = fileRepo.findByHash(shortHash);
+      if (fileShort) filesShort = [fileShort];
       invoicesShort = await invoiceRepo.findByFileHash(shortHash);
     }
 
-    const allPendingFiles = [...pendingFiles, ...pendingFilesShort];
+    const allFiles = [...files, ...filesShort];
     const allInvoices = [...invoices, ...invoicesShort];
 
-    const found = allPendingFiles.length > 0 || allInvoices.length > 0;
+    const found = allFiles.length > 0 || allInvoices.length > 0;
 
     return json({
       found,
       hash,
       results: {
-        pendingFiles: allPendingFiles.map((pf) => ({
-          id: pf.id,
-          filename: pf.originalFilename,
-          status: pf.status,
-          uploadDate: pf.uploadDate,
-          extractedCuit: pf.extractedCuit,
-          extractedDate: pf.extractedDate,
-          extractedType: pf.extractedType,
-          fileHash: pf.fileHash,
-        })),
+        files: allFiles.map((f) => {
+          const extraction = extractionRepo.findByFileId(f.id);
+          return {
+            id: f.id,
+            filename: f.originalFilename,
+            status: f.status,
+            uploadDate: f.createdAt,
+            extractedCuit: extraction?.extractedCuit ?? null,
+            extractedDate: extraction?.extractedDate ?? null,
+            extractedType: extraction?.extractedType ?? null,
+            fileHash: f.fileHash,
+          };
+        }),
         invoices: allInvoices.map((inv) => ({
           id: inv.id,
           emitterCuit: inv.emitterCuit,
@@ -63,11 +70,10 @@ export const GET: RequestHandler = async ({ params }) => {
           invoiceType: inv.invoiceType,
           fullInvoiceNumber: inv.fullInvoiceNumber,
           total: inv.total,
-          processedFile: inv.processedFile,
-          fileHash: inv.fileHash,
+          fileId: inv.fileId,
         })),
       },
-      totalFound: allPendingFiles.length + allInvoices.length,
+      totalFound: allFiles.length + allInvoices.length,
     });
   } catch (error) {
     console.error('[HASH LOOKUP] Error:', error);
