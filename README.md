@@ -212,6 +212,7 @@ Para más detalles técnicos, consulta:
 - **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** - Arquitectura del sistema
 - **[docs/MELT-UI.md](./docs/MELT-UI.md)** - Componentes UI
 - **[docs/UI_UX.md](./docs/UI_UX.md)** - Guías de UI/UX
+- **[docs/GOOGLE_SETUP.md](./docs/GOOGLE_SETUP.md)** - Configuración Google Drive/Sheets
 - **[ROADMAP.md](./ROADMAP.md)** - Roadmap de desarrollo
 - **[CHANGELOG.md](./CHANGELOG.md)** - Historial de cambios
 
@@ -267,6 +268,6 @@ Este proyecto está bajo la licencia MIT. Ver [LICENSE](./LICENSE) para más det
 
 ---
 
-**Versión actual**: v0.4.0
-**Última actualización**: 2025-12-16
+**Versión actual**: v0.5.0
+**Última actualización**: 2026-01-16
 **Mantenedor**: [@fcaldera](https://github.com/fcaldera)

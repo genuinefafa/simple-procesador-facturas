@@ -1,44 +1,40 @@
-# 📚 Documentación del Proyecto
+# Documentación del Proyecto
 
-Esta carpeta contiene lineamientos, guías y documentación técnica del proyecto.
+Esta carpeta contiene documentación técnica, guías y lineamientos del proyecto.
 
 ## Documentos Disponibles
 
-### [UI_UX_GUIDELINES.md](./UI_UX_GUIDELINES.md) 🎨
-**Lineamientos de UI/UX - LECTURA OBLIGATORIA**
+| Documento | Descripción |
+|-----------|-------------|
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Arquitectura del sistema, componentes y flujos |
+| [GOOGLE_SETUP.md](./GOOGLE_SETUP.md) | Configuración de integración con Google Drive/Sheets |
+| [MELT-UI.md](./MELT-UI.md) | Uso de componentes Melt UI en el proyecto |
+| [SIDEBAR.md](./SIDEBAR.md) | Diseño y estructura de la navegación lateral |
+| [UI_UX.md](./UI_UX.md) | Lineamientos de UI/UX y design tokens |
 
-Reglas fundamentales de diseño de interfaz. **Especialmente importante:**
-- 🚫 **PROHIBICIÓN ABSOLUTA** de `alert()`, `confirm()`, `prompt()`
-- ✅ Cómo implementar feedback moderno y no-intrusivo
-- ✅ Ejemplos de código correcto vs incorrecto
+## Documentación en Root
 
-**Lee este documento antes de escribir cualquier UI.**
+Algunos documentos importantes están en la raíz del proyecto:
 
----
+| Documento | Descripción |
+|-----------|-------------|
+| [SPEC.md](../SPEC.md) | Especificación técnica completa |
+| [ROADMAP.md](../ROADMAP.md) | Roadmap de desarrollo y estado de milestones |
+| [CHANGELOG.md](../CHANGELOG.md) | Historial de cambios por versión |
+| [SECURITY.md](../SECURITY.md) | Políticas de seguridad |
 
-## Contribuir
-
-Si creás un nuevo documento de lineamientos:
-1. Agregalo a esta carpeta
-2. Actualiza este README con un link
-3. Asegurate que sea claro y con ejemplos
-
----
-
-## Estructura de Docs
+## Estructura
 
 ```
 docs/
-├── README.md              # Este archivo (índice)
-└── UI_UX_GUIDELINES.md    # Lineamientos de UI/UX
+├── README.md           # Este índice
+├── ARCHITECTURE.md     # Arquitectura del sistema
+├── GOOGLE_SETUP.md     # Integración Google Drive/Sheets
+├── MELT-UI.md          # Componentes Melt UI
+├── SIDEBAR.md          # Navegación lateral
+└── UI_UX.md            # Lineamientos UI/UX
 ```
-
-Próximos documentos sugeridos:
-- `CODING_STANDARDS.md` - Estándares de código TypeScript/Svelte
-- `API_DESIGN.md` - Lineamientos para diseño de endpoints
-- `TESTING.md` - Estrategia y mejores prácticas de testing
-- `SECURITY.md` - Consideraciones de seguridad
 
 ---
 
-**Nota:** La documentación es tan importante como el código. Mantenerla actualizada es responsabilidad de todos.
+**Última actualización**: 2026-01-16
