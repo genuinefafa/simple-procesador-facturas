@@ -7,7 +7,7 @@ import { eq, desc } from 'drizzle-orm';
 import { db } from '../db.js';
 import { files, type File, type NewFile } from '../schema.js';
 
-export interface FileRepository {
+export interface IFileRepository {
   create(data: Omit<NewFile, 'id' | 'createdAt' | 'updatedAt'>): File;
   findById(id: number): File | null;
   findByHash(hash: string): File | null;
@@ -19,7 +19,7 @@ export interface FileRepository {
   list(params?: { limit?: number; status?: 'uploaded' | 'processed' }): File[];
 }
 
-export class FileRepository implements FileRepository {
+export class FileRepository implements IFileRepository {
   /**
    * Crea un nuevo archivo
    */

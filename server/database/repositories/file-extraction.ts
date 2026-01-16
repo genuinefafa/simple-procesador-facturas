@@ -11,7 +11,7 @@ import {
   type NewFileExtractionResult,
 } from '../schema.js';
 
-export interface FileExtractionRepository {
+export interface IFileExtractionRepository {
   create(data: Omit<NewFileExtractionResult, 'id' | 'extractedAt'>): FileExtractionResult;
   findByFileId(fileId: number): FileExtractionResult | null;
   update(
@@ -21,7 +21,7 @@ export interface FileExtractionRepository {
   delete(id: number): void;
 }
 
-export class FileExtractionRepository implements FileExtractionRepository {
+export class FileExtractionRepository implements IFileExtractionRepository {
   /**
    * Crea un nuevo resultado de extracción
    */

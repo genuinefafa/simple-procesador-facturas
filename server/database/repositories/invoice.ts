@@ -75,36 +75,33 @@ export class InvoiceRepository {
     expectedInvoiceId?: number;
     categoryId?: number;
   }): Promise<Invoice> {
-    const issueDateStr =
+    const issueDateStr: string =
       typeof data.issueDate === 'string'
         ? data.issueDate
-        : data.issueDate.toISOString().split('T')[0];
+        : data.issueDate.toISOString().slice(0, 10);
 
     const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(4, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await db
-      .insert(facturas)
-      .values({
-        emisorCuit: data.emitterCuit,
-        templateUsadoId: data.templateUsedId ?? null,
-        fechaEmision: issueDateStr,
-        tipoComprobante: data.invoiceType,
-        puntoVenta: data.pointOfSale,
-        numeroComprobante: data.invoiceNumber,
-        comprobanteCompleto: fullInvoiceNumber,
-        total: data.total ?? null,
-        moneda: data.currency || 'ARS',
-        fileId: data.fileId,
-        tipoArchivo: data.fileType,
-        metodoExtraccion: data.extractionMethod as 'TEMPLATE' | 'GENERICO' | 'MANUAL',
-        confianzaExtraccion: data.extractionConfidence ?? null,
-        validadoManualmente: false,
-        requiereRevision: data.requiresReview ?? false,
-        expectedInvoiceId: data.expectedInvoiceId ?? null,
-        categoryId: data.categoryId ?? null,
-      } as any)
-      .returning();
+    const insertData = {
+      emisorCuit: data.emitterCuit,
+      templateUsadoId: data.templateUsedId ?? null,
+      fechaEmision: issueDateStr,
+      tipoComprobante: data.invoiceType,
+      puntoVenta: data.pointOfSale,
+      numeroComprobante: data.invoiceNumber,
+      comprobanteCompleto: fullInvoiceNumber,
+      total: data.total ?? null,
+      moneda: data.currency || 'ARS',
+      fileId: data.fileId,
+      tipoArchivo: data.fileType,
+      metodoExtraccion: data.extractionMethod as 'TEMPLATE' | 'GENERICO' | 'MANUAL',
+      confianzaExtraccion: data.extractionConfidence ?? null,
+      validadoManualmente: false,
+      requiereRevision: data.requiresReview ?? false,
+      expectedInvoiceId: data.expectedInvoiceId ?? null,
+      categoryId: data.categoryId ?? null,
+    };
+    const result = await db.insert(facturas).values(insertData).returning();
 
     if (!result || result.length === 0) {
       throw new Error('Failed to create invoice');
@@ -127,7 +124,7 @@ export class InvoiceRepository {
    * @deprecated Columna file_hash eliminada en migración 0013.
    * Usar FileRepository.findByHash() y luego findByFileId() en su lugar.
    */
-  async findByHash(_fileHash: string): Promise<Invoice[]> {
+  findByHash(_fileHash: string): Invoice[] {
     console.warn(
       '[DEPRECATED] InvoiceRepository.findByHash() - usar FileRepository.findByHash() + findByFileId()'
     );
@@ -216,11 +213,11 @@ export class InvoiceRepository {
    * @deprecated Columnas archivo_procesado y finalized_file eliminadas.
    * Usar FileRepository.updatePath() para actualizar files.storage_path
    */
-  async updateProcessedFile(
+  updateProcessedFile(
     _id: number,
     _processedFile: string,
     _finalizedFile?: string
-  ): Promise<void> {
+  ): void {
     console.warn(
       '[DEPRECATED] InvoiceRepository.updateProcessedFile() - usar FileRepository.updatePath()'
     );
@@ -392,7 +389,7 @@ export class InvoiceRepository {
    * @deprecated Columna file_hash eliminada en migración 0013.
    * Usar FileRepository.updateHash() en su lugar.
    */
-  async updateFileHash(_id: number, _fileHash: string): Promise<void> {
+  updateFileHash(_id: number, _fileHash: string): void {
     console.warn(
       '[DEPRECATED] InvoiceRepository.updateFileHash() - usar FileRepository.updateHash()'
     );
@@ -403,7 +400,7 @@ export class InvoiceRepository {
    * @deprecated Columna file_hash eliminada en migración 0013.
    * Usar FileRepository.findByHash() y luego findByFileId() en su lugar.
    */
-  async findByFileHash(_hash: string): Promise<Invoice[]> {
+  findByFileHash(_hash: string): Invoice[] {
     console.warn(
       '[DEPRECATED] InvoiceRepository.findByFileHash() - usar FileRepository.findByHash() + findByFileId()'
     );

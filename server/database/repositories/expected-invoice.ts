@@ -527,19 +527,18 @@ export class ExpectedInvoiceRepository {
   /**
    * Actualiza el estado de una expected invoice
    */
-  async updateStatus(
+  updateStatus(
     id: number,
     status: 'pending' | 'matched' | 'discrepancy' | 'manual' | 'ignored'
-  ): Promise<void> {
-    await db.update(expectedInvoices).set({ status }).where(eq(expectedInvoices.id, id)).run();
+  ): void {
+    db.update(expectedInvoices).set({ status }).where(eq(expectedInvoices.id, id)).run();
   }
 
   /**
    * Vincula una expected invoice a un file
    */
-  async linkToFile(expectedInvoiceId: number, fileId: number): Promise<void> {
-    await db
-      .update(expectedInvoices)
+  linkToFile(expectedInvoiceId: number, fileId: number): void {
+    db.update(expectedInvoices)
       .set({ matchedFileId: fileId })
       .where(eq(expectedInvoices.id, expectedInvoiceId))
       .run();

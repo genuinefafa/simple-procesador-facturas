@@ -46,11 +46,11 @@ export class FileExportService {
    * @param options - Opciones de exportación
    * @returns Resultado de la exportación
    */
-  async exportInvoice(
+  exportInvoice(
     invoice: Invoice,
     originalPath: string,
     options: ExportOptions = {}
-  ): Promise<ExportResult> {
+  ): ExportResult {
     try {
       const outputDir = options.outputDir || this.defaultOutputDir;
       const categoryKey = options.categoryKey ?? null;
@@ -102,7 +102,7 @@ export class FileExportService {
       console.info(`   ✅ Archivo exportado: ${relativePath}`);
 
       // Actualizar BD con la nueva ruta (relativa)
-      await this.invoiceRepo.updateProcessedFile(invoice.id, relativePath);
+      this.invoiceRepo.updateProcessedFile(invoice.id, relativePath);
 
       return {
         success: true,
@@ -203,16 +203,14 @@ export class FileExportService {
    * @param options - Opciones de exportación
    * @returns Array de resultados
    */
-  async exportBatch(
+  exportBatch(
     invoices: Array<{ invoice: Invoice; originalPath: string }>,
     options: ExportOptions = {}
-  ): Promise<ExportResult[]> {
+  ): ExportResult[] {
     console.info(`\n📦 [EXPORT] Exportando ${invoices.length} archivo(s)...`);
 
-    const results = await Promise.all(
-      invoices.map(({ invoice, originalPath }) =>
-        this.exportInvoice(invoice, originalPath, options)
-      )
+    const results = invoices.map(({ invoice, originalPath }) =>
+      this.exportInvoice(invoice, originalPath, options)
     );
 
     const successful = results.filter((r) => r.success).length;
