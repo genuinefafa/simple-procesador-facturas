@@ -59,8 +59,7 @@
             if (currentType === 'file' && f.id === currentId) return false;
 
             // Si es factura actual y este file está vinculado a ella, no mostrar
-            if (currentType === 'invoice' && linkedFileId && f.id === linkedFileId)
-              return false;
+            if (currentType === 'invoice' && linkedFileId && f.id === linkedFileId) return false;
 
             return true;
           });
