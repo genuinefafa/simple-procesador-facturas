@@ -81,9 +81,8 @@ const emisores = sqliteTable(
     // Metadata
     tipoPersona: text('tipo_persona', { enum: ['FISICA', 'JURIDICA'] }),
     activo: integer('activo', { mode: 'boolean' }).default(true),
-    primeraFacturaFecha: text('primera_factura_fecha'), // DATE
-    ultimaFacturaFecha: text('ultima_factura_fecha'), // DATE
-    totalFacturas: integer('total_facturas').default(0),
+    // NOTA: primera_factura_fecha, ultima_factura_fecha, total_facturas eliminados
+    // en migración 0016 - se calculan dinámicamente desde facturas/expected
     createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
   },
@@ -148,7 +147,7 @@ const expectedInvoices_ = sqliteTable(
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
     importBatchId: integer('import_batch_id').references(() => importBatches_.id, {
-      onDelete: 'cascade',
+      onDelete: 'restrict',
     }),
 
     // Datos desde Excel AFIP (columnas típicas)
@@ -203,7 +202,7 @@ const facturas_ = sqliteTable(
     id: integer('id').primaryKey({ autoIncrement: true }),
     emisorCuit: text('emisor_cuit')
       .notNull()
-      .references(() => emisores.cuit, { onDelete: 'cascade' }), // TEMPORALMENTE CASCADE - cambiar a RESTRICT en migración posterior
+      .references(() => emisores.cuit, { onDelete: 'restrict' }), // RESTRICT: no permitir borrar emisor si tiene facturas
     templateUsadoId: integer('template_usado_id').references(() => templatesExtraccion.id, {
       onDelete: 'set null',
     }),
