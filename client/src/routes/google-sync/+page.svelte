@@ -281,7 +281,5 @@
 </div>
 
 <style>
-  :global(body) {
-    @apply bg-gray-50;
-  }
+  /* Tailwind styles removed - full refactor pending (issue #33) */
 </style>
