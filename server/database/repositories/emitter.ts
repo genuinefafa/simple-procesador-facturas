@@ -24,9 +24,9 @@ export class EmitterRepository {
       configOverride: row.configOverride ?? undefined,
       personType: row.tipoPersona ?? undefined,
       active: row.activo ?? true,
-      firstInvoiceDate: row.primeraFacturaFecha ? new Date(row.primeraFacturaFecha) : undefined,
-      lastInvoiceDate: row.ultimaFacturaFecha ? new Date(row.ultimaFacturaFecha) : undefined,
-      totalInvoices: row.totalFacturas ?? 0,
+      // NOTA: firstInvoiceDate, lastInvoiceDate, totalInvoices se calculan
+      // dinámicamente en las APIs - ya no se almacenan en DB (migración 0016)
+      totalInvoices: 0,
       createdAt: new Date(row.createdAt ?? ''),
       updatedAt: new Date(row.updatedAt ?? ''),
     };
@@ -233,5 +233,186 @@ export class EmitterRepository {
     if (!result || result.length === 0) return null;
 
     return result[0] ?? null;
+  }
+
+  /**
+   * Busca un emisor por ID (cuit)
+   * @param id - CUIT del emisor
+   * @returns Emisor o null si no existe
+   */
+  findById(id: string): Emitter | null {
+    return this.findByCUIT(id);
+  }
+
+  /**
+   * Actualiza un emisor
+   * @param cuit - CUIT del emisor a actualizar
+   * @param data - Datos a actualizar
+   * @returns El emisor actualizado o null si no existe
+   */
+  update(
+    cuit: string,
+    data: {
+      name?: string;
+      legalName?: string;
+      aliases?: string[];
+      personType?: 'FISICA' | 'JURIDICA';
+      active?: boolean;
+    }
+  ): Emitter | null {
+    const existing = this.findByCUIT(cuit);
+    if (!existing) return null;
+
+    const updateData: Record<string, unknown> = {
+      updatedAt: new Date().toISOString(),
+    };
+
+    if (data.name !== undefined) {
+      updateData.nombre = data.name;
+    }
+    if (data.legalName !== undefined) {
+      updateData.razonSocial = data.legalName;
+    }
+    if (data.aliases !== undefined) {
+      updateData.aliases = data.aliases.length > 0 ? JSON.stringify(data.aliases) : null;
+    }
+    if (data.personType !== undefined) {
+      updateData.tipoPersona = data.personType;
+    }
+    if (data.active !== undefined) {
+      updateData.activo = data.active;
+    }
+
+    db.update(emisores).set(updateData).where(eq(emisores.cuit, cuit)).run();
+
+    return this.findByCUIT(cuit);
+  }
+
+  /**
+   * Cuenta las facturas vinculadas a un emisor (solo facturas finales)
+   * @param cuit - CUIT del emisor
+   * @returns Cantidad de facturas
+   */
+  countInvoices(cuit: string): number {
+    const result = db
+      .select({
+        count: sql<number>`COUNT(*)`,
+      })
+      .from(sql`facturas`)
+      .where(sql`emisor_cuit = ${cuit}`)
+      .all();
+
+    return result[0]?.count ?? 0;
+  }
+
+  /**
+   * Cuenta todos los comprobantes vinculados a un emisor
+   * (facturas finales + expected invoices que no tienen factura vinculada)
+   * @param cuit - CUIT del emisor (con o sin guiones)
+   * @returns Cantidad total de comprobantes
+   */
+  countComprobantes(cuit: string): number {
+    const cleaned = cuit.replace(/[-\s]/g, '');
+
+    // Contar facturas finales
+    const facturasResult = db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(sql`facturas`)
+      .where(sql`REPLACE(emisor_cuit, '-', '') = ${cleaned}`)
+      .all();
+    const facturas = facturasResult[0]?.count ?? 0;
+
+    // Contar expected invoices que NO tienen factura vinculada (status != 'matched')
+    const expectedResult = db
+      .select({ count: sql<number>`COUNT(*)` })
+      .from(sql`expected_invoices`)
+      .where(sql`REPLACE(cuit, '-', '') = ${cleaned} AND status != 'matched'`)
+      .all();
+    const expected = expectedResult[0]?.count ?? 0;
+
+    return facturas + expected;
+  }
+
+  /**
+   * Obtiene estadísticas completas de un emisor
+   * (considera facturas finales + expected invoices)
+   * @param cuit - CUIT del emisor
+   * @returns Estadísticas combinadas
+   */
+  getFullStats(cuit: string): {
+    totalComprobantes: number;
+    totalFacturas: number;
+    totalExpected: number;
+    totalAmount: number;
+    firstDate: string | null;
+    lastDate: string | null;
+  } {
+    const cleaned = cuit.replace(/[-\s]/g, '');
+
+    // Stats de facturas finales
+    const facturasStats = db
+      .select({
+        count: sql<number>`COUNT(*)`,
+        total: sql<number>`COALESCE(SUM(total), 0)`,
+        firstDate: sql<string | null>`MIN(fecha_emision)`,
+        lastDate: sql<string | null>`MAX(fecha_emision)`,
+      })
+      .from(sql`facturas`)
+      .where(sql`REPLACE(emisor_cuit, '-', '') = ${cleaned}`)
+      .all();
+
+    // Stats de expected invoices (no matched)
+    // Nota: expected_invoices usa issue_date, no fecha_emision
+    const expectedStats = db
+      .select({
+        count: sql<number>`COUNT(*)`,
+        total: sql<number>`COALESCE(SUM(total), 0)`,
+        firstDate: sql<string | null>`MIN(issue_date)`,
+        lastDate: sql<string | null>`MAX(issue_date)`,
+      })
+      .from(sql`expected_invoices`)
+      .where(sql`REPLACE(cuit, '-', '') = ${cleaned} AND status != 'matched'`)
+      .all();
+
+    const f = facturasStats[0] || { count: 0, total: 0, firstDate: null, lastDate: null };
+    const e = expectedStats[0] || { count: 0, total: 0, firstDate: null, lastDate: null };
+
+    // Combinar fechas
+    const dates = [f.firstDate, f.lastDate, e.firstDate, e.lastDate].filter(
+      (d): d is string => d !== null && d !== undefined
+    );
+    const firstDate: string | null = dates.length > 0 ? (dates.sort()[0] ?? null) : null;
+    const lastDate: string | null = dates.length > 0 ? (dates.sort().reverse()[0] ?? null) : null;
+
+    return {
+      totalComprobantes: (f.count ?? 0) + (e.count ?? 0),
+      totalFacturas: f.count ?? 0,
+      totalExpected: e.count ?? 0,
+      totalAmount: (f.total ?? 0) + (e.total ?? 0),
+      firstDate,
+      lastDate,
+    };
+  }
+
+  /**
+   * Elimina un emisor
+   * @param cuit - CUIT del emisor a eliminar
+   * @returns true si se eliminó, false si no existía
+   * @throws Error si el emisor tiene facturas vinculadas
+   */
+  delete(cuit: string): boolean {
+    const existing = this.findByCUIT(cuit);
+    if (!existing) return false;
+
+    // Verificar que no tenga facturas vinculadas
+    const invoiceCount = this.countInvoices(cuit);
+    if (invoiceCount > 0) {
+      throw new Error(
+        `No se puede eliminar el emisor porque tiene ${invoiceCount} factura(s) vinculada(s)`
+      );
+    }
+
+    db.delete(emisores).where(eq(emisores.cuit, cuit)).run();
+    return true;
   }
 }
