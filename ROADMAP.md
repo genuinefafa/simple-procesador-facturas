@@ -4,7 +4,7 @@
 
 Este documento describe el estado actual del proyecto y los próximos pasos a implementar.
 
-### Estado General (2025-11-22)
+### Estado General (2026-01-16)
 
 | Área | Estado | Notas |
 |------|--------|-------|
@@ -323,6 +323,12 @@ git log --oneline -10          # Últimos commits
 - Tabla pending_files implementada (posteriormente reemplazada en v0.4)
 - UI de 3 tabs funcionando
 
+### 2026-01-16: Release v0.5.0 - Unified File Management
+- **Release v0.5.0** con todo el trabajo del Issue #40
+- Consolidación de documentación: eliminados archivos obsoletos, reorganizado docs/
+- CHANGELOG actualizado con entradas completas para v0.3.0, v0.4.0, v0.5.0
+- Tag y GitHub Release con Docker image multi-plataforma
+
 ### 2026-01-13: Issue #40 - Simplificación de arquitectura
 - Migración de `pending_files` a `files` + `file_extraction_results`
 - Eliminación de tabla `pending_files`
@@ -331,4 +337,4 @@ git log --oneline -10          # Últimos commits
 
 ---
 
-Última actualización: 2025-11-27
+Última actualización: 2026-01-16
