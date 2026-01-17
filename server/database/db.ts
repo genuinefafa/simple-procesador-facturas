@@ -32,8 +32,8 @@ const sqlite = new Database(DB_PATH);
 // Habilitar foreign keys (importante para SQLite)
 sqlite.pragma('foreign_keys = ON');
 
-// Crear instancia de Drizzle
-export const db = drizzle(sqlite, { schema });
+// Crear instancia de Drizzle (v1 API)
+export const db = drizzle({ client: sqlite, schema });
 
 // Exportar también la conexión SQLite pura para casos especiales
 export const rawDb: Database.Database = sqlite;

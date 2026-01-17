@@ -1,1 +1,0 @@
-ALTER TABLE `pending_files` ADD `extraction_method` text;
