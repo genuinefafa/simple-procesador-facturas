@@ -2,17 +2,16 @@ import type { PageLoad } from './$types';
 
 export const load: PageLoad = async ({ fetch }) => {
   try {
-    // Traer los últimos 10 emisores (los más recientes por ID)
-    const response = await fetch('/api/emisores?limit=10');
+    const response = await fetch('/api/emisores?limit=200');
     const data = await response.json();
 
     return {
-      recentEmitters: data.emitters || [],
+      emitters: data.emitters || [],
     };
   } catch (e) {
-    console.error('Error loading recent emitters:', e);
+    console.error('Error loading emitters:', e);
     return {
-      recentEmitters: [],
+      emitters: [],
     };
   }
 };
