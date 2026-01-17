@@ -4,19 +4,26 @@ Scripts para gestión de la base de datos y tareas de mantenimiento.
 
 ## 🗄️ Gestión de Base de Datos
 
-### Inicializar Base de Datos
+### Migraciones
 
-Crea el archivo `database.sqlite` y ejecuta el schema SQL completo:
+Aplica las migraciones de Drizzle ORM para crear/actualizar el schema:
 
 ```bash
-npm run db:init
+npm run db:migrate
 ```
 
-**⚠️ Importante**: No ejecutar si la base de datos ya existe. Si necesitás reiniciar:
+Para generar una nueva migración después de cambiar el schema:
 
 ```bash
-rm data/database.sqlite
-npm run db:init
+npm run db:generate
+```
+
+### Drizzle Studio (GUI)
+
+Abre una interfaz web para explorar y editar datos:
+
+```bash
+npm run db:studio
 ```
 
 ### Poblar con Datos de Prueba
@@ -90,21 +97,15 @@ npm run db:seed -- --only=facturas --dry-run --force
 
 El modo `--dry-run` muestra "Truncaría" y/o "Poblaría" según corresponda.
 
-### Migraciones (futuro)
-
-```bash
-npm run db:migrate
-```
-
-_Nota: Sistema de migraciones versionadas se implementará en fases posteriores_
-
 ## 📁 Estructura
 
 ```
 scripts/
-├── init-db.ts      # Inicialización de base de datos
-├── seed.ts         # Datos de prueba
-└── migrate.ts      # Migraciones (futuro)
+├── migrate.ts                    # Ejecutar migraciones Drizzle
+├── seed.ts                       # Datos de prueba
+├── seed-data/                    # JSONs con datos de seed
+├── test-extraction-accuracy.ts   # Tests de extracción
+└── README.md                     # Este archivo
 ```
 
 ## 🛠️ Crear Nuevos Scripts
@@ -140,25 +141,23 @@ sqlite3 data/database.sqlite
 SELECT * FROM emisores;
 ```
 
-### Con VS Code:
+### Con Drizzle Studio:
 
-Instalar extensión: `alexcvzz.vscode-sqlite`
-
-1. Cmd/Ctrl + Shift + P
-2. "SQLite: Open Database"
-3. Seleccionar `data/database.sqlite`
+```bash
+npm run db:studio
+# Abre http://local.drizzle.studio en el navegador
+```
 
 ## 🧹 Limpieza
 
 Para empezar de cero:
 
 ```bash
-# Eliminar base de datos
+# Usar el script de reset (recomendado)
+./scripts/reset-dev-env.sh
+
+# O manualmente:
 rm data/database.sqlite
-
-# Reinicializar
-npm run db:init
-
-# (Opcional) Poblar con datos de prueba
-npm run db:seed
+npm run db:migrate
+npm run db:seed  # Opcional
 ```
