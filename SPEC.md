@@ -626,13 +626,24 @@ Sistema completo de tokens CSS en `tokens.css`:
 
 **Formatters (`client/src/lib/formatters.ts`):**
 - Usar funciones centralizadas para formateo consistente
-- `formatCurrency(value)` → $1.234,56
-- `formatNumber(value)` → 1.234,56
-- `formatCuit(cuit)` → 30‑12345678‑9
-- `formatDateISO(date)` → 15-dic-2025
-- `formatDateShort(date)` → 15/dic
-- `formatDateTime(date)` → 15-dic-2025 14:30
+- `formatCurrency(value)` → $1.234,56 (moneda con símbolo)
+- `formatNumber(value)` → 1.234,56 (número con separadores)
+- `formatCuit(cuit)` → 30‑12345678‑9 (guiones non-breaking)
+- `formatDateISO(date)` → 15-dic-2025 (fecha larga con guiones)
+- `formatDateShort(date)` → 15/dic o 15/dic/2024 (fecha compacta, sin año si es actual)
+- `formatDateTime(date)` → 15-dic-2025 14:30 (fecha + hora)
+- `getFullDateForTooltip(date)` → "15 de diciembre de 2025" (para tooltips)
+- `getFriendlyType(arcaCode)` → FACA, FACB, etc. (tipos de comprobante)
+- `formatEmitterName(name, maxLen)` → nombre truncado con ellipsis
+
+**Cuándo usar cada formatter de fecha:**
+- **Tablas/listas**: `formatDateShort()` - compacto, omite año actual
+- **Drawers/detalles**: `formatDateShort()` - consistente con tablas
+- **Tooltips**: `getFullDateForTooltip()` - fecha completa legible
+- **Exports/logs**: `formatDateISO()` - incluye año siempre
+
 - ❌ **NO duplicar** lógica de formateo inline
+- ❌ **NO usar** `toLocaleDateString()` directamente - usar formatters
 - Snippets en lugar de slots
 
 **Estilos:**
