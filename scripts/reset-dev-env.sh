@@ -50,7 +50,7 @@ mkdir -p "$INPUT_DIR"
 echo "   ✅ input/ creado limpio"
 echo ""
 
-# 3. Rename processed directory
+# 3. Rename processed directory (legacy)
 PROCESSED_DIR="$DATA_DIR/processed"
 if [ -d "$PROCESSED_DIR" ]; then
   NEW_PROCESSED_DIR="$DATA_DIR/processed.$TIMESTAMP"
@@ -63,6 +63,21 @@ fi
 # Create fresh processed directory
 mkdir -p "$PROCESSED_DIR"
 echo "   ✅ processed/ creado limpio"
+echo ""
+
+# 4. Rename finalized directory (new flow)
+FINALIZED_DIR="$DATA_DIR/finalized"
+if [ -d "$FINALIZED_DIR" ]; then
+  NEW_FINALIZED_DIR="$DATA_DIR/finalized.$TIMESTAMP"
+  mv "$FINALIZED_DIR" "$NEW_FINALIZED_DIR"
+  echo "📦 finalized/ → finalized.$TIMESTAMP"
+else
+  echo "📦 finalized/ no existía"
+fi
+
+# Create fresh finalized directory
+mkdir -p "$FINALIZED_DIR"
+echo "   ✅ finalized/ creado limpio"
 echo ""
 
 echo "✅ Entorno reseteado exitosamente!"

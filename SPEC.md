@@ -1115,7 +1115,7 @@ CUIT === expected.cuit
 
 ```json
 {
-  "drizzle-orm": "^0.x",
+  "drizzle-orm": "^1.x",              // v1.0.0-beta (RC)
   "better-sqlite3": "^11.x",
   "pdf-parse": "^1.x",
   "sharp": "^0.x",                    // Procesamiento de imágenes

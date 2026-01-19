@@ -1,0 +1,2125 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "0dcd2a26-e266-44f0-869e-cf7d6a002f57",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "categories",
+      "entityType": "tables"
+    },
+    {
+      "name": "emisor_templates_historial",
+      "entityType": "tables"
+    },
+    {
+      "name": "emisores",
+      "entityType": "tables"
+    },
+    {
+      "name": "expected_invoices",
+      "entityType": "tables"
+    },
+    {
+      "name": "facturas",
+      "entityType": "tables"
+    },
+    {
+      "name": "facturas_correcciones",
+      "entityType": "tables"
+    },
+    {
+      "name": "facturas_zonas_anotadas",
+      "entityType": "tables"
+    },
+    {
+      "name": "file_extraction_results",
+      "entityType": "tables"
+    },
+    {
+      "name": "files",
+      "entityType": "tables"
+    },
+    {
+      "name": "import_batches",
+      "entityType": "tables"
+    },
+    {
+      "name": "templates_extraccion",
+      "entityType": "tables"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "categories"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key",
+      "entityType": "columns",
+      "table": "categories"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "description",
+      "entityType": "columns",
+      "table": "categories"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "active",
+      "entityType": "columns",
+      "table": "categories"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "categories"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "categories"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "emisor_cuit",
+      "entityType": "columns",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "template_id",
+      "entityType": "columns",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "intentos",
+      "entityType": "columns",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "exitos",
+      "entityType": "columns",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "fallos",
+      "entityType": "columns",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "ultima_prueba",
+      "entityType": "columns",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "promovido_a_preferido",
+      "entityType": "columns",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cuit",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cuit_numerico",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "nombre",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "razon_social",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "aliases",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "template_preferido_id",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "template_auto_detectado",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "config_override",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "tipo_persona",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "activo",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "emisores"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "import_batch_id",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cuit",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "emitter_name",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "issue_date",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "invoice_type",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "point_of_sale",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "invoice_number",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "total",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cae",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "cae_expiration",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "'ARS'",
+      "generated": null,
+      "name": "currency",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "'pending'",
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "matched_file_id",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "match_confidence",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "import_date",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "notes",
+      "entityType": "columns",
+      "table": "expected_invoices"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "emisor_cuit",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "template_usado_id",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "file_id",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fecha_emision",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "tipo_comprobante",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "punto_venta",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "numero_comprobante",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "comprobante_completo",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "total",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "'ARS'",
+      "generated": null,
+      "name": "moneda",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "tipo_archivo",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "metodo_extraccion",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "confianza_extraccion",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "validado_manualmente",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "requiere_revision",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "expected_invoice_id",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "category_id",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "procesado_en",
+      "entityType": "columns",
+      "table": "facturas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "facturas_correcciones"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "factura_id",
+      "entityType": "columns",
+      "table": "facturas_correcciones"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "campo",
+      "entityType": "columns",
+      "table": "facturas_correcciones"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "valor_original",
+      "entityType": "columns",
+      "table": "facturas_correcciones"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "valor_corregido",
+      "entityType": "columns",
+      "table": "facturas_correcciones"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "corregido_en",
+      "entityType": "columns",
+      "table": "facturas_correcciones"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "aplicado_a_template",
+      "entityType": "columns",
+      "table": "facturas_correcciones"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "factura_id",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "campo",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "x",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "y",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "width",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "height",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "valor_extraido",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "anotado_en",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "'usuario'",
+      "generated": null,
+      "name": "anotado_por",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "false",
+      "generated": null,
+      "name": "usado_para_template",
+      "entityType": "columns",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "file_id",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "extracted_cuit",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "extracted_date",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "extracted_total",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "extracted_type",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "extracted_point_of_sale",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "extracted_invoice_number",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "confidence",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "method",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "template_id",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "errors",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "extracted_at",
+      "entityType": "columns",
+      "table": "file_extraction_results"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "files"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "original_filename",
+      "entityType": "columns",
+      "table": "files"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "file_type",
+      "entityType": "columns",
+      "table": "files"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "file_size",
+      "entityType": "columns",
+      "table": "files"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "file_hash",
+      "entityType": "columns",
+      "table": "files"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "storage_path",
+      "entityType": "columns",
+      "table": "files"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "'uploaded'",
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "files"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "files"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "files"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "import_batches"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "filename",
+      "entityType": "columns",
+      "table": "import_batches"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "total_rows",
+      "entityType": "columns",
+      "table": "import_batches"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "imported_rows",
+      "entityType": "columns",
+      "table": "import_batches"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "skipped_rows",
+      "entityType": "columns",
+      "table": "import_batches"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "error_rows",
+      "entityType": "columns",
+      "table": "import_batches"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "import_date",
+      "entityType": "columns",
+      "table": "import_batches"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "notes",
+      "entityType": "columns",
+      "table": "import_batches"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "nombre",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "descripcion",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "categoria",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "tipo_documento",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "estrategia",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "config_extraccion",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "emisores_usando",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "facturas_procesadas",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "facturas_exitosas",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "real",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "50",
+      "generated": null,
+      "name": "confianza_promedio",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "creado_desde_emisor_cuit",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "true",
+      "generated": null,
+      "name": "activo",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": "CURRENT_TIMESTAMP",
+      "generated": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "table": "templates_extraccion"
+    },
+    {
+      "columns": [
+        "emisor_cuit"
+      ],
+      "tableTo": "emisores",
+      "columnsTo": [
+        "cuit"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_emisor_templates_historial_emisor_cuit_emisores_cuit_fk",
+      "entityType": "fks",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "columns": [
+        "template_id"
+      ],
+      "tableTo": "templates_extraccion",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_emisor_templates_historial_template_id_templates_extraccion_id_fk",
+      "entityType": "fks",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "columns": [
+        "template_preferido_id"
+      ],
+      "tableTo": "templates_extraccion",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_emisores_template_preferido_id_templates_extraccion_id_fk",
+      "entityType": "fks",
+      "table": "emisores"
+    },
+    {
+      "columns": [
+        "import_batch_id"
+      ],
+      "tableTo": "import_batches",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_expected_invoices_import_batch_id_import_batches_id_fk",
+      "entityType": "fks",
+      "table": "expected_invoices"
+    },
+    {
+      "columns": [
+        "emisor_cuit"
+      ],
+      "tableTo": "emisores",
+      "columnsTo": [
+        "cuit"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "RESTRICT",
+      "nameExplicit": false,
+      "name": "fk_facturas_emisor_cuit_emisores_cuit_fk",
+      "entityType": "fks",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        "template_usado_id"
+      ],
+      "tableTo": "templates_extraccion",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_facturas_template_usado_id_templates_extraccion_id_fk",
+      "entityType": "fks",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        "expected_invoice_id"
+      ],
+      "tableTo": "expected_invoices",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_facturas_expected_invoice_id_expected_invoices_id_fk",
+      "entityType": "fks",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        "category_id"
+      ],
+      "tableTo": "categories",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_facturas_category_id_categories_id_fk",
+      "entityType": "fks",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        "factura_id"
+      ],
+      "tableTo": "facturas",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_facturas_correcciones_factura_id_facturas_id_fk",
+      "entityType": "fks",
+      "table": "facturas_correcciones"
+    },
+    {
+      "columns": [
+        "factura_id"
+      ],
+      "tableTo": "facturas",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_facturas_zonas_anotadas_factura_id_facturas_id_fk",
+      "entityType": "fks",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "columns": [
+        "file_id"
+      ],
+      "tableTo": "files",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "nameExplicit": false,
+      "name": "fk_file_extraction_results_file_id_files_id_fk",
+      "entityType": "fks",
+      "table": "file_extraction_results"
+    },
+    {
+      "columns": [
+        "template_id"
+      ],
+      "tableTo": "templates_extraccion",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "SET NULL",
+      "nameExplicit": false,
+      "name": "fk_file_extraction_results_template_id_templates_extraccion_id_fk",
+      "entityType": "fks",
+      "table": "file_extraction_results"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "categories_pk",
+      "table": "categories",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "emisor_templates_historial_pk",
+      "table": "emisor_templates_historial",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "cuit"
+      ],
+      "nameExplicit": false,
+      "name": "emisores_pk",
+      "table": "emisores",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "expected_invoices_pk",
+      "table": "expected_invoices",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "facturas_pk",
+      "table": "facturas",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "facturas_correcciones_pk",
+      "table": "facturas_correcciones",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "facturas_zonas_anotadas_pk",
+      "table": "facturas_zonas_anotadas",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "file_extraction_results_pk",
+      "table": "file_extraction_results",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "files_pk",
+      "table": "files",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "import_batches_pk",
+      "table": "import_batches",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "templates_extraccion_pk",
+      "table": "templates_extraccion",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "emisor_cuit",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_historial_emisor",
+      "entityType": "indexes",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "columns": [
+        {
+          "value": "template_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_historial_template",
+      "entityType": "indexes",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "columns": [
+        {
+          "value": "emisor_cuit",
+          "isExpression": false
+        },
+        {
+          "value": "template_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "unique_emisor_template",
+      "entityType": "indexes",
+      "table": "emisor_templates_historial"
+    },
+    {
+      "columns": [
+        {
+          "value": "nombre",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_emisores_nombre",
+      "entityType": "indexes",
+      "table": "emisores"
+    },
+    {
+      "columns": [
+        {
+          "value": "cuit_numerico",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_emisores_cuit_num",
+      "entityType": "indexes",
+      "table": "emisores"
+    },
+    {
+      "columns": [
+        {
+          "value": "template_preferido_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_emisores_template",
+      "entityType": "indexes",
+      "table": "emisores"
+    },
+    {
+      "columns": [
+        {
+          "value": "cuit",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_expected_invoices_cuit",
+      "entityType": "indexes",
+      "table": "expected_invoices"
+    },
+    {
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_expected_invoices_status",
+      "entityType": "indexes",
+      "table": "expected_invoices"
+    },
+    {
+      "columns": [
+        {
+          "value": "import_batch_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_expected_invoices_batch",
+      "entityType": "indexes",
+      "table": "expected_invoices"
+    },
+    {
+      "columns": [
+        {
+          "value": "issue_date",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_expected_invoices_date",
+      "entityType": "indexes",
+      "table": "expected_invoices"
+    },
+    {
+      "columns": [
+        {
+          "value": "cuit",
+          "isExpression": false
+        },
+        {
+          "value": "invoice_type",
+          "isExpression": false
+        },
+        {
+          "value": "point_of_sale",
+          "isExpression": false
+        },
+        {
+          "value": "invoice_number",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "unique_expected_invoice",
+      "entityType": "indexes",
+      "table": "expected_invoices"
+    },
+    {
+      "columns": [
+        {
+          "value": "emisor_cuit",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_facturas_emisor",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "fecha_emision",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_facturas_fecha",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "comprobante_completo",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_facturas_comprobante",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "total",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_facturas_total",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "template_usado_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_facturas_template",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "requiere_revision",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_facturas_revision",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "expected_invoice_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_facturas_expected_invoice",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "file_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_facturas_file",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "category_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_facturas_category",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "emisor_cuit",
+          "isExpression": false
+        },
+        {
+          "value": "tipo_comprobante",
+          "isExpression": false
+        },
+        {
+          "value": "punto_venta",
+          "isExpression": false
+        },
+        {
+          "value": "numero_comprobante",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "unique_factura",
+      "entityType": "indexes",
+      "table": "facturas"
+    },
+    {
+      "columns": [
+        {
+          "value": "factura_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_correcciones_factura",
+      "entityType": "indexes",
+      "table": "facturas_correcciones"
+    },
+    {
+      "columns": [
+        {
+          "value": "campo",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_correcciones_campo",
+      "entityType": "indexes",
+      "table": "facturas_correcciones"
+    },
+    {
+      "columns": [
+        {
+          "value": "factura_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_zonas_factura",
+      "entityType": "indexes",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "columns": [
+        {
+          "value": "campo",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_zonas_campo",
+      "entityType": "indexes",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "columns": [
+        {
+          "value": "usado_para_template",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_zonas_template",
+      "entityType": "indexes",
+      "table": "facturas_zonas_anotadas"
+    },
+    {
+      "columns": [
+        {
+          "value": "file_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_file_extraction_file",
+      "entityType": "indexes",
+      "table": "file_extraction_results"
+    },
+    {
+      "columns": [
+        {
+          "value": "extracted_cuit",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_file_extraction_cuit",
+      "entityType": "indexes",
+      "table": "file_extraction_results"
+    },
+    {
+      "columns": [
+        {
+          "value": "extracted_date",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_file_extraction_date",
+      "entityType": "indexes",
+      "table": "file_extraction_results"
+    },
+    {
+      "columns": [
+        {
+          "value": "status",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_files_status",
+      "entityType": "indexes",
+      "table": "files"
+    },
+    {
+      "columns": [
+        {
+          "value": "file_hash",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_files_hash",
+      "entityType": "indexes",
+      "table": "files"
+    },
+    {
+      "columns": [
+        {
+          "value": "created_at",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_files_created",
+      "entityType": "indexes",
+      "table": "files"
+    },
+    {
+      "columns": [
+        {
+          "value": "categoria",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_templates_categoria",
+      "entityType": "indexes",
+      "table": "templates_extraccion"
+    },
+    {
+      "columns": [
+        {
+          "value": "confianza_promedio",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_templates_confianza",
+      "entityType": "indexes",
+      "table": "templates_extraccion"
+    },
+    {
+      "columns": [
+        {
+          "value": "activo",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_templates_activo",
+      "entityType": "indexes",
+      "table": "templates_extraccion"
+    },
+    {
+      "columns": [
+        {
+          "value": "nombre",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "idx_templates_nombre",
+      "entityType": "indexes",
+      "table": "templates_extraccion"
+    },
+    {
+      "columns": [
+        "key"
+      ],
+      "nameExplicit": false,
+      "name": "categories_key_unique",
+      "entityType": "uniques",
+      "table": "categories"
+    }
+  ],
+  "renames": []
+}
