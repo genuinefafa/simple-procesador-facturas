@@ -15,7 +15,7 @@ import { db } from '../database/db.js';
 import { facturas, files, emisores } from '../database/schema.js';
 import { eq } from 'drizzle-orm';
 import { existsSync, readdirSync, statSync, renameSync, mkdirSync, copyFileSync } from 'fs';
-import { join, basename, dirname, extname } from 'path';
+import { join, basename, dirname } from 'path';
 import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -78,7 +78,7 @@ function listFilesRecursive(dir: string, relativeTo: string = dir): FileInfo[] {
 function extractComprobanteFromFilename(filename: string): string | null {
   // Buscar patrón XXXXX-XXXXXXXX (punto venta - número)
   const match = filename.match(/(\d{4,5})-(\d{6,8})/);
-  if (match) {
+  if (match && match[1] && match[2]) {
     return `${match[1].padStart(5, '0')}-${match[2].padStart(8, '0')}`;
   }
   return null;
@@ -109,8 +109,9 @@ async function main() {
     const filesInDir = listFilesRecursive(dir, DATA_DIR);
 
     console.log(`   ${dirName}/: ${filesInDir.length} archivos`);
-    if (filesInDir.length > 0) {
-      console.log(`      Ejemplo: ${filesInDir[0].path}`);
+    const firstFile = filesInDir[0];
+    if (firstFile) {
+      console.log(`      Ejemplo: ${firstFile.path}`);
     }
 
     for (const file of filesInDir) {
@@ -184,8 +185,9 @@ async function main() {
     // Intentar buscar por hash
     if (file.fileHash) {
       const matchingFiles = allFiles.get(file.fileHash);
-      if (matchingFiles && matchingFiles.length > 0) {
-        result.newPath = matchingFiles[0].path;
+      const firstMatch = matchingFiles?.[0];
+      if (firstMatch) {
+        result.newPath = firstMatch.path;
         result.method = 'hash';
       }
     }
@@ -194,11 +196,12 @@ async function main() {
     if (!result.newPath) {
       // Extraer PV-NUM del comprobante (ej: "FACA 2090-00118387" -> "02090-00118387")
       const match = factura.comprobante.match(/(\d{4,5})-(\d{6,8})/);
-      if (match) {
+      if (match && match[1] && match[2]) {
         const comprobanteKey = `${match[1].padStart(5, '0')}-${match[2].padStart(8, '0')}`;
         const matchingFiles = filesByComprobante.get(comprobanteKey);
-        if (matchingFiles && matchingFiles.length > 0) {
-          result.newPath = matchingFiles[0].path;
+        const firstMatch = matchingFiles?.[0];
+        if (firstMatch) {
+          result.newPath = firstMatch.path;
           result.method = 'comprobante';
         }
       }
@@ -302,10 +305,15 @@ async function main() {
             // Construir objeto Emitter para usar generateProcessedFilename
             const emitter: Emitter = {
               cuit: emisorData.cuit,
-              cuitNumerico: emisorData.cuitNumerico,
-              nombre: emisorData.nombre,
-              razonSocial: emisorData.razonSocial,
-              aliases: emisorData.aliases ? JSON.parse(emisorData.aliases) : null,
+              cuitNumeric: emisorData.cuitNumerico,
+              name: emisorData.nombre,
+              displayName: emisorData.nombre,
+              legalName: emisorData.razonSocial ?? undefined,
+              aliases: emisorData.aliases ? JSON.parse(emisorData.aliases) : [],
+              active: true,
+              totalInvoices: 0,
+              createdAt: new Date(),
+              updatedAt: new Date(),
             };
 
             // Parsear fecha
