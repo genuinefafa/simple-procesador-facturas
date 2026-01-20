@@ -527,12 +527,10 @@ Pendiente (M3):
 |------------|-----------|----------------|-------|
 | **Button** | `ui/Button.svelte` | ❌ CSS puro | 4 variantes, 3 tamaños |
 | **Input** | `ui/Input.svelte` | ❌ CSS puro | Validación, error, hint |
-| **Dialog** | `ui/Dialog.svelte` | ✅ Melt UI v0.86 | Focus trap, ESC close |
+| **Dialog** | `ui/Dialog.svelte` | ✅ Melt UI Next | Focus trap, ESC close, scroll lock |
 | **Tabs** | `ui/Tabs.svelte` | ✅ Melt UI Next | Keyboard navigation |
-| **Dropdown** | `ui/Dropdown.svelte` | ✅ Melt Popover | Positioning inteligente |
+| **Dropdown** | `ui/Dropdown.svelte` | ✅ CSS puro | Positioning inteligente |
 | **Sidebar** | `ui/Sidebar.svelte` | ❌ Patrón custom | Drawer mobile + sticky desktop |
-
-**IMPORTANTE**: Dialog usa `@melt-ui/svelte` v0.86 (viejo) porque no existe en Melt Next aún.
 
 ### 5.2 Design Tokens
 
@@ -676,7 +674,7 @@ Este checklist aplica **exclusivamente** al código que estás modificando o agr
 - [ ] **Componentes de UI:** ¿Usaste componentes nativos de HTML (`<select>`, `<dialog>`, etc.) en lugar de Melt UI?
   - ❌ Si usaste `<select>`, reemplazar por Melt UI Dropdown
   - ❌ Si usaste `confirm()` o `alert()`, reemplazar por Dialog component
-  - ✅ Solo componentes de Melt UI Next (v0.42) o excepcionalmente Dialog de @melt-ui/svelte (v0.86)
+  - ✅ Solo componentes de Melt UI Next (v0.44)
 
 - [ ] **Tamaño de archivo:** Si modificaste un archivo existente, ¿quedó muy grande?
   - Si el archivo modificado tiene >500 líneas y agregaste nueva funcionalidad:
@@ -1104,8 +1102,7 @@ CUIT === expected.cuit
 {
   "@sveltejs/kit": "^2.x",
   "svelte": "^5.41.0",
-  "melt": "^0.42.0",                  // Melt UI Next (beta)
-  "@melt-ui/svelte": "^0.86.6",       // Melt UI viejo (solo Dialog)
+  "melt": "^0.44.0",                  // Melt UI Next (incluye Dialog, Tabs, etc.)
   "svelte-sonner": "^0.3.x",          // Toast notifications
   "prettier": "^3.x"
 }

@@ -1,30 +1,29 @@
 # Melt UI - Documentación Completa
 
-**Última actualización**: 2025-12-16
+**Última actualización**: 2025-01-20
 
 ---
 
 ## 1. Resumen
 
-Este proyecto utiliza **Melt UI Next** (beta v0.42.0) para Svelte 5, que proporciona primitivos headless accesibles. También mantiene **@melt-ui/svelte** (v0.86.6) temporalmente para componentes no disponibles en la versión Next.
+Este proyecto utiliza **Melt UI Next** (v0.44.0) para Svelte 5, que proporciona primitivos headless accesibles.
 
 ## 2. Versiones Instaladas
 
 ```json
 {
-  "melt": "^0.42.0",              // Melt UI Next (beta) - Svelte 5 compatible
-  "@melt-ui/svelte": "^0.86.6"    // Melt UI viejo - Solo para Dialog
+  "melt": "^0.44.0"   // Melt UI Next - Svelte 5 compatible
 }
 ```
 
 ## 3. Estado de Migración
 
-### ✅ Migrados a Melt Next
+### ✅ Componentes usando Melt Next
 
 | Componente | Basado en | Estado |
 |------------|-----------|--------|
 | **Tabs** | `Tabs` de melt/builders | ✅ Completamente migrado |
-| **Dropdown** | `Popover` de melt/builders | ✅ Completamente migrado |
+| **Dialog** | `Dialog` de melt/builders | ✅ Completamente migrado |
 
 ### ❌ Componentes sin Melt
 
@@ -32,54 +31,49 @@ Este proyecto utiliza **Melt UI Next** (beta v0.42.0) para Svelte 5, que proporc
 |------------|-----------|-------|
 | **Button** | CSS puro | No requiere Melt (solo estilos) |
 | **Input** | CSS puro | No requiere Melt (solo estilos) |
+| **Dropdown** | CSS puro | Implementación custom con positioning |
 | **Sidebar** | Patrón custom | Implementación propia con design tokens |
 
-### ⚠️ Pendientes de Migración
+## 4. Sintaxis de Melt Next
 
-| Componente | Estado | Notas |
-|------------|--------|-------|
-| **Dialog** | Usa `@melt-ui/svelte` v0.86 | No existe Dialog en Melt Next aún |
-
-**Opciones para Dialog**:
-1. ✅ Mantener con melt viejo temporalmente (opción actual)
-2. Usar `<dialog>` HTML nativo
-3. Construir custom con Popover + modal overlay
-
-## 4. Sintaxis: Vieja vs Nueva
-
-### Melt Viejo (v0.86.6)
+### Ejemplo con Dialog (v0.44.0)
 
 ```svelte
 <script>
-  import { createDialog, melt } from '@melt-ui/svelte';
+  import { Dialog } from 'melt/builders';
 
-  const {
-    elements: { trigger, portalled, overlay, content, title, description, close },
-    states: { open }
-  } = createDialog();
+  let open = $state(false);
+
+  const dialog = new Dialog({
+    open: () => open,
+    closeOnEscape: true,
+    closeOnOutsideClick: true,
+    scrollLock: true,
+    onOpenChange: (value) => {
+      open = value;
+    },
+  });
 </script>
 
-<button use:melt={$trigger}>Abrir</button>
-
-{#if $open}
-  <div use:melt={$portalled}>
-    <div use:melt={$overlay} />
-    <div use:melt={$content}>
-      <h2 use:melt={$title}>Título</h2>
-      <p use:melt={$description}>Contenido</p>
-    </div>
-  </div>
+{#if open}
+  <div {...dialog.overlay} class="overlay"></div>
+  <dialog {...dialog.content} class="dialog">
+    <h2>Título</h2>
+    <p>Contenido</p>
+    <button onclick={() => open = false}>Cerrar</button>
+  </dialog>
 {/if}
 ```
 
-### Melt Next (v0.42.0)
+### Ejemplo con Tabs (v0.44.0)
 
 ```svelte
 <script>
   import { Tabs } from 'melt/builders';
 
   const tabs = new Tabs({
-    defaultValue: 'tab1'
+    value: () => 'tab1',
+    onValueChange: (value) => console.log(value)
   });
 </script>
 
@@ -93,11 +87,12 @@ Este proyecto utiliza **Melt UI Next** (beta v0.42.0) para Svelte 5, que proporc
 </div>
 ```
 
-**Diferencias clave**:
-- ❌ NO más `use:melt={$element}`
+**Características de Melt Next**:
+- ❌ NO más `use:melt={$element}` (sintaxis vieja)
 - ✅ Spread attributes `{...builder.element}`
 - ❌ NO más stores (`$open`, `$trigger`)
 - ✅ Propiedades reactivas directas con runes ($state)
+- ✅ Getters para estado reactivo (ej: `open: () => open`)
 
 ## 5. Componentes Implementados
 
@@ -146,13 +141,13 @@ Este proyecto utiliza **Melt UI Next** (beta v0.42.0) para Svelte 5, que proporc
 ### 5.3 Dialog
 
 **Ubicación**: `client/src/lib/components/ui/Dialog.svelte`
-**Tecnología**: `@melt-ui/svelte` v0.86 (viejo)
+**Tecnología**: Melt UI Next (v0.44)
 
 **Features**:
 - Modal accesible con focus trap
 - ESC para cerrar
-- Click outside para cerrar
-- Portal rendering
+- Click outside para cerrar (configurable)
+- Scroll lock automático
 - Animaciones suaves
 
 ```svelte
@@ -172,7 +167,7 @@ Este proyecto utiliza **Melt UI Next** (beta v0.42.0) para Svelte 5, que proporc
 ### 5.4 Tabs
 
 **Ubicación**: `client/src/lib/components/ui/Tabs.svelte`
-**Tecnología**: Melt UI Next (v0.42)
+**Tecnología**: Melt UI Next (v0.44)
 
 **Features**:
 - Keyboard navigation (arrows, Home, End)
@@ -294,15 +289,16 @@ Sistema completo de design tokens CSS:
 
 ## 7. Builders Disponibles en Melt Next
 
-Componentes que existen en Melt Next (v0.42) y podemos usar:
+Componentes que existen en Melt Next (v0.44) y podemos usar:
 
 - ✅ Accordion
 - ✅ Avatar
 - ✅ Collapsible
 - ✅ Combobox
+- ✅ **Dialog** (migrado)
 - ✅ FileUpload
 - ✅ PinInput
-- ✅ **Popover** (usado para Dropdown)
+- ✅ Popover
 - ✅ Progress
 - ✅ RadioGroup
 - ✅ Select
@@ -318,8 +314,7 @@ Componentes que existen en Melt Next (v0.42) y podemos usar:
 
 Componentes que NO existen en Melt Next:
 
-- ❌ Dialog / Modal (usamos melt viejo temporalmente)
-- ❌ DropdownMenu (usamos Popover)
+- ❌ DropdownMenu
 - ❌ NavigationMenu
 - ❌ ContextMenu
 - ❌ Menubar
@@ -388,13 +383,9 @@ Componentes que podríamos agregar en el futuro:
 ## 13. Referencias
 
 **Documentación oficial**:
-- [Melt UI Next](https://context7.com/melt-ui/next-gen)
+- [Melt UI Next](https://next.melt-ui.com/)
 - [GitHub Melt Next](https://github.com/melt-ui/next-gen)
-- [Melt UI viejo (v0.86)](https://melt-ui.com/)
-
-**Migration guide**: Pendiente oficial (en beta)
 
 ---
 
-**Última revisión**: 2025-12-16
-**Implementado por**: GitHub Copilot + Claude Sonnet 4.5
+**Última revisión**: 2025-01-20

@@ -113,7 +113,7 @@ simple-procesador-facturas/
 ### Frontend
 - **Framework**: SvelteKit 2.x
 - **UI Library**: Svelte 5.41.0 (runes: $state, $derived)
-- **Components**: Melt UI Next v0.42 (beta) + @melt-ui/svelte v0.86
+- **Components**: Melt UI Next v0.44
 - **Styling**: CSS puro con design tokens (no Tailwind)
 - **Notifications**: svelte-sonner
 
