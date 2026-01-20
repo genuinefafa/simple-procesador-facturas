@@ -21,65 +21,73 @@
   }: Props = $props();
 
   const dialog = new MeltDialog({
-    open: () => open,
     closeOnOutsideClick: () => closeOnOutsideClick,
     closeOnEscape: true,
     scrollLock: true,
-    onOpenChange: (value) => {
+    onOpenChange: (value: boolean) => {
       open = value;
       onOpenChange?.(value);
     },
   });
 
-  function handleClose() {
-    open = false;
-    onOpenChange?.(false);
-  }
+  // Sync the external `open` prop to the dialog builder
+  $effect(() => {
+    if (dialog.open !== open) {
+      dialog.open = open;
+    }
+  });
 </script>
 
-{#if open}
-  <div class="dialog-overlay" {...dialog.overlay}></div>
-  <dialog {...dialog.content} class="dialog-content">
-    {#if title}
-      <h2 class="dialog-title">{title}</h2>
+<div class="dialog-overlay" {...dialog.overlay}></div>
+<dialog class="dialog-content" {...dialog.content}>
+  {#if title}
+    <h2 class="dialog-title">{title}</h2>
+  {/if}
+
+  {#if description}
+    <p class="dialog-description">{description}</p>
+  {/if}
+
+  <div class="dialog-body">
+    {#if children}
+      {@render children()}
     {/if}
+  </div>
 
-    {#if description}
-      <p class="dialog-description">{description}</p>
-    {/if}
-
-    <div class="dialog-body">
-      {#if children}
-        {@render children()}
-      {/if}
-    </div>
-
-    <button class="dialog-close" aria-label="Cerrar" onclick={handleClose}>
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <line x1="18" y1="6" x2="6" y2="18"></line>
-        <line x1="6" y1="6" x2="18" y2="18"></line>
-      </svg>
-    </button>
-  </dialog>
-{/if}
+  <button class="dialog-close" aria-label="Cerrar" onclick={() => (dialog.open = false)}>
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <line x1="18" y1="6" x2="6" y2="18"></line>
+      <line x1="6" y1="6" x2="18" y2="18"></line>
+    </svg>
+  </button>
+</dialog>
 
 <style>
+  /* Overlay uses popover API - hidden by default, shown via showPopover() */
   .dialog-overlay {
     position: fixed;
     inset: 0;
     z-index: var(--z-modal-backdrop);
     background: rgba(0, 0, 0, 0.5);
     backdrop-filter: blur(2px);
+    border: none;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .dialog-overlay:popover-open {
     animation: fadeIn var(--transition-fast);
   }
 
@@ -92,11 +100,8 @@
     }
   }
 
+  /* Dialog uses native <dialog> element - showModal() centers it automatically */
   .dialog-content {
-    position: fixed;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
     z-index: var(--z-modal);
     background: var(--color-surface);
     border: none;
@@ -107,6 +112,9 @@
     max-height: 90vh;
     width: 500px;
     overflow-y: auto;
+  }
+
+  .dialog-content[open] {
     animation: slideIn var(--transition-base);
   }
 
@@ -117,11 +125,11 @@
   @keyframes slideIn {
     from {
       opacity: 0;
-      transform: translate(-50%, -48%);
+      transform: translateY(-8px);
     }
     to {
       opacity: 1;
-      transform: translate(-50%, -50%);
+      transform: translateY(0);
     }
   }
 
