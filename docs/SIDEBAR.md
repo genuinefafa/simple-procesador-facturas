@@ -269,18 +269,7 @@ Drawer/Sidebar:   var(--z-sticky)        /* 500 */
 - ✅ Checar que `href` es una ruta válida
 - ✅ Revisar `onNavClick` callback si existe
 
-## 14. Demo
-
-**Ruta**: `/layout-demo`
-**URL**: `http://localhost:5173/layout-demo`
-
-La demo muestra:
-- Layout completo con Sidebar + TopBar + Tabs
-- Dropdown anidado en footer
-- Responsive behavior (desktop/mobile)
-- Todas las interacciones (FAB, overlay, navigation)
-
-## 15. Compatibilidad
+## 14. Compatibilidad
 
 - ✅ Svelte 5+ (con $bindable, snippets)
 - ✅ SvelteKit 2+
@@ -288,7 +277,7 @@ La demo muestra:
 - ✅ Mobile browsers (iOS Safari, Chrome mobile)
 - ✅ Accesibilidad WCAG 2.1 AA
 
-## 16. Próximas Mejoras
+## 15. Próximas Mejoras
 
 - [ ] Sub-menús/jerarquía (accordion anidado)
 - [ ] Collapse inteligente basado en viewport
