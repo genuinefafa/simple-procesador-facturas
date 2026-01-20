@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { createDialog, melt } from '@melt-ui/svelte';
+  import { Dialog as MeltDialog } from 'melt/builders';
   import type { Snippet } from 'svelte';
 
   interface Props {
@@ -20,61 +20,57 @@
     closeOnOutsideClick = true,
   }: Props = $props();
 
-  const {
-    elements: { trigger, overlay, content, title: titleEl, description: descEl, close, portalled },
-    states: { open: openState },
-  } = createDialog({
-    forceVisible: true,
-    closeOnOutsideClick,
-    escapeBehavior: 'close',
-    onOpenChange: ({ next }) => {
-      open = next;
-      onOpenChange?.(next);
-      return next;
+  const dialog = new MeltDialog({
+    open: () => open,
+    closeOnOutsideClick: () => closeOnOutsideClick,
+    closeOnEscape: true,
+    scrollLock: true,
+    onOpenChange: (value) => {
+      open = value;
+      onOpenChange?.(value);
     },
   });
 
-  $effect(() => {
-    openState.set(open);
-  });
+  function handleClose() {
+    open = false;
+    onOpenChange?.(false);
+  }
 </script>
 
 {#if open}
-  <div use:melt={$portalled}>
-    <div use:melt={$overlay} class="dialog-overlay"></div>
-    <div use:melt={$content} class="dialog-content">
-      {#if title}
-        <h2 use:melt={$titleEl} class="dialog-title">{title}</h2>
+  <div class="dialog-overlay" {...dialog.overlay}></div>
+  <dialog {...dialog.content} class="dialog-content">
+    {#if title}
+      <h2 class="dialog-title">{title}</h2>
+    {/if}
+
+    {#if description}
+      <p class="dialog-description">{description}</p>
+    {/if}
+
+    <div class="dialog-body">
+      {#if children}
+        {@render children()}
       {/if}
-
-      {#if description}
-        <p use:melt={$descEl} class="dialog-description">{description}</p>
-      {/if}
-
-      <div class="dialog-body">
-        {#if children}
-          {@render children()}
-        {/if}
-      </div>
-
-      <button use:melt={$close} class="dialog-close" aria-label="Cerrar">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <line x1="18" y1="6" x2="6" y2="18"></line>
-          <line x1="6" y1="6" x2="18" y2="18"></line>
-        </svg>
-      </button>
     </div>
-  </div>
+
+    <button class="dialog-close" aria-label="Cerrar" onclick={handleClose}>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </dialog>
 {/if}
 
 <style>
@@ -103,6 +99,7 @@
     transform: translate(-50%, -50%);
     z-index: var(--z-modal);
     background: var(--color-surface);
+    border: none;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-xl);
     padding: var(--spacing-6);
@@ -111,6 +108,10 @@
     width: 500px;
     overflow-y: auto;
     animation: slideIn var(--transition-base);
+  }
+
+  .dialog-content::backdrop {
+    display: none;
   }
 
   @keyframes slideIn {
