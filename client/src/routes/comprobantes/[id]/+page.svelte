@@ -6,6 +6,7 @@
   import FilePreview from '$lib/components/FilePreview.svelte';
   import InvoiceTypeSelect from '$lib/components/InvoiceTypeSelect.svelte';
   import DuplicateHashAlert from '$lib/components/DuplicateHashAlert.svelte';
+  import NavigationBar from '$lib/components/NavigationBar.svelte';
   import { Accordion } from 'melt/builders';
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
@@ -614,6 +615,30 @@
     }
     return 'documento';
   });
+
+  // Título y subtítulo para NavigationBar
+  const navTitle = $derived.by(() => {
+    if (comprobante.final) {
+      const type = getFriendlyType(comprobante.final.invoiceType);
+      const pv = comprobante.final.pointOfSale
+        ? String(comprobante.final.pointOfSale).padStart(4, '0')
+        : '----';
+      const num = comprobante.final.invoiceNumber
+        ? String(comprobante.final.invoiceNumber).padStart(8, '0')
+        : '--------';
+      return `${type} ${pv}-${num}`;
+    }
+    if (comprobante.expected) {
+      const type = getFriendlyType(comprobante.expected.invoiceType);
+      return `${type} ${String(comprobante.expected.pointOfSale).padStart(4, '0')}-${String(comprobante.expected.invoiceNumber).padStart(8, '0')}`;
+    }
+    if (comprobante.file) {
+      return comprobante.file.originalFilename;
+    }
+    return 'Comprobante';
+  });
+
+  const navSubtitle = $derived(comprobante.emitterName || undefined);
 </script>
 
 <svelte:head>
@@ -621,15 +646,7 @@
 </svelte:head>
 
 <div class="container">
-  <header class="header">
-    <div class="header-left">
-      <a href="/comprobantes">← Volver</a>
-      <h1>Detalle Comprobante</h1>
-    </div>
-    <div class="header-actions">
-      <Button variant="danger" size="sm" onclick={openDeleteDialog}>🗑️ Eliminar</Button>
-    </div>
-  </header>
+  <NavigationBar currentId={comprobante.id} title={navTitle} subtitle={navSubtitle} />
 
   <!-- Alerta de duplicados por hash (global, arriba) -->
   {#if comprobante.final?.fileHash || comprobante.file?.fileHash}
@@ -1184,28 +1201,6 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: var(--spacing-4);
-  }
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: var(--spacing-4);
-  }
-  .header-left {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-  .header a {
-    color: var(--color-primary-700);
-    text-decoration: none;
-  }
-  .header h1 {
-    margin: 0;
-  }
-  .header-actions {
-    display: flex;
-    gap: var(--spacing-2);
   }
 
   .layout {
