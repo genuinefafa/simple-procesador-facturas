@@ -31,6 +31,7 @@ export interface ExpectedInvoice {
   status: ExpectedInvoiceStatus;
   matchedFileId: number | null;
   matchConfidence: number | null;
+  categoryId: number | null;
   importDate: string | null;
   notes: string | null;
 }
@@ -71,6 +72,7 @@ export class ExpectedInvoiceRepository {
       status: (row.status as ExpectedInvoiceStatus) || 'pending',
       matchedFileId: row.matchedFileId || null,
       matchConfidence: row.matchConfidence || null,
+      categoryId: row.categoryId || null,
       importDate: row.importDate || null,
       notes: row.notes || null,
     };
@@ -798,6 +800,23 @@ export class ExpectedInvoiceRepository {
 
     if (result.length === 0) {
       throw new Error('Expected invoice not found after marking as ignored');
+    }
+
+    return this.mapDrizzleToExpectedInvoice(result[0]);
+  }
+
+  /**
+   * Actualiza la categoría de una expected invoice
+   */
+  async updateCategory(id: number, categoryId: number | null): Promise<ExpectedInvoice> {
+    const result = await db
+      .update(expectedInvoices)
+      .set({ categoryId })
+      .where(eq(expectedInvoices.id, id))
+      .returning();
+
+    if (result.length === 0) {
+      throw new Error('Expected invoice not found after updating category');
     }
 
     return this.mapDrizzleToExpectedInvoice(result[0]);

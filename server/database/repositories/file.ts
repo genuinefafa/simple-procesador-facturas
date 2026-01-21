@@ -14,6 +14,7 @@ export interface IFileRepository {
   updateStatus(id: number, status: 'uploaded' | 'processed'): void;
   updatePath(id: number, newPath: string): void;
   updateHash(id: number, hash: string): void;
+  updateCategory(id: number, categoryId: number | null): void;
   getUploadedFiles(): File[];
   delete(id: number): void;
   list(params?: { limit?: number; status?: 'uploaded' | 'processed' }): File[];
@@ -88,6 +89,19 @@ export class FileRepository implements IFileRepository {
     db.update(files)
       .set({
         fileHash: hash,
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(files.id, id))
+      .run();
+  }
+
+  /**
+   * Actualiza la categoría de un archivo
+   */
+  updateCategory(id: number, categoryId: number | null): void {
+    db.update(files)
+      .set({
+        categoryId,
         updatedAt: new Date().toISOString(),
       })
       .where(eq(files.id, id))

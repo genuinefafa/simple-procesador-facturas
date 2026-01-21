@@ -172,6 +172,11 @@ const expectedInvoices_ = sqliteTable(
     matchedFileId: integer('matched_file_id'),
     matchConfidence: real('match_confidence'),
 
+    // Categorización
+    categoryId: integer('category_id').references(() => categories_.id, {
+      onDelete: 'set null',
+    }),
+
     // Metadata
     importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
     notes: text('notes'),
@@ -181,6 +186,7 @@ const expectedInvoices_ = sqliteTable(
     statusIdx: index('idx_expected_invoices_status').on(table.status),
     batchIdx: index('idx_expected_invoices_batch').on(table.importBatchId),
     issueDateIdx: index('idx_expected_invoices_date').on(table.issueDate),
+    categoryIdx: index('idx_expected_invoices_category').on(table.categoryId),
     uniqueInvoice: index('unique_expected_invoice').on(
       table.cuit,
       table.invoiceType,
@@ -420,6 +426,11 @@ const files_ = sqliteTable(
     // uploaded: recién subido, visible en tab "Archivos subidos"
     // processed: ya tiene factura asociada
 
+    // Categorización (puede pre-asignarse antes de crear factura)
+    categoryId: integer('category_id').references(() => categories_.id, {
+      onDelete: 'set null',
+    }),
+
     createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
   },
@@ -427,6 +438,7 @@ const files_ = sqliteTable(
     statusIdx: index('idx_files_status').on(table.status),
     hashIdx: index('idx_files_hash').on(table.fileHash),
     createdIdx: index('idx_files_created').on(table.createdAt),
+    categoryIdx: index('idx_files_category').on(table.categoryId),
   })
 );
 
