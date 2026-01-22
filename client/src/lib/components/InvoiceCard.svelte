@@ -2,8 +2,9 @@
   /**
    * Tarjeta de factura con inline edit estilo Trello.
    *
-   * Click en cualquier campo activa modo edición global.
-   * Muestra botones Guardar/Cancelar cuando está en edición.
+   * Soporta dos modos:
+   * - 'view': Para facturas existentes. Click en campos activa edición.
+   * - 'create': Para crear nueva factura. Empieza en modo edición.
    */
 
   import Button from './ui/Button.svelte';
@@ -29,7 +30,7 @@
   };
 
   type InvoiceData = {
-    id: number;
+    id?: number;
     cuit: string;
     emitterName?: string | null;
     issueDate: string | null;
@@ -41,10 +42,12 @@
   };
 
   type Props = {
-    /** Datos de la factura */
+    /** Datos de la factura (parciales en modo create) */
     invoice: InvoiceData;
     /** Categorías disponibles */
     categories?: Category[];
+    /** Modo: 'view' para editar existente, 'create' para nueva */
+    mode?: 'view' | 'create';
     /** Callback para guardar cambios */
     onsave?: (data: {
       cuit: string;
@@ -56,15 +59,27 @@
       categoryId: number | null;
       emitterId?: number;
     }) => void;
-    /** Callback para eliminar */
+    /** Callback para cancelar (solo en modo create) */
+    oncancel?: () => void;
+    /** Callback para eliminar (solo en modo view) */
     ondelete?: () => void;
     /** Si está guardando */
     saving?: boolean;
   };
 
-  let { invoice, categories = [], onsave, ondelete, saving = false }: Props = $props();
+  let {
+    invoice,
+    categories = [],
+    mode = 'view',
+    onsave,
+    oncancel,
+    ondelete,
+    saving = false,
+  }: Props = $props();
 
-  // Estado de edición
+  const isCreateMode = $derived(mode === 'create');
+
+  // Estado de edición - en modo create siempre empieza activo
   let editMode = $state(false);
   let selectedEmitter = $state<Emitter | null>(null);
   let selectedCategoryId = $state<number | null>(null);
@@ -79,9 +94,16 @@
     total: null as number | null,
   });
 
+  // Inicializar en modo edición si es create
+  $effect(() => {
+    if (isCreateMode && !editMode) {
+      editMode = true;
+    }
+  });
+
   // Sincronizar con props cuando cambia la factura o sale de edición
   $effect(() => {
-    if (!editMode) {
+    if (!editMode || isCreateMode) {
       formData.cuit = invoice.cuit || '';
       formData.invoiceType = invoice.invoiceType;
       formData.pointOfSale = invoice.pointOfSale;
@@ -99,8 +121,12 @@
   }
 
   function cancelEdit() {
-    editMode = false;
-    // Los valores se resetean automáticamente por el $effect
+    if (isCreateMode && oncancel) {
+      oncancel();
+    } else {
+      editMode = false;
+      // Los valores se resetean automáticamente por el $effect
+    }
   }
 
   function save() {
@@ -115,7 +141,9 @@
       categoryId: selectedCategoryId,
       emitterId: selectedEmitter?.id,
     });
-    editMode = false;
+    if (!isCreateMode) {
+      editMode = false;
+    }
   }
 
   // Formatters
@@ -130,26 +158,34 @@
     return formatDateShort(date);
   };
 
-  // Detectar si hay cambios
+  // Detectar si hay cambios (en modo create, siempre hay "cambios" si hay datos)
   const hasChanges = $derived(
-    formData.cuit !== invoice.cuit ||
-      formData.invoiceType !== invoice.invoiceType ||
-      formData.pointOfSale !== invoice.pointOfSale ||
-      formData.invoiceNumber !== invoice.invoiceNumber ||
-      formData.issueDate !== (invoice.issueDate || '') ||
-      formData.total !== (invoice.total ?? null) ||
-      selectedCategoryId !== (invoice.categoryId ?? null)
+    isCreateMode
+      ? formData.cuit.trim() !== '' // En create, basta con que haya CUIT
+      : formData.cuit !== invoice.cuit ||
+          formData.invoiceType !== invoice.invoiceType ||
+          formData.pointOfSale !== invoice.pointOfSale ||
+          formData.invoiceNumber !== invoice.invoiceNumber ||
+          formData.issueDate !== (invoice.issueDate || '') ||
+          formData.total !== (invoice.total ?? null) ||
+          selectedCategoryId !== (invoice.categoryId ?? null)
+  );
+
+  // Texto del header según modo
+  const headerText = $derived(isCreateMode ? 'Crear factura' : 'Editando factura');
+  const saveButtonText = $derived(
+    saving ? 'Guardando...' : isCreateMode ? 'Crear factura' : 'Guardar cambios'
   );
 </script>
 
-<div class="invoice-card" class:editing={editMode}>
+<div class="invoice-card" class:editing={editMode} class:creating={isCreateMode}>
   {#if editMode}
-    <div class="edit-header">
-      <span class="edit-indicator">Editando factura</span>
+    <div class="edit-header" class:create-header={isCreateMode}>
+      <span class="edit-indicator">{headerText}</span>
       <div class="edit-actions">
         <Button variant="ghost" size="sm" onclick={cancelEdit} disabled={saving}>Cancelar</Button>
         <Button variant="primary" size="sm" onclick={save} disabled={saving || !hasChanges}>
-          {saving ? 'Guardando...' : 'Guardar cambios'}
+          {saveButtonText}
         </Button>
       </div>
     </div>
@@ -280,8 +316,8 @@
     </div>
   </div>
 
-  <!-- Footer con acciones -->
-  {#if !editMode && ondelete}
+  <!-- Footer con acciones (solo en modo view, no en create) -->
+  {#if !editMode && !isCreateMode && ondelete}
     <div class="card-footer">
       <Button variant="danger" size="sm" onclick={ondelete}>Eliminar</Button>
     </div>
@@ -301,6 +337,11 @@
     box-shadow: 0 0 0 3px var(--color-primary-100);
   }
 
+  .invoice-card.creating {
+    border-color: var(--color-success-300);
+    box-shadow: 0 0 0 3px var(--color-success-100);
+  }
+
   .edit-header {
     display: flex;
     justify-content: space-between;
@@ -310,10 +351,19 @@
     border-bottom: 1px solid var(--color-primary-200);
   }
 
+  .edit-header.create-header {
+    background: var(--color-success-50);
+    border-bottom-color: var(--color-success-200);
+  }
+
   .edit-indicator {
     font-size: var(--font-size-sm);
     font-weight: var(--font-weight-medium);
     color: var(--color-primary-700);
+  }
+
+  .create-header .edit-indicator {
+    color: var(--color-success-700);
   }
 
   .edit-actions {

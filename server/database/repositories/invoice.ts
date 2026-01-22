@@ -10,24 +10,34 @@ import type { InvoiceType, Currency, ExtractionMethod } from '../../utils/types'
 /**
  * Invoice interface - rutas de archivo se obtienen via fileId -> files table
  * Las columnas archivo_procesado y finalized_file fueron eliminadas en migración 0014
+ *
+ * NOTA: Varios campos están marcados @deprecated y serán eliminados en issue #92
  */
 export interface Invoice {
   id: number;
   emitterCuit: string;
+  /** @deprecated Nunca se usó. Eliminar en issue #92 */
   templateUsedId?: number;
   issueDate: Date;
   invoiceType: InvoiceType;
   pointOfSale: number;
   invoiceNumber: number;
+  /** @deprecated Redundante, se puede reconstruir. Eliminar en issue #92 */
   fullInvoiceNumber: string;
   total: number;
   currency: Currency;
   fileId?: number; // FK a files - fuente de verdad para rutas
+  /** @deprecated Duplicado en files.file_type. Eliminar en issue #92 */
   fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
+  /** @deprecated Duplicado en file_extraction_results.method. Eliminar en issue #92 */
   extractionMethod: ExtractionMethod;
+  /** @deprecated Duplicado en file_extraction_results.confidence. Eliminar en issue #92 */
   extractionConfidence?: number;
+  /** @deprecated Sin uso real. Eliminar en issue #92 */
   manuallyValidated: boolean;
+  /** @deprecated Sin uso en nueva UI. Eliminar en issue #92 */
   requiresReview: boolean;
+  /** @deprecated Renombrar a createdAt. Es fecha de creación del registro. issue #92 */
   processedAt: Date;
   expectedInvoiceId?: number;
   categoryId?: number;

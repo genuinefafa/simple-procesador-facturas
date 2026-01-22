@@ -83,11 +83,12 @@
 
   // Método actual de extracción (para mostrar cuál se usó)
   const currentMethod = $derived.by(() => {
-    const method = file?.extractionMethod;
+    const method = file?.extractionMethod?.toUpperCase();
     if (!method) return null;
-    if (method === 'ocr') return 'OCR';
-    if (method === 'pdf_text') return 'PDF Text';
-    if (method === 'qr') return 'QR';
+    if (method === 'OCR') return 'OCR';
+    if (method === 'PDF_TEXT') return 'PDF Text';
+    if (method === 'PDF_TEXT+OCR') return 'PDF+OCR';
+    if (method === 'QR') return 'QR';
     return method;
   });
 
@@ -211,7 +212,7 @@
       <div class="source-column expected">
         <div class="column-header">
           <span class="source-icon">📋</span>
-          <span class="source-title">Expected #{expected?.id}</span>
+          <span class="source-title">#{expected?.id}</span>
           {#if expected?.status}
             <span class="status-badge {expected.status}">{expected.status}</span>
           {/if}
