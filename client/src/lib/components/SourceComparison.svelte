@@ -7,7 +7,10 @@
 
   import MatchIndicator from './MatchIndicator.svelte';
   import Button from './ui/Button.svelte';
+  import Dialog from './ui/Dialog.svelte';
   import { getFriendlyType, formatCurrency, formatDateShort } from '$lib/formatters';
+
+  type ExtractionMethod = 'ocr' | 'pdf_text' | 'qr';
 
   type FileData = {
     extractedCuit?: string | null;
@@ -17,6 +20,7 @@
     extractedPointOfSale?: number | null;
     extractedInvoiceNumber?: number | null;
     extractionConfidence?: number | null;
+    extractionMethod?: string | null;
     emitterName?: string | null;
   };
 
@@ -41,8 +45,8 @@
     oncreatefromfile?: () => void;
     /** Callback cuando se quiere crear factura desde expected */
     oncreatefromexpected?: () => void;
-    /** Callback para reprocesar OCR */
-    onreprocess?: () => void;
+    /** Callback para reprocesar con método específico */
+    onreprocess?: (method: ExtractionMethod) => void;
     /** Si está procesando algo */
     processing?: boolean;
   };
@@ -59,6 +63,9 @@
   const hasFile = $derived(!!file);
   const hasExpected = $derived(!!expected);
 
+  // Estado del diálogo de reprocesamiento
+  let reprocessDialogOpen = $state(false);
+
   // Formateadores
   const formatInvoiceNum = (pv: number | null | undefined, num: number | null | undefined) => {
     if (pv == null && num == null) return '—';
@@ -74,6 +81,16 @@
     return name.slice(0, maxLen - 1) + '...';
   };
 
+  // Método actual de extracción (para mostrar cuál se usó)
+  const currentMethod = $derived.by(() => {
+    const method = file?.extractionMethod;
+    if (!method) return null;
+    if (method === 'ocr') return 'OCR';
+    if (method === 'pdf_text') return 'PDF Text';
+    if (method === 'qr') return 'QR';
+    return method;
+  });
+
   // Confidence badge
   const confidenceLevel = $derived.by(() => {
     const conf = file?.extractionConfidence;
@@ -82,6 +99,11 @@
     if (conf >= 70) return { label: 'Media', class: 'medium' };
     return { label: 'Baja', class: 'low' };
   });
+
+  function handleReprocess(method: ExtractionMethod) {
+    reprocessDialogOpen = false;
+    onreprocess?.(method);
+  }
 </script>
 
 <div class="source-comparison">
@@ -91,7 +113,10 @@
       <div class="source-column file">
         <div class="column-header">
           <span class="source-icon">📦</span>
-          <span class="source-title">Archivo (OCR)</span>
+          <span class="source-title">Archivo</span>
+          {#if currentMethod}
+            <span class="method-badge">{currentMethod}</span>
+          {/if}
           {#if confidenceLevel}
             <span class="confidence-badge {confidenceLevel.class}">
               {file?.extractionConfidence}%
@@ -133,24 +158,23 @@
         </div>
 
         <div class="column-actions">
+          {#if onreprocess}
+            <button
+              type="button"
+              class="icon-btn"
+              onclick={() => (reprocessDialogOpen = true)}
+              disabled={processing}
+              title="Reprocesar con otro método"
+            >
+              🔄
+            </button>
+          {/if}
           {#if oncreatefromfile}
             <Button variant="primary" size="sm" onclick={oncreatefromfile} disabled={processing}>
               Usar estos datos
             </Button>
           {/if}
         </div>
-        {#if onreprocess}
-          <div class="reprocess-row">
-            <button
-              type="button"
-              class="reprocess-link"
-              onclick={onreprocess}
-              disabled={processing}
-            >
-              🔄 Reprocesar OCR
-            </button>
-          </div>
-        {/if}
       </div>
     {/if}
 
@@ -243,6 +267,46 @@
   </div>
 </div>
 
+<!-- Diálogo de reprocesamiento -->
+<Dialog bind:open={reprocessDialogOpen} title="Reprocesar archivo">
+  <p class="dialog-text">Elegí el método de extracción:</p>
+
+  <div class="method-options">
+    <button
+      type="button"
+      class="method-option"
+      onclick={() => handleReprocess('ocr')}
+      disabled={processing}
+    >
+      <span class="method-icon">🔍</span>
+      <span class="method-name">OCR</span>
+      <span class="method-desc">Reconocimiento óptico de caracteres (imágenes)</span>
+    </button>
+
+    <button
+      type="button"
+      class="method-option"
+      onclick={() => handleReprocess('pdf_text')}
+      disabled={processing}
+    >
+      <span class="method-icon">📄</span>
+      <span class="method-name">PDF Text</span>
+      <span class="method-desc">Extraer texto embebido del PDF</span>
+    </button>
+
+    <button
+      type="button"
+      class="method-option"
+      onclick={() => handleReprocess('qr')}
+      disabled={processing}
+    >
+      <span class="method-icon">📱</span>
+      <span class="method-name">QR</span>
+      <span class="method-desc">Leer código QR de AFIP</span>
+    </button>
+  </div>
+</Dialog>
+
 <style>
   .source-comparison {
     border: 1px solid var(--color-border);
@@ -271,7 +335,7 @@
   .column-header {
     display: flex;
     align-items: center;
-    gap: var(--spacing-2);
+    gap: var(--spacing-1);
     padding: var(--spacing-2) var(--spacing-3);
     background: var(--color-surface-alt);
     border-bottom: 1px solid var(--color-border);
@@ -285,6 +349,15 @@
   .source-title {
     font-weight: var(--font-weight-medium);
     font-size: var(--font-size-sm);
+  }
+
+  .method-badge {
+    font-size: 9px;
+    padding: 1px 4px;
+    border-radius: var(--radius-sm);
+    background: var(--color-neutral-200);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
   }
 
   .confidence-badge {
@@ -398,31 +471,84 @@
     border-top: 1px solid var(--color-border);
     background: var(--color-surface-alt);
     justify-content: flex-end;
+    align-items: center;
   }
 
-  .reprocess-row {
-    padding: var(--spacing-1) var(--spacing-3) var(--spacing-2);
-    background: var(--color-surface-alt);
-    text-align: center;
-  }
-
-  .reprocess-link {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    background: none;
-    border: none;
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
     cursor: pointer;
-    padding: var(--spacing-1);
-    transition: color var(--transition-fast);
+    font-size: var(--font-size-sm);
+    transition: all var(--transition-fast);
   }
 
-  .reprocess-link:hover:not(:disabled) {
-    color: var(--color-primary-600);
+  .icon-btn:hover:not(:disabled) {
+    border-color: var(--color-primary-300);
+    background: var(--color-primary-50);
   }
 
-  .reprocess-link:disabled {
+  .icon-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  /* Dialog content */
+  .dialog-text {
+    margin: 0 0 var(--spacing-3);
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+  }
+
+  .method-options {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+
+  .method-option {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    cursor: pointer;
+    text-align: left;
+    transition: all var(--transition-fast);
+  }
+
+  .method-option:hover:not(:disabled) {
+    border-color: var(--color-primary-300);
+    background: var(--color-primary-50);
+  }
+
+  .method-option:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .method-icon {
+    font-size: var(--font-size-xl);
+  }
+
+  .method-name {
+    font-weight: var(--font-weight-medium);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-primary);
+  }
+
+  .method-desc {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    margin-left: auto;
   }
 
   /* Responsive */
@@ -459,6 +585,10 @@
 
     .match-row {
       height: auto;
+    }
+
+    .method-desc {
+      display: none;
     }
   }
 </style>

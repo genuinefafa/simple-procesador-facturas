@@ -512,29 +512,28 @@
     (comprobante.kind === 'factura' && !editMode) || isExpectedWithoutFile
   );
 
-  async function processPending() {
+  async function processPending(method?: 'ocr' | 'pdf_text' | 'qr') {
     if (!comprobante.file) return;
 
-    if (hasExtraction && !confirmReprocess) {
-      toast.error('Confirmá el reprocesamiento marcando el checkbox');
-      return;
-    }
-
     processing = true;
-    const toastId = toast.loading('Procesando...');
+    const methodLabel = method === 'pdf_text' ? 'PDF Text' : method === 'qr' ? 'QR' : 'OCR';
+    const toastId = toast.loading(`Procesando con ${methodLabel}...`);
 
     try {
       const response = await fetch('/api/invoices/process', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileIds: [comprobante.file.id] }),
+        body: JSON.stringify({
+          fileIds: [comprobante.file.id],
+          method: method || 'ocr',
+        }),
       });
 
       const data = await response.json();
 
       if (data.success) {
         toast.success(
-          `✅ ${hasExtraction ? 'Reprocesado' : 'Procesado'}: ${data.extraction?.confidence || 0}% confianza`,
+          `Procesado con ${methodLabel}: ${data.extraction?.confidence || 0}% confianza`,
           { id: toastId }
         );
         // Revalidar los datos de la página sin recargar completamente
@@ -547,7 +546,6 @@
       console.error('Error:', err);
     } finally {
       processing = false;
-      confirmReprocess = false;
     }
   }
 
@@ -1083,7 +1081,7 @@
               <Button
                 size="sm"
                 variant={hasExtraction ? 'ghost' : 'secondary'}
-                onclick={processPending}
+                onclick={() => processPending()}
                 disabled={processing}
               >
                 {#if processing}
