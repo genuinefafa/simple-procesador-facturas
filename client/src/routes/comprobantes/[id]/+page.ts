@@ -43,6 +43,7 @@ export type FileData = {
   filePath: string;
   fileHash?: string | null;
   status: 'uploaded' | 'processed' | 'failed';
+  uploadDate?: string | null; // Fecha de subida (createdAt)
   extractedCuit?: string | null;
   extractedDate?: string | null;
   extractedTotal?: number | null;
@@ -165,6 +166,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
               filePath: d.filePath,
               fileHash: d.fileHash,
               status: d.status,
+              uploadDate: d.uploadDate,
               extractedCuit: d.extractedCuit,
               extractedDate: d.extractedDate,
               extractedTotal: d.extractedTotal,
@@ -281,6 +283,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           filePath: data.filePath,
           fileHash: data.fileHash,
           status: data.status,
+          uploadDate: data.uploadDate,
           extractedCuit: data.extractedCuit,
           extractedDate: data.extractedDate,
           extractedTotal: data.extractedTotal,

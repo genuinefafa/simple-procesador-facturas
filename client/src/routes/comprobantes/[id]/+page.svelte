@@ -21,6 +21,21 @@
   let editMode = $state(false);
   let selectedCategoryId = $state<number | null>(null);
   let deleteDialogOpen = $state(false);
+  let linkExpectedDialogOpen = $state(false);
+  let availableExpected = $state<
+    Array<{
+      id: number;
+      cuit: string;
+      emitterName?: string | null;
+      issueDate: string;
+      invoiceType: number | null;
+      pointOfSale: number;
+      invoiceNumber: number;
+      total?: number | null;
+      status?: string;
+    }>
+  >([]);
+  let loadingExpected = $state(false);
 
   let facuraData = $state({
     cuit: '',
@@ -159,6 +174,54 @@
     }
   }
 
+  async function openLinkExpectedDialog() {
+    if (!comprobante.final) return;
+
+    linkExpectedDialogOpen = true;
+    loadingExpected = true;
+
+    try {
+      // Buscar expected pendientes que coincidan con el CUIT de la factura
+      const response = await fetch(
+        `/api/expected-invoices?status=pending&cuit=${comprobante.final.cuit}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        availableExpected = data.invoices || [];
+      }
+    } catch (err) {
+      console.error('Error cargando expected:', err);
+      toast.error('Error al cargar facturas esperadas');
+    } finally {
+      loadingExpected = false;
+    }
+  }
+
+  async function linkExpected(expectedId: number) {
+    if (!comprobante.final) return;
+
+    const toastId = toast.loading('Vinculando...');
+
+    try {
+      const response = await fetch(`/api/invoices/${comprobante.final.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedInvoiceId: expectedId }),
+      });
+
+      if (response.ok) {
+        toast.success('Factura vinculada con expected', { id: toastId });
+        linkExpectedDialogOpen = false;
+        await invalidateAll();
+      } else {
+        const err = await response.json();
+        toast.error(err.error || 'Error al vincular', { id: toastId });
+      }
+    } catch (err) {
+      toast.error('Error al vincular', { id: toastId });
+    }
+  }
+
   async function processPending(method?: 'ocr' | 'pdf_text' | 'qr') {
     if (!comprobante.file) return;
 
@@ -248,9 +311,22 @@
       return `${type} ${String(comprobante.expected.pointOfSale).padStart(4, '0')}-${String(comprobante.expected.invoiceNumber).padStart(8, '0')}`;
     }
     if (comprobante.file) {
-      return comprobante.file.originalFilename;
+      // Para archivos: mostrar "Archivo `nombre.pdf`" como título
+      return `Archivo "${comprobante.file.originalFilename}"`;
     }
     return 'Comprobante';
+  });
+
+  // Subtítulo especial para archivos: "subido el fecha"
+  const navFileSubtitle = $derived.by(() => {
+    if (comprobante.file && !comprobante.final && !comprobante.expected) {
+      const uploadDate = comprobante.file.uploadDate;
+      if (uploadDate) {
+        return `subido el ${formatDateShort(uploadDate)}`;
+      }
+      return 'archivo pendiente de procesar';
+    }
+    return null;
   });
 
   // Fecha para el navbar (formato corto: 17/ene/2025)
@@ -283,8 +359,8 @@
     currentId={comprobante.id}
     title={navTitle}
     date={navDate}
-    emitterName={comprobante.emitterName || undefined}
-    cuit={navCuit}
+    emitterName={navFileSubtitle || comprobante.emitterName || undefined}
+    cuit={navFileSubtitle ? undefined : navCuit}
   />
 
   <!-- Alerta de duplicados por hash (global, arriba) -->
@@ -297,7 +373,7 @@
     <DuplicateHashAlert {fileHash} {currentId} {currentType} {linkedFileId} {linkedInvoiceId} />
   {/if}
 
-  <div class="layout">
+  <div class="layout" class:has-invoice={comprobante.final}>
     <!-- Columna izquierda: Preview -->
     <aside class="preview-panel">
       {#if fileUrl}
@@ -415,6 +491,13 @@
               <span class="indicator-label"
                 >📋 Vinculado a expected #{comprobante.final.expectedInvoiceId}</span
               >
+            </div>
+          {:else}
+            <div class="expected-indicator missing">
+              <span class="indicator-label">📋 Sin vincular al fisco</span>
+              <button type="button" class="link-button" onclick={openLinkExpectedDialog}>
+                Buscar y vincular
+              </button>
             </div>
           {/if}
         </section>
@@ -599,6 +682,47 @@
   </div>
 </Dialog>
 
+<!-- Dialog para vincular expected -->
+<Dialog bind:open={linkExpectedDialogOpen} title="Vincular con factura esperada">
+  <div class="link-expected-content">
+    {#if loadingExpected}
+      <p class="loading-text">Buscando facturas esperadas...</p>
+    {:else if availableExpected.length === 0}
+      <p class="empty-text">No hay facturas esperadas pendientes para este CUIT.</p>
+    {:else}
+      <p class="help-text">Seleccioná la factura esperada que corresponde:</p>
+      <div class="expected-list">
+        {#each availableExpected as exp}
+          <button type="button" class="expected-option" onclick={() => linkExpected(exp.id)}>
+            <div class="expected-main">
+              <span class="expected-type">{getFriendlyType(exp.invoiceType)}</span>
+              <span class="expected-number">
+                {String(exp.pointOfSale).padStart(4, '0')}-{String(exp.invoiceNumber).padStart(
+                  8,
+                  '0'
+                )}
+              </span>
+            </div>
+            <div class="expected-details">
+              <span class="expected-date">{formatDateShort(exp.issueDate)}</span>
+              {#if exp.total}
+                <span class="expected-total">${exp.total.toLocaleString('es-AR')}</span>
+              {/if}
+            </div>
+            {#if exp.emitterName}
+              <div class="expected-emitter">{exp.emitterName}</div>
+            {/if}
+          </button>
+        {/each}
+      </div>
+    {/if}
+
+    <div class="dialog-actions">
+      <Button variant="secondary" onclick={() => (linkExpectedDialogOpen = false)}>Cancelar</Button>
+    </div>
+  </div>
+</Dialog>
+
 <style>
   .container {
     max-width: 1400px;
@@ -608,8 +732,13 @@
 
   .layout {
     display: grid;
-    grid-template-columns: 500px 1fr;
+    grid-template-columns: 3fr 1fr;
     gap: var(--spacing-4);
+  }
+
+  /* Cuando hay factura, el preview puede ser un poco más chico */
+  .layout.has-invoice {
+    grid-template-columns: 2fr 1fr;
   }
 
   /* Preview panel */
@@ -725,6 +854,15 @@
     color: var(--color-primary-700);
   }
 
+  .expected-indicator.missing {
+    background: var(--color-warning-50);
+    border-color: var(--color-warning-200);
+  }
+
+  .expected-indicator.missing .indicator-label {
+    color: var(--color-warning-700);
+  }
+
   .link-button {
     background: transparent;
     border: none;
@@ -793,5 +931,85 @@
     border-radius: var(--radius-sm);
     color: var(--color-text-secondary);
     border: 1px solid var(--color-border);
+  }
+
+  /* Dialog vincular expected */
+  .link-expected-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  .loading-text,
+  .empty-text {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: center;
+    padding: var(--spacing-4);
+  }
+
+  .help-text {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    margin: 0;
+  }
+
+  .expected-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .expected-option {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    padding: var(--spacing-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    cursor: pointer;
+    text-align: left;
+    transition: all var(--transition-fast);
+  }
+
+  .expected-option:hover {
+    border-color: var(--color-primary-300);
+    background: var(--color-primary-50);
+  }
+
+  .expected-main {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: baseline;
+  }
+
+  .expected-type {
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-primary);
+  }
+
+  .expected-number {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+
+  .expected-details {
+    display: flex;
+    gap: var(--spacing-3);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+  }
+
+  .expected-total {
+    font-family: var(--font-mono);
+  }
+
+  .expected-emitter {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
   }
 </style>

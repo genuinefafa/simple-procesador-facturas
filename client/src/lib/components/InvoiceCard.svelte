@@ -83,6 +83,7 @@
   let editMode = $state(false);
   let selectedEmitter = $state<Emitter | null>(null);
   let selectedCategoryId = $state<number | null>(null);
+  let emitterLoaded = $state(false);
 
   // Form data
   let formData = $state({
@@ -94,10 +95,41 @@
     total: null as number | null,
   });
 
+  // Convertir fecha ISO a formato input date (YYYY-MM-DD)
+  // Importante: las fechas vienen como ISO string y hay que extraer solo la parte de fecha
+  function toInputDate(dateStr: string | null | undefined): string {
+    if (!dateStr) return '';
+    // Si ya está en formato YYYY-MM-DD, retornar tal cual
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
+    // Si es ISO con timezone, extraer solo la fecha
+    const match = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
+    return match ? match[1] : '';
+  }
+
   // Inicializar en modo edición si es create
   $effect(() => {
     if (isCreateMode && !editMode) {
       editMode = true;
+    }
+  });
+
+  // Cargar emisor desde CUIT cuando se monta o cambia la factura
+  $effect(() => {
+    const cuit = invoice.cuit;
+    const name = invoice.emitterName;
+
+    // Si ya tenemos el emisor cargado para este CUIT, no volver a cargar
+    if (emitterLoaded && selectedEmitter?.cuit === cuit) return;
+
+    if (cuit) {
+      // Crear un emisor temporal con los datos que tenemos
+      selectedEmitter = {
+        name: name || cuit,
+        displayName: name || cuit,
+        cuit: cuit,
+        cuitNumeric: cuit.replace(/\D/g, ''),
+      };
+      emitterLoaded = true;
     }
   });
 
@@ -108,7 +140,7 @@
       formData.invoiceType = invoice.invoiceType;
       formData.pointOfSale = invoice.pointOfSale;
       formData.invoiceNumber = invoice.invoiceNumber;
-      formData.issueDate = invoice.issueDate || '';
+      formData.issueDate = toInputDate(invoice.issueDate);
       formData.total = invoice.total ?? null;
       selectedCategoryId = invoice.categoryId ?? null;
     }
@@ -192,127 +224,125 @@
   {/if}
 
   <div class="card-content">
-    <!-- Emisor -->
-    <div class="field-row">
+    <!-- Emisor (nombre + CUIT combinados) -->
+    <div class="field stacked">
       <span class="field-label">Emisor</span>
       {#if editMode}
-        <div class="field-input emitter-field">
+        <div class="emitter-field">
           <EmitterCombobox
             value={selectedEmitter}
-            onselect={(emitter) => (selectedEmitter = emitter)}
+            onselect={(emitter) => {
+              selectedEmitter = emitter;
+              if (emitter) {
+                formData.cuit = emitter.cuit;
+              }
+            }}
           />
         </div>
       {:else}
         <button type="button" class="field-value clickable" onclick={enterEditMode}>
-          {invoice.emitterName || invoice.cuit || '—'}
+          <span class="emitter-name">{invoice.emitterName || '—'}</span>
+          {#if invoice.cuit}
+            <span class="emitter-cuit">{invoice.cuit}</span>
+          {/if}
         </button>
       {/if}
     </div>
 
-    <!-- CUIT -->
-    <div class="field-row">
-      <span class="field-label">CUIT</span>
+    <!-- Tipo -->
+    <div class="field stacked">
+      <span class="field-label">Tipo</span>
       {#if editMode}
-        <input
-          type="text"
-          class="field-input"
-          bind:value={formData.cuit}
-          placeholder="XX-XXXXXXXX-X"
-        />
+        <InvoiceTypeSelect bind:value={formData.invoiceType} />
       {:else}
-        <button type="button" class="field-value clickable mono" onclick={enterEditMode}>
-          {invoice.cuit || '—'}
+        <button type="button" class="field-value clickable" onclick={enterEditMode}>
+          {getFriendlyType(invoice.invoiceType)}
         </button>
       {/if}
     </div>
 
-    <!-- Tipo + Número (inline) -->
-    <div class="field-row inline">
-      <div class="field-group">
-        <span class="field-label">Tipo</span>
-        {#if editMode}
-          <InvoiceTypeSelect bind:value={formData.invoiceType} />
-        {:else}
-          <button type="button" class="field-value clickable" onclick={enterEditMode}>
-            {getFriendlyType(invoice.invoiceType)}
-          </button>
-        {/if}
-      </div>
-
-      <div class="field-group">
-        <span class="field-label">Número</span>
-        {#if editMode}
-          <div class="number-inputs">
-            <input
-              type="number"
-              class="field-input small"
-              bind:value={formData.pointOfSale}
-              placeholder="PV"
-              min="1"
-              max="9999"
-            />
-            <span class="separator">-</span>
-            <input
-              type="number"
-              class="field-input"
-              bind:value={formData.invoiceNumber}
-              placeholder="Número"
-              min="1"
-            />
-          </div>
-        {:else}
-          <button type="button" class="field-value clickable mono" onclick={enterEditMode}>
-            {formatInvoiceNumber(invoice.pointOfSale, invoice.invoiceNumber)}
-          </button>
-        {/if}
-      </div>
-    </div>
-
-    <!-- Fecha + Total (inline) -->
-    <div class="field-row inline">
-      <div class="field-group">
-        <span class="field-label">Fecha</span>
-        {#if editMode}
-          <input type="date" class="field-input" bind:value={formData.issueDate} />
-        {:else}
-          <button type="button" class="field-value clickable" onclick={enterEditMode}>
-            {formatDate(invoice.issueDate)}
-          </button>
-        {/if}
-      </div>
-
-      <div class="field-group">
-        <span class="field-label">Total</span>
-        {#if editMode}
+    <!-- Número -->
+    <div class="field stacked">
+      <span class="field-label">Número</span>
+      {#if editMode}
+        <div class="number-inputs">
+          <input
+            type="number"
+            class="field-input small"
+            bind:value={formData.pointOfSale}
+            placeholder="PV"
+            min="1"
+            max="9999"
+          />
+          <span class="separator">-</span>
           <input
             type="number"
             class="field-input"
-            bind:value={formData.total}
-            placeholder="0.00"
-            step="0.01"
+            bind:value={formData.invoiceNumber}
+            placeholder="Número"
+            min="1"
           />
-        {:else}
-          <button type="button" class="field-value clickable mono" onclick={enterEditMode}>
-            {formatCurrency(invoice.total)}
-          </button>
-        {/if}
-      </div>
+        </div>
+      {:else}
+        <button type="button" class="field-value clickable mono" onclick={enterEditMode}>
+          {formatInvoiceNumber(invoice.pointOfSale, invoice.invoiceNumber)}
+        </button>
+      {/if}
     </div>
 
-    <!-- Categoría -->
-    <div class="field-row">
-      <span class="field-label">Categoría</span>
-      <div class="field-input category-field">
-        <CategoryPills
-          {categories}
-          selected={selectedCategoryId}
-          onselect={(id) => {
-            selectedCategoryId = id ?? null;
-            if (!editMode) editMode = true;
-          }}
-          mode="single"
+    <!-- Fecha -->
+    <div class="field stacked">
+      <span class="field-label">Fecha</span>
+      {#if editMode}
+        <input type="date" class="field-input" bind:value={formData.issueDate} />
+      {:else}
+        <button type="button" class="field-value clickable" onclick={enterEditMode}>
+          {formatDate(invoice.issueDate)}
+        </button>
+      {/if}
+    </div>
+
+    <!-- Total -->
+    <div class="field stacked">
+      <span class="field-label">Total</span>
+      {#if editMode}
+        <input
+          type="number"
+          class="field-input"
+          bind:value={formData.total}
+          placeholder="0.00"
+          step="0.01"
         />
-      </div>
+      {:else}
+        <button type="button" class="field-value clickable mono" onclick={enterEditMode}>
+          {formatCurrency(invoice.total)}
+        </button>
+      {/if}
+    </div>
+
+    <!-- Categoría (independiente, no activa edición) -->
+    <div class="field stacked category-section">
+      <span class="field-label">Categoría</span>
+      <CategoryPills
+        {categories}
+        selected={selectedCategoryId}
+        onselect={(id) => {
+          selectedCategoryId = id ?? null;
+          // Guardar categoría inmediatamente si no estamos en modo edición
+          if (!editMode && onsave) {
+            onsave({
+              cuit: invoice.cuit,
+              invoiceType: invoice.invoiceType,
+              pointOfSale: invoice.pointOfSale,
+              invoiceNumber: invoice.invoiceNumber,
+              issueDate: invoice.issueDate || '',
+              total: invoice.total ?? null,
+              categoryId: id ?? null,
+            });
+          }
+        }}
+        mode="single"
+      />
     </div>
   </div>
 
@@ -378,32 +408,22 @@
     gap: var(--spacing-3);
   }
 
-  .field-row {
+  /* Stacked field: label arriba, valor abajo */
+  .field.stacked {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-3);
-  }
-
-  .field-row.inline {
-    gap: var(--spacing-4);
-  }
-
-  .field-group {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-3);
+    flex-direction: column;
+    gap: var(--spacing-1);
   }
 
   .field-label {
-    width: 80px;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    flex-shrink: 0;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .field-value {
-    flex: 1;
     font-size: var(--font-size-base);
     background: none;
     border: none;
@@ -412,6 +432,9 @@
     text-align: left;
     cursor: pointer;
     transition: background var(--transition-fast);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
   }
 
   .field-value.clickable:hover {
@@ -419,16 +442,32 @@
   }
 
   .field-value.mono {
-    font-family: 'Monaco', 'Menlo', monospace;
+    font-family: var(--font-mono);
+  }
+
+  /* Emisor: nombre arriba, CUIT abajo */
+  .emitter-name {
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+  }
+
+  .emitter-cuit {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    font-family: var(--font-mono);
+  }
+
+  .emitter-field {
+    width: 100%;
   }
 
   .field-input {
-    flex: 1;
     font-size: var(--font-size-base);
     padding: var(--spacing-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-surface);
+    width: 100%;
   }
 
   .field-input:focus {
@@ -446,17 +485,17 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-1);
-    flex: 1;
   }
 
   .separator {
     color: var(--color-text-tertiary);
   }
 
-  .category-field {
-    flex: 1;
-    border: none;
-    padding: 0;
+  /* Categoría como sección independiente */
+  .category-section {
+    padding-top: var(--spacing-2);
+    border-top: 1px solid var(--color-border);
+    margin-top: var(--spacing-1);
   }
 
   .card-footer {
