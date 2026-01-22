@@ -5,13 +5,17 @@
   type Props = {
     /** ID actual del comprobante (ej: "factura:123") */
     currentId: string;
-    /** Título a mostrar en el centro */
+    /** Título a mostrar en el centro (ej: "FACB 0007-00000640") */
     title: string;
-    /** Subtítulo opcional (ej: emisor) */
-    subtitle?: string;
+    /** Fecha del comprobante (se muestra al lado del título) */
+    date?: string;
+    /** Nombre del emisor */
+    emitterName?: string;
+    /** CUIT del emisor (se muestra al lado del nombre) */
+    cuit?: string;
   };
 
-  let { currentId, title, subtitle }: Props = $props();
+  let { currentId, title, date, emitterName, cuit }: Props = $props();
 
   // Derivar navegación reactivamente cuando cambia currentId
   const nav = $derived.by(() => {
@@ -108,9 +112,19 @@
   </div>
 
   <div class="nav-center">
-    <h1 class="nav-title">{title}</h1>
-    {#if subtitle}
-      <p class="nav-subtitle">{subtitle}</p>
+    <h1 class="nav-title">
+      {title}
+      {#if date}
+        <span class="nav-date">({date})</span>
+      {/if}
+    </h1>
+    {#if emitterName || cuit}
+      <p class="nav-subtitle">
+        {emitterName || ''}
+        {#if cuit}
+          <span class="nav-cuit">({cuit})</span>
+        {/if}
+      </p>
     {/if}
     {#if nav.position}
       <button
@@ -119,7 +133,7 @@
         onclick={goToList}
         title="Volver al listado (Esc)"
       >
-        {nav.position.current} de {nav.position.total}
+        ← Lista · {nav.position.current} de {nav.position.total}
       </button>
     {/if}
   </div>
@@ -181,6 +195,12 @@
     text-overflow: ellipsis;
   }
 
+  .nav-date {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-normal);
+    color: var(--color-text-secondary);
+  }
+
   .nav-subtitle {
     margin: var(--spacing-1) 0 0;
     font-size: var(--font-size-sm);
@@ -188,6 +208,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .nav-cuit {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
   }
 
   .nav-position-link {

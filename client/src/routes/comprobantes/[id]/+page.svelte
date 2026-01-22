@@ -638,7 +638,25 @@
     return 'Comprobante';
   });
 
-  const navSubtitle = $derived(comprobante.emitterName || undefined);
+  // Fecha para el navbar (formato corto: 17/ene/2025)
+  const navDate = $derived.by(() => {
+    const date = comprobante.final?.issueDate || comprobante.expected?.issueDate;
+    return date ? formatDateShort(date) : undefined;
+  });
+
+  // CUIT formateado con guiones
+  const navCuit = $derived.by(() => {
+    const cuit = comprobante.final?.cuit || comprobante.expected?.cuit;
+    if (!cuit) return undefined;
+    // Si ya tiene guiones, devolver tal cual
+    if (cuit.includes('-')) return cuit;
+    // Si es numérico puro, formatear XX-XXXXXXXX-X
+    const clean = cuit.replace(/\D/g, '');
+    if (clean.length === 11) {
+      return `${clean.slice(0, 2)}-${clean.slice(2, 10)}-${clean.slice(10)}`;
+    }
+    return cuit;
+  });
 </script>
 
 <svelte:head>
@@ -646,7 +664,13 @@
 </svelte:head>
 
 <div class="container">
-  <NavigationBar currentId={comprobante.id} title={navTitle} subtitle={navSubtitle} />
+  <NavigationBar
+    currentId={comprobante.id}
+    title={navTitle}
+    date={navDate}
+    emitterName={comprobante.emitterName || undefined}
+    cuit={navCuit}
+  />
 
   <!-- Alerta de duplicados por hash (global, arriba) -->
   {#if comprobante.final?.fileHash || comprobante.file?.fileHash}
