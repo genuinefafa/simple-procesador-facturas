@@ -2,7 +2,7 @@
   /**
    * Comparación lado a lado de datos de archivo (OCR) vs expected.
    *
-   * Diseño: títulos arriba del contenido, más compacto.
+   * Diseño: compacto, títulos arriba del contenido.
    */
 
   import MatchIndicator from './MatchIndicator.svelte';
@@ -17,6 +17,7 @@
     extractedPointOfSale?: number | null;
     extractedInvoiceNumber?: number | null;
     extractionConfidence?: number | null;
+    emitterName?: string | null;
   };
 
   type ExpectedData = {
@@ -31,19 +32,11 @@
     status?: string;
   };
 
-  type Category = {
-    id: number;
-    key: string;
-    description: string;
-  };
-
   type Props = {
     /** Datos extraídos del archivo (OCR) */
     file?: FileData | null;
     /** Datos esperados */
     expected?: ExpectedData | null;
-    /** Categorías disponibles */
-    categories?: Category[];
     /** Callback cuando se quiere crear factura desde archivo */
     oncreatefromfile?: () => void;
     /** Callback cuando se quiere crear factura desde expected */
@@ -57,7 +50,6 @@
   let {
     file,
     expected,
-    categories = [],
     oncreatefromfile,
     oncreatefromexpected,
     onreprocess,
@@ -102,8 +94,9 @@
 
         <div class="fields">
           <div class="field">
-            <span class="field-label">CUIT</span>
-            <span class="field-value">{file?.extractedCuit || '—'}</span>
+            <span class="field-label">Emisor</span>
+            <span class="field-value">{file?.emitterName || '—'}</span>
+            <span class="field-detail">{file?.extractedCuit || ''}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
@@ -128,17 +121,24 @@
         </div>
 
         <div class="column-actions">
-          {#if onreprocess}
-            <Button variant="ghost" size="sm" onclick={onreprocess} disabled={processing}>
-              🔄 Reprocesar
-            </Button>
-          {/if}
           {#if oncreatefromfile}
             <Button variant="primary" size="sm" onclick={oncreatefromfile} disabled={processing}>
               Usar estos datos
             </Button>
           {/if}
         </div>
+        {#if onreprocess}
+          <div class="reprocess-row">
+            <button
+              type="button"
+              class="reprocess-link"
+              onclick={onreprocess}
+              disabled={processing}
+            >
+              🔄 Reprocesar OCR
+            </button>
+          </div>
+        {/if}
       </div>
     {/if}
 
@@ -172,8 +172,9 @@
 
         <div class="fields">
           <div class="field">
-            <span class="field-label">CUIT</span>
-            <span class="field-value">{expected?.cuit || '—'}</span>
+            <span class="field-label">Emisor</span>
+            <span class="field-value">{expected?.emitterName || '—'}</span>
+            <span class="field-detail">{expected?.cuit || ''}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
@@ -232,6 +233,7 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
+    max-width: 280px;
   }
 
   .source-column.file {
@@ -242,13 +244,14 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-2);
-    padding: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
     background: var(--color-surface-alt);
     border-bottom: 1px solid var(--color-border);
+    min-height: 40px;
   }
 
   .source-icon {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm);
   }
 
   .source-title {
@@ -294,7 +297,7 @@
 
   /* Fields - stacked layout */
   .fields {
-    padding: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
     display: flex;
     flex-direction: column;
     gap: var(--spacing-2);
@@ -304,31 +307,38 @@
   .field {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 1px;
   }
 
   .field-label {
-    font-size: var(--font-size-xs);
+    font-size: 10px;
     color: var(--color-text-tertiary);
     text-transform: uppercase;
-    letter-spacing: 0.03em;
+    letter-spacing: 0.04em;
   }
 
   .field-value {
     font-size: var(--font-size-sm);
     color: var(--color-text-primary);
+    line-height: 1.2;
+  }
+
+  .field-detail {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
   }
 
   .field-value.mono {
     font-family: 'Monaco', 'Menlo', monospace;
+    font-size: var(--font-size-xs);
   }
 
   /* Match column */
   .match-column {
     display: flex;
     flex-direction: column;
-    justify-content: center;
-    padding: var(--spacing-3) var(--spacing-2);
+    justify-content: flex-start;
+    padding: var(--spacing-2) var(--spacing-1);
     background: var(--color-neutral-50);
     border-right: 1px solid var(--color-border);
   }
@@ -338,24 +348,53 @@
     flex-direction: column;
     gap: var(--spacing-2);
     align-items: center;
-    /* Alinear con los campos - offset del header */
-    padding-top: calc(var(--spacing-3) + var(--font-size-sm) + var(--spacing-2));
+    /* Offset: header (40px) + fields padding (8px) + first field label (~14px) */
+    margin-top: 62px;
   }
 
   /* Actions */
   .column-actions {
     display: flex;
     gap: var(--spacing-2);
-    padding: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
     border-top: 1px solid var(--color-border);
     background: var(--color-surface-alt);
     justify-content: flex-end;
+  }
+
+  .reprocess-row {
+    padding: var(--spacing-1) var(--spacing-3) var(--spacing-2);
+    background: var(--color-surface-alt);
+    text-align: center;
+  }
+
+  .reprocess-link {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--spacing-1);
+    transition: color var(--transition-fast);
+  }
+
+  .reprocess-link:hover:not(:disabled) {
+    color: var(--color-primary-600);
+  }
+
+  .reprocess-link:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   /* Responsive */
   @media (max-width: 640px) {
     .columns {
       flex-direction: column;
+    }
+
+    .source-column {
+      max-width: none;
     }
 
     .source-column.file {
@@ -372,7 +411,7 @@
 
     .match-indicators {
       flex-direction: row;
-      padding-top: 0;
+      margin-top: 0;
       gap: var(--spacing-3);
     }
   }

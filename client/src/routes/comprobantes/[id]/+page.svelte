@@ -105,6 +105,15 @@
     return null;
   });
 
+  // File enriquecido con nombre del emisor (si está disponible)
+  const enrichedFile = $derived.by(() => {
+    if (!comprobante.file) return null;
+    return {
+      ...comprobante.file,
+      emitterName: comprobante.emitterName || null,
+    };
+  });
+
   // Sincronizar facturaData con comprobante cuando cambie
   $effect(() => {
     facuraData.cuit = comprobante.final?.cuit || comprobante.expected?.cuit || facuraData.cuit;
@@ -732,9 +741,8 @@
       {#if showSourceComparison}
         <section class="section comparison-section">
           <SourceComparison
-            file={comprobante.file}
+            file={enrichedFile}
             expected={bestExpected}
-            {categories}
             oncreatefromfile={() => {
               // Copiar datos del archivo al formulario
               if (comprobante.file) {
