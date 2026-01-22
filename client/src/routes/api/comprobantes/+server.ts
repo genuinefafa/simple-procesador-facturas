@@ -91,7 +91,11 @@ export async function GET() {
       if (value.includes('T')) return value.split('T')[0];
       return value;
     }
-    return value.toISOString().slice(0, 10);
+    // Validar que la fecha sea válida antes de llamar toISOString
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return value.toISOString().slice(0, 10);
+    }
+    return null;
   };
 
   // Get uploaded files (not yet associated to invoice)
