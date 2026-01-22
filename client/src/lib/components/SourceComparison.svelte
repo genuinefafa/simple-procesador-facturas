@@ -2,8 +2,7 @@
   /**
    * Comparación lado a lado de datos de archivo (OCR) vs expected.
    *
-   * Muestra los valores de ambas fuentes con indicadores de coincidencia
-   * y acciones para crear factura desde cualquiera de las fuentes.
+   * Diseño: títulos arriba del contenido, más compacto.
    */
 
   import MatchIndicator from './MatchIndicator.svelte';
@@ -84,169 +83,132 @@
     if (conf >= 70) return { label: 'Media', class: 'medium' };
     return { label: 'Baja', class: 'low' };
   });
-
-  // Valores para comparación de número de factura
-  const fileInvoiceNum = $derived(
-    hasFile ? `${file?.extractedPointOfSale ?? ''}-${file?.extractedInvoiceNumber ?? ''}` : ''
-  );
-  const expectedInvoiceNum = $derived(
-    hasExpected ? `${expected?.pointOfSale}-${expected?.invoiceNumber}` : ''
-  );
 </script>
 
 <div class="source-comparison">
-  <!-- Headers -->
-  <div class="comparison-header">
+  <div class="columns">
+    <!-- Columna Archivo -->
     {#if hasFile}
-      <div class="source-header file">
-        <span class="source-icon">📦</span>
-        <span class="source-title">Archivo (OCR)</span>
-        {#if confidenceLevel}
-          <span class="confidence-badge {confidenceLevel.class}">
-            {file?.extractionConfidence}% {confidenceLevel.label}
-          </span>
-        {/if}
+      <div class="source-column file">
+        <div class="column-header">
+          <span class="source-icon">📦</span>
+          <span class="source-title">Archivo (OCR)</span>
+          {#if confidenceLevel}
+            <span class="confidence-badge {confidenceLevel.class}">
+              {file?.extractionConfidence}%
+            </span>
+          {/if}
+        </div>
+
+        <div class="fields">
+          <div class="field">
+            <span class="field-label">CUIT</span>
+            <span class="field-value">{file?.extractedCuit || '—'}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Tipo</span>
+            <span class="field-value">{getFriendlyType(file?.extractedType)}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Número</span>
+            <span class="field-value mono"
+              >{formatInvoiceNum(file?.extractedPointOfSale, file?.extractedInvoiceNumber)}</span
+            >
+          </div>
+          <div class="field">
+            <span class="field-label">Fecha</span>
+            <span class="field-value"
+              >{file?.extractedDate ? formatDateShort(file.extractedDate) : '—'}</span
+            >
+          </div>
+          <div class="field">
+            <span class="field-label">Total</span>
+            <span class="field-value mono">{formatCurrency(file?.extractedTotal)}</span>
+          </div>
+        </div>
+
+        <div class="column-actions">
+          {#if onreprocess}
+            <Button variant="ghost" size="sm" onclick={onreprocess} disabled={processing}>
+              🔄 Reprocesar
+            </Button>
+          {/if}
+          {#if oncreatefromfile}
+            <Button variant="primary" size="sm" onclick={oncreatefromfile} disabled={processing}>
+              Usar estos datos
+            </Button>
+          {/if}
+        </div>
       </div>
     {/if}
 
+    <!-- Indicador de Match (centro) -->
     {#if hasFile && hasExpected}
-      <div class="match-column-header">Match</div>
-    {/if}
-
-    {#if hasExpected}
-      <div class="source-header expected">
-        <span class="source-icon">📋</span>
-        <span class="source-title">Expected #{expected?.id}</span>
-        {#if expected?.status}
-          <span class="status-badge {expected.status}">{expected.status}</span>
-        {/if}
-      </div>
-    {/if}
-  </div>
-
-  <!-- Rows de comparación -->
-  <div class="comparison-rows">
-    <!-- CUIT -->
-    <div class="comparison-row">
-      <div class="row-label">CUIT</div>
-      {#if hasFile}
-        <div class="value file">{file?.extractedCuit || '—'}</div>
-      {/if}
-      {#if hasFile && hasExpected}
-        <div class="match-cell">
+      <div class="match-column">
+        <div class="match-indicators">
           <MatchIndicator left={file?.extractedCuit} right={expected?.cuit} type="cuit" />
-        </div>
-      {/if}
-      {#if hasExpected}
-        <div class="value expected">{expected?.cuit || '—'}</div>
-      {/if}
-    </div>
-
-    <!-- Tipo -->
-    <div class="comparison-row">
-      <div class="row-label">Tipo</div>
-      {#if hasFile}
-        <div class="value file">{getFriendlyType(file?.extractedType)}</div>
-      {/if}
-      {#if hasFile && hasExpected}
-        <div class="match-cell">
           <MatchIndicator left={file?.extractedType} right={expected?.invoiceType} type="exact" />
-        </div>
-      {/if}
-      {#if hasExpected}
-        <div class="value expected">{getFriendlyType(expected?.invoiceType)}</div>
-      {/if}
-    </div>
-
-    <!-- Número -->
-    <div class="comparison-row">
-      <div class="row-label">Número</div>
-      {#if hasFile}
-        <div class="value file mono">
-          {formatInvoiceNum(file?.extractedPointOfSale, file?.extractedInvoiceNumber)}
-        </div>
-      {/if}
-      {#if hasFile && hasExpected}
-        <div class="match-cell">
-          <MatchIndicator left={fileInvoiceNum} right={expectedInvoiceNum} type="exact" />
-        </div>
-      {/if}
-      {#if hasExpected}
-        <div class="value expected mono">
-          {formatInvoiceNum(expected?.pointOfSale, expected?.invoiceNumber)}
-        </div>
-      {/if}
-    </div>
-
-    <!-- Fecha -->
-    <div class="comparison-row">
-      <div class="row-label">Fecha</div>
-      {#if hasFile}
-        <div class="value file">
-          {file?.extractedDate ? formatDateShort(file.extractedDate) : '—'}
-        </div>
-      {/if}
-      {#if hasFile && hasExpected}
-        <div class="match-cell">
+          <MatchIndicator
+            left={`${file?.extractedPointOfSale}-${file?.extractedInvoiceNumber}`}
+            right={`${expected?.pointOfSale}-${expected?.invoiceNumber}`}
+            type="exact"
+          />
           <MatchIndicator left={file?.extractedDate} right={expected?.issueDate} type="date" />
-        </div>
-      {/if}
-      {#if hasExpected}
-        <div class="value expected">
-          {expected?.issueDate ? formatDateShort(expected.issueDate) : '—'}
-        </div>
-      {/if}
-    </div>
-
-    <!-- Total -->
-    <div class="comparison-row">
-      <div class="row-label">Total</div>
-      {#if hasFile}
-        <div class="value file mono">
-          {formatCurrency(file?.extractedTotal)}
-        </div>
-      {/if}
-      {#if hasFile && hasExpected}
-        <div class="match-cell">
           <MatchIndicator left={file?.extractedTotal} right={expected?.total} type="amount" />
         </div>
-      {/if}
-      {#if hasExpected}
-        <div class="value expected mono">
-          {formatCurrency(expected?.total)}
-        </div>
-      {/if}
-    </div>
-  </div>
-
-  <!-- Acciones -->
-  <div class="comparison-actions">
-    {#if hasFile}
-      <div class="action-section file">
-        {#if onreprocess}
-          <Button variant="ghost" size="sm" onclick={onreprocess} disabled={processing}>
-            Reprocesar
-          </Button>
-        {/if}
-        {#if oncreatefromfile}
-          <Button variant="primary" size="sm" onclick={oncreatefromfile} disabled={processing}>
-            Crear factura
-          </Button>
-        {/if}
       </div>
     {/if}
 
-    {#if hasFile && hasExpected}
-      <div class="action-spacer"></div>
-    {/if}
-
+    <!-- Columna Expected -->
     {#if hasExpected}
-      <div class="action-section expected">
-        {#if oncreatefromexpected}
-          <Button variant="primary" size="sm" onclick={oncreatefromexpected} disabled={processing}>
-            Crear factura
-          </Button>
-        {/if}
+      <div class="source-column expected">
+        <div class="column-header">
+          <span class="source-icon">📋</span>
+          <span class="source-title">Expected #{expected?.id}</span>
+          {#if expected?.status}
+            <span class="status-badge {expected.status}">{expected.status}</span>
+          {/if}
+        </div>
+
+        <div class="fields">
+          <div class="field">
+            <span class="field-label">CUIT</span>
+            <span class="field-value">{expected?.cuit || '—'}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Tipo</span>
+            <span class="field-value">{getFriendlyType(expected?.invoiceType)}</span>
+          </div>
+          <div class="field">
+            <span class="field-label">Número</span>
+            <span class="field-value mono"
+              >{formatInvoiceNum(expected?.pointOfSale, expected?.invoiceNumber)}</span
+            >
+          </div>
+          <div class="field">
+            <span class="field-label">Fecha</span>
+            <span class="field-value"
+              >{expected?.issueDate ? formatDateShort(expected.issueDate) : '—'}</span
+            >
+          </div>
+          <div class="field">
+            <span class="field-label">Total</span>
+            <span class="field-value mono">{formatCurrency(expected?.total)}</span>
+          </div>
+        </div>
+
+        <div class="column-actions">
+          {#if oncreatefromexpected}
+            <Button
+              variant="primary"
+              size="sm"
+              onclick={oncreatefromexpected}
+              disabled={processing}
+            >
+              Usar estos datos
+            </Button>
+          {/if}
+        </div>
       </div>
     {/if}
   </div>
@@ -260,27 +222,33 @@
     overflow: hidden;
   }
 
-  /* Headers */
-  .comparison-header {
+  .columns {
     display: flex;
-    background: var(--color-surface-alt);
-    border-bottom: 1px solid var(--color-border);
+    gap: 0;
   }
 
-  .source-header {
+  .source-column {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  .source-column.file {
+    border-right: 1px solid var(--color-border);
+  }
+
+  .column-header {
     display: flex;
     align-items: center;
     gap: var(--spacing-2);
     padding: var(--spacing-3);
-  }
-
-  .source-header.file {
-    border-right: 1px solid var(--color-border);
+    background: var(--color-surface-alt);
+    border-bottom: 1px solid var(--color-border);
   }
 
   .source-icon {
-    font-size: var(--font-size-lg);
+    font-size: var(--font-size-base);
   }
 
   .source-title {
@@ -288,25 +256,11 @@
     font-size: var(--font-size-sm);
   }
 
-  .match-column-header {
-    width: 3rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    background: var(--color-neutral-50);
-    border-left: 1px solid var(--color-border);
-    border-right: 1px solid var(--color-border);
-  }
-
   .confidence-badge {
-    font-size: var(--font-size-xs);
-    padding: var(--spacing-1) var(--spacing-2);
-    border-radius: var(--radius-full);
     margin-left: auto;
+    font-size: var(--font-size-xs);
+    padding: 2px 6px;
+    border-radius: var(--radius-full);
   }
 
   .confidence-badge.high {
@@ -325,10 +279,10 @@
   }
 
   .status-badge {
-    font-size: var(--font-size-xs);
-    padding: var(--spacing-1) var(--spacing-2);
-    border-radius: var(--radius-full);
     margin-left: auto;
+    font-size: var(--font-size-xs);
+    padding: 2px 6px;
+    border-radius: var(--radius-full);
     background: var(--color-neutral-100);
     color: var(--color-text-secondary);
   }
@@ -338,85 +292,88 @@
     color: var(--color-warning-700, #b45309);
   }
 
-  .status-badge.discrepancy {
-    background: var(--color-error-100, #fee2e2);
-    color: var(--color-error-700, #b91c1c);
-  }
-
-  /* Rows */
-  .comparison-rows {
-    padding: var(--spacing-2) 0;
-  }
-
-  .comparison-row {
+  /* Fields - stacked layout */
+  .fields {
+    padding: var(--spacing-3);
     display: flex;
-    align-items: center;
-    padding: var(--spacing-2) var(--spacing-3);
-  }
-
-  .comparison-row:hover {
-    background: var(--color-surface-alt);
-  }
-
-  .row-label {
-    width: 80px;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    flex-shrink: 0;
-  }
-
-  .value {
+    flex-direction: column;
+    gap: var(--spacing-2);
     flex: 1;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .field-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .field-value {
     font-size: var(--font-size-sm);
-    padding: 0 var(--spacing-2);
+    color: var(--color-text-primary);
   }
 
-  .value.file {
-    text-align: right;
-    padding-right: var(--spacing-3);
-  }
-
-  .value.expected {
-    padding-left: var(--spacing-3);
-  }
-
-  .value.mono {
+  .field-value.mono {
     font-family: 'Monaco', 'Menlo', monospace;
   }
 
-  .match-cell {
-    width: 3rem;
+  /* Match column */
+  .match-column {
     display: flex;
-    align-items: center;
+    flex-direction: column;
     justify-content: center;
-    flex-shrink: 0;
+    padding: var(--spacing-3) var(--spacing-2);
+    background: var(--color-neutral-50);
+    border-right: 1px solid var(--color-border);
+  }
+
+  .match-indicators {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    align-items: center;
+    /* Alinear con los campos - offset del header */
+    padding-top: calc(var(--spacing-3) + var(--font-size-sm) + var(--spacing-2));
   }
 
   /* Actions */
-  .comparison-actions {
-    display: flex;
-    border-top: 1px solid var(--color-border);
-    background: var(--color-surface-alt);
-    padding: var(--spacing-3);
-  }
-
-  .action-section {
-    flex: 1;
+  .column-actions {
     display: flex;
     gap: var(--spacing-2);
-  }
-
-  .action-section.file {
+    padding: var(--spacing-3);
+    border-top: 1px solid var(--color-border);
+    background: var(--color-surface-alt);
     justify-content: flex-end;
-    padding-right: var(--spacing-2);
   }
 
-  .action-section.expected {
-    padding-left: var(--spacing-2);
-  }
+  /* Responsive */
+  @media (max-width: 640px) {
+    .columns {
+      flex-direction: column;
+    }
 
-  .action-spacer {
-    width: 3rem;
-    flex-shrink: 0;
+    .source-column.file {
+      border-right: none;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .match-column {
+      flex-direction: row;
+      padding: var(--spacing-2);
+      border-right: none;
+      border-bottom: 1px solid var(--color-border);
+    }
+
+    .match-indicators {
+      flex-direction: row;
+      padding-top: 0;
+      gap: var(--spacing-3);
+    }
   }
 </style>
