@@ -7,6 +7,7 @@
   import InvoiceTypeSelect from '$lib/components/InvoiceTypeSelect.svelte';
   import DuplicateHashAlert from '$lib/components/DuplicateHashAlert.svelte';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
+  import SourceComparison from '$lib/components/SourceComparison.svelte';
   import { Accordion } from 'melt/builders';
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
@@ -78,6 +79,31 @@
   const isExpectedWithoutFile = $derived(
     comprobante.kind === 'expected' && !comprobante.file && !comprobante.final
   );
+
+  // Determinar si mostrar la comparación de fuentes (sin factura final)
+  const showSourceComparison = $derived(
+    !comprobante.final && (comprobante.file || comprobante.expected)
+  );
+
+  // El mejor match: si hay expected vinculado, usarlo; sino el primer match
+  const bestExpected = $derived.by(() => {
+    if (comprobante.expected) return comprobante.expected;
+    if (comprobante.matches && comprobante.matches.length > 0) {
+      const m = comprobante.matches[0];
+      return {
+        id: m.id,
+        cuit: m.cuit,
+        emitterName: m.emitterName,
+        issueDate: m.issueDate,
+        invoiceType: m.invoiceType,
+        pointOfSale: m.pointOfSale,
+        invoiceNumber: m.invoiceNumber,
+        total: m.total,
+        status: m.status,
+      };
+    }
+    return null;
+  });
 
   // Sincronizar facturaData con comprobante cuando cambie
   $effect(() => {
@@ -702,9 +728,49 @@
 
     <!-- Columna derecha: Formulario + Accordions -->
     <div {...accordion.root} class="content">
+      <!-- Comparación de fuentes (sin factura) -->
+      {#if showSourceComparison}
+        <section class="section comparison-section">
+          <SourceComparison
+            file={comprobante.file}
+            expected={bestExpected}
+            {categories}
+            oncreatefromfile={() => {
+              // Copiar datos del archivo al formulario
+              if (comprobante.file) {
+                facuraData.cuit = comprobante.file.extractedCuit || '';
+                facuraData.invoiceType = comprobante.file.extractedType ?? null;
+                facuraData.pointOfSale = comprobante.file.extractedPointOfSale ?? null;
+                facuraData.invoiceNumber = comprobante.file.extractedInvoiceNumber ?? null;
+                facuraData.issueDate = comprobante.file.extractedDate || '';
+                facuraData.total = comprobante.file.extractedTotal ?? null;
+                editMode = true;
+                toast.info('Datos copiados del archivo. Revisá y guardá.');
+              }
+            }}
+            oncreatefromexpected={() => {
+              // Copiar datos del expected al formulario
+              if (bestExpected) {
+                facuraData.cuit = bestExpected.cuit || '';
+                facuraData.invoiceType = bestExpected.invoiceType ?? null;
+                facuraData.pointOfSale = bestExpected.pointOfSale ?? null;
+                facuraData.invoiceNumber = bestExpected.invoiceNumber ?? null;
+                facuraData.issueDate = bestExpected.issueDate || '';
+                facuraData.total = bestExpected.total ?? null;
+                selectedExpectedId = bestExpected.id;
+                editMode = true;
+                toast.info('Datos copiados del fisco. Revisá y guardá.');
+              }
+            }}
+            onreprocess={processPending}
+            {processing}
+          />
+        </section>
+      {/if}
+
       <!-- Formulario Factura (ARRIBA, siempre visible) -->
       <section class="section factura-section">
-        <h2>Factura Final (Verificada)</h2>
+        <h2>{comprobante.final ? 'Factura Final (Verificada)' : 'Crear Factura'}</h2>
 
         {#if isExpectedWithoutFile}
           <div class="alert alert-info">
@@ -1282,6 +1348,13 @@
   .section h2 {
     margin: 0 0 var(--spacing-3);
     font-size: var(--font-size-lg);
+  }
+
+  /* Comparison section - sin borde propio, el SourceComparison ya tiene */
+  .comparison-section {
+    border: none;
+    padding: 0;
+    background: transparent;
   }
 
   /* Meta row for factura header */
