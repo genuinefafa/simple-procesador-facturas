@@ -2,7 +2,7 @@
   /**
    * Comparación lado a lado de datos de archivo (OCR) vs expected.
    *
-   * Diseño: compacto, títulos arriba del contenido.
+   * Diseño: compacto, campos con altura fija para alinear indicadores.
    */
 
   import MatchIndicator from './MatchIndicator.svelte';
@@ -67,6 +67,13 @@
     return `${pvStr}-${numStr}`;
   };
 
+  // Truncar nombre largo
+  const truncateName = (name: string | null | undefined, maxLen: number = 20) => {
+    if (!name) return '—';
+    if (name.length <= maxLen) return name;
+    return name.slice(0, maxLen - 1) + '...';
+  };
+
   // Confidence badge
   const confidenceLevel = $derived.by(() => {
     const conf = file?.extractionConfidence;
@@ -95,15 +102,20 @@
         <div class="fields">
           <div class="field">
             <span class="field-label">Emisor</span>
-            <span class="field-value">{file?.emitterName || '—'}</span>
-            <span class="field-detail">{file?.extractedCuit || ''}</span>
+            <span class="field-value" title={file?.emitterName || ''}
+              >{truncateName(file?.emitterName)}</span
+            >
+          </div>
+          <div class="field">
+            <span class="field-label">CUIT</span>
+            <span class="field-value mono">{file?.extractedCuit || '—'}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
             <span class="field-value">{getFriendlyType(file?.extractedType)}</span>
           </div>
           <div class="field">
-            <span class="field-label">Número</span>
+            <span class="field-label">Numero</span>
             <span class="field-value mono"
               >{formatInvoiceNum(file?.extractedPointOfSale, file?.extractedInvoiceNumber)}</span
             >
@@ -146,15 +158,26 @@
     {#if hasFile && hasExpected}
       <div class="match-column">
         <div class="match-indicators">
-          <MatchIndicator left={file?.extractedCuit} right={expected?.cuit} type="cuit" />
-          <MatchIndicator left={file?.extractedType} right={expected?.invoiceType} type="exact" />
-          <MatchIndicator
-            left={`${file?.extractedPointOfSale}-${file?.extractedInvoiceNumber}`}
-            right={`${expected?.pointOfSale}-${expected?.invoiceNumber}`}
-            type="exact"
-          />
-          <MatchIndicator left={file?.extractedDate} right={expected?.issueDate} type="date" />
-          <MatchIndicator left={file?.extractedTotal} right={expected?.total} type="amount" />
+          <div class="match-row"><span class="match-spacer"></span></div>
+          <div class="match-row">
+            <MatchIndicator left={file?.extractedCuit} right={expected?.cuit} type="cuit" />
+          </div>
+          <div class="match-row">
+            <MatchIndicator left={file?.extractedType} right={expected?.invoiceType} type="exact" />
+          </div>
+          <div class="match-row">
+            <MatchIndicator
+              left={`${file?.extractedPointOfSale}-${file?.extractedInvoiceNumber}`}
+              right={`${expected?.pointOfSale}-${expected?.invoiceNumber}`}
+              type="exact"
+            />
+          </div>
+          <div class="match-row">
+            <MatchIndicator left={file?.extractedDate} right={expected?.issueDate} type="date" />
+          </div>
+          <div class="match-row">
+            <MatchIndicator left={file?.extractedTotal} right={expected?.total} type="amount" />
+          </div>
         </div>
       </div>
     {/if}
@@ -173,15 +196,20 @@
         <div class="fields">
           <div class="field">
             <span class="field-label">Emisor</span>
-            <span class="field-value">{expected?.emitterName || '—'}</span>
-            <span class="field-detail">{expected?.cuit || ''}</span>
+            <span class="field-value" title={expected?.emitterName || ''}
+              >{truncateName(expected?.emitterName)}</span
+            >
+          </div>
+          <div class="field">
+            <span class="field-label">CUIT</span>
+            <span class="field-value mono">{expected?.cuit || '—'}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
             <span class="field-value">{getFriendlyType(expected?.invoiceType)}</span>
           </div>
           <div class="field">
-            <span class="field-label">Número</span>
+            <span class="field-label">Numero</span>
             <span class="field-value mono"
               >{formatInvoiceNum(expected?.pointOfSale, expected?.invoiceNumber)}</span
             >
@@ -221,6 +249,7 @@
     border-radius: var(--radius-lg);
     background: var(--color-surface);
     overflow: hidden;
+    width: fit-content;
   }
 
   .columns {
@@ -229,11 +258,10 @@
   }
 
   .source-column {
-    flex: 1;
     display: flex;
     flex-direction: column;
-    min-width: 0;
-    max-width: 280px;
+    min-width: 180px;
+    width: 200px;
   }
 
   .source-column.file {
@@ -247,7 +275,7 @@
     padding: var(--spacing-2) var(--spacing-3);
     background: var(--color-surface-alt);
     border-bottom: 1px solid var(--color-border);
-    min-height: 40px;
+    height: 36px;
   }
 
   .source-icon {
@@ -295,41 +323,41 @@
     color: var(--color-warning-700, #b45309);
   }
 
-  /* Fields - stacked layout */
+  /* Fields - altura fija por campo para alinear con indicadores */
   .fields {
     padding: var(--spacing-2) var(--spacing-3);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-2);
+    gap: 0;
     flex: 1;
   }
 
   .field {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    height: 32px;
+    justify-content: center;
   }
 
   .field-label {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--color-text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    line-height: 1;
   }
 
   .field-value {
     font-size: var(--font-size-sm);
     color: var(--color-text-primary);
     line-height: 1.2;
-  }
-
-  .field-detail {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .field-value.mono {
-    font-family: 'Monaco', 'Menlo', monospace;
+    font-family: var(--font-mono);
     font-size: var(--font-size-xs);
   }
 
@@ -337,7 +365,6 @@
   .match-column {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
     padding: var(--spacing-2) var(--spacing-1);
     background: var(--color-neutral-50);
     border-right: 1px solid var(--color-border);
@@ -346,10 +373,21 @@
   .match-indicators {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-2);
+    gap: 0;
     align-items: center;
-    /* Offset: header (40px) + fields padding (8px) + first field label (~14px) */
-    margin-top: 62px;
+    /* Offset para el header */
+    margin-top: 36px;
+  }
+
+  .match-row {
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .match-spacer {
+    display: block;
   }
 
   /* Actions */
@@ -389,12 +427,16 @@
 
   /* Responsive */
   @media (max-width: 640px) {
+    .source-comparison {
+      width: 100%;
+    }
+
     .columns {
       flex-direction: column;
     }
 
     .source-column {
-      max-width: none;
+      width: 100%;
     }
 
     .source-column.file {
@@ -413,6 +455,10 @@
       flex-direction: row;
       margin-top: 0;
       gap: var(--spacing-3);
+    }
+
+    .match-row {
+      height: auto;
     }
   }
 </style>
