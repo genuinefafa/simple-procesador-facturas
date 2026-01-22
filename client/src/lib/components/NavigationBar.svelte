@@ -1,7 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { useNavigation } from '$lib/stores/navigation';
-  import { onMount } from 'svelte';
+  import { navigationStore } from '$lib/stores/navigation';
 
   type Props = {
     /** ID actual del comprobante (ej: "factura:123") */
@@ -14,17 +13,30 @@
 
   let { currentId, title, subtitle }: Props = $props();
 
-  const nav = useNavigation(currentId);
+  // Derivar navegación reactivamente cuando cambia currentId
+  const nav = $derived.by(() => {
+    const ctx = $navigationStore;
+    const index = ctx.ids.indexOf(currentId);
+    const hasContext = index >= 0;
+
+    return {
+      hasContext,
+      previous: hasContext && index > 0 ? ctx.ids[index - 1] : null,
+      next: hasContext && index < ctx.ids.length - 1 ? ctx.ids[index + 1] : null,
+      position: hasContext ? { current: index + 1, total: ctx.ids.length } : null,
+      filter: ctx.filter,
+    };
+  });
 
   function goToPrevious() {
-    if ($nav.previous) {
-      goto(`/comprobantes/${$nav.previous}`);
+    if (nav.previous) {
+      goto(`/comprobantes/${nav.previous}`);
     }
   }
 
   function goToNext() {
-    if ($nav.next) {
-      goto(`/comprobantes/${$nav.next}`);
+    if (nav.next) {
+      goto(`/comprobantes/${nav.next}`);
     }
   }
 
@@ -32,8 +44,8 @@
     goto('/comprobantes');
   }
 
-  // Keyboard shortcuts
-  onMount(() => {
+  // Keyboard shortcuts - usar $effect para que se actualice cuando cambia nav
+  $effect(() => {
     function handleKeydown(e: KeyboardEvent) {
       // Ignorar si está en un input/textarea/select
       const target = e.target as HTMLElement;
@@ -45,15 +57,18 @@
         return;
       }
 
+      // Capturar valores actuales de nav
+      const { previous, next } = nav;
+
       if (e.key === 'ArrowLeft' || e.key === 'j') {
-        if ($nav.previous) {
+        if (previous) {
           e.preventDefault();
-          goToPrevious();
+          goto(`/comprobantes/${previous}`);
         }
       } else if (e.key === 'ArrowRight' || e.key === 'k') {
-        if ($nav.next) {
+        if (next) {
           e.preventDefault();
-          goToNext();
+          goto(`/comprobantes/${next}`);
         }
       } else if (e.key === 'Escape') {
         e.preventDefault();
@@ -68,11 +83,11 @@
 
 <nav class="navigation-bar">
   <div class="nav-left">
-    {#if $nav.hasContext}
+    {#if nav.hasContext}
       <button
         type="button"
         class="nav-btn"
-        disabled={!$nav.previous}
+        disabled={!nav.previous}
         onclick={goToPrevious}
         title="Anterior (← o j)"
       >
@@ -97,17 +112,24 @@
     {#if subtitle}
       <p class="nav-subtitle">{subtitle}</p>
     {/if}
-    {#if $nav.position}
-      <p class="nav-position">{$nav.position.current} de {$nav.position.total}</p>
+    {#if nav.position}
+      <button
+        type="button"
+        class="nav-position-link"
+        onclick={goToList}
+        title="Volver al listado (Esc)"
+      >
+        {nav.position.current} de {nav.position.total}
+      </button>
     {/if}
   </div>
 
   <div class="nav-right">
-    {#if $nav.hasContext}
+    {#if nav.hasContext}
       <button
         type="button"
         class="nav-btn"
-        disabled={!$nav.next}
+        disabled={!nav.next}
         onclick={goToNext}
         title="Siguiente (→ o k)"
       >
@@ -168,10 +190,21 @@
     text-overflow: ellipsis;
   }
 
-  .nav-position {
+  .nav-position-link {
     margin: var(--spacing-1) 0 0;
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-sm);
+    transition: all var(--transition-fast);
+  }
+
+  .nav-position-link:hover {
+    color: var(--color-primary-700);
+    background: var(--color-primary-50);
   }
 
   .nav-btn {
