@@ -314,7 +314,6 @@
     border-radius: var(--radius-lg);
     background: var(--color-surface);
     overflow: hidden;
-    width: fit-content;
   }
 
   .columns {
@@ -325,8 +324,8 @@
   .source-column {
     display: flex;
     flex-direction: column;
-    min-width: 180px;
-    width: 200px;
+    min-width: 160px;
+    flex: 1;
   }
 
   .source-column.file {
@@ -439,9 +438,11 @@
   .match-column {
     display: flex;
     flex-direction: column;
-    padding: var(--spacing-2) var(--spacing-1);
+    padding: var(--spacing-2) var(--spacing-2);
     background: var(--color-neutral-50);
+    border-left: 1px solid var(--color-border);
     border-right: 1px solid var(--color-border);
+    flex-shrink: 0;
   }
 
   .match-indicators {

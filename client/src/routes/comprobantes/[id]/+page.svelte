@@ -17,7 +17,7 @@
 
   let processing = $state(false);
   let selectedExpectedId = $state<number | null>(null);
-  let lastCopiedEmitterName = $state<string | null>(null);
+  let resolvedEmitterName = $state<string | null>(null);
   let editMode = $state(false);
   let selectedCategoryId = $state<number | null>(null);
   let deleteDialogOpen = $state(false);
@@ -75,6 +75,7 @@
         invoiceNumber: m.invoiceNumber,
         total: m.total,
         status: m.status,
+        categoryId: m.categoryId ?? null,
       };
     }
     return null;
@@ -106,7 +107,6 @@
 
     if (comprobante.expected) {
       selectedExpectedId = comprobante.expected.id;
-      lastCopiedEmitterName = comprobante.expected.emitterName || lastCopiedEmitterName;
     }
 
     // Preseleccionar categoría desde la factura final si existe
@@ -139,7 +139,14 @@
 
         if (response.ok && data.success) {
           toast.success(data.message, { id: toastId });
-          await goto('/comprobantes');
+          // Redirigir al file o expected asociado, si existen
+          if (comprobante.file?.id) {
+            await goto(`/comprobantes/file:${comprobante.file.id}`);
+          } else if (comprobante.expected?.id) {
+            await goto(`/comprobantes/expected:${comprobante.expected.id}`);
+          } else {
+            await goto('/comprobantes');
+          }
         } else {
           toast.error(data.error || 'Error al eliminar factura', { id: toastId });
         }
@@ -261,23 +268,14 @@
 
   // Obtener ruta del archivo para preview
   const fileUrl = $derived.by(() => {
-    // Para files (antes "pending"), usar el endpoint simplificado
-    if (comprobante.file?.id) {
-      const url = `/api/comprobantes/file:${comprobante.file.id}/file`;
-      console.log('[FilePreview] URL para file:', url, comprobante.file);
-      return url;
-    }
+    // Factura: usar endpoint de factura (resuelve fileId internamente)
     if (comprobante.final?.id) {
-      const url = `/api/comprobantes/factura:${comprobante.final.id}/file`;
-      console.log('[FilePreview] URL para factura:', url);
-      return url;
+      return `/api/comprobantes/factura:${comprobante.final.id}/file`;
     }
-    if (comprobante.expected?.filePath) {
-      const url = `/api/files/${comprobante.expected.filePath}`;
-      console.log('[FilePreview] URL para expected:', url);
-      return url;
+    // Archivo pendiente (sin factura)
+    if (comprobante.file?.id) {
+      return `/api/comprobantes/file:${comprobante.file.id}/file`;
     }
-    console.log('[FilePreview] No hay fileUrl disponible', comprobante);
     return null;
   });
 
@@ -287,9 +285,6 @@
     }
     if (comprobante.final?.filePath) {
       return comprobante.final.filePath.split('/').pop() || 'documento';
-    }
-    if (comprobante.expected?.filePath) {
-      return comprobante.expected.filePath.split('/').pop() || 'documento';
     }
     return 'documento';
   });
@@ -306,20 +301,19 @@
         : '--------';
       return `${type} ${pv}-${num}`;
     }
+    if (comprobante.file) {
+      return comprobante.file.originalFilename;
+    }
     if (comprobante.expected) {
       const type = getFriendlyType(comprobante.expected.invoiceType);
       return `${type} ${String(comprobante.expected.pointOfSale).padStart(4, '0')}-${String(comprobante.expected.invoiceNumber).padStart(8, '0')}`;
-    }
-    if (comprobante.file) {
-      // Para archivos: mostrar "Archivo `nombre.pdf`" como título
-      return `Archivo "${comprobante.file.originalFilename}"`;
     }
     return 'Comprobante';
   });
 
   // Subtítulo especial para archivos: "subido el fecha"
   const navFileSubtitle = $derived.by(() => {
-    if (comprobante.file && !comprobante.final && !comprobante.expected) {
+    if (comprobante.file && !comprobante.final) {
       const uploadDate = comprobante.file.uploadDate;
       if (uploadDate) {
         return `subido el ${formatDateShort(uploadDate)}`;
@@ -377,12 +371,7 @@
     <!-- Columna izquierda: Preview -->
     <aside class="preview-panel">
       {#if fileUrl}
-        <FilePreview
-          src={fileUrl}
-          filename={previewFilename}
-          showZoom={true}
-          maxHeight="calc(100vh - 200px)"
-        />
+        <FilePreview src={fileUrl} filename={previewFilename} showZoom={true} maxHeight="100%" />
       {:else}
         <div class="no-preview">
           <p>📄</p>
@@ -412,19 +401,44 @@
                 toast.info('Datos copiados del archivo. Revisá y guardá.');
               }
             }}
-            oncreatefromexpected={() => {
-              // Copiar datos del expected al formulario
-              if (bestExpected) {
-                facuraData.cuit = bestExpected.cuit || '';
-                facuraData.invoiceType = bestExpected.invoiceType ?? null;
-                facuraData.pointOfSale = bestExpected.pointOfSale ?? null;
-                facuraData.invoiceNumber = bestExpected.invoiceNumber ?? null;
-                facuraData.issueDate = bestExpected.issueDate || '';
-                facuraData.total = bestExpected.total ?? null;
-                selectedExpectedId = bestExpected.id;
-                editMode = true;
-                toast.info('Datos copiados del fisco. Revisá y guardá.');
+            oncreatefromexpected={async () => {
+              if (!bestExpected) return;
+
+              // Verificar que el emisor existe antes de permitir crear
+              const cuit = bestExpected.cuit;
+              if (!cuit) {
+                toast.error('El expected no tiene CUIT asociado.');
+                return;
               }
+
+              try {
+                const res = await fetch(`/api/emisores?cuit=${encodeURIComponent(cuit)}`);
+                const json = await res.json();
+                const emitters = json.emitters || [];
+
+                if (emitters.length === 0) {
+                  toast.error(
+                    `Emisor con CUIT ${cuit} no existe. Crealo primero en la sección de emisores.`
+                  );
+                  return;
+                }
+
+                resolvedEmitterName = emitters[0].displayName || emitters[0].name || null;
+              } catch {
+                toast.error('Error verificando emisor.');
+                return;
+              }
+
+              facuraData.cuit = cuit;
+              facuraData.invoiceType = bestExpected.invoiceType ?? null;
+              facuraData.pointOfSale = bestExpected.pointOfSale ?? null;
+              facuraData.invoiceNumber = bestExpected.invoiceNumber ?? null;
+              facuraData.issueDate = bestExpected.issueDate || '';
+              facuraData.total = bestExpected.total ?? null;
+              selectedCategoryId = bestExpected.categoryId ?? null;
+              selectedExpectedId = bestExpected.id;
+              editMode = true;
+              toast.info('Datos copiados del fisco. Revisá y guardá.');
             }}
             onreprocess={processPending}
             {processing}
@@ -509,7 +523,7 @@
             mode="create"
             invoice={{
               cuit: facuraData.cuit,
-              emitterName: lastCopiedEmitterName,
+              emitterName: resolvedEmitterName,
               issueDate: facuraData.issueDate,
               invoiceType: facuraData.invoiceType,
               pointOfSale: facuraData.pointOfSale,
@@ -575,7 +589,6 @@
             }}
             oncancel={() => {
               editMode = false;
-              // Limpiar datos del formulario
               facuraData.cuit = '';
               facuraData.invoiceType = null;
               facuraData.pointOfSale = null;
@@ -584,7 +597,7 @@
               facuraData.total = null;
               selectedCategoryId = null;
               selectedExpectedId = null;
-              lastCopiedEmitterName = null;
+              resolvedEmitterName = null;
             }}
           />
 
@@ -596,7 +609,7 @@
                 class="link-button"
                 onclick={() => {
                   selectedExpectedId = null;
-                  lastCopiedEmitterName = null;
+                  resolvedEmitterName = null;
                   toast.info('Vinculación con expected removida.');
                 }}
               >
@@ -728,24 +741,37 @@
     max-width: 1400px;
     margin: 0 auto;
     padding: var(--spacing-4);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    /*
+     * Altura = viewport - topbar (~56px) - content-inner padding (spacing-6 * 2)
+     * El topbar es sticky y ocupa ~56px. El content-inner agrega spacing-6 de padding.
+     * Usamos un cálculo conservador para evitar doble scroll.
+     */
+    height: calc(100vh - 56px - var(--spacing-6) * 3);
   }
 
   .layout {
     display: grid;
-    grid-template-columns: 3fr 1fr;
+    /* Preview ocupa el espacio restante, content tiene mínimo 420px */
+    grid-template-columns: 1fr minmax(420px, 480px);
     gap: var(--spacing-4);
+    flex: 1;
+    min-height: 0; /* Importante para que flex children puedan hacer scroll */
+    overflow: hidden;
   }
 
-  /* Cuando hay factura, el preview puede ser un poco más chico */
+  /* Cuando hay factura, dar un poco más de espacio al content */
   .layout.has-invoice {
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: 1fr minmax(440px, 520px);
   }
 
   /* Preview panel */
   .preview-panel {
-    position: sticky;
-    top: var(--spacing-4);
-    height: calc(100vh - var(--spacing-8));
+    height: 100%;
+    min-height: 0; /* Permite que se encoja si es necesario */
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
@@ -766,11 +792,14 @@
     margin: 0;
   }
 
-  /* Content */
+  /* Content - columna derecha con scroll propio */
   .content {
     display: flex;
     flex-direction: column;
     gap: var(--spacing-4);
+    overflow-y: auto;
+    min-height: 0; /* Permite scroll interno */
+    padding-right: var(--spacing-2); /* Espacio para scrollbar */
   }
 
   .section {

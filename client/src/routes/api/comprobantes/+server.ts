@@ -34,8 +34,6 @@ export type Expected = {
   invoiceNumber: number;
   total?: number | null;
   status?: string;
-  file?: string;
-  matchedFileId?: number | null;
 };
 
 export type FileData = {
@@ -180,8 +178,13 @@ export async function GET() {
   }
 
   // 2) Agregar esperadas no vinculadas a factura
+  // Una expected está vinculada a factura si alguna factura tiene expectedInvoiceId === expected.id
+  const expectedIdsLinkedToInvoice = new Set(
+    finals.map((f) => f.expectedInvoiceId).filter((id): id is number => id != null)
+  );
+
   const expecteds: Expected[] = expectedInvoices
-    .filter((inv) => inv.matchedFileId == null)
+    .filter((inv) => !expectedIdsLinkedToInvoice.has(inv.id))
     .map((inv) => ({
       source: 'expected',
       id: inv.id,
@@ -193,8 +196,6 @@ export async function GET() {
       invoiceNumber: inv.invoiceNumber,
       total: inv.total,
       status: inv.status,
-      file: inv.filePath || undefined,
-      matchedFileId: inv.matchedFileId ?? null,
     }));
 
   for (const e of expecteds) {
@@ -229,48 +230,15 @@ export async function GET() {
   for (const p of uploadedFiles) {
     // Saltar si este file ya está asociado a una factura
     if (fileIdsUsedByInvoices.has(p.id)) {
-      console.warn(`[COMPROBANTES] Saltando file:${p.id} - ya asociado a factura`);
       continue;
     }
 
-    // Buscar si hay una expected vinculada a este file por matchedFileId
-    const expectedLinked = expectedInvoices.find((e) => e.matchedFileId === p.id);
-
-    // Si hay expected vinculada Y esa expected ya está vinculada a una factura, saltar
-    if (expectedLinked) {
-      const facturaWithExpected = finals.find((f) => f.expectedInvoiceId === expectedLinked.id);
-      if (facturaWithExpected) {
-        console.warn(
-          `[COMPROBANTES] Saltando file:${p.id} - expected:${expectedLinked.id} ya vinculada a factura:${facturaWithExpected.id}`
-        );
-        continue;
-      }
-    }
-
-    const expectedData = expectedLinked
-      ? {
-          source: 'expected' as const,
-          id: expectedLinked.id,
-          cuit: expectedLinked.cuit,
-          emitterName: emitterCache.get(expectedLinked.cuit) || expectedLinked.emitterName,
-          issueDate: expectedLinked.issueDate,
-          invoiceType: expectedLinked.invoiceType,
-          pointOfSale: expectedLinked.pointOfSale,
-          invoiceNumber: expectedLinked.invoiceNumber,
-          total: expectedLinked.total,
-          status: expectedLinked.status,
-          file: expectedLinked.filePath || undefined,
-          matchedFileId: expectedLinked.matchedFileId ?? null,
-        }
-      : null;
-
-    // Archivo subido sin factura (pero puede tener expected vinculado)
     const comprobanteId = `file:${p.id}`;
     comprobantesMap.set(comprobanteId, {
       id: comprobanteId,
       kind: 'file',
       final: null,
-      expected: expectedData,
+      expected: null,
       file: p,
       emitterCuit: p.extractedCuit,
       emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,

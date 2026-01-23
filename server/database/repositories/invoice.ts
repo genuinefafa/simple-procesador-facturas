@@ -130,18 +130,6 @@ export class InvoiceRepository {
     return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 
-  /**
-   * @deprecated Columna file_hash eliminada en migración 0013.
-   * Usar FileRepository.findByHash() y luego findByFileId() en su lugar.
-   */
-  findByHash(_fileHash: string): Invoice[] {
-    console.warn(
-      '[DEPRECATED] InvoiceRepository.findByHash() - usar FileRepository.findByHash() + findByFileId()'
-    );
-    // Columna eliminada, retornar vacío
-    return [];
-  }
-
   async findByInvoiceNumber(
     emitterCuit: string,
     type: InvoiceType,
@@ -389,28 +377,6 @@ export class InvoiceRepository {
         error: error instanceof Error ? error.message : 'Error desconocido al eliminar factura',
       };
     }
-  }
-
-  /**
-   * @deprecated Columna file_hash eliminada en migración 0013.
-   * Usar FileRepository.updateHash() en su lugar.
-   */
-  updateFileHash(_id: number, _fileHash: string): void {
-    console.warn(
-      '[DEPRECATED] InvoiceRepository.updateFileHash() - usar FileRepository.updateHash()'
-    );
-    // No-op: columna eliminada
-  }
-
-  /**
-   * @deprecated Columna file_hash eliminada en migración 0013.
-   * Usar FileRepository.findByHash() y luego findByFileId() en su lugar.
-   */
-  findByFileHash(_hash: string): Invoice[] {
-    console.warn(
-      '[DEPRECATED] InvoiceRepository.findByFileHash() - usar FileRepository.findByHash() + findByFileId()'
-    );
-    return [];
   }
 
   async listAllProcessed(): Promise<Invoice[]> {

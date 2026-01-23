@@ -70,27 +70,6 @@ export const GET: RequestHandler = async ({ params }) => {
 
     const expectedInvoiceRepo = new ExpectedInvoiceRepository();
 
-    // PRIMERO: Verificar si ya existe una expected vinculada a este file
-    const linkedExpected = await expectedInvoiceRepo.findByMatchedFileId(id);
-
-    if (linkedExpected) {
-      console.info('✅ [MATCHES] Expected vinculada encontrada:', linkedExpected.id);
-      return json({
-        success: true,
-        hasExactMatch: true,
-        exactMatch: {
-          ...linkedExpected,
-          matchScore: 100,
-          matchedFields: ['linkedBySystem'],
-          totalFieldsCompared: 1,
-        },
-        candidates: [],
-        partialMatches: [],
-        ocrConfidence: 100,
-        detectedFields: ['linkedBySystem'],
-      });
-    }
-
     // Normalizar CUIT si está disponible
     let normalizedCuit: string | undefined;
     if (extraction.extractedCuit && validateCUIT(extraction.extractedCuit)) {

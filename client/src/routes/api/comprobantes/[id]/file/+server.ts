@@ -87,7 +87,7 @@ export const GET: RequestHandler = async ({ params }) => {
     // Obtener info del archivo
     const fileStats = await stat(absolutePath);
 
-    console.log(`✅ [FILE-SERVER] Sirviendo: ${filename} (${fileStats.size} bytes)`);
+    console.log(`✅ [FILE-SERVER] Sirviendo: ${file.storagePath} (${fileStats.size} bytes)`);
 
     // Crear stream y servir archivo
     const stream = createReadStream(absolutePath);

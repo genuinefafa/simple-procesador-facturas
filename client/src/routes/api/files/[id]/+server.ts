@@ -29,7 +29,7 @@ export const GET: RequestHandler = async ({ params }) => {
       return json({ success: false, error: 'Archivo no encontrado' }, { status: 404 });
     }
 
-    console.info(`✅ [FILE] Encontrado: ${file.originalFilename}`);
+    console.info(`✅ [FILE] Encontrado: ${file.originalFilename} → ${file.storagePath}`);
 
     // Obtener datos de extracción si existen
     const extraction = extractionRepo.findByFileId(id);
