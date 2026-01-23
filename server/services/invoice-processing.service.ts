@@ -514,16 +514,18 @@ export class InvoiceProcessingService {
         };
       }
 
-      // 6. Formatear fecha
+      // 6. Formatear fecha (los extractores ya devuelven ISO YYYY-MM-DD)
       let formattedDate = format(new Date(), 'yyyy-MM-dd');
       if (data.date) {
-        try {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+          // Ya es ISO
+          formattedDate = data.date;
+        } else if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(data.date)) {
+          // DD-MM-YYYY o DD/MM/YYYY → ISO
           const [day, month, year] = data.date.split(/[/-]/);
           if (day && month && year) {
             formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
           }
-        } catch {
-          // Usar fecha actual si falla el parseo
         }
       }
       console.info(`   📅 Fecha formateada: ${formattedDate}`);

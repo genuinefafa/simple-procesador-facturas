@@ -60,7 +60,8 @@ export const GET: RequestHandler = async ({ params }) => {
       if (!file) {
         throw error(404, 'Archivo no encontrado en BD');
       }
-      filename = file.originalFilename;
+      // Usar nombre del storagePath (normalizado) si existe, sino originalFilename
+      filename = file.storagePath.split('/').pop() || file.originalFilename;
       console.log(`📄 [FILE-SERVER] Factura ${id} → File ${file.id}: ${filename}`);
     } else if (type === 'pending' || type === 'file') {
       // "pending:N" es legacy, ahora es "file:N" pero mantenemos compatibilidad
@@ -70,7 +71,7 @@ export const GET: RequestHandler = async ({ params }) => {
         throw error(404, 'Archivo no encontrado');
       }
 
-      filename = file.originalFilename;
+      filename = file.storagePath.split('/').pop() || file.originalFilename;
       console.log(`📄 [FILE-SERVER] File ${id}: ${filename}`);
     } else {
       throw error(400, `Tipo de comprobante desconocido: ${type}`);

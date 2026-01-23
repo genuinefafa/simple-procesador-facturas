@@ -87,6 +87,9 @@ export async function GET() {
       if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
       // Si es ISO timestamp, extraer solo la fecha
       if (value.includes('T')) return value.split('T')[0];
+      // DD-MM-YYYY o DD/MM/YYYY → YYYY-MM-DD
+      const ddmmyyyy = value.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+      if (ddmmyyyy) return `${ddmmyyyy[3]}-${ddmmyyyy[2]}-${ddmmyyyy[1]}`;
       return value;
     }
     // Validar que la fecha sea válida antes de llamar toISOString
@@ -110,7 +113,7 @@ export async function GET() {
       status: file.status,
       uploadDate: toISODate(file.createdAt),
       extractedCuit: extraction?.extractedCuit ?? null,
-      extractedDate: extraction?.extractedDate ?? null,
+      extractedDate: toISODate(extraction?.extractedDate) ?? null,
       extractedTotal: extraction?.extractedTotal ?? null,
       extractedType: extraction?.extractedType ?? null,
       extractedPointOfSale: extraction?.extractedPointOfSale ?? null,
@@ -249,8 +252,10 @@ export async function GET() {
 
   // Ordenar: latest first por fecha donde esté disponible
   comprobantes.sort((a, b) => {
-    const dateA = a.final?.issueDate || a.expected?.issueDate || a.file?.extractedDate;
-    const dateB = b.final?.issueDate || b.expected?.issueDate || b.file?.extractedDate;
+    const dateA =
+      a.final?.issueDate || a.expected?.issueDate || a.file?.extractedDate || a.file?.uploadDate;
+    const dateB =
+      b.final?.issueDate || b.expected?.issueDate || b.file?.extractedDate || b.file?.uploadDate;
     if (dateA && dateB) return new Date(dateB).getTime() - new Date(dateA).getTime();
     if (!dateA && dateB) return 1;
     if (dateA && !dateB) return -1;
