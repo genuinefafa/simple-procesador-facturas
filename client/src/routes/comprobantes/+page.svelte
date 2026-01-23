@@ -5,7 +5,7 @@
   import ActiveFilters from '$lib/components/ActiveFilters.svelte';
   import UploadReport from '$lib/components/UploadReport.svelte';
   import type { PageData } from './$types';
-  import type { Comprobante } from '../api/comprobantes/+server';
+  import type { Comprobante } from '$lib/types/comprobante';
   import { FileUpload } from 'melt/builders';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';

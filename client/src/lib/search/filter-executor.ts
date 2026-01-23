@@ -1,5 +1,5 @@
 import type { FilterNode } from './query-parser';
-import type { Comprobante } from '../../routes/api/comprobantes/+server';
+import type { Comprobante } from '$lib/types/comprobante';
 
 type Category = {
   id: number;

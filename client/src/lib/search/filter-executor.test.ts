@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createFilterMatcher } from './filter-executor';
-import type { Comprobante } from '../../routes/api/comprobantes/+server';
+import type { Comprobante } from '$lib/types/comprobante';
 import type { FilterNode } from './query-parser';
 
 // Helper para crear comprobantes de prueba

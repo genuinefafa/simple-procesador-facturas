@@ -4,69 +4,8 @@ import { InvoiceRepository } from '@server/database/repositories/invoice';
 import { FileRepository } from '@server/database/repositories/file';
 import { FileExtractionRepository } from '@server/database/repositories/file-extraction';
 import { EmitterRepository } from '@server/database/repositories/emitter';
-
-export type Final = {
-  source: 'final';
-  id: number;
-  cuit: string;
-  emitterName?: string | null;
-  issueDate: string | null;
-  processedAt?: string | null;
-  invoiceType: number | null; // Código ARCA numérico (1, 6, 11, etc.)
-  pointOfSale: number | null;
-  invoiceNumber: number | null;
-  total?: number | null;
-  file?: string;
-  fileHash?: string | null;
-  categoryId?: number | null;
-  fileId?: number | null;
-  expectedInvoiceId?: number | null;
-};
-
-export type Expected = {
-  source: 'expected';
-  id: number;
-  cuit: string;
-  emitterName?: string | null;
-  issueDate: string;
-  invoiceType: number | null; // Código ARCA numérico (1, 6, 11, etc.)
-  pointOfSale: number;
-  invoiceNumber: number;
-  total?: number | null;
-  status?: string;
-};
-
-export type FileData = {
-  id: number;
-  originalFilename: string;
-  filePath: string;
-  fileHash?: string | null;
-  status: 'uploaded' | 'processed';
-  uploadDate?: string | null;
-  extractedCuit?: string | null;
-  extractedDate?: string | null;
-  extractedTotal?: number | null;
-  extractedType?: number | null;
-  extractedPointOfSale?: number | null;
-  extractedInvoiceNumber?: number | null;
-};
-
-export type Comprobante = {
-  /** ID único: "factura:123" | "expected:456" | "file:789" */
-  id: string;
-
-  /** Tipo de entidad principal */
-  kind: 'factura' | 'expected' | 'file';
-
-  // Las 3 entidades, cualquiera puede ser null
-  final: Final | null;
-  expected: Expected | null;
-  file: FileData | null;
-
-  // Emisor asociado (si existe)
-  emitterCuit?: string | null;
-  emitterName?: string | null;
-};
+import { normalizeToISO } from '@server/utils/dates';
+import type { Final, Expected, FileData, Comprobante } from '$lib/types/comprobante';
 
 export async function GET() {
   const invoiceRepo = new InvoiceRepository();
@@ -80,25 +19,6 @@ export async function GET() {
     status: ['pending', 'discrepancy', 'manual', 'ignored'],
   });
 
-  const toISODate = (value: Date | string | null | undefined) => {
-    if (!value) return null;
-    if (typeof value === 'string') {
-      // Si ya es ISO date (YYYY-MM-DD), retornar tal cual
-      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
-      // Si es ISO timestamp, extraer solo la fecha
-      if (value.includes('T')) return value.split('T')[0];
-      // DD-MM-YYYY o DD/MM/YYYY → YYYY-MM-DD
-      const ddmmyyyy = value.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
-      if (ddmmyyyy) return `${ddmmyyyy[3]}-${ddmmyyyy[2]}-${ddmmyyyy[1]}`;
-      return value;
-    }
-    // Validar que la fecha sea válida antes de llamar toISOString
-    if (value instanceof Date && !isNaN(value.getTime())) {
-      return value.toISOString().slice(0, 10);
-    }
-    return null;
-  };
-
   // Get uploaded files (not yet associated to invoice)
   const uploadedFilesRaw = fileRepo.list({ status: 'uploaded' });
   const uploadedFiles: FileData[] = uploadedFilesRaw.map((file) => {
@@ -111,9 +31,9 @@ export async function GET() {
       filePath: file.storagePath,
       fileHash: file.fileHash ?? null,
       status: file.status,
-      uploadDate: toISODate(file.createdAt),
+      uploadDate: normalizeToISO(file.createdAt),
       extractedCuit: extraction?.extractedCuit ?? null,
-      extractedDate: toISODate(extraction?.extractedDate) ?? null,
+      extractedDate: normalizeToISO(extraction?.extractedDate) ?? null,
       extractedTotal: extraction?.extractedTotal ?? null,
       extractedType: extraction?.extractedType ?? null,
       extractedPointOfSale: extraction?.extractedPointOfSale ?? null,
@@ -153,7 +73,7 @@ export async function GET() {
       id: inv.id,
       cuit: inv.emitterCuit,
       emitterName: emitterCache.get(inv.emitterCuit) || undefined,
-      issueDate: toISODate(inv.issueDate),
+      issueDate: normalizeToISO(inv.issueDate),
       processedAt: inv.processedAt ? inv.processedAt.toString() : null,
       invoiceType: inv.invoiceType,
       pointOfSale: inv.pointOfSale,
