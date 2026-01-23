@@ -172,6 +172,11 @@ const expectedInvoices_ = sqliteTable(
     matchedFileId: integer('matched_file_id'),
     matchConfidence: real('match_confidence'),
 
+    // Categorización
+    categoryId: integer('category_id').references(() => categories_.id, {
+      onDelete: 'set null',
+    }),
+
     // Metadata
     importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
     notes: text('notes'),
@@ -181,6 +186,7 @@ const expectedInvoices_ = sqliteTable(
     statusIdx: index('idx_expected_invoices_status').on(table.status),
     batchIdx: index('idx_expected_invoices_batch').on(table.importBatchId),
     issueDateIdx: index('idx_expected_invoices_date').on(table.issueDate),
+    categoryIdx: index('idx_expected_invoices_category').on(table.categoryId),
     uniqueInvoice: index('unique_expected_invoice').on(
       table.cuit,
       table.invoiceType,
@@ -203,6 +209,8 @@ const facturas_ = sqliteTable(
     emisorCuit: text('emisor_cuit')
       .notNull()
       .references(() => emisores.cuit, { onDelete: 'restrict' }), // RESTRICT: no permitir borrar emisor si tiene facturas
+
+    /** @deprecated Nunca se usó. Eliminar en issue #92 */
     templateUsadoId: integer('template_usado_id').references(() => templatesExtraccion.id, {
       onDelete: 'set null',
     }),
@@ -215,6 +223,7 @@ const facturas_ = sqliteTable(
     tipoComprobante: integer('tipo_comprobante'), // Código ARCA (1, 6, 11, etc.), null si desconocido
     puntoVenta: integer('punto_venta').notNull(),
     numeroComprobante: integer('numero_comprobante').notNull(),
+    /** @deprecated Redundante, se puede reconstruir. Eliminar en issue #92 */
     comprobanteCompleto: text('comprobante_completo').notNull(),
     total: real('total'),
     moneda: text('moneda', { enum: ['ARS', 'USD', 'EUR'] }).default('ARS'),
@@ -222,16 +231,21 @@ const facturas_ = sqliteTable(
     // Archivos
     // NOTA: archivo_original, file_hash, archivo_procesado, finalized_file eliminados
     // Usar files.storage_path y files.original_filename via fileId
+    /** @deprecated Duplicado en files.file_type. Eliminar en issue #92 */
     tipoArchivo: text('tipo_archivo', {
       enum: ['PDF_DIGITAL', 'PDF_IMAGEN', 'IMAGEN'],
     }).notNull(),
 
     // Calidad de extracción
+    /** @deprecated Duplicado en file_extraction_results.method. Eliminar en issue #92 */
     metodoExtraccion: text('metodo_extraccion', {
       enum: ['TEMPLATE', 'GENERICO', 'MANUAL'],
     }).notNull(),
+    /** @deprecated Duplicado en file_extraction_results.confidence. Eliminar en issue #92 */
     confianzaExtraccion: real('confianza_extraccion'),
+    /** @deprecated Sin uso real. Eliminar en issue #92 */
     validadoManualmente: integer('validado_manualmente', { mode: 'boolean' }).default(false),
+    /** @deprecated Sin uso en nueva UI. Eliminar en issue #92 */
     requiereRevision: integer('requiere_revision', { mode: 'boolean' }).default(false),
 
     // Vinculación a datos de origen
@@ -244,6 +258,7 @@ const facturas_ = sqliteTable(
       onDelete: 'set null',
     }),
 
+    /** @deprecated Renombrar a created_at. Es fecha de creación del registro, no de procesamiento. Issue #91 */
     procesadoEn: text('procesado_en').default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
@@ -420,6 +435,11 @@ const files_ = sqliteTable(
     // uploaded: recién subido, visible en tab "Archivos subidos"
     // processed: ya tiene factura asociada
 
+    // Categorización (puede pre-asignarse antes de crear factura)
+    categoryId: integer('category_id').references(() => categories_.id, {
+      onDelete: 'set null',
+    }),
+
     createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
   },
@@ -427,6 +447,7 @@ const files_ = sqliteTable(
     statusIdx: index('idx_files_status').on(table.status),
     hashIdx: index('idx_files_hash').on(table.fileHash),
     createdIdx: index('idx_files_created').on(table.createdAt),
+    categoryIdx: index('idx_files_category').on(table.categoryId),
   })
 );
 

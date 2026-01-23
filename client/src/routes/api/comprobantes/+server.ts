@@ -34,8 +34,6 @@ export type Expected = {
   invoiceNumber: number;
   total?: number | null;
   status?: string;
-  file?: string;
-  matchedFileId?: number | null;
 };
 
 export type FileData = {
@@ -89,9 +87,16 @@ export async function GET() {
       if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
       // Si es ISO timestamp, extraer solo la fecha
       if (value.includes('T')) return value.split('T')[0];
+      // DD-MM-YYYY o DD/MM/YYYY → YYYY-MM-DD
+      const ddmmyyyy = value.match(/^(\d{2})[-/](\d{2})[-/](\d{4})$/);
+      if (ddmmyyyy) return `${ddmmyyyy[3]}-${ddmmyyyy[2]}-${ddmmyyyy[1]}`;
       return value;
     }
-    return value.toISOString().slice(0, 10);
+    // Validar que la fecha sea válida antes de llamar toISOString
+    if (value instanceof Date && !isNaN(value.getTime())) {
+      return value.toISOString().slice(0, 10);
+    }
+    return null;
   };
 
   // Get uploaded files (not yet associated to invoice)
@@ -108,7 +113,7 @@ export async function GET() {
       status: file.status,
       uploadDate: toISODate(file.createdAt),
       extractedCuit: extraction?.extractedCuit ?? null,
-      extractedDate: extraction?.extractedDate ?? null,
+      extractedDate: toISODate(extraction?.extractedDate) ?? null,
       extractedTotal: extraction?.extractedTotal ?? null,
       extractedType: extraction?.extractedType ?? null,
       extractedPointOfSale: extraction?.extractedPointOfSale ?? null,
@@ -176,8 +181,13 @@ export async function GET() {
   }
 
   // 2) Agregar esperadas no vinculadas a factura
+  // Una expected está vinculada a factura si alguna factura tiene expectedInvoiceId === expected.id
+  const expectedIdsLinkedToInvoice = new Set(
+    finals.map((f) => f.expectedInvoiceId).filter((id): id is number => id != null)
+  );
+
   const expecteds: Expected[] = expectedInvoices
-    .filter((inv) => inv.matchedFileId == null)
+    .filter((inv) => !expectedIdsLinkedToInvoice.has(inv.id))
     .map((inv) => ({
       source: 'expected',
       id: inv.id,
@@ -189,8 +199,6 @@ export async function GET() {
       invoiceNumber: inv.invoiceNumber,
       total: inv.total,
       status: inv.status,
-      file: inv.filePath || undefined,
-      matchedFileId: inv.matchedFileId ?? null,
     }));
 
   for (const e of expecteds) {
@@ -225,48 +233,15 @@ export async function GET() {
   for (const p of uploadedFiles) {
     // Saltar si este file ya está asociado a una factura
     if (fileIdsUsedByInvoices.has(p.id)) {
-      console.warn(`[COMPROBANTES] Saltando file:${p.id} - ya asociado a factura`);
       continue;
     }
 
-    // Buscar si hay una expected vinculada a este file por matchedFileId
-    const expectedLinked = expectedInvoices.find((e) => e.matchedFileId === p.id);
-
-    // Si hay expected vinculada Y esa expected ya está vinculada a una factura, saltar
-    if (expectedLinked) {
-      const facturaWithExpected = finals.find((f) => f.expectedInvoiceId === expectedLinked.id);
-      if (facturaWithExpected) {
-        console.warn(
-          `[COMPROBANTES] Saltando file:${p.id} - expected:${expectedLinked.id} ya vinculada a factura:${facturaWithExpected.id}`
-        );
-        continue;
-      }
-    }
-
-    const expectedData = expectedLinked
-      ? {
-          source: 'expected' as const,
-          id: expectedLinked.id,
-          cuit: expectedLinked.cuit,
-          emitterName: emitterCache.get(expectedLinked.cuit) || expectedLinked.emitterName,
-          issueDate: expectedLinked.issueDate,
-          invoiceType: expectedLinked.invoiceType,
-          pointOfSale: expectedLinked.pointOfSale,
-          invoiceNumber: expectedLinked.invoiceNumber,
-          total: expectedLinked.total,
-          status: expectedLinked.status,
-          file: expectedLinked.filePath || undefined,
-          matchedFileId: expectedLinked.matchedFileId ?? null,
-        }
-      : null;
-
-    // Archivo subido sin factura (pero puede tener expected vinculado)
     const comprobanteId = `file:${p.id}`;
     comprobantesMap.set(comprobanteId, {
       id: comprobanteId,
       kind: 'file',
       final: null,
-      expected: expectedData,
+      expected: null,
       file: p,
       emitterCuit: p.extractedCuit,
       emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
@@ -277,8 +252,10 @@ export async function GET() {
 
   // Ordenar: latest first por fecha donde esté disponible
   comprobantes.sort((a, b) => {
-    const dateA = a.final?.issueDate || a.expected?.issueDate || a.file?.extractedDate;
-    const dateB = b.final?.issueDate || b.expected?.issueDate || b.file?.extractedDate;
+    const dateA =
+      a.final?.issueDate || a.expected?.issueDate || a.file?.extractedDate || a.file?.uploadDate;
+    const dateB =
+      b.final?.issueDate || b.expected?.issueDate || b.file?.extractedDate || b.file?.uploadDate;
     if (dateA && dateB) return new Date(dateB).getTime() - new Date(dateA).getTime();
     if (!dateA && dateB) return 1;
     if (dateA && !dateB) return -1;

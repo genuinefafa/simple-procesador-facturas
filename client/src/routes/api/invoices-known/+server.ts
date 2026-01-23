@@ -14,8 +14,6 @@ type ExpectedInvoice = {
   invoiceNumber: number;
   total?: number | null;
   status?: string;
-  file?: string;
-  matchedFileId?: number | null;
 };
 
 type FinalInvoice = {
@@ -80,8 +78,13 @@ export async function GET() {
     };
   });
 
+  // Expected no vinculadas a factura
+  const expectedIdsLinkedToInvoice = new Set(
+    finals.map((f) => f.expectedInvoiceId).filter((id): id is number => id != null)
+  );
+
   const expecteds: ExpectedInvoice[] = expectedInvoices
-    .filter((inv) => inv.matchedFileId == null)
+    .filter((inv) => !expectedIdsLinkedToInvoice.has(inv.id))
     .map((inv) => ({
       source: 'expected',
       id: inv.id,
@@ -93,8 +96,6 @@ export async function GET() {
       invoiceNumber: inv.invoiceNumber,
       total: inv.total,
       status: inv.status,
-      file: inv.filePath || undefined,
-      matchedFileId: inv.matchedFileId ?? null,
     }));
 
   const items = [...expecteds, ...finals];

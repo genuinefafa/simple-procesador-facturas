@@ -146,9 +146,9 @@
   .pdf-preview {
     flex: 1;
     width: 100%;
+    height: 100%;
     border: none;
     background: white;
-    min-height: 400px;
   }
 
   /* Imágenes: contenedor con scroll propio */
@@ -158,7 +158,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 400px;
     background: #f8fafc;
   }
 

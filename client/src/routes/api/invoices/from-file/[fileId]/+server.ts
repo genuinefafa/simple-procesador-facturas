@@ -57,6 +57,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
         issueDate: string;
         total: number;
         currency?: string;
+        categoryId?: number;
       };
     };
 
@@ -98,27 +99,33 @@ export const POST: RequestHandler = async ({ params, request }) => {
     const normalizedCuit = normalizeCUIT(data.cuit);
     console.info(`✅ [FROM-FILE] CUIT válido: ${normalizedCuit}`);
 
-    // 3. Buscar o crear emisor
+    // 3. Buscar emisor (debe existir previamente)
     const emitterRepo = new EmitterRepository();
-    let emitter = await emitterRepo.findByCUIT(normalizedCuit);
+    const emitter = emitterRepo.findByCUIT(normalizedCuit);
 
     if (!emitter) {
-      console.info(`➕ [FROM-FILE] Creando nuevo emisor para ${normalizedCuit}`);
-      emitter = await emitterRepo.create({
-        cuit: normalizedCuit,
-        cuitNumeric: normalizedCuit.replace(/-/g, ''),
-        name: `Emisor ${normalizedCuit}`,
-        aliases: [],
-      });
+      return json(
+        {
+          success: false,
+          error: `Emisor con CUIT ${normalizedCuit} no encontrado. Crealo primero en la sección de emisores.`,
+        },
+        { status: 400 }
+      );
     }
 
-    // 4. Buscar categoría si existe
+    // 4. Resolver categoría desde el body
     const categoryRepo = new CategoryRepository();
     let categoryId: number | undefined = undefined;
     let categoryKey: string | undefined = undefined;
 
-    // TODO: El frontend podría enviar categoryKey en el body
-    // Por ahora dejamos sin categoría
+    if (data.categoryId) {
+      categoryId = data.categoryId;
+      // Obtener la key para el nombre del archivo
+      const cat = await categoryRepo.findById(data.categoryId);
+      if (cat) {
+        categoryKey = cat.key;
+      }
+    }
 
     // 5. Generar nombre de archivo procesado usando funciones correctas
     const issueDate = new Date(data.issueDate);
@@ -162,9 +169,6 @@ export const POST: RequestHandler = async ({ params, request }) => {
     // 8. Crear factura
     const invoiceRepo = new InvoiceRepository();
 
-    // Actualizar storagePath en files a la nueva ubicación
-    fileRepo.updatePath(fileId, newRelativePath);
-
     const invoice = await invoiceRepo.create({
       emitterCuit: normalizedCuit,
       issueDate: data.issueDate,
@@ -187,7 +191,6 @@ export const POST: RequestHandler = async ({ params, request }) => {
     if (source === 'expected' && expectedId) {
       const expectedRepo = new ExpectedInvoiceRepository();
       await expectedRepo.updateStatus(expectedId, 'matched');
-      await expectedRepo.linkToFile(expectedId, fileId);
       console.info(`🔗 [FROM-FILE] Expected invoice ${expectedId} vinculado`);
     }
 

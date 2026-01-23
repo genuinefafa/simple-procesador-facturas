@@ -50,15 +50,12 @@ export function formatDateISO(dateStr?: string): string {
 /**
  * Formatea una fecha a formato corto dd/mmm (sin año si es del año actual)
  * Ideal para tablas compactas
- * @param dateStr Fecha en formato ISO (YYYY-MM-DD)
+ * @param dateStr Fecha en formato ISO (YYYY-MM-DD) o DD-MM-YYYY o DD/MM/YYYY
  * @returns Fecha corta (ej: 15/dic o 15/dic/2024)
  */
 export function formatDateShort(dateStr: string | null | undefined): string {
   if (!dateStr) return '—';
   try {
-    // Parsear directamente el string ISO sin conversión de timezone
-    const [y, m, d] = dateStr.split('-');
-    if (!y || !m || !d) return dateStr;
     const months = [
       'ene',
       'feb',
@@ -73,17 +70,35 @@ export function formatDateShort(dateStr: string | null | undefined): string {
       'nov',
       'dic',
     ];
-    const monthIdx = Number(m) - 1;
+
+    let year: string, month: string, day: string;
+
+    // Detectar formato: YYYY-MM-DD, YYYY/MM/DD, DD-MM-YYYY, DD/MM/YYYY
+    const isoMatch = dateStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+    const dmyMatch = dateStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+
+    if (isoMatch) {
+      // YYYY-MM-DD o YYYY/MM/DD
+      [, year, month, day] = isoMatch;
+    } else if (dmyMatch) {
+      // DD-MM-YYYY o DD/MM/YYYY
+      [, day, month, year] = dmyMatch;
+    } else {
+      return dateStr;
+    }
+
+    const monthIdx = Number(month) - 1;
     const currentYear = new Date().getFullYear();
-    const dateYear = Number(y);
+    const dateYear = Number(year);
+    const dayPadded = day.padStart(2, '0');
 
     // Si es del año actual, no mostrar el año
     if (dateYear === currentYear) {
-      return `${d}/${months[monthIdx] || m}`;
+      return `${dayPadded}/${months[monthIdx] || month}`;
     }
 
     // Si es de otro año, mostrar dd/mmm/yyyy
-    return `${d}/${months[monthIdx] || m}/${y}`;
+    return `${dayPadded}/${months[monthIdx] || month}/${year}`;
   } catch {
     return dateStr;
   }

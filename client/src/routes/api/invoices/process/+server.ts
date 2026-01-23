@@ -15,11 +15,22 @@ export const POST: RequestHandler = async ({ request }) => {
 
   try {
     const body: unknown = await request.json();
-    const { fileIds } = body as {
+    const { fileIds, method } = body as {
       fileIds?: number[];
+      method?: 'ocr' | 'pdf_text' | 'qr';
     };
 
-    console.info(`⚙️  [PROCESS] Files a procesar: ${fileIds?.length || 0}`);
+    console.info(
+      `⚙️  [PROCESS] Files a procesar: ${fileIds?.length || 0}, método: ${method || 'auto'}`
+    );
+
+    // Mapear método del frontend al formato del backend
+    const methodMap: Record<string, 'OCR' | 'PDF_TEXT' | 'QR'> = {
+      ocr: 'OCR',
+      pdf_text: 'PDF_TEXT',
+      qr: 'QR',
+    };
+    const forcedMethod = method ? methodMap[method] : undefined;
 
     if (!fileIds || !Array.isArray(fileIds) || fileIds.length === 0) {
       console.warn('⚠️  [PROCESS] No se recibió array de fileIds');
@@ -55,7 +66,10 @@ export const POST: RequestHandler = async ({ request }) => {
         : join(process.cwd(), '..', 'data', file.storagePath);
 
       // Intentar procesar usando el MISMO servicio que upload
-      const result = await processingService.processInvoice(absolutePath, file.originalFilename);
+      // Si hay método forzado, pasarlo al servicio
+      const result = await processingService.processInvoice(absolutePath, file.originalFilename, {
+        forceMethod: forcedMethod,
+      });
 
       // Actualizar/crear file_extraction_results con datos extraídos
       if (result.extractedData) {

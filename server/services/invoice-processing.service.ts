@@ -119,9 +119,15 @@ export class InvoiceProcessingService {
    * Procesa un archivo de factura
    * @param filePath - Ruta al archivo
    * @param fileName - Nombre del archivo original
+   * @param options - Opciones de procesamiento
+   * @param options.forceMethod - Método de extracción forzado (OCR, PDF_TEXT, QR)
    * @returns Resultado del procesamiento
    */
-  async processInvoice(filePath: string, fileName: string): Promise<ProcessingResult> {
+  async processInvoice(
+    filePath: string,
+    fileName: string,
+    options?: { forceMethod?: 'OCR' | 'PDF_TEXT' | 'QR' }
+  ): Promise<ProcessingResult> {
     console.info(`\n🔧 [SERVICE] Procesando archivo: ${fileName}`);
     console.info(`   📂 Ruta: ${filePath}`);
 
@@ -133,8 +139,25 @@ export class InvoiceProcessingService {
       // 1. Extraer información según el tipo de documento
       let extraction: Awaited<ReturnType<typeof this.pdfExtractor.extract>>;
       let usedFallback = false; // Track si se usó fallback PDF_TEXT → OCR
+      const forceMethod = options?.forceMethod;
 
-      if (documentType === 'PDF_DIGITAL') {
+      // Si hay método forzado, usarlo directamente
+      if (forceMethod) {
+        console.info(`   🎯 Método forzado: ${forceMethod}`);
+        if (forceMethod === 'OCR') {
+          console.info(`   📷 Extrayendo datos con OCR (forzado)...`);
+          extraction = await this.ocrExtractor.extract(filePath);
+        } else if (forceMethod === 'PDF_TEXT') {
+          console.info(`   📄 Extrayendo datos con PDF_TEXT (forzado)...`);
+          extraction = await this.pdfExtractor.extract(filePath);
+        } else if (forceMethod === 'QR') {
+          // QR no está implementado aún, usar OCR como fallback
+          console.info(`   📱 QR no implementado, usando OCR como fallback...`);
+          extraction = await this.ocrExtractor.extract(filePath);
+        } else {
+          extraction = await this.pdfExtractor.extract(filePath);
+        }
+      } else if (documentType === 'PDF_DIGITAL') {
         console.info(`   📄 Extrayendo datos del PDF digital...`);
         extraction = await this.pdfExtractor.extract(filePath);
 
@@ -491,16 +514,18 @@ export class InvoiceProcessingService {
         };
       }
 
-      // 6. Formatear fecha
+      // 6. Formatear fecha (los extractores ya devuelven ISO YYYY-MM-DD)
       let formattedDate = format(new Date(), 'yyyy-MM-dd');
       if (data.date) {
-        try {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
+          // Ya es ISO
+          formattedDate = data.date;
+        } else if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(data.date)) {
+          // DD-MM-YYYY o DD/MM/YYYY → ISO
           const [day, month, year] = data.date.split(/[/-]/);
           if (day && month && year) {
             formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
           }
-        } catch {
-          // Usar fecha actual si falla el parseo
         }
       }
       console.info(`   📅 Fecha formateada: ${formattedDate}`);

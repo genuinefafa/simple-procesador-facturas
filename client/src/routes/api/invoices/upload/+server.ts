@@ -134,22 +134,6 @@ export const POST: RequestHandler = async ({ request }) => {
               );
             }
           }
-
-          // 2. Buscar en facturas por hash (para facturas legacy sin file asociado)
-          const invoicesByHash = await invoiceRepo.findByHash(fileHash);
-          if (invoicesByHash.length > 0) {
-            await unlink(filePath); // Borrar archivo recién subido
-            const existingInvoice = invoicesByHash[0];
-            throw new Error(
-              JSON.stringify({
-                type: 'duplicate',
-                duplicateType: 'invoice',
-                duplicateId: existingInvoice.id,
-                duplicateFilename: `factura-${existingInvoice.id}.pdf`,
-                message: `Archivo duplicado (hash idéntico a factura:${existingInvoice.id})`,
-              })
-            );
-          }
         } catch (error) {
           // Si es error de duplicado, propagar
           if (error instanceof Error && error.message.includes('duplicado')) {

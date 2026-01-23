@@ -32,9 +32,7 @@ export type Expected = {
   invoiceNumber: number;
   total?: number | null;
   status?: string;
-  file?: string;
-  filePath?: string;
-  matchedFileId?: number | null;
+  categoryId?: number | null;
 };
 
 export type FileData = {
@@ -43,6 +41,7 @@ export type FileData = {
   filePath: string;
   fileHash?: string | null;
   status: 'uploaded' | 'processed' | 'failed';
+  uploadDate?: string | null; // Fecha de subida (createdAt)
   extractedCuit?: string | null;
   extractedDate?: string | null;
   extractedTotal?: number | null;
@@ -66,6 +65,7 @@ export type Match = {
   total?: number | null;
   status?: string;
   matchScore: number;
+  categoryId?: number | null;
 };
 
 export type Comprobante = {
@@ -143,9 +143,6 @@ export const load: PageLoad = async ({ fetch, params }) => {
                 invoiceNumber: exp.invoiceNumber,
                 total: exp.total,
                 status: exp.status,
-                file: exp.filePath,
-                filePath: exp.filePath,
-                matchedFileId: exp.matchedFileId ?? null,
               };
             }
           }
@@ -165,6 +162,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
               filePath: d.filePath,
               fileHash: d.fileHash,
               status: d.status,
+              uploadDate: d.uploadDate,
               extractedCuit: d.extractedCuit,
               extractedDate: d.extractedDate,
               extractedTotal: d.extractedTotal,
@@ -178,34 +176,12 @@ export const load: PageLoad = async ({ fetch, params }) => {
           }
         }
 
-        // Cargar matches si la factura no tiene expected vinculado y tiene archivo
-        let matches: Match[] = [];
-        if (!final.expectedInvoiceId && fileIdToLoad) {
-          try {
-            const matchRes = await fetch(`/api/files/${fileIdToLoad}/matches`);
-            if (matchRes.ok) {
-              const matchData = await matchRes.json();
-              if (matchData.hasExactMatch && matchData.exactMatch) {
-                matches = [matchData.exactMatch];
-              }
-              const additional = matchData.partialMatches || matchData.candidates || [];
-              matches = [
-                ...matches,
-                ...additional.filter((m: any) => !matches.find((e) => e.id === m.id)),
-              ];
-            }
-          } catch (err) {
-            console.warn('No se pudieron cargar matches para factura:', err);
-          }
-        }
-
         comprobante = {
           id: `factura:${final.id}`,
           kind: 'factura',
           final,
           expected,
           file,
-          matches,
           emitterCuit: final.cuit,
           emitterName: final.emitterName,
         };
@@ -227,9 +203,6 @@ export const load: PageLoad = async ({ fetch, params }) => {
             invoiceNumber: exp.invoiceNumber,
             total: exp.total,
             status: exp.status,
-            file: exp.filePath,
-            filePath: exp.filePath,
-            matchedFileId: exp.matchedFileId ?? null,
           };
           comprobante = {
             id: `expected:${expected.id}`,
@@ -281,6 +254,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           filePath: data.filePath,
           fileHash: data.fileHash,
           status: data.status,
+          uploadDate: data.uploadDate,
           extractedCuit: data.extractedCuit,
           extractedDate: data.extractedDate,
           extractedTotal: data.extractedTotal,

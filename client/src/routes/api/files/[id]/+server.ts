@@ -29,7 +29,7 @@ export const GET: RequestHandler = async ({ params }) => {
       return json({ success: false, error: 'Archivo no encontrado' }, { status: 404 });
     }
 
-    console.info(`✅ [FILE] Encontrado: ${file.originalFilename}`);
+    console.info(`✅ [FILE] Encontrado: ${file.originalFilename} → ${file.storagePath}`);
 
     // Obtener datos de extracción si existen
     const extraction = extractionRepo.findByFileId(id);
@@ -59,6 +59,53 @@ export const GET: RequestHandler = async ({ params }) => {
     return json({
       success: true,
       file: response,
+    });
+  } catch (error) {
+    console.error('❌ [FILE] Error:', error);
+    return json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Error desconocido',
+      },
+      { status: 500 }
+    );
+  }
+};
+
+/**
+ * PATCH /api/files/:id
+ * Actualizar propiedades de un archivo (ej: categoryId)
+ */
+export const PATCH: RequestHandler = async ({ params, request }) => {
+  console.info(`📝 [FILE] Actualizando archivo ID ${params.id}...`);
+
+  try {
+    const id = parseInt(params.id, 10);
+    if (isNaN(id)) {
+      return json({ success: false, error: 'ID inválido' }, { status: 400 });
+    }
+
+    const fileRepo = new FileRepository();
+    const file = fileRepo.findById(id);
+
+    if (!file) {
+      return json({ success: false, error: 'Archivo no encontrado' }, { status: 404 });
+    }
+
+    const body = await request.json();
+
+    // Actualizar categoryId si viene en el body
+    if ('categoryId' in body) {
+      fileRepo.updateCategory(id, body.categoryId);
+      console.info(`✅ [FILE] Categoría actualizada para archivo ${id}`);
+    }
+
+    // Obtener el archivo actualizado
+    const updatedFile = fileRepo.findById(id);
+
+    return json({
+      success: true,
+      file: updatedFile,
     });
   } catch (error) {
     console.error('❌ [FILE] Error:', error);

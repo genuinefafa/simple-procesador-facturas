@@ -23,26 +23,21 @@ export const GET: RequestHandler = async ({ params }) => {
     const extractionRepo = new FileExtractionRepository();
     const invoiceRepo = new InvoiceRepository();
 
-    // Buscar en files
-    const file = fileRepo.findByHash(hash);
-    const files = file ? [file] : [];
+    // Buscar en files por hash
+    let file = fileRepo.findByHash(hash);
 
-    // Buscar en invoices (facturas)
-    const invoices = await invoiceRepo.findByFileHash(hash);
-
-    // También intentar con hash corto (primeros 16 chars) si no se encontró con hash completo
-    let filesShort: typeof files = [];
-    let invoicesShort: typeof invoices = [];
-
-    if (hash.length > 16 && files.length === 0 && invoices.length === 0) {
-      const shortHash = hash.substring(0, 16);
-      const fileShort = fileRepo.findByHash(shortHash);
-      if (fileShort) filesShort = [fileShort];
-      invoicesShort = await invoiceRepo.findByFileHash(shortHash);
+    // Intentar con hash corto (primeros 16 chars) si no se encontró
+    if (!file && hash.length > 16) {
+      file = fileRepo.findByHash(hash.substring(0, 16));
     }
 
-    const allFiles = [...files, ...filesShort];
-    const allInvoices = [...invoices, ...invoicesShort];
+    const allFiles = file ? [file] : [];
+
+    // Buscar facturas vinculadas al archivo encontrado
+    let allInvoices: Awaited<ReturnType<typeof invoiceRepo.findByFileId>> = [];
+    if (file) {
+      allInvoices = await invoiceRepo.findByFileId(file.id);
+    }
 
     const found = allFiles.length > 0 || allInvoices.length > 0;
 

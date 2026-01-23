@@ -19,6 +19,7 @@
     formatComprobanteKind,
   } from '$lib/formatters';
   import { createFilterMatcher, serializeFilters, type FilterNode } from '$lib/search';
+  import { navigationStore } from '$lib/stores/navigation';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -291,6 +292,16 @@
   function removeFilter(filter: FilterNode) {
     const remaining = searchFilters.filter((f) => f !== filter);
     searchQuery = serializeFilters(remaining);
+  }
+
+  /**
+   * Navega al detalle de un comprobante guardando el contexto de navegación.
+   */
+  function navigateToDetail(compId: string) {
+    // Guardar los IDs de la lista visible actual para navegación prev/next
+    const ids = visibleComprobantes.map((c) => c.id);
+    navigationStore.setContext(ids, activeFilter);
+    goto(`/comprobantes/${compId}`);
   }
 
   async function handleFiles(uploadedFiles: File[]) {
@@ -603,9 +614,9 @@
             ? shortHash(comp.final?.fileHash || comp.file?.fileHash)
             : '—'}</span
         >
-        <span class="col-actions"
-          ><a href="/comprobantes/{comp.id}"><Button size="sm">Ver</Button></a></span
-        >
+        <span class="col-actions">
+          <Button size="sm" onclick={() => navigateToDetail(comp.id)}>Ver</Button>
+        </span>
       </div>
     {/each}
   </section>
@@ -883,14 +894,10 @@
     color: var(--color-text-tertiary);
   }
 
-  /* Botón Ver sin cursor pointer en toda la fila */
+  /* Botón Ver */
   .col-actions {
     display: flex;
     justify-content: flex-end;
-  }
-
-  .col-actions a {
-    text-decoration: none;
   }
 
   .align-right {
