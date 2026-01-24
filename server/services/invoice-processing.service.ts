@@ -1,6 +1,7 @@
 /**
  * Servicio de procesamiento de facturas
- * Encapsula toda la lógica de extracción y guardado
+ * Responsabilidad: extracción de datos + matching contra Excel AFIP.
+ * NO crea facturas ni gestiona archivos — eso lo hace InvoiceCreationService.
  *
  * Soporta:
  * - PDFs digitales (texto embebido)
@@ -12,16 +13,13 @@ import { PDFExtractor } from '../extractors/pdf-extractor.js';
 import { OCRExtractor } from '../extractors/ocr-extractor.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '../validators/cuit.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
-import { InvoiceRepository } from '../database/repositories/invoice.js';
-import { FileRepository } from '../database/repositories/file.js';
 import {
   ExpectedInvoiceRepository,
   type ExpectedInvoice,
 } from '../database/repositories/expected-invoice.js';
 import { format } from 'date-fns';
 import { extname } from 'path';
-import type { Invoice, DocumentType, ExtractionMethod } from '../utils/types.js';
-import { calculateFileHash } from '../utils/file-hash.js';
+import type { DocumentType, ExtractionMethod } from '../utils/types.js';
 
 // Extensiones de imagen soportadas para OCR
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp', '.heic', '.heif'];
@@ -31,20 +29,18 @@ const MIN_PDF_TEXT_LENGTH = 100;
 
 export interface ProcessingResult {
   success: boolean;
-  invoice?: Invoice;
   error?: string;
   requiresReview: boolean;
   confidence: number;
   source?: 'PDF_EXTRACTION' | 'EXCEL_MATCH_UNIQUE' | 'EXCEL_MATCH_AMBIGUOUS' | 'NO_MATCH';
-  method?: ExtractionMethod; // Método de extracción específico
+  method?: ExtractionMethod;
   matchedExpectedInvoiceId?: number;
   matchCandidates?: ExpectedInvoice[];
-  fileHash?: string;
   extractedData?: {
     cuit?: string;
     date?: string;
     total?: number;
-    invoiceType?: number | null; // Código ARCA numérico
+    invoiceType?: number | null;
     pointOfSale?: number;
     invoiceNumber?: number;
   };
@@ -54,16 +50,12 @@ export class InvoiceProcessingService {
   private pdfExtractor: PDFExtractor;
   private ocrExtractor: OCRExtractor;
   private emitterRepo: EmitterRepository;
-  private invoiceRepo: InvoiceRepository;
-  private fileRepo: FileRepository;
   private expectedInvoiceRepo: ExpectedInvoiceRepository;
 
   constructor() {
     this.pdfExtractor = new PDFExtractor();
     this.ocrExtractor = new OCRExtractor();
     this.emitterRepo = new EmitterRepository();
-    this.invoiceRepo = new InvoiceRepository();
-    this.fileRepo = new FileRepository();
     this.expectedInvoiceRepo = new ExpectedInvoiceRepository();
   }
 
@@ -491,122 +483,19 @@ export class InvoiceProcessingService {
         };
       }
 
-      // 5. Verificar si ya existe
-      const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(5, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
-      console.info(`   🔍 Verificando duplicados: ${fullInvoiceNumber}`);
-
-      const existing = await this.invoiceRepo.findByEmitterAndNumber(
-        normalizedCuit,
-        data.invoiceType,
-        data.pointOfSale,
-        data.invoiceNumber
-      );
-
-      if (existing) {
-        console.warn(`   ⚠️  Factura duplicada - ya existe en BD`);
-        return {
-          success: false,
-          error: 'Esta factura ya fue procesada',
-          requiresReview: false,
-          confidence,
-          source: 'PDF_EXTRACTION',
-          invoice: existing,
-        };
-      }
-
-      // 6. Formatear fecha (los extractores ya devuelven ISO YYYY-MM-DD)
-      let formattedDate = format(new Date(), 'yyyy-MM-dd');
-      if (data.date) {
-        if (/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
-          // Ya es ISO
-          formattedDate = data.date;
-        } else if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(data.date)) {
-          // DD-MM-YYYY o DD/MM/YYYY → ISO
-          const [day, month, year] = data.date.split(/[/-]/);
-          if (day && month && year) {
-            formattedDate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-          }
-        }
-      }
-      console.info(`   📅 Fecha formateada: ${formattedDate}`);
-
-      // 7. Crear o buscar file entry
-      console.info(`   💾 Preparando registro de archivo...`);
-      let fileId: number;
-      let fileHash: string | undefined;
-
-      // Buscar file existente o crear nuevo
-      const existingFiles = this.fileRepo.list({ limit: 1000 });
-      let file = existingFiles.find(
-        (f) => f.storagePath === filePath || f.originalFilename === fileName
-      );
-
-      if (file) {
-        fileId = file.id;
-        fileHash = file.fileHash ?? undefined;
-        // Actualizar status a 'processed' si no lo está
-        if (file.status !== 'processed') {
-          this.fileRepo.updateStatus(fileId, 'processed');
-          console.info(`   📁 File existente actualizado a processed: ID ${fileId}`);
-        } else {
-          console.info(`   📁 File existente encontrado: ID ${fileId}`);
-        }
-      } else {
-        // Calcular hash
-        const hashResult = await calculateFileHash(filePath);
-        fileHash = hashResult.hash;
-
-        // Verificar si existe por hash
-        const existingByHash = this.fileRepo.findByHash(fileHash);
-        if (existingByHash) {
-          file = existingByHash;
-          fileId = file.id;
-          console.info(`   📁 File encontrado por hash: ID ${fileId}`);
-        } else {
-          // Crear nuevo file
-          file = this.fileRepo.create({
-            originalFilename: fileName,
-            fileType: documentType,
-            fileHash: fileHash,
-            storagePath: filePath,
-            status: 'processed',
-          });
-          fileId = file.id;
-          console.info(`   📁 File creado: ID ${fileId}`);
-        }
-      }
-
-      // 8. Crear factura en BD
-      console.info(`   💾 Guardando factura en base de datos...`);
-      const invoice = await this.invoiceRepo.create({
-        emitterCuit: normalizedCuit,
-        issueDate: formattedDate,
-        invoiceType: data.invoiceType,
-        pointOfSale: data.pointOfSale,
-        invoiceNumber: data.invoiceNumber,
-        total: data.total,
-        fileId: fileId,
-        fileType: documentType,
-        extractionMethod: extractionMethod,
-        extractionConfidence: confidence,
-        requiresReview: confidence < 80,
-      });
-
-      console.info(`   ✅ Factura guardada exitosamente - ID: ${invoice.id}`);
-      console.info(
-        `   📊 Requiere revisión: ${confidence < 80 ? 'SÍ' : 'NO'} (confianza: ${confidence}%)`
-      );
+      // 5. Retornar datos extraídos para revisión del usuario
+      // La creación de factura y gestión de archivos se delega a InvoiceCreationService
+      console.info(`   ✅ Extracción completa - datos listos para revisión`);
 
       return {
         success: true,
-        invoice,
         requiresReview: confidence < 80,
         confidence,
         source: 'PDF_EXTRACTION',
-        fileHash,
+        method: extractionMethod,
         extractedData: {
           cuit: normalizedCuit,
-          date: formattedDate,
+          date: data.date,
           total: data.total,
           invoiceType: data.invoiceType,
           pointOfSale: data.pointOfSale,
