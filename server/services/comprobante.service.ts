@@ -60,6 +60,7 @@ export class ComprobanteService {
         file: null,
         emitterCuit: f.cuit,
         emitterName: f.emitterName,
+        effectiveDate: f.issueDate,
       });
     }
 
@@ -90,6 +91,7 @@ export class ComprobanteService {
           file: null,
           emitterCuit: e.cuit,
           emitterName: e.emitterName,
+          effectiveDate: e.issueDate,
         });
       }
     }
@@ -111,16 +113,15 @@ export class ComprobanteService {
         file: p,
         emitterCuit: p.extractedCuit,
         emitterName: p.extractedCuit ? emitterCache.get(p.extractedCuit) : undefined,
+        effectiveDate: p.uploadDate ?? null,
       });
     }
 
-    // Ordenar: latest first
+    // Ordenar: latest first (cada kind ya asignó su effectiveDate)
     const comprobantes = Array.from(comprobantesMap.values());
     comprobantes.sort((a, b) => {
-      const dateA =
-        a.final?.issueDate || a.expected?.issueDate || a.file?.extractedDate || a.file?.uploadDate;
-      const dateB =
-        b.final?.issueDate || b.expected?.issueDate || b.file?.extractedDate || b.file?.uploadDate;
+      const dateA = a.effectiveDate;
+      const dateB = b.effectiveDate;
       if (dateA && dateB) return new Date(dateB).getTime() - new Date(dateA).getTime();
       if (!dateA && dateB) return 1;
       if (dateA && !dateB) return -1;

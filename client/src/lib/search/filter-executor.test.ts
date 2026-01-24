@@ -5,16 +5,23 @@ import type { FilterNode } from './query-parser';
 
 // Helper para crear comprobantes de prueba
 function createTestComprobante(overrides: Partial<Comprobante> = {}): Comprobante {
-  return {
+  const base = {
     id: 'test:1',
-    kind: 'factura',
+    kind: 'factura' as const,
     final: null,
     expected: null,
     file: null,
     emitterCuit: null,
     emitterName: null,
+    effectiveDate: null,
     ...overrides,
   };
+  // Derive effectiveDate from sub-objects if not explicitly set
+  if (base.effectiveDate === null) {
+    base.effectiveDate =
+      base.final?.issueDate || base.expected?.issueDate || base.file?.uploadDate || null;
+  }
+  return base;
 }
 
 describe('Filter Executor', () => {

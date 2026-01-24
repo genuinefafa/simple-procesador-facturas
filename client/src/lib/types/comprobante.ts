@@ -79,4 +79,6 @@ export type Comprobante = {
   matches?: Match[];
   emitterCuit?: string | null;
   emitterName?: string | null;
+  /** Fecha representativa según kind: issueDate (final/expected), uploadDate (file) */
+  effectiveDate: string | null;
 };

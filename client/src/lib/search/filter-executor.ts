@@ -274,7 +274,7 @@ function getCuit(c: Comprobante): string | null {
 }
 
 function getDate(c: Comprobante): string | null {
-  return c.final?.issueDate || c.expected?.issueDate || c.file?.extractedDate || null;
+  return c.effectiveDate;
 }
 
 function getTotal(c: Comprobante): number | null {

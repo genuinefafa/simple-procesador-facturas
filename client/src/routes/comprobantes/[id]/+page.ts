@@ -107,6 +107,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           file,
           emitterCuit: final.cuit,
           emitterName: final.emitterName,
+          effectiveDate: final.issueDate,
         };
       }
     } else if (idType === 'expected') {
@@ -135,6 +136,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
             file: null,
             emitterCuit: expected.cuit,
             emitterName: expected.emitterName,
+            effectiveDate: expected.issueDate,
           };
         }
       }
@@ -217,6 +219,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           file,
           matches,
           emitterCuit: file.extractedCuit,
+          effectiveDate: file.uploadDate ?? null,
         };
       }
     }
