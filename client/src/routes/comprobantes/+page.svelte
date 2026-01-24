@@ -514,12 +514,6 @@
       <span></span>
     </div>
     {#each visibleComprobantes as comp}
-      {@const uploadDate = comp.file?.uploadDate || comp.final?.processedAt}
-      {@const uploadDateOnly = uploadDate ? uploadDate.split(' ')[0] : null}
-      {@const issueDate =
-        comp.final?.issueDate || comp.expected?.issueDate || comp.file?.extractedDate}
-      {@const dateToShow = issueDate || uploadDateOnly}
-      {@const isProvisionalDate = !issueDate && uploadDateOnly}
       {@const hasEmitter = !!(
         getEmitterName(comp).short ||
         comp.final?.cuit ||
@@ -549,14 +543,8 @@
         </span>
 
         <!-- Columna 3: Fecha -->
-        <span
-          class="col-date"
-          class:provisional-date={isProvisionalDate}
-          title={isProvisionalDate
-            ? 'Fecha de upload (provisoria, no se extrajo fecha de emisión)'
-            : undefined}
-        >
-          {dateToShow ? formatDateShort(dateToShow) : '—'}
+        <span class="col-date">
+          {comp.effectiveDate ? formatDateShort(comp.effectiveDate) : '—'}
         </span>
         <span class="col-total align-right"
           >{formatCurrency(
@@ -848,13 +836,6 @@
     width: 0;
     padding: 0;
     overflow: hidden;
-  }
-
-  /* Fecha provisional (upload date como fallback) */
-  .provisional-date {
-    color: var(--color-warning);
-    font-style: italic;
-    cursor: help;
   }
 
   /* Emisor y CUIT en la misma columna */
