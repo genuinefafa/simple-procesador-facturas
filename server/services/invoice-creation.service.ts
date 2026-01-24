@@ -161,7 +161,7 @@ export class InvoiceCreationService {
 
     // 8. Vincular expected si aplica
     if (options.source === 'expected' && options.expectedId) {
-      await this.expectedRepo.updateStatus(options.expectedId, 'matched');
+      this.expectedRepo.updateStatus(options.expectedId, 'matched');
     }
 
     return {
