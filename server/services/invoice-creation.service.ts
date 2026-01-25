@@ -58,7 +58,7 @@ export class InvoiceCreationService {
     this.expectedRepo = new ExpectedInvoiceRepository();
     this.emitterRepo = new EmitterRepository();
     this.categoryRepo = new CategoryRepository();
-    this.fileService = new InvoiceFileService(this.fileRepo, this.emitterRepo, this.categoryRepo);
+    this.fileService = new InvoiceFileService(this.fileRepo, this.categoryRepo);
   }
 
   /**

@@ -223,7 +223,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
               invoiceType: final.invoiceType,
               pointOfSale: final.pointOfSale,
               invoiceNumber: final.invoiceNumber,
-              issueDate: final.issueDate,
+              issueDate: final.issueDate.toISOString().split('T')[0],
               fileId: final.fileId,
             },
             emitter,

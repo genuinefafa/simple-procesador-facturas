@@ -15,9 +15,8 @@
 
 import { existsSync, readdirSync, statSync } from 'fs';
 import { copyFile, mkdir, rename } from 'fs/promises';
-import { join, dirname } from 'path';
+import { join } from 'path';
 import { FileRepository, type IFileRepository } from '../database/repositories/file.js';
-import { EmitterRepository } from '../database/repositories/emitter.js';
 import { CategoryRepository } from '../database/repositories/category.js';
 import { generateProcessedFilename, generateSubdirectory } from '../utils/file-naming.js';
 import type { Emitter, InvoiceType } from '../utils/types.js';
@@ -63,16 +62,10 @@ export interface InvoiceUpdateFields {
 
 export class InvoiceFileService {
   private fileRepo: IFileRepository;
-  private emitterRepo: EmitterRepository;
   private categoryRepo: CategoryRepository;
 
-  constructor(
-    fileRepo?: IFileRepository,
-    emitterRepo?: EmitterRepository,
-    categoryRepo?: CategoryRepository
-  ) {
+  constructor(fileRepo?: IFileRepository, categoryRepo?: CategoryRepository) {
     this.fileRepo = fileRepo ?? new FileRepository();
-    this.emitterRepo = emitterRepo ?? new EmitterRepository();
     this.categoryRepo = categoryRepo ?? new CategoryRepository();
   }
 
@@ -97,7 +90,7 @@ export class InvoiceFileService {
    */
   async findFileByInvoiceData(
     cuit: string,
-    tipo: number,
+    _tipo: number,
     pv: number,
     num: number
   ): Promise<string | null> {
