@@ -211,6 +211,22 @@ export const load: PageLoad = async ({ fetch, params }) => {
           console.warn('No se pudieron cargar matches:', err);
         }
 
+        // Resolver emitterName si tenemos CUIT extraído
+        let emitterName: string | undefined;
+        if (file.extractedCuit) {
+          try {
+            const emitterRes = await fetch(
+              `/api/emisores/${encodeURIComponent(file.extractedCuit)}`
+            );
+            if (emitterRes.ok) {
+              const emitterData = await emitterRes.json();
+              emitterName = emitterData.emitter?.displayName || emitterData.emitter?.name;
+            }
+          } catch {
+            // Emitter not found - that's OK for new files
+          }
+        }
+
         comprobante = {
           id: `file:${file.id}`,
           kind: 'file',
@@ -219,6 +235,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           file,
           matches,
           emitterCuit: file.extractedCuit,
+          emitterName,
           effectiveDate: file.uploadDate ?? null,
         };
       }
