@@ -2,36 +2,8 @@ import { json } from '@sveltejs/kit';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
 import { FileRepository } from '@server/database/repositories/file';
-
-type ExpectedInvoice = {
-  source: 'expected';
-  id: number;
-  cuit: string;
-  emitterName?: string | null;
-  issueDate: string;
-  invoiceType: number | null; // Código ARCA numérico
-  pointOfSale: number;
-  invoiceNumber: number;
-  total?: number | null;
-  status?: string;
-};
-
-type FinalInvoice = {
-  source: 'final';
-  id: number;
-  cuit: string;
-  emitterName?: string | null;
-  issueDate: string | null;
-  invoiceType: number | null; // Código ARCA numérico
-  pointOfSale: number | null;
-  invoiceNumber: number | null;
-  total?: number | null;
-  file?: string;
-  fileHash?: string | null;
-  categoryId?: number | null;
-  fileId?: number | null;
-  expectedInvoiceId?: number | null;
-};
+import { normalizeToISO } from '@server/utils/dates';
+import type { Final, Expected } from '$lib/types/comprobante';
 
 export async function GET() {
   const invoiceRepo = new InvoiceRepository();
@@ -43,13 +15,7 @@ export async function GET() {
     status: ['pending', 'discrepancy', 'manual', 'ignored'],
   });
 
-  const toISODate = (value: Date | string | null | undefined) => {
-    if (!value) return null;
-    if (typeof value === 'string') return value;
-    return value.toISOString().slice(0, 10);
-  };
-
-  const finals: FinalInvoice[] = invoices.map((inv) => {
+  const finals: Final[] = invoices.map((inv) => {
     // Obtener datos de archivo via fileId
     let filePath: string | undefined;
     let fileHash: string | null = null;
@@ -65,7 +31,7 @@ export async function GET() {
       id: inv.id,
       cuit: inv.emitterCuit,
       emitterName: undefined,
-      issueDate: toISODate(inv.issueDate),
+      issueDate: normalizeToISO(inv.issueDate),
       invoiceType: inv.invoiceType,
       pointOfSale: inv.pointOfSale,
       invoiceNumber: inv.invoiceNumber,
@@ -83,7 +49,7 @@ export async function GET() {
     finals.map((f) => f.expectedInvoiceId).filter((id): id is number => id != null)
   );
 
-  const expecteds: ExpectedInvoice[] = expectedInvoices
+  const expecteds: Expected[] = expectedInvoices
     .filter((inv) => !expectedIdsLinkedToInvoice.has(inv.id))
     .map((inv) => ({
       source: 'expected',

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createFilterMatcher } from './filter-executor';
-import type { Comprobante } from '../../routes/api/comprobantes/+server';
+import type { Comprobante } from '$lib/types/comprobante';
 import type { FilterNode } from './query-parser';
 
 // Helper para crear comprobantes de prueba
@@ -13,6 +13,7 @@ function createTestComprobante(overrides: Partial<Comprobante> = {}): Comprobant
     file: null,
     emitterCuit: null,
     emitterName: null,
+    effectiveDate: null,
     ...overrides,
   };
 }
@@ -139,18 +140,9 @@ describe('Filter Executor', () => {
   });
 
   describe('Fecha matching', () => {
-    it('should match exact date', () => {
+    it('should match exact date via effectiveDate', () => {
       const comprobante = createTestComprobante({
-        final: {
-          source: 'final',
-          id: 1,
-          cuit: '30-71084210-3',
-          issueDate: '2024-01-15',
-          invoiceType: 6,
-          pointOfSale: 1,
-          invoiceNumber: 123,
-          total: 1000,
-        },
+        effectiveDate: '2024-01-15',
       });
 
       const filter: FilterNode = {
@@ -165,22 +157,13 @@ describe('Filter Executor', () => {
 
     it('should match date > (greater than)', () => {
       const comprobante = createTestComprobante({
-        final: {
-          source: 'final',
-          id: 1,
-          cuit: '30-71084210-3',
-          issueDate: '2024-02-15',
-          invoiceType: 6,
-          pointOfSale: 1,
-          invoiceNumber: 123,
-          total: 1000,
-        },
+        effectiveDate: '2024-02-15',
       });
 
       const filter: FilterNode = {
         type: 'fecha',
         operator: 'gt',
-        value: new Date('2024-01-31T00:00:00'), // End of January
+        value: new Date('2024-01-31T00:00:00'),
         negate: false,
       };
 
@@ -189,16 +172,7 @@ describe('Filter Executor', () => {
 
     it('should NOT match date <= when using >', () => {
       const comprobante = createTestComprobante({
-        final: {
-          source: 'final',
-          id: 1,
-          cuit: '30-71084210-3',
-          issueDate: '2024-01-15',
-          invoiceType: 6,
-          pointOfSale: 1,
-          invoiceNumber: 123,
-          total: 1000,
-        },
+        effectiveDate: '2024-01-15',
       });
 
       const filter: FilterNode = {
@@ -213,16 +187,7 @@ describe('Filter Executor', () => {
 
     it('should match date range', () => {
       const comprobante = createTestComprobante({
-        final: {
-          source: 'final',
-          id: 1,
-          cuit: '30-71084210-3',
-          issueDate: '2024-01-15',
-          invoiceType: 6,
-          pointOfSale: 1,
-          invoiceNumber: 123,
-          total: 1000,
-        },
+        effectiveDate: '2024-01-15',
       });
 
       const filter: FilterNode = {
@@ -238,16 +203,9 @@ describe('Filter Executor', () => {
       expect(matcher(comprobante, filter)).toBe(true);
     });
 
-    it('should NOT match comprobante without date', () => {
+    it('should NOT match comprobante without effectiveDate', () => {
       const comprobante = createTestComprobante({
-        final: null,
-        file: {
-          id: 1,
-          originalFilename: 'test.pdf',
-          filePath: '/test.pdf',
-          status: 'uploaded',
-          extractedDate: null,
-        },
+        effectiveDate: null,
       });
 
       const filter: FilterNode = {

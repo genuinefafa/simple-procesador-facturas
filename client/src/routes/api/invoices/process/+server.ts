@@ -120,12 +120,9 @@ export const POST: RequestHandler = async ({ request }) => {
         }
       }
 
-      // Si procesamiento exitoso con confianza >= 80%
-      if (result.success && result.invoice && result.confidence >= 80) {
-        console.info(
-          `✅ Procesamiento exitoso (conf: ${result.confidence}%), vinculando con factura ${result.invoice.id}`
-        );
-        await fileRepo.updateStatus(file.id, 'processed');
+      // Extracción exitosa con alta confianza — archivo listo para revisión del usuario
+      if (result.success && result.confidence >= 80) {
+        console.info(`✅ Extracción exitosa (conf: ${result.confidence}%) — listo para revisión`);
         processedCount++;
       } else if (result.requiresReview) {
         // Requiere revisión manual
@@ -143,18 +140,6 @@ export const POST: RequestHandler = async ({ request }) => {
         fileId: file.id,
         success: result.success,
         fileName: file.originalFilename,
-        invoice: result.invoice
-          ? {
-              id: result.invoice.id,
-              emitterCuit: result.invoice.emitterCuit,
-              invoiceType: result.invoice.invoiceType,
-              fullInvoiceNumber: result.invoice.fullInvoiceNumber,
-              total: result.invoice.total,
-              issueDate: result.invoice.issueDate,
-              extractionConfidence: result.invoice.extractionConfidence,
-              requiresReview: result.invoice.requiresReview,
-            }
-          : null,
         error: result.error,
         requiresReview: result.requiresReview,
         confidence: result.confidence,

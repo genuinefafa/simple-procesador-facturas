@@ -1,83 +1,6 @@
 import type { PageLoad } from './$types';
 import { redirect } from '@sveltejs/kit';
-
-// Re-definir tipos aquí (sin circular import)
-export type Final = {
-  source: 'final';
-  id: number;
-  cuit: string;
-  emitterName?: string | null;
-  issueDate: string | null;
-  processedAt?: string | null;
-  invoiceType: number | null; // Código ARCA numérico
-  pointOfSale: number | null;
-  invoiceNumber: number | null;
-  total?: number | null;
-  file?: string;
-  filePath?: string;
-  fileHash?: string | null;
-  categoryId?: number | null;
-  fileId?: number | null;
-  expectedInvoiceId?: number | null;
-};
-
-export type Expected = {
-  source: 'expected';
-  id: number;
-  cuit: string;
-  emitterName?: string | null;
-  issueDate: string;
-  invoiceType: number | null; // Código ARCA numérico
-  pointOfSale: number;
-  invoiceNumber: number;
-  total?: number | null;
-  status?: string;
-  categoryId?: number | null;
-};
-
-export type FileData = {
-  id: number;
-  originalFilename: string;
-  filePath: string;
-  fileHash?: string | null;
-  status: 'uploaded' | 'processed' | 'failed';
-  uploadDate?: string | null; // Fecha de subida (createdAt)
-  extractedCuit?: string | null;
-  extractedDate?: string | null;
-  extractedTotal?: number | null;
-  extractedType?: number | null; // Código ARCA numérico
-  extractedPointOfSale?: number | null;
-  extractedInvoiceNumber?: number | null;
-  extractionConfidence?: number | null;
-  extractionMethod?: string | null;
-  extractionErrors?: string | null;
-  linkedInvoiceId?: number | null; // ID de la factura vinculada a este archivo
-};
-
-export type Match = {
-  id: number;
-  cuit: string;
-  emitterName?: string | null;
-  issueDate: string;
-  invoiceType: number | null; // Código ARCA numérico
-  pointOfSale: number;
-  invoiceNumber: number;
-  total?: number | null;
-  status?: string;
-  matchScore: number;
-  categoryId?: number | null;
-};
-
-export type Comprobante = {
-  id: string;
-  kind: 'factura' | 'expected' | 'file';
-  final: Final | null;
-  expected: Expected | null;
-  file: FileData | null; // Archivo sin factura asociada
-  matches?: Match[];
-  emitterCuit?: string | null;
-  emitterName?: string | null;
-};
+import type { Final, Expected, FileData, Match, Comprobante } from '$lib/types/comprobante';
 
 export const load: PageLoad = async ({ fetch, params }) => {
   const [idType, idVal] = params.id.split(':');
@@ -184,6 +107,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           file,
           emitterCuit: final.cuit,
           emitterName: final.emitterName,
+          effectiveDate: final.issueDate,
         };
       }
     } else if (idType === 'expected') {
@@ -212,6 +136,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
             file: null,
             emitterCuit: expected.cuit,
             emitterName: expected.emitterName,
+            effectiveDate: expected.issueDate,
           };
         }
       }
@@ -294,6 +219,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           file,
           matches,
           emitterCuit: file.extractedCuit,
+          effectiveDate: file.uploadDate ?? null,
         };
       }
     }

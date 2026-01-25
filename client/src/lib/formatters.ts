@@ -249,10 +249,11 @@ export function formatCurrency(value?: number | null): string {
  * @param status Estado del file
  * @returns Estado traducido
  */
-export function formatFileStatus(status?: 'uploaded' | 'processed' | null): string {
+export function formatFileStatus(status?: 'uploaded' | 'processed' | 'failed' | null): string {
   const statusMap: Record<string, string> = {
     uploaded: 'Subido',
     processed: 'Procesado',
+    failed: 'Error',
   };
   return status ? statusMap[status] || status : '—';
 }

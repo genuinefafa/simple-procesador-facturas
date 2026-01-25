@@ -10,17 +10,20 @@
   import { toast, Toaster } from 'svelte-sonner';
   import { invalidateAll, goto } from '$app/navigation';
   import { formatDateTime, formatDateShort, getFriendlyType } from '$lib/formatters';
+  import { createInvoiceForm } from '$lib/stores/createInvoiceForm.svelte';
+  import { createEmitterResolver } from '$lib/stores/emitterResolver.svelte';
+  import { createDeleteHandler } from '$lib/stores/deleteInvoice.svelte';
 
   let { data } = $props();
   let comprobante = $derived(data.comprobante);
   let categories = $derived(data.categories || []);
 
+  // Stores
+  const invoiceForm = createInvoiceForm();
+  const emitterResolver = createEmitterResolver();
+  const deleteHandler = createDeleteHandler();
+
   let processing = $state(false);
-  let selectedExpectedId = $state<number | null>(null);
-  let resolvedEmitterName = $state<string | null>(null);
-  let editMode = $state(false);
-  let selectedCategoryId = $state<number | null>(null);
-  let deleteDialogOpen = $state(false);
   let linkExpectedDialogOpen = $state(false);
   let availableExpected = $state<
     Array<{
@@ -37,14 +40,6 @@
   >([]);
   let loadingExpected = $state(false);
 
-  let facuraData = $state({
-    cuit: '',
-    invoiceType: null as number | null,
-    pointOfSale: null as number | null,
-    invoiceNumber: null as number | null,
-    issueDate: '',
-    total: null as number | null,
-  });
   const formatHash = (hash: string | null | undefined) => {
     if (!hash) return '—';
     return `${hash.substring(0, 16)}...`;
@@ -92,94 +87,26 @@
 
   // Sincronizar facturaData con comprobante cuando cambie
   $effect(() => {
-    facuraData.cuit = comprobante.final?.cuit || comprobante.expected?.cuit || facuraData.cuit;
-    facuraData.invoiceType =
-      comprobante.final?.invoiceType || comprobante.expected?.invoiceType || facuraData.invoiceType;
-    facuraData.pointOfSale =
-      comprobante.final?.pointOfSale ?? comprobante.expected?.pointOfSale ?? facuraData.pointOfSale;
-    facuraData.invoiceNumber =
-      comprobante.final?.invoiceNumber ??
-      comprobante.expected?.invoiceNumber ??
-      facuraData.invoiceNumber;
-    facuraData.issueDate =
-      comprobante.final?.issueDate || comprobante.expected?.issueDate || facuraData.issueDate;
-    facuraData.total = comprobante.final?.total ?? comprobante.expected?.total ?? facuraData.total;
+    const fd = invoiceForm.formData;
+    fd.cuit = comprobante.final?.cuit || comprobante.expected?.cuit || fd.cuit;
+    fd.invoiceType =
+      comprobante.final?.invoiceType || comprobante.expected?.invoiceType || fd.invoiceType;
+    fd.pointOfSale =
+      comprobante.final?.pointOfSale ?? comprobante.expected?.pointOfSale ?? fd.pointOfSale;
+    fd.invoiceNumber =
+      comprobante.final?.invoiceNumber ?? comprobante.expected?.invoiceNumber ?? fd.invoiceNumber;
+    fd.issueDate = comprobante.final?.issueDate || comprobante.expected?.issueDate || fd.issueDate;
+    fd.total = comprobante.final?.total ?? comprobante.expected?.total ?? fd.total;
 
     if (comprobante.expected) {
-      selectedExpectedId = comprobante.expected.id;
+      invoiceForm.selectedExpectedId = comprobante.expected.id;
     }
 
     // Preseleccionar categoría desde la factura final si existe
-    if (!editMode && comprobante.final) {
-      selectedCategoryId = comprobante.final.categoryId ?? null;
+    if (!invoiceForm.editMode && comprobante.final) {
+      invoiceForm.selectedCategoryId = comprobante.final.categoryId ?? null;
     }
   });
-
-  function openDeleteDialog() {
-    if (!comprobante.final && !comprobante.file) {
-      toast.error('No hay nada que eliminar');
-      return;
-    }
-    deleteDialogOpen = true;
-  }
-
-  async function confirmDelete() {
-    deleteDialogOpen = false;
-
-    // Eliminar factura final
-    if (comprobante.final) {
-      const toastId = toast.loading('Eliminando factura...');
-
-      try {
-        const response = await fetch(`/api/invoices/${comprobante.final.id}`, {
-          method: 'DELETE',
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          toast.success(data.message, { id: toastId });
-          // Redirigir al file o expected asociado, si existen
-          if (comprobante.file?.id) {
-            await goto(`/comprobantes/file:${comprobante.file.id}`);
-          } else if (comprobante.expected?.id) {
-            await goto(`/comprobantes/expected:${comprobante.expected.id}`);
-          } else {
-            await goto('/comprobantes');
-          }
-        } else {
-          toast.error(data.error || 'Error al eliminar factura', { id: toastId });
-        }
-      } catch (err) {
-        console.error('Error al eliminar factura:', err);
-        toast.error('Error al eliminar factura', { id: toastId });
-      }
-      return;
-    }
-
-    // Eliminar archivo
-    if (comprobante.file) {
-      const toastId = toast.loading('Eliminando archivo...');
-
-      try {
-        const response = await fetch(`/api/files/${comprobante.file.id}`, {
-          method: 'DELETE',
-        });
-
-        const data = await response.json();
-
-        if (response.ok && data.success) {
-          toast.success(data.message || 'Archivo eliminado', { id: toastId });
-          await goto('/comprobantes');
-        } else {
-          toast.error(data.error || 'Error al eliminar archivo pendiente', { id: toastId });
-        }
-      } catch (err) {
-        console.error('Error al eliminar archivo pendiente:', err);
-        toast.error('Error al eliminar archivo pendiente', { id: toastId });
-      }
-    }
-  }
 
   async function openLinkExpectedDialog() {
     if (!comprobante.final) return;
@@ -188,7 +115,6 @@
     loadingExpected = true;
 
     try {
-      // Buscar expected pendientes que coincidan con el CUIT de la factura
       const response = await fetch(
         `/api/expected-invoices?status=pending&cuit=${comprobante.final.cuit}`
       );
@@ -224,7 +150,7 @@
         const err = await response.json();
         toast.error(err.error || 'Error al vincular', { id: toastId });
       }
-    } catch (err) {
+    } catch {
       toast.error('Error al vincular', { id: toastId });
     }
   }
@@ -253,7 +179,6 @@
           `Procesado con ${methodLabel}: ${data.extraction?.confidence || 0}% confianza`,
           { id: toastId }
         );
-        // Revalidar los datos de la página sin recargar completamente
         await invalidateAll();
       } else {
         toast.error(data.error || 'Error al procesar', { id: toastId });
@@ -389,56 +314,15 @@
             file={enrichedFile}
             expected={bestExpected}
             oncreatefromfile={() => {
-              // Copiar datos del archivo al formulario
               if (comprobante.file) {
-                facuraData.cuit = comprobante.file.extractedCuit || '';
-                facuraData.invoiceType = comprobante.file.extractedType ?? null;
-                facuraData.pointOfSale = comprobante.file.extractedPointOfSale ?? null;
-                facuraData.invoiceNumber = comprobante.file.extractedInvoiceNumber ?? null;
-                facuraData.issueDate = comprobante.file.extractedDate || '';
-                facuraData.total = comprobante.file.extractedTotal ?? null;
-                editMode = true;
-                toast.info('Datos copiados del archivo. Revisá y guardá.');
+                invoiceForm.populateFromFile(comprobante.file);
               }
             }}
             oncreatefromexpected={async () => {
               if (!bestExpected) return;
-
-              // Verificar que el emisor existe antes de permitir crear
-              const cuit = bestExpected.cuit;
-              if (!cuit) {
-                toast.error('El expected no tiene CUIT asociado.');
-                return;
-              }
-
-              try {
-                const res = await fetch(`/api/emisores?cuit=${encodeURIComponent(cuit)}`);
-                const json = await res.json();
-                const emitters = json.emitters || [];
-
-                if (emitters.length === 0) {
-                  toast.error(
-                    `Emisor con CUIT ${cuit} no existe. Crealo primero en la sección de emisores.`
-                  );
-                  return;
-                }
-
-                resolvedEmitterName = emitters[0].displayName || emitters[0].name || null;
-              } catch {
-                toast.error('Error verificando emisor.');
-                return;
-              }
-
-              facuraData.cuit = cuit;
-              facuraData.invoiceType = bestExpected.invoiceType ?? null;
-              facuraData.pointOfSale = bestExpected.pointOfSale ?? null;
-              facuraData.invoiceNumber = bestExpected.invoiceNumber ?? null;
-              facuraData.issueDate = bestExpected.issueDate || '';
-              facuraData.total = bestExpected.total ?? null;
-              selectedCategoryId = bestExpected.categoryId ?? null;
-              selectedExpectedId = bestExpected.id;
-              editMode = true;
-              toast.info('Datos copiados del fisco. Revisá y guardá.');
+              const emitterName = await emitterResolver.resolve(bestExpected.cuit);
+              if (emitterName === null) return;
+              invoiceForm.populateFromExpected(bestExpected, emitterName);
             }}
             onreprocess={processPending}
             {processing}
@@ -497,7 +381,7 @@
                 toast.error('Error al guardar', { id: toastId });
               }
             }}
-            ondelete={openDeleteDialog}
+            ondelete={() => deleteHandler.open(comprobante)}
           />
 
           {#if comprobante.final.expectedInvoiceId}
@@ -517,101 +401,36 @@
         </section>
 
         <!-- Sin factura + editMode: InvoiceCard en modo create -->
-      {:else if !isExpectedWithoutFile && editMode}
+      {:else if !isExpectedWithoutFile && invoiceForm.editMode}
         <section class="section factura-section">
           <InvoiceCard
             mode="create"
             invoice={{
-              cuit: facuraData.cuit,
-              emitterName: resolvedEmitterName,
-              issueDate: facuraData.issueDate,
-              invoiceType: facuraData.invoiceType,
-              pointOfSale: facuraData.pointOfSale,
-              invoiceNumber: facuraData.invoiceNumber,
-              total: facuraData.total,
-              categoryId: selectedCategoryId,
+              cuit: invoiceForm.formData.cuit,
+              emitterName: invoiceForm.resolvedEmitterName,
+              issueDate: invoiceForm.formData.issueDate,
+              invoiceType: invoiceForm.formData.invoiceType,
+              pointOfSale: invoiceForm.formData.pointOfSale,
+              invoiceNumber: invoiceForm.formData.invoiceNumber,
+              total: invoiceForm.formData.total,
+              categoryId: invoiceForm.selectedCategoryId,
             }}
             {categories}
             onsave={async (data) => {
-              // Validar datos mínimos
-              if (!data.cuit?.trim()) {
-                toast.error('CUIT es requerido');
-                return;
-              }
-              if (data.invoiceType === null) {
-                toast.error('Tipo de comprobante es requerido');
-                return;
-              }
-              if (!data.pointOfSale) {
-                toast.error('Punto de venta es requerido');
-                return;
-              }
-              if (!data.invoiceNumber) {
-                toast.error('Número de factura es requerido');
-                return;
-              }
-              if (!data.issueDate) {
-                toast.error('Fecha es requerida');
-                return;
-              }
-
-              const toastId = toast.loading('Creando factura...');
-              try {
-                const response = await fetch(`/api/invoices/from-file/${comprobante.file?.id}`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    source: selectedExpectedId ? 'expected' : 'manual',
-                    expectedId: selectedExpectedId,
-                    data: {
-                      cuit: data.cuit,
-                      invoiceType: data.invoiceType,
-                      pointOfSale: data.pointOfSale,
-                      invoiceNumber: data.invoiceNumber,
-                      issueDate: data.issueDate,
-                      total: data.total,
-                      categoryId: data.categoryId,
-                      currency: 'ARS',
-                    },
-                  }),
-                });
-
-                const result = await response.json();
-                if (result.success && result.invoice?.id) {
-                  toast.success('Factura creada', { id: toastId });
-                  await goto(`/comprobantes/factura:${result.invoice.id}`);
-                } else {
-                  toast.error(result.error || 'Error al crear factura', { id: toastId });
-                }
-              } catch (err) {
-                toast.error('Error al crear factura', { id: toastId });
-              }
+              await invoiceForm.submit(comprobante.file?.id, data);
             }}
-            oncancel={() => {
-              editMode = false;
-              facuraData.cuit = '';
-              facuraData.invoiceType = null;
-              facuraData.pointOfSale = null;
-              facuraData.invoiceNumber = null;
-              facuraData.issueDate = '';
-              facuraData.total = null;
-              selectedCategoryId = null;
-              selectedExpectedId = null;
-              resolvedEmitterName = null;
-            }}
+            oncancel={() => invoiceForm.reset()}
           />
 
-          {#if selectedExpectedId}
+          {#if invoiceForm.selectedExpectedId}
             <div class="expected-indicator below-total">
-              <span class="indicator-label">📋 Vinculado a expected #{selectedExpectedId}</span>
+              <span class="indicator-label"
+                >📋 Vinculado a expected #{invoiceForm.selectedExpectedId}</span
+              >
               <button
                 type="button"
                 class="link-button"
-                onclick={() => {
-                  selectedExpectedId = null;
-                  resolvedEmitterName = null;
-                  toast.info('Vinculación con expected removida.');
-                }}
+                onclick={() => invoiceForm.unlinkExpected()}
               >
                 ✕ Desvincular
               </button>
@@ -650,7 +469,7 @@
 
 <!-- Dialog de confirmación de eliminación -->
 <Dialog
-  bind:open={deleteDialogOpen}
+  bind:open={deleteHandler.dialogOpen}
   title={comprobante.final
     ? '⚠️ Eliminar Factura'
     : comprobante.file
@@ -689,8 +508,8 @@
     {/if}
 
     <div class="dialog-actions">
-      <Button variant="secondary" onclick={() => (deleteDialogOpen = false)}>Cancelar</Button>
-      <Button variant="danger" onclick={confirmDelete}>Eliminar</Button>
+      <Button variant="secondary" onclick={() => deleteHandler.close()}>Cancelar</Button>
+      <Button variant="danger" onclick={() => deleteHandler.confirm(comprobante)}>Eliminar</Button>
     </div>
   </div>
 </Dialog>

@@ -1,5 +1,5 @@
 import type { FilterNode } from './query-parser';
-import type { Comprobante } from '../../routes/api/comprobantes/+server';
+import type { Comprobante } from '$lib/types/comprobante';
 
 type Category = {
   id: number;
@@ -274,7 +274,7 @@ function getCuit(c: Comprobante): string | null {
 }
 
 function getDate(c: Comprobante): string | null {
-  return c.final?.issueDate || c.expected?.issueDate || c.file?.extractedDate || null;
+  return c.effectiveDate;
 }
 
 function getTotal(c: Comprobante): number | null {

@@ -1,5 +1,5 @@
 import type { PageLoad } from './$types';
-import type { Comprobante } from '../api/comprobantes/+server';
+import type { Comprobante } from '$lib/types/comprobante';
 
 export const load: PageLoad = async ({ fetch }) => {
   const [res, catRes] = await Promise.all([fetch('/api/comprobantes'), fetch('/api/categories')]);
