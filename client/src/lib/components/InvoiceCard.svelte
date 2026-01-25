@@ -126,12 +126,20 @@
   }
 
   // Inicializar al montar y cuando cambian los props de invoice
+  // Track si ya inicializamos en modo create (para no resetear al cambiar props)
+  let initializedInCreateMode = false;
+
   $effect(() => {
     // Leer invoice para trackear cambios (después de invalidateAll)
     const _ = invoice.cuit;
-    // Solo resetear si no estamos editando
+
+    // En modo view: resetear cuando no estamos editando
+    // En modo create: inicializar solo una vez al montar
     if (!editMode) {
       resetToInvoiceData();
+    } else if (isCreateMode && !initializedInCreateMode) {
+      resetToInvoiceData();
+      initializedInCreateMode = true;
     }
   });
 
