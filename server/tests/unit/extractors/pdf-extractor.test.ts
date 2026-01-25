@@ -140,7 +140,7 @@ describe('PDFExtractor', () => {
   });
 
   describe('extract - CUIT', () => {
-    it('debe extraer CUIT con guiones', async () => {
+    it('debe extraer CUIT con guiones y normalizarlo a formato canónico', async () => {
       const mockText = `
         CUIT: 30-71057829-6
         Factura A
@@ -149,10 +149,11 @@ describe('PDFExtractor', () => {
       vi.spyOn(extractor, 'extractText').mockResolvedValue(mockText);
 
       const result = await extractor.extract('/test.pdf');
-      expect(result.data.cuit).toBe('30-71057829-6');
+      // Canonical format: 11 digits without dashes
+      expect(result.data.cuit).toBe('30710578296');
     });
 
-    it('debe extraer CUIT sin guiones y normalizarlo', async () => {
+    it('debe extraer CUIT sin guiones (ya en formato canónico)', async () => {
       const mockText = `
         CUIT 30710578296
         Factura B
@@ -161,7 +162,7 @@ describe('PDFExtractor', () => {
       vi.spyOn(extractor, 'extractText').mockResolvedValue(mockText);
 
       const result = await extractor.extract('/test.pdf');
-      expect(result.data.cuit).toBe('30-71057829-6');
+      expect(result.data.cuit).toBe('30710578296');
     });
 
     it('NO debe extraer CUIT inválido', async () => {
