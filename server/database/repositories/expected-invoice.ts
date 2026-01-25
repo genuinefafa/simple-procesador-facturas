@@ -405,8 +405,12 @@ export class ExpectedInvoiceRepository {
     pointOfSale: number,
     invoiceNumber: number
   ): Promise<ExpectedInvoice | null> {
-    const conditions = [
-      eq(expectedInvoices.cuit, cuit),
+    // Normalize input CUIT to canonical format (digits only)
+    const cuitDigits = cuit.replace(/\D/g, '');
+
+    const conditions: SQL[] = [
+      // Compare CUITs by stripping non-digits from both sides
+      sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${cuitDigits}`,
       eq(expectedInvoices.pointOfSale, pointOfSale),
       eq(expectedInvoices.invoiceNumber, invoiceNumber),
       eq(expectedInvoices.status, 'pending'),
@@ -533,8 +537,12 @@ export class ExpectedInvoiceRepository {
     const conditions: (SQL | undefined)[] = [eq(expectedInvoices.status, 'pending')];
 
     // Aplicar SOLO prefilter de CUIT si disponible (más laxo)
+    // Normalize to digits-only for comparison (handles both formats in DB)
     if (criteria.cuit) {
-      conditions.push(eq(expectedInvoices.cuit, criteria.cuit));
+      const cuitDigits = criteria.cuit.replace(/\D/g, '');
+      conditions.push(
+        sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${cuitDigits}`
+      );
     } else if (criteria.cuitPartial) {
       conditions.push(like(expectedInvoices.cuit, `%${criteria.cuitPartial}%`));
     }

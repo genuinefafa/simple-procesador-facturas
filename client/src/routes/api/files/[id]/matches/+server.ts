@@ -135,7 +135,9 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     // 2. Buscar matches parciales
+    // normalizedCuit is in canonical format (11 digits, no dashes)
     const searchCriteria = {
+      cuit: normalizedCuit,
       invoiceType: extraction.extractedType || undefined,
       pointOfSale: extraction.extractedPointOfSale ?? undefined,
       invoiceNumber: extraction.extractedInvoiceNumber ?? undefined,

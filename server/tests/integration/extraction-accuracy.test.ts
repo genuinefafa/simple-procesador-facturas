@@ -13,6 +13,12 @@ import { readFileSync, readdirSync } from 'fs';
 import { join, extname } from 'path';
 import { parse as parseYAML } from 'yaml';
 
+/** Normalize CUIT to canonical format (11 digits, no dashes) for comparison */
+function normalizeCuitForComparison(cuit: string | undefined): string {
+  if (!cuit) return '';
+  return cuit.replace(/\D/g, '');
+}
+
 const EXAMPLES_DIR = join(process.cwd(), '..', 'examples', 'facturas');
 
 // Umbrales mínimos de precisión aceptables (basados en precisión actual)
@@ -96,7 +102,10 @@ describe('Precisión de Extracción de Datos', () => {
       const detected = extraction.data;
 
       // Comparar campos
-      const cuitMatch = detected.cuit === expected.emisor.cuit;
+      // Normalize CUITs to canonical format (digits only) for comparison
+      const cuitMatch =
+        normalizeCuitForComparison(detected.cuit) ===
+        normalizeCuitForComparison(expected.emisor.cuit);
       // Los extractores ahora retornan fecha en formato ISO (YYYY-MM-DD) directamente
       const fechaMatch =
         detected.date && expected.factura.fecha ? detected.date === expected.factura.fecha : false;

@@ -75,14 +75,16 @@ function calculateVerificationDigit(baseCUIT: string): number {
 }
 
 /**
- * Normaliza un CUIT al formato estándar XX-XXXXXXXX-X
- * @param cuit - CUIT en cualquier formato
- * @returns CUIT normalizado con guiones
+ * Normaliza un CUIT al formato canónico: 11 dígitos sin guiones.
+ * Este es el formato que se almacena en la base de datos.
+ *
+ * @param cuit - CUIT en cualquier formato (con o sin guiones)
+ * @returns CUIT normalizado: 11 dígitos sin guiones
  * @throws Error si el CUIT es inválido
  *
  * @example
- * normalizeCUIT('30710578296')    // '30-71057829-6'
- * normalizeCUIT('30-71057829-6')  // '30-71057829-6'
+ * normalizeCUIT('30-71057829-6')  // '30710578296'
+ * normalizeCUIT('30710578296')    // '30710578296'
  */
 export function normalizeCUIT(cuit: string): string {
   const cleaned = cuit.replace(/[-\s]/g, '');
@@ -95,17 +97,39 @@ export function normalizeCUIT(cuit: string): string {
     throw new Error(`CUIT con dígito verificador incorrecto: ${cuit}`);
   }
 
+  return cleaned;
+}
+
+/**
+ * Formatea un CUIT para mostrar al usuario: XX-XXXXXXXX-X
+ * Usar solo para presentación en UI.
+ *
+ * @param cuit - CUIT en formato canónico (11 dígitos) o con guiones
+ * @returns CUIT formateado con guiones
+ * @throws Error si el CUIT es inválido
+ *
+ * @example
+ * formatCUIT('30710578296')    // '30-71057829-6'
+ * formatCUIT('30-71057829-6')  // '30-71057829-6'
+ */
+export function formatCUIT(cuit: string): string {
+  const cleaned = cuit.replace(/[-\s]/g, '');
+
+  if (cleaned.length !== 11 || !/^\d+$/.test(cleaned)) {
+    throw new Error(`CUIT inválido: ${cuit}`);
+  }
+
   return `${cleaned.slice(0, 2)}-${cleaned.slice(2, 10)}-${cleaned.slice(10)}`;
 }
 
 /**
  * Extrae posibles CUITs de un texto usando expresiones regulares
  * @param text - Texto donde buscar CUITs
- * @returns Array de CUITs encontrados (ya validados)
+ * @returns Array de CUITs encontrados en formato canónico (11 dígitos sin guiones)
  *
  * @example
- * extractCUITFromText('CUIT: 30-71057829-6')  // ['30-71057829-6']
- * extractCUITFromText('CUIT 30710578296')     // ['30-71057829-6']
+ * extractCUITFromText('CUIT: 30-71057829-6')  // ['30710578296']
+ * extractCUITFromText('CUIT 30710578296')     // ['30710578296']
  */
 export function extractCUITFromText(text: string): string[] {
   // Patrones para detectar CUITs en diferentes formatos
@@ -205,10 +229,8 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
     'responsable inscripto', // Suele aparecer junto al CUIT del cliente
   ];
 
-  // CUITs conocidos de receptores/clientes (no emisores)
+  // CUITs conocidos de receptores/clientes (no emisores) - formato canónico
   const knownReceiverCUITs = [
-    '30-50001770-4',
-    '3050001770-4',
     '30500017704', // LA SEGUNDA COOP LTDA DE SEGURO
   ];
 
@@ -261,9 +283,8 @@ export function extractCUITsWithContext(text: string): CUITWithContext[] {
       );
 
       // PENALIZACIÓN MÁXIMA: Si es un CUIT conocido de receptor, penalizar FUERTEMENTE
-      const isKnownReceiver = knownReceiverCUITs.some(
-        (rc) => normalizedCuit.replace(/[-\s]/g, '') === rc.replace(/[-\s]/g, '')
-      );
+      // normalizedCuit ya está en formato canónico (sin guiones)
+      const isKnownReceiver = knownReceiverCUITs.includes(normalizedCuit);
       if (isKnownReceiver) {
         score -= 300; // Penalización MUY FUERTE - casi imposible que sea emisor
       }
