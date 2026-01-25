@@ -11,7 +11,7 @@
 
 import { PDFExtractor } from '../extractors/pdf-extractor.js';
 import { OCRExtractor } from '../extractors/ocr-extractor.js';
-import { validateCUIT, normalizeCUIT, getPersonType } from '../validators/cuit.js';
+import { validateCUIT, normalizeCUIT, formatCUIT, getPersonType } from '../validators/cuit.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import {
   ExpectedInvoiceRepository,
@@ -440,13 +440,14 @@ export class InvoiceProcessingService {
 
       if (!emitter) {
         console.info(`   ➕ Emisor no existe, creando nuevo...`);
-        const cuitNumeric = normalizedCuit.replace(/-/g, '');
         const personType = getPersonType(normalizedCuit);
+        // normalizedCuit is canonical (no dashes), formatCUIT adds dashes for PK
+        const formattedCuit = formatCUIT(normalizedCuit);
 
         emitter = this.emitterRepo.create({
-          cuit: normalizedCuit,
-          cuitNumeric: cuitNumeric,
-          name: `Emisor ${normalizedCuit}`,
+          cuit: formattedCuit,
+          cuitNumeric: normalizedCuit,
+          name: `Emisor ${formattedCuit}`,
           aliases: [],
           personType: personType || undefined,
         });

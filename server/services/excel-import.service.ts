@@ -3,7 +3,7 @@
  */
 
 import ExcelJS from 'exceljs';
-import { normalizeCUIT, validateCUIT } from '../validators/cuit.js';
+import { normalizeCUIT, formatCUIT, validateCUIT } from '../validators/cuit.js';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import { normalizeEmitterName } from '../utils/emitter-name-normalizer.js';
@@ -261,19 +261,16 @@ export class ExcelImportService {
           ).trim();
 
           if (emitterDocNumberRaw && emitterDenomination) {
-            // Normalizar CUIT del emisor
+            // Normalizar CUIT del emisor - strip non-digits
             const cuitNumerico = emitterDocNumberRaw.replace(/\D/g, '');
-            if (cuitNumerico.length === 11) {
-              const cuit = `${cuitNumerico.substring(0, 2)}-${cuitNumerico.substring(2, 10)}-${cuitNumerico.substring(10)}`;
-
-              // Validar CUIT
-              if (validateCUIT(cuit)) {
-                // Normalizar el nombre del emisor (capitalización y abreviación de tipos societarios)
-                const normalizedName = normalizeEmitterName(emitterDenomination);
-                emittersToProcess.set(cuitNumerico, { cuit, name: normalizedName });
-              } else {
-                console.warn(`   ⚠️  CUIT inválido en fila ${rowNumber}: ${cuit}`);
-              }
+            if (cuitNumerico.length === 11 && validateCUIT(cuitNumerico)) {
+              // cuitNumerico is the canonical format (11 digits, no dashes)
+              // formatCUIT adds dashes for display/PK storage
+              const cuitFormatted = formatCUIT(cuitNumerico);
+              const normalizedName = normalizeEmitterName(emitterDenomination);
+              emittersToProcess.set(cuitNumerico, { cuit: cuitFormatted, name: normalizedName });
+            } else if (cuitNumerico.length === 11) {
+              console.warn(`   ⚠️  CUIT inválido en fila ${rowNumber}: ${cuitNumerico}`);
             }
           }
         }

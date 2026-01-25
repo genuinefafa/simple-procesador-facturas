@@ -14,7 +14,7 @@ import { existsSync } from 'fs';
 import { copyFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { generateProcessedFilename, generateSubdirectory } from '../utils/file-naming';
-import { validateCUIT, normalizeCUIT } from '../validators/cuit';
+import { validateCUIT, normalizeCUIT, formatCUIT } from '../validators/cuit';
 
 const PROJECT_ROOT = join(process.cwd(), '..');
 const DATA_DIR = join(PROJECT_ROOT, 'data');
@@ -90,11 +90,13 @@ export class InvoiceCreationService {
     const normalizedCuit = normalizeCUIT(data.cuit);
 
     // 3. Buscar emisor (debe existir previamente)
+    // findByCUIT accepts any format (normalizes internally)
     const emitter = this.emitterRepo.findByCUIT(normalizedCuit);
     if (!emitter) {
+      const formattedCuit = formatCUIT(normalizedCuit);
       return {
         success: false,
-        error: `Emisor con CUIT ${normalizedCuit} no encontrado. Crealo primero en la sección de emisores.`,
+        error: `Emisor con CUIT ${formattedCuit} no encontrado. Crealo primero en la sección de emisores.`,
       };
     }
 
@@ -143,8 +145,9 @@ export class InvoiceCreationService {
     this.fileRepo.updateStatus(fileId, 'processed');
 
     // 7. Crear factura
+    // emitterCuit must match emisores.cuit PK format (with dashes)
     const invoice = await this.invoiceRepo.create({
-      emitterCuit: normalizedCuit,
+      emitterCuit: emitter.cuit,
       issueDate: data.issueDate,
       invoiceType: data.invoiceType,
       pointOfSale: data.pointOfSale,
