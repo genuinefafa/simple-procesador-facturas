@@ -84,6 +84,7 @@
   let selectedEmitter = $state<Emitter | null>(null);
   let selectedCategoryId = $state<number | null>(null);
   let emitterLoaded = $state(false);
+  let emitterCleared = $state(false); // Track if user intentionally cleared emitter
 
   // Form data
   let formData = $state({
@@ -117,6 +118,9 @@
   $effect(() => {
     const cuit = invoice.cuit;
     const name = invoice.emitterName;
+
+    // Si el usuario limpió el emisor intencionalmente, no volver a cargarlo
+    if (emitterCleared) return;
 
     // Si ya tenemos el emisor cargado para este CUIT, no volver a cargar
     if (emitterLoaded && selectedEmitter?.cuit === cuit) return;
@@ -157,6 +161,7 @@
       oncancel();
     } else {
       editMode = false;
+      emitterCleared = false; // Reset so emitter reloads from invoice data
       // Los valores se resetean automáticamente por el $effect
     }
   }
@@ -235,6 +240,11 @@
               selectedEmitter = emitter;
               if (emitter) {
                 formData.cuit = emitter.cuit;
+                emitterCleared = false;
+              } else {
+                // User cleared the emitter - mark it so $effect doesn't reload
+                emitterCleared = true;
+                formData.cuit = '';
               }
             }}
           />
