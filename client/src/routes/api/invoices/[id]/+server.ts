@@ -9,53 +9,7 @@ import { EmitterRepository } from '@server/database/repositories/emitter.js';
 import { FileRepository } from '@server/database/repositories/file.js';
 import { ZoneAnnotationRepository } from '@server/database/repositories/zone-annotation.js';
 import { CategoryRepository } from '@server/database/repositories/category.js';
-import { generateProcessedFilename, generateSubdirectory } from '@server/utils/file-naming.js';
-import { join, dirname } from 'path';
-import { copyFile, mkdir } from 'fs/promises';
-import { existsSync, readdirSync, statSync } from 'fs';
-
-const FINALIZED_DIR = join(process.cwd(), '..', 'data', 'finalized');
-
-/**
- * Busca un archivo en el filesystem basándose en CUIT y número de factura
- * Útil cuando la fecha o categoría cambió y el nombre ya no coincide
- */
-async function findFileByInvoiceData(
-  cuit: string,
-  tipo: number,
-  pv: number,
-  num: number
-): Promise<string | null> {
-  try {
-    const cuitNumeric = cuit.replace(/\D/g, '');
-    const pvFormatted = String(pv).padStart(5, '0');
-    const numFormatted = String(num).padStart(8, '0');
-
-    // Buscar archivos que contengan estos identificadores
-    const subdirs = readdirSync(FINALIZED_DIR).filter((item) => {
-      const itemPath = join(FINALIZED_DIR, item);
-      return statSync(itemPath).isDirectory();
-    });
-
-    for (const subdir of subdirs) {
-      const subdirPath = join(FINALIZED_DIR, subdir);
-      const files = readdirSync(subdirPath);
-
-      for (const file of files) {
-        // Buscar archivo que contenga CUIT y número de factura
-        if (file.includes(cuitNumeric) && file.includes(`${pvFormatted}-${numFormatted}`)) {
-          const candidatePath = join(subdirPath, file);
-          console.log(`[FIND-FILE] Encontrado por CUIT/número en ${subdir}: ${file}`);
-          return candidatePath;
-        }
-      }
-    }
-  } catch (err) {
-    console.error('[FIND-FILE] Error:', err);
-  }
-
-  return null;
-}
+import { InvoiceFileService } from '@server/services/invoice-file.service.js';
 
 export const GET: RequestHandler = async ({ params }) => {
   try {
@@ -252,91 +206,32 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     const final = await invoiceRepo.findById(invoiceId);
 
     // Si se cambió algo que afecta el nombre del archivo, renombrarlo/moverlo
-    const shouldRenameFile =
-      updates.emitterCuit ||
-      updates.invoiceType ||
-      updates.pointOfSale !== undefined ||
-      updates.invoiceNumber !== undefined ||
-      updates.issueDate ||
-      updates.categoryId !== undefined;
+    const fileService = new InvoiceFileService();
 
-    if (shouldRenameFile && final) {
+    if (fileService.shouldRenameFile(updates) && final && final.fileId) {
       try {
         const emitterRepo = new EmitterRepository();
-        const categoryRepo = new CategoryRepository();
-        const fileRepo = new FileRepository();
-
         const emitter = await emitterRepo.findByCUIT(final.emitterCuit);
+
         if (!emitter) {
           console.warn(`[PATCH] Emisor no encontrado: ${final.emitterCuit}`);
-        } else if (!final.fileId) {
-          console.warn(`[PATCH] Factura sin fileId, no se puede renombrar archivo`);
         } else {
-          const file = fileRepo.findById(final.fileId);
-          if (!file) {
-            console.warn(`[PATCH] File no encontrado: ${final.fileId}`);
-          } else {
-            // Obtener categoryKey si tiene categoría
-            let categoryKey: string | null = null;
-            if (final.categoryId) {
-              const category = await categoryRepo.findById(final.categoryId);
-              categoryKey = category?.key || null;
-            }
+          const result = await fileService.renameWithCategoryResolution(
+            final.fileId,
+            {
+              emitterCuit: final.emitterCuit,
+              invoiceType: final.invoiceType,
+              pointOfSale: final.pointOfSale,
+              invoiceNumber: final.invoiceNumber,
+              issueDate: final.issueDate,
+              fileId: final.fileId,
+            },
+            emitter,
+            final.categoryId
+          );
 
-            // Generar nuevo nombre y ruta
-            const issueDate = new Date(final.issueDate);
-            const subdir = generateSubdirectory(issueDate);
-            const newFileName = generateProcessedFilename(
-              issueDate,
-              emitter,
-              final.invoiceType,
-              final.pointOfSale,
-              final.invoiceNumber,
-              file.originalFilename,
-              categoryKey
-            );
-
-            const newPath = join(FINALIZED_DIR, subdir, newFileName);
-            const newRelativePath = `finalized/${subdir}/${newFileName}`;
-            const DATA_DIR = join(process.cwd(), '..', 'data');
-
-            // Buscar archivo actual usando storagePath
-            let actualOldPath: string | null = null;
-            const absoluteStoragePath = join(DATA_DIR, file.storagePath);
-            if (existsSync(absoluteStoragePath)) {
-              actualOldPath = absoluteStoragePath;
-            } else if (final.invoiceType !== null) {
-              actualOldPath = await findFileByInvoiceData(
-                final.emitterCuit,
-                final.invoiceType,
-                final.pointOfSale,
-                final.invoiceNumber
-              );
-            }
-
-            if (actualOldPath && actualOldPath !== newPath) {
-              // Crear directorio destino si no existe
-              await mkdir(dirname(newPath), { recursive: true });
-
-              // Si el archivo ya está en finalized/, MOVER (rename)
-              // Si viene de uploaded/input, COPIAR (preserve original)
-              const isInFinalized = actualOldPath.includes('/finalized/');
-
-              if (isInFinalized) {
-                const { rename } = await import('fs/promises');
-                await rename(actualOldPath, newPath);
-                console.log(`[PATCH] ✅ Archivo movido (rename): ${actualOldPath} -> ${newPath}`);
-              } else {
-                await copyFile(actualOldPath, newPath);
-                console.log(
-                  `[PATCH] ✅ Archivo copiado (desde uploaded): ${actualOldPath} -> ${newPath}`
-                );
-              }
-
-              // Actualizar storagePath en files
-              fileRepo.updatePath(final.fileId, newRelativePath);
-              console.log(`[PATCH] ✅ storagePath actualizado: ${newRelativePath}`);
-            }
+          if (!result.success) {
+            console.warn(`[PATCH] No se pudo renombrar archivo: ${result.error}`);
           }
         }
       } catch (err) {
