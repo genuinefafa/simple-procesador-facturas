@@ -158,6 +158,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
     const body: unknown = await request.json();
     const updates = body as Partial<{
+      emitterCuit: string;
       invoiceType: string;
       pointOfSale: number;
       invoiceNumber: number;
@@ -177,6 +178,19 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
     // Preparar datos para actualización
     const updateData: Record<string, any> = {};
+
+    if (updates.emitterCuit) {
+      // Validar que el emisor existe
+      const emitterRepo = new EmitterRepository();
+      const emitter = await emitterRepo.findByCUIT(updates.emitterCuit);
+      if (!emitter) {
+        return json(
+          { success: false, error: `Emisor con CUIT ${updates.emitterCuit} no encontrado` },
+          { status: 400 }
+        );
+      }
+      updateData.cuitEmisor = emitter.cuit; // Usar formato normalizado del emisor
+    }
 
     if (updates.invoiceType) {
       updateData.tipoComprobante = updates.invoiceType;
@@ -239,10 +253,12 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
     // Si se cambió algo que afecta el nombre del archivo, renombrarlo/moverlo
     const shouldRenameFile =
+      updates.emitterCuit ||
       updates.invoiceType ||
       updates.pointOfSale !== undefined ||
       updates.invoiceNumber !== undefined ||
-      updates.issueDate;
+      updates.issueDate ||
+      updates.categoryId !== undefined;
 
     if (shouldRenameFile && final) {
       try {

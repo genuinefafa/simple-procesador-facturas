@@ -79,13 +79,12 @@
 
   const isCreateMode = $derived(mode === 'create');
 
-  // Estado de edición - en modo create siempre empieza activo
-  let editMode = $state(false);
+  // Estado de edición
+  let editMode = $state(mode === 'create');
   let selectedEmitter = $state<Emitter | null>(null);
   let selectedCategoryId = $state<number | null>(null);
-  let emitterLoaded = $state(false);
 
-  // Form data
+  // Form data - estado local del formulario
   let formData = $state({
     cuit: '',
     invoiceType: null as number | null,
@@ -96,53 +95,43 @@
   });
 
   // Convertir fecha ISO a formato input date (YYYY-MM-DD)
-  // Importante: las fechas vienen como ISO string y hay que extraer solo la parte de fecha
   function toInputDate(dateStr: string | null | undefined): string {
     if (!dateStr) return '';
-    // Si ya está en formato YYYY-MM-DD, retornar tal cual
     if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return dateStr;
-    // Si es ISO con timezone, extraer solo la fecha
     const match = dateStr.match(/^(\d{4}-\d{2}-\d{2})/);
     return match ? match[1] : '';
   }
 
-  // Inicializar en modo edición si es create
+  // Crear objeto Emitter desde los datos de la factura
+  function emitterFromInvoice(): Emitter | null {
+    if (!invoice.cuit) return null;
+    return {
+      name: invoice.emitterName || invoice.cuit,
+      displayName: invoice.emitterName || invoice.cuit,
+      cuit: invoice.cuit,
+      cuitNumeric: invoice.cuit.replace(/\D/g, ''),
+    };
+  }
+
+  // Resetear formulario a los datos de la factura
+  function resetToInvoiceData() {
+    formData.cuit = invoice.cuit || '';
+    formData.invoiceType = invoice.invoiceType;
+    formData.pointOfSale = invoice.pointOfSale;
+    formData.invoiceNumber = invoice.invoiceNumber;
+    formData.issueDate = toInputDate(invoice.issueDate);
+    formData.total = invoice.total ?? null;
+    selectedCategoryId = invoice.categoryId ?? null;
+    selectedEmitter = emitterFromInvoice();
+  }
+
+  // Inicializar al montar y cuando cambian los props de invoice
   $effect(() => {
-    if (isCreateMode && !editMode) {
-      editMode = true;
-    }
-  });
-
-  // Cargar emisor desde CUIT cuando se monta o cambia la factura
-  $effect(() => {
-    const cuit = invoice.cuit;
-    const name = invoice.emitterName;
-
-    // Si ya tenemos el emisor cargado para este CUIT, no volver a cargar
-    if (emitterLoaded && selectedEmitter?.cuit === cuit) return;
-
-    if (cuit) {
-      // Crear un emisor temporal con los datos que tenemos
-      selectedEmitter = {
-        name: name || cuit,
-        displayName: name || cuit,
-        cuit: cuit,
-        cuitNumeric: cuit.replace(/\D/g, ''),
-      };
-      emitterLoaded = true;
-    }
-  });
-
-  // Sincronizar con props cuando cambia la factura o sale de edición
-  $effect(() => {
-    if (!editMode || isCreateMode) {
-      formData.cuit = invoice.cuit || '';
-      formData.invoiceType = invoice.invoiceType;
-      formData.pointOfSale = invoice.pointOfSale;
-      formData.invoiceNumber = invoice.invoiceNumber;
-      formData.issueDate = toInputDate(invoice.issueDate);
-      formData.total = invoice.total ?? null;
-      selectedCategoryId = invoice.categoryId ?? null;
+    // Leer invoice para trackear cambios (después de invalidateAll)
+    const _ = invoice.cuit;
+    // Solo resetear si no estamos editando
+    if (!editMode) {
+      resetToInvoiceData();
     }
   });
 
@@ -157,7 +146,7 @@
       oncancel();
     } else {
       editMode = false;
-      // Los valores se resetean automáticamente por el $effect
+      resetToInvoiceData(); // Restaurar datos originales
     }
   }
 
@@ -233,9 +222,7 @@
             value={selectedEmitter}
             onselect={(emitter) => {
               selectedEmitter = emitter;
-              if (emitter) {
-                formData.cuit = emitter.cuit;
-              }
+              formData.cuit = emitter?.cuit || '';
             }}
           />
         </div>
