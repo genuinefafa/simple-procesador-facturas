@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   validateCUIT,
   normalizeCUIT,
+  formatCUIT,
   extractCUITFromText,
   getPersonType,
 } from '../../../validators/cuit';
@@ -62,17 +63,18 @@ describe('validateCUIT', () => {
 });
 
 describe('normalizeCUIT', () => {
-  it('debe normalizar CUIT sin guiones', () => {
-    expect(normalizeCUIT('30710578296')).toBe('30-71057829-6');
-    expect(normalizeCUIT('20123456786')).toBe('20-12345678-6');
+  it('debe retornar formato canónico (11 dígitos sin guiones)', () => {
+    expect(normalizeCUIT('30710578296')).toBe('30710578296');
+    expect(normalizeCUIT('20123456786')).toBe('20123456786');
   });
 
-  it('debe mantener CUIT ya normalizado', () => {
-    expect(normalizeCUIT('30-71057829-6')).toBe('30-71057829-6');
+  it('debe normalizar CUIT con guiones al formato canónico', () => {
+    expect(normalizeCUIT('30-71057829-6')).toBe('30710578296');
+    expect(normalizeCUIT('20-12345678-6')).toBe('20123456786');
   });
 
   it('debe normalizar CUIT con espacios', () => {
-    expect(normalizeCUIT('30 71057829 6')).toBe('30-71057829-6');
+    expect(normalizeCUIT('30 71057829 6')).toBe('30710578296');
   });
 
   it('debe lanzar error para CUIT inválido por longitud', () => {
@@ -89,37 +91,56 @@ describe('normalizeCUIT', () => {
   });
 });
 
+describe('formatCUIT', () => {
+  it('debe formatear CUIT canónico con guiones', () => {
+    expect(formatCUIT('30710578296')).toBe('30-71057829-6');
+    expect(formatCUIT('20123456786')).toBe('20-12345678-6');
+  });
+
+  it('debe mantener CUIT ya formateado', () => {
+    expect(formatCUIT('30-71057829-6')).toBe('30-71057829-6');
+  });
+
+  it('debe formatear CUIT con espacios', () => {
+    expect(formatCUIT('30 71057829 6')).toBe('30-71057829-6');
+  });
+
+  it('debe lanzar error para CUIT inválido por longitud', () => {
+    expect(() => formatCUIT('123')).toThrow('CUIT inválido');
+  });
+});
+
 describe('extractCUITFromText', () => {
-  it('debe extraer CUIT de texto simple', () => {
+  it('debe extraer CUIT de texto simple en formato canónico', () => {
     const text = 'CUIT: 30-71057829-6';
     const result = extractCUITFromText(text);
-    expect(result).toEqual(['30-71057829-6']);
+    expect(result).toEqual(['30710578296']);
   });
 
   it('debe extraer CUIT sin etiqueta', () => {
     const text = 'El número es 30-71057829-6 y es válido';
     const result = extractCUITFromText(text);
-    expect(result).toEqual(['30-71057829-6']);
+    expect(result).toEqual(['30710578296']);
   });
 
   it('debe extraer CUIT sin guiones', () => {
     const text = 'CUIT 30710578296';
     const result = extractCUITFromText(text);
-    expect(result).toEqual(['30-71057829-6']);
+    expect(result).toEqual(['30710578296']);
   });
 
   it('debe extraer múltiples CUITs', () => {
     const text = 'Emisor: 30-71057829-6 y Receptor: 20-12345678-6';
     const result = extractCUITFromText(text);
     expect(result).toHaveLength(2);
-    expect(result).toContain('30-71057829-6');
-    expect(result).toContain('20-12345678-6');
+    expect(result).toContain('30710578296');
+    expect(result).toContain('20123456786');
   });
 
   it('debe ignorar CUITs inválidos', () => {
     const text = 'CUIT válido: 30-71057829-6 e inválido: 30-71057829-5';
     const result = extractCUITFromText(text);
-    expect(result).toEqual(['30-71057829-6']);
+    expect(result).toEqual(['30710578296']);
   });
 
   it('debe retornar array vacío si no hay CUITs', () => {
@@ -136,14 +157,14 @@ describe('extractCUITFromText', () => {
       Fecha: 12/11/2025
     `;
     const result = extractCUITFromText(text);
-    expect(result).toEqual(['30-71057829-6']);
+    expect(result).toEqual(['30710578296']);
   });
 
   it('no debe duplicar CUITs', () => {
     const text = 'CUIT: 30-71057829-6 y nuevamente 30-71057829-6';
     const result = extractCUITFromText(text);
     expect(result).toHaveLength(1);
-    expect(result).toEqual(['30-71057829-6']);
+    expect(result).toEqual(['30710578296']);
   });
 });
 
