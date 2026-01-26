@@ -511,7 +511,7 @@
       <span>Fecha</span>
       <span class="align-right">Total</span>
       <span>Categoría</span>
-      <span>Tipo / Estado</span>
+      <span>Estado</span>
       <span>Hash</span>
       <span></span>
     </div>
@@ -590,17 +590,6 @@
         </span>
         <span class="col-type-status">
           <CompletenessIndicator comprobante={comp} />
-          {#if comp.final}
-            <span class="tag ok">Factura</span>
-          {:else if comp.expected}
-            <span class="tag warn">Esperada</span>
-            {#if comp.expected.status}
-              <span class="tag info">{comp.expected.status}</span>
-            {/if}
-          {:else if comp.file}
-            <span class="tag neutral">Pendiente</span>
-            <span class="tag info">{formatFileStatus(comp.file.status)}</span>
-          {/if}
         </span>
         <span class="col-hash"
           >{comp.final?.fileHash || comp.file?.fileHash
@@ -740,7 +729,7 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 180px 300px 85px 120px 90px 220px 60px 60px;
+    grid-template-columns: 180px 300px 85px 120px 90px 80px 60px 60px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
