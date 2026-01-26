@@ -350,10 +350,7 @@ export class ExpectedInvoiceRepository {
         emisorNombre: emisores.nombre,
       })
       .from(expectedInvoices)
-      .leftJoin(
-        emisores,
-        sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
-      );
+      .leftJoin(emisores, eq(expectedInvoices.cuit, emisores.cuit));
 
     if (whereClause) {
       query = db
@@ -362,10 +359,7 @@ export class ExpectedInvoiceRepository {
           emisorNombre: emisores.nombre,
         })
         .from(expectedInvoices)
-        .leftJoin(
-          emisores,
-          sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
-        )
+        .leftJoin(emisores, eq(expectedInvoices.cuit, emisores.cuit))
         .where(whereClause) as typeof query;
     }
 
@@ -409,8 +403,7 @@ export class ExpectedInvoiceRepository {
     const cuitDigits = cuit.replace(/\D/g, '');
 
     const conditions: SQL[] = [
-      // Compare CUITs by stripping non-digits from both sides
-      sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${cuitDigits}`,
+      eq(expectedInvoices.cuit, cuitDigits),
       eq(expectedInvoices.pointOfSale, pointOfSale),
       eq(expectedInvoices.invoiceNumber, invoiceNumber),
       eq(expectedInvoices.status, 'pending'),
@@ -688,10 +681,7 @@ export class ExpectedInvoiceRepository {
           emisorNombre: emisores.nombre,
         })
         .from(expectedInvoices)
-        .leftJoin(
-          emisores,
-          sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
-        )
+        .leftJoin(emisores, eq(expectedInvoices.cuit, emisores.cuit))
         .where(and(...conditions));
     } else {
       query = await db
@@ -700,10 +690,7 @@ export class ExpectedInvoiceRepository {
           emisorNombre: emisores.nombre,
         })
         .from(expectedInvoices)
-        .leftJoin(
-          emisores,
-          sql`REPLACE(REPLACE(${expectedInvoices.cuit}, '-', ''), ' ', '') = ${emisores.cuitNumerico}`
-        );
+        .leftJoin(emisores, eq(expectedInvoices.cuit, emisores.cuit));
     }
 
     // Sort

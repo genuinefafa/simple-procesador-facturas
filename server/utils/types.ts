@@ -38,8 +38,7 @@ export type DocumentKind = 'FAC' | 'NCR' | 'NDB';
  * Emisor de facturas
  */
 export interface Emitter {
-  cuit: string; // Formato: XX-XXXXXXXX-X
-  cuitNumeric: string; // Sin guiones
+  cuit: string; // Formato canónico: 11 dígitos sin guiones
   name: string; // Nombre normalizado desde ARCA
   displayName: string; // Nombre más corto para mostrar (calculado automáticamente)
   legalName?: string; // Razón social completa
