@@ -5,6 +5,8 @@
    * Soporta dos modos:
    * - 'view': Para facturas existentes. Click en campos activa edición.
    * - 'create': Para crear nueva factura. Empieza en modo edición.
+   *
+   * Types are segregated in InvoiceCard.types.ts following Interface Segregation Principle.
    */
 
   import Button from './ui/Button.svelte';
@@ -12,34 +14,10 @@
   import EmitterCombobox from './EmitterCombobox.svelte';
   import InvoiceTypeSelect from './InvoiceTypeSelect.svelte';
   import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
+  import type { Emitter, Category, InvoiceData, InvoiceSaveData } from './InvoiceCard.types';
 
-  type Emitter = {
-    id?: number;
-    name: string;
-    displayName: string;
-    cuit: string;
-    cuitNumeric?: string;
-    legalName?: string;
-    aliases?: string[];
-  };
-
-  type Category = {
-    id: number;
-    key: string;
-    description: string;
-  };
-
-  type InvoiceData = {
-    id?: number;
-    cuit: string;
-    emitterName?: string | null;
-    issueDate: string | null;
-    invoiceType: number | null;
-    pointOfSale: number | null;
-    invoiceNumber: number | null;
-    total?: number | null;
-    categoryId?: number | null;
-  };
+  // Re-export types for consumers
+  export type { Emitter, Category, InvoiceData, InvoiceSaveData } from './InvoiceCard.types';
 
   type Props = {
     /** Datos de la factura (parciales en modo create) */
@@ -49,16 +27,7 @@
     /** Modo: 'view' para editar existente, 'create' para nueva */
     mode?: 'view' | 'create';
     /** Callback para guardar cambios */
-    onsave?: (data: {
-      cuit: string;
-      invoiceType: number | null;
-      pointOfSale: number | null;
-      invoiceNumber: number | null;
-      issueDate: string;
-      total: number | null;
-      categoryId: number | null;
-      emitterId?: number;
-    }) => void;
+    onsave?: (data: InvoiceSaveData) => void;
     /** Callback para cancelar (solo en modo create) */
     oncancel?: () => void;
     /** Callback para eliminar (solo en modo view) */
