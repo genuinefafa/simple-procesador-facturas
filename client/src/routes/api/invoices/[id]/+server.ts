@@ -10,6 +10,7 @@ import { FileRepository } from '@server/database/repositories/file.js';
 import { ZoneAnnotationRepository } from '@server/database/repositories/zone-annotation.js';
 import { CategoryRepository } from '@server/database/repositories/category.js';
 import { InvoiceFileService } from '@server/services/invoice-file.service.js';
+import { InvoicePatchSchema, formatZodError } from '@server/contracts/index.js';
 
 export const GET: RequestHandler = async ({ params }) => {
   try {
@@ -111,16 +112,14 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     }
 
     const body: unknown = await request.json();
-    const updates = body as Partial<{
-      emitterCuit: string;
-      invoiceType: string;
-      pointOfSale: number;
-      invoiceNumber: number;
-      total: number;
-      issueDate: string;
-      expectedInvoiceId: number | null;
-      categoryId: number | null;
-    }>;
+
+    // Validate with Zod schema
+    const parseResult = InvoicePatchSchema.safeParse(body);
+    if (!parseResult.success) {
+      return json(formatZodError(parseResult.error), { status: 400 });
+    }
+
+    const updates = parseResult.data;
 
     const invoiceRepo = new InvoiceRepository();
 
@@ -188,9 +187,7 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       updateData.comprobanteCompleto = fullNumber;
     }
 
-    if (Object.keys(updateData).length === 0) {
-      return json({ success: false, error: 'No hay campos para actualizar' }, { status: 400 });
-    }
+    // Note: Zod schema already validates at least one field is provided
 
     // Actualizar en la base de datos
     const updated = await invoiceRepo.update(invoiceId, updateData);
@@ -208,7 +205,17 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     // Si se cambió algo que afecta el nombre del archivo, renombrarlo/moverlo
     const fileService = new InvoiceFileService();
 
-    if (fileService.shouldRenameFile(updates) && final && final.fileId) {
+    // Convert Zod output to InvoiceUpdateFields (filter out undefined values)
+    const renameCheckFields = {
+      emitterCuit: updates.emitterCuit,
+      invoiceType: updates.invoiceType ?? undefined,
+      pointOfSale: updates.pointOfSale ?? undefined,
+      invoiceNumber: updates.invoiceNumber ?? undefined,
+      issueDate: updates.issueDate ?? undefined,
+      categoryId: updates.categoryId,
+    };
+
+    if (fileService.shouldRenameFile(renameCheckFields) && final && final.fileId) {
       try {
         const emitterRepo = new EmitterRepository();
         const emitter = await emitterRepo.findByCUIT(final.emitterCuit);
