@@ -1,4 +1,11 @@
 <script lang="ts">
+  /**
+   * Navigation bar for comprobante detail view.
+   *
+   * Supports dependency injection for navigation callbacks (Dependency Inversion Principle).
+   * If callbacks are not provided, uses default SvelteKit navigation.
+   */
+
   import { goto } from '$app/navigation';
   import { navigationStore } from '$lib/stores/navigation';
 
@@ -13,9 +20,26 @@
     emitterName?: string;
     /** CUIT del emisor (se muestra al lado del nombre) */
     cuit?: string;
+    /**
+     * Optional callback for navigation. If provided, component delegates navigation to parent.
+     * Receives the target ID (or null for list view).
+     * If not provided, uses default goto('/comprobantes/...')
+     */
+    onnavigate?: (targetId: string | null) => void;
   };
 
-  let { currentId, title, date, emitterName, cuit }: Props = $props();
+  let { currentId, title, date, emitterName, cuit, onnavigate }: Props = $props();
+
+  // Internal navigation helper - uses callback if provided, otherwise default goto
+  function navigate(targetId: string | null) {
+    if (onnavigate) {
+      onnavigate(targetId);
+    } else if (targetId === null) {
+      goto('/comprobantes');
+    } else {
+      goto(`/comprobantes/${targetId}`);
+    }
+  }
 
   // Derivar navegación reactivamente cuando cambia currentId
   const nav = $derived.by(() => {
@@ -34,18 +58,18 @@
 
   function goToPrevious() {
     if (nav.previous) {
-      goto(`/comprobantes/${nav.previous}`);
+      navigate(nav.previous);
     }
   }
 
   function goToNext() {
     if (nav.next) {
-      goto(`/comprobantes/${nav.next}`);
+      navigate(nav.next);
     }
   }
 
   function goToList() {
-    goto('/comprobantes');
+    navigate(null);
   }
 
   // Keyboard shortcuts - usar $effect para que se actualice cuando cambia nav
@@ -67,16 +91,16 @@
       if (e.key === 'ArrowLeft' || e.key === 'j') {
         if (previous) {
           e.preventDefault();
-          goto(`/comprobantes/${previous}`);
+          navigate(previous);
         }
       } else if (e.key === 'ArrowRight' || e.key === 'k') {
         if (next) {
           e.preventDefault();
-          goto(`/comprobantes/${next}`);
+          navigate(next);
         }
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        goToList();
+        navigate(null);
       }
     }
 
