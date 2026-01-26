@@ -76,7 +76,7 @@ function calculateVerificationDigit(baseCUIT: string): number {
 
 /**
  * Normaliza un CUIT al formato canónico: 11 dígitos sin guiones.
- * Este es el formato que se almacena en la base de datos.
+ * Este es el formato estándar para almacenamiento y comparaciones.
  *
  * @param cuit - CUIT en cualquier formato (con o sin guiones)
  * @returns CUIT normalizado: 11 dígitos sin guiones

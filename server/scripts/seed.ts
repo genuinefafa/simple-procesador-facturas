@@ -277,8 +277,8 @@ function seedEmisores() {
 
   const insertEmitter = db.prepare(`
     INSERT OR IGNORE INTO emisores (
-      cuit, cuit_numerico, nombre, razon_social, template_preferido_id, tipo_persona
-    ) VALUES (?, ?, ?, ?, ?, ?)
+      cuit, nombre, razon_social, template_preferido_id, tipo_persona
+    ) VALUES (?, ?, ?, ?, ?)
   `);
 
   let insertados = 0;
@@ -290,7 +290,6 @@ function seedEmisores() {
   const raw = readFileSync(emisoresPath, 'utf-8');
   const emisores = JSON.parse(raw) as Array<{
     cuit: string;
-    cuit_numerico: string;
     nombre: string;
     razon_social: string;
     template_preferido_id: number;
@@ -298,9 +297,10 @@ function seedEmisores() {
   }>;
 
   for (const e of emisores) {
+    // Normalizar CUIT a formato canónico (sin guiones)
+    const normalizedCuit = e.cuit.replace(/[-\s]/g, '');
     const res = insertEmitter.run(
-      e.cuit,
-      e.cuit_numerico,
+      normalizedCuit,
       e.nombre,
       e.razon_social,
       e.template_preferido_id,

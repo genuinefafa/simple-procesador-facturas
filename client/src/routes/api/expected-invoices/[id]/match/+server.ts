@@ -76,12 +76,10 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     if (!emitter) {
       console.info(`   ➕ Creando nuevo emisor: ${expected.cuit}`);
-      const cuitNumeric = expected.cuit.replace(/-/g, '');
       const personType = getPersonType(expected.cuit);
 
-      emitter = await emitterRepo.create({
-        cuit: expected.cuit,
-        cuitNumeric: cuitNumeric,
+      emitter = emitterRepo.create({
+        cuit: expected.cuit, // Ya viene normalizado de expected_invoices
         name: expected.emitterName || `Emisor ${expected.cuit}`,
         aliases: [],
         personType: personType || undefined,

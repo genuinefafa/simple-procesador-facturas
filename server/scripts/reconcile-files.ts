@@ -305,7 +305,6 @@ async function main() {
             // Construir objeto Emitter para usar generateProcessedFilename
             const emitter: Emitter = {
               cuit: emisorData.cuit,
-              cuitNumeric: emisorData.cuitNumerico,
               name: emisorData.nombre,
               displayName: emisorData.nombre,
               legalName: emisorData.razonSocial ?? undefined,

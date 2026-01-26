@@ -253,15 +253,16 @@ export class GoogleIntegrationService {
       throw new Error('Google integration not initialized');
     }
 
+    // Normalizar CUIT
+    const normalizedCuit = cuit.replace(/[-\s]/g, '');
+
     // Buscar emisor existente
-    let emisor = await this.sheetsService.getEmisorByCuit(cuit);
+    let emisor = await this.sheetsService.getEmisorByCuit(normalizedCuit);
 
     if (!emisor) {
       // Crear nuevo emisor
-      const cuitNumerico = cuit.replace(/-/g, '');
       emisor = {
-        cuit,
-        cuitNumerico,
+        cuit: normalizedCuit,
         nombre: nombre || '',
         razonSocial: nombre || '',
         aliases: '[]',
@@ -273,7 +274,7 @@ export class GoogleIntegrationService {
       };
 
       await this.sheetsService.addEmisor(emisor);
-      console.info(`✅ Emisor creado: ${cuit}`);
+      console.info(`✅ Emisor creado: ${normalizedCuit}`);
     }
 
     return emisor;

@@ -161,10 +161,8 @@ export class GoogleSyncService {
 
           if (!existing) {
             // No existe localmente, crearlo
-            const cuitNumeric = googleEmisor.cuit.replace(/-/g, '');
             this.emitterRepo.create({
               cuit: googleEmisor.cuit,
-              cuitNumeric,
               name: googleEmisor.nombre,
               aliases: [],
             });
@@ -308,10 +306,8 @@ export class GoogleSyncService {
             // Crear emisor si no existe
             let emisor = this.emitterRepo.findByCUIT(googleInvoice.emisorCuit);
             if (!emisor) {
-              const cuitNumeric = googleInvoice.emisorCuit.replace(/-/g, '');
               emisor = this.emitterRepo.create({
                 cuit: googleInvoice.emisorCuit,
-                cuitNumeric,
                 name: `Emisor ${googleInvoice.emisorCuit}`,
                 aliases: [],
               });

@@ -67,8 +67,7 @@ export { templatesExtraccion };
 const emisores = sqliteTable(
   'emisores',
   {
-    cuit: text('cuit').primaryKey(), // Formato: XX-XXXXXXXX-X
-    cuitNumerico: text('cuit_numerico').notNull().unique(), // Sin guiones
+    cuit: text('cuit').primaryKey(), // Formato canónico: 11 dígitos sin guiones
     nombre: text('nombre').notNull(),
     razonSocial: text('razon_social'),
     aliases: text('aliases'), // JSON array
@@ -81,14 +80,11 @@ const emisores = sqliteTable(
     // Metadata
     tipoPersona: text('tipo_persona', { enum: ['FISICA', 'JURIDICA'] }),
     activo: integer('activo', { mode: 'boolean' }).default(true),
-    // NOTA: primera_factura_fecha, ultima_factura_fecha, total_facturas eliminados
-    // en migración 0016 - se calculan dinámicamente desde facturas/expected
     createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
   },
   (table) => ({
     nombreIdx: index('idx_emisores_nombre').on(table.nombre),
-    cuitNumIdx: index('idx_emisores_cuit_num').on(table.cuitNumerico),
     templateIdx: index('idx_emisores_template').on(table.templatePreferidoId),
   })
 );

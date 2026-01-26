@@ -1,12 +1,12 @@
 <script lang="ts">
   import { Combobox as ComboboxBuilder } from 'melt/builders';
+  import { formatCuit } from '$lib/formatters';
 
   type Emitter = {
     id?: number;
     name: string;
     displayName: string;
     cuit: string;
-    cuitNumeric?: string;
   };
 
   type Props = {
@@ -61,10 +61,6 @@
     items = [];
     onselect?.(null);
   }
-
-  function formatCuitPlain(cuit: string): string {
-    return cuit.replace(/-/g, '');
-  }
 </script>
 
 <div class="emitter-combobox">
@@ -75,7 +71,7 @@
     <div class="selected-chip">
       <div class="chip-content">
         <strong>{selectedEmitter.name}</strong>
-        <span class="cuit-hint">{formatCuitPlain(selectedEmitter.cuit)}</span>
+        <span class="cuit-hint">{formatCuit(selectedEmitter.cuit)}</span>
       </div>
       {#if !disabled}
         <button
@@ -115,7 +111,7 @@
           class="combobox-listbox"
           role="listbox"
         >
-          {#each items as emitter (emitter.cuitNumeric)}
+          {#each items as emitter (emitter.cuit)}
             <button
               type="button"
               {...combobox.getOption(emitter)}
@@ -126,7 +122,7 @@
             >
               <div class="item-content">
                 <strong>{emitter.name}</strong>
-                <span class="cuit-hint">{formatCuitPlain(emitter.cuit)}</span>
+                <span class="cuit-hint">{formatCuit(emitter.cuit)}</span>
               </div>
             </button>
           {/each}
