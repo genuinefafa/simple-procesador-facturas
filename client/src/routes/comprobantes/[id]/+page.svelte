@@ -9,7 +9,7 @@
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
   import { invalidateAll, goto } from '$app/navigation';
-  import { formatDateTime, formatDateShort, getFriendlyType } from '$lib/formatters';
+  import { formatDateTime, formatDateShort, getFriendlyType, formatCuit } from '$lib/formatters';
   import { createInvoiceForm } from '$lib/stores/createInvoiceForm.svelte';
   import { createEmitterResolver } from '$lib/stores/emitterResolver.svelte';
   import { createDeleteHandler } from '$lib/stores/deleteInvoice.svelte';
@@ -76,14 +76,9 @@
     return null;
   });
 
-  // File enriquecido con nombre del emisor (si está disponible)
-  const enrichedFile = $derived.by(() => {
-    if (!comprobante.file) return null;
-    return {
-      ...comprobante.file,
-      emitterName: comprobante.emitterName || null,
-    };
-  });
+  // File para SourceComparison (solo datos de extracción)
+  // El emitterName ya no se pasa - SourceComparison resuelve via EmitterService
+  const enrichedFile = $derived(comprobante.file ?? null);
 
   // Sincronizar facturaData con comprobante cuando cambie
   $effect(() => {
@@ -258,14 +253,8 @@
   const navCuit = $derived.by(() => {
     const cuit = comprobante.final?.cuit || comprobante.expected?.cuit;
     if (!cuit) return undefined;
-    // Si ya tiene guiones, devolver tal cual
-    if (cuit.includes('-')) return cuit;
-    // Si es numérico puro, formatear XX-XXXXXXXX-X
-    const clean = cuit.replace(/\D/g, '');
-    if (clean.length === 11) {
-      return `${clean.slice(0, 2)}-${clean.slice(2, 10)}-${clean.slice(10)}`;
-    }
-    return cuit;
+    const formatted = formatCuit(cuit);
+    return formatted === '—' ? undefined : formatted;
   });
 </script>
 

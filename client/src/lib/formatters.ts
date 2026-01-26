@@ -9,7 +9,7 @@
  * @param fallback Valor alternativo si no hay CUIT
  * @returns CUIT formateado o guion
  */
-export function formatCuit(cuit?: string, fallback?: string): string {
+export function formatCuit(cuit?: string | null, fallback?: string | null): string {
   const value = cuit || fallback || '';
   const digits = value.replace(/\D/g, '');
   // Usar guión de no separación (U+2011) para evitar cortes en dos líneas

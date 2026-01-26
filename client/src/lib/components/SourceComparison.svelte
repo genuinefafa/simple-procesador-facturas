@@ -3,12 +3,16 @@
    * Comparación lado a lado de datos de archivo (OCR) vs expected.
    *
    * Diseño: compacto, campos con altura fija para alinear indicadores.
+   *
+   * Los nombres de emisor se resuelven usando EmitterService para garantizar
+   * consistencia de casing y formato entre file y expected.
    */
 
   import MatchIndicator from './MatchIndicator.svelte';
   import Button from './ui/Button.svelte';
   import Dialog from './ui/Dialog.svelte';
-  import { getFriendlyType, formatCurrency, formatDateShort } from '$lib/formatters';
+  import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
+  import { emitterService, type ResolvedEmitter } from '$lib/services/EmitterService';
 
   type ExtractionMethod = 'ocr' | 'pdf_text' | 'qr';
 
@@ -21,12 +25,14 @@
     extractedInvoiceNumber?: number | null;
     extractionConfidence?: number | null;
     extractionMethod?: string | null;
+    /** @deprecated Usar CUIT y resolver via EmitterService */
     emitterName?: string | null;
   };
 
   type ExpectedData = {
     id: number;
     cuit: string;
+    /** @deprecated Usar CUIT y resolver via EmitterService */
     emitterName?: string | null;
     issueDate: string;
     invoiceType: number | null;
@@ -62,6 +68,46 @@
 
   const hasFile = $derived(!!file);
   const hasExpected = $derived(!!expected);
+
+  // Resolved emitters (from EmitterService)
+  let fileEmitter = $state<ResolvedEmitter | null>(null);
+  let expectedEmitter = $state<ResolvedEmitter | null>(null);
+
+  // Resolve emitters when CUITs change
+  $effect(() => {
+    const cuit = file?.extractedCuit;
+    if (cuit) {
+      emitterService.resolve(cuit).then((resolved) => {
+        fileEmitter = resolved;
+      });
+    } else {
+      fileEmitter = null;
+    }
+  });
+
+  $effect(() => {
+    const cuit = expected?.cuit;
+    if (cuit) {
+      emitterService.resolve(cuit).then((resolved) => {
+        expectedEmitter = resolved;
+      });
+    } else {
+      expectedEmitter = null;
+    }
+  });
+
+  // Display names usando EmitterService.formatDisplay()
+  const fileEmitterDisplay = $derived(
+    fileEmitter
+      ? emitterService.formatDisplay(fileEmitter, file?.emitterName)
+      : file?.emitterName || '—'
+  );
+
+  const expectedEmitterDisplay = $derived(
+    expectedEmitter
+      ? emitterService.formatDisplay(expectedEmitter, expected?.emitterName)
+      : expected?.emitterName || '—'
+  );
 
   // Estado del diálogo de reprocesamiento
   let reprocessDialogOpen = $state(false);
@@ -128,13 +174,13 @@
         <div class="fields">
           <div class="field">
             <span class="field-label">Emisor</span>
-            <span class="field-value" title={file?.emitterName || ''}
-              >{truncateName(file?.emitterName)}</span
+            <span class="field-value" title={fileEmitterDisplay}
+              >{truncateName(fileEmitterDisplay)}</span
             >
           </div>
           <div class="field">
             <span class="field-label">CUIT</span>
-            <span class="field-value mono">{file?.extractedCuit || '—'}</span>
+            <span class="field-value mono">{formatCuit(file?.extractedCuit)}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
@@ -221,13 +267,13 @@
         <div class="fields">
           <div class="field">
             <span class="field-label">Emisor</span>
-            <span class="field-value" title={expected?.emitterName || ''}
-              >{truncateName(expected?.emitterName)}</span
+            <span class="field-value" title={expectedEmitterDisplay}
+              >{truncateName(expectedEmitterDisplay)}</span
             >
           </div>
           <div class="field">
             <span class="field-label">CUIT</span>
-            <span class="field-value mono">{expected?.cuit || '—'}</span>
+            <span class="field-value mono">{formatCuit(expected?.cuit)}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
