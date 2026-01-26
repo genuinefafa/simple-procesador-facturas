@@ -13,6 +13,11 @@
   import { createInvoiceForm } from '$lib/stores/createInvoiceForm.svelte';
   import { createEmitterResolver } from '$lib/stores/emitterResolver.svelte';
   import { createDeleteHandler } from '$lib/stores/deleteInvoice.svelte';
+  import {
+    comprobanteService,
+    type ExpectedInvoiceSummary,
+    type ExtractionMethod,
+  } from '$lib/services/ComprobanteService';
 
   let { data } = $props();
   let comprobante = $derived(data.comprobante);
@@ -25,19 +30,7 @@
 
   let processing = $state(false);
   let linkExpectedDialogOpen = $state(false);
-  let availableExpected = $state<
-    Array<{
-      id: number;
-      cuit: string;
-      emitterName?: string | null;
-      issueDate: string;
-      invoiceType: number | null;
-      pointOfSale: number;
-      invoiceNumber: number;
-      total?: number | null;
-      status?: string;
-    }>
-  >([]);
+  let availableExpected = $state<ExpectedInvoiceSummary[]>([]);
   let loadingExpected = $state(false);
 
   const formatHash = (hash: string | null | undefined) => {
@@ -109,81 +102,49 @@
     linkExpectedDialogOpen = true;
     loadingExpected = true;
 
-    try {
-      const response = await fetch(
-        `/api/expected-invoices?status=pending&cuit=${comprobante.final.cuit}`
-      );
-      if (response.ok) {
-        const data = await response.json();
-        availableExpected = data.invoices || [];
-      }
-    } catch (err) {
-      console.error('Error cargando expected:', err);
-      toast.error('Error al cargar facturas esperadas');
-    } finally {
-      loadingExpected = false;
+    const result = await comprobanteService.fetchPendingExpected(comprobante.final.cuit);
+    if (result.success) {
+      availableExpected = result.data || [];
+    } else {
+      toast.error(result.error || 'Error al cargar facturas esperadas');
     }
+    loadingExpected = false;
   }
 
   async function linkExpected(expectedId: number) {
     if (!comprobante.final) return;
 
     const toastId = toast.loading('Vinculando...');
+    const result = await comprobanteService.linkExpected(comprobante.final.id, expectedId);
 
-    try {
-      const response = await fetch(`/api/invoices/${comprobante.final.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ expectedInvoiceId: expectedId }),
-      });
-
-      if (response.ok) {
-        toast.success('Factura vinculada con expected', { id: toastId });
-        linkExpectedDialogOpen = false;
-        await invalidateAll();
-      } else {
-        const err = await response.json();
-        toast.error(err.error || 'Error al vincular', { id: toastId });
-      }
-    } catch {
-      toast.error('Error al vincular', { id: toastId });
+    if (result.success) {
+      toast.success('Factura vinculada con expected', { id: toastId });
+      linkExpectedDialogOpen = false;
+      await invalidateAll();
+    } else {
+      toast.error(result.error || 'Error al vincular', { id: toastId });
     }
   }
 
-  async function processPending(method?: 'ocr' | 'pdf_text' | 'qr') {
+  async function processPending(method?: ExtractionMethod) {
     if (!comprobante.file) return;
 
     processing = true;
     const methodLabel = method === 'pdf_text' ? 'PDF Text' : method === 'qr' ? 'QR' : 'OCR';
     const toastId = toast.loading(`Procesando con ${methodLabel}...`);
 
-    try {
-      const response = await fetch('/api/invoices/process', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          fileIds: [comprobante.file.id],
-          method: method || 'ocr',
-        }),
-      });
+    const result = await comprobanteService.processFile(comprobante.file.id, method || 'ocr');
 
-      const data = await response.json();
-
-      if (data.success) {
-        toast.success(
-          `Procesado con ${methodLabel}: ${data.extraction?.confidence || 0}% confianza`,
-          { id: toastId }
-        );
-        await invalidateAll();
-      } else {
-        toast.error(data.error || 'Error al procesar', { id: toastId });
-      }
-    } catch (err) {
-      toast.error('Error al procesar archivo', { id: toastId });
-      console.error('Error:', err);
-    } finally {
-      processing = false;
+    if (result.success) {
+      toast.success(
+        `Procesado con ${methodLabel}: ${result.extraction?.confidence || 0}% confianza`,
+        { id: toastId }
+      );
+      await invalidateAll();
+    } else {
+      toast.error(result.error || 'Error al procesar', { id: toastId });
     }
+    processing = false;
   }
 
   // Obtener ruta del archivo para preview
@@ -344,30 +305,27 @@
             }}
             {categories}
             onsave={async (data) => {
+              if (!comprobante.final) return;
               const toastId = toast.loading('Guardando cambios...');
-              try {
-                const response = await fetch(`/api/invoices/${comprobante.final?.id}`, {
-                  method: 'PATCH',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    emitterCuit: data.cuit,
-                    invoiceType: data.invoiceType,
-                    pointOfSale: data.pointOfSale,
-                    invoiceNumber: data.invoiceNumber,
-                    issueDate: data.issueDate,
-                    total: data.total,
-                    categoryId: data.categoryId,
-                  }),
-                });
-                if (response.ok) {
-                  toast.success('Factura actualizada', { id: toastId });
-                  await invalidateAll();
-                } else {
-                  const err = await response.json();
-                  toast.error(err.error || 'Error al guardar', { id: toastId });
-                }
-              } catch (err) {
-                toast.error('Error al guardar', { id: toastId });
+              const result = await comprobanteService.updateInvoice(comprobante.final.id, data);
+              if (result.success) {
+                toast.success('Factura actualizada', { id: toastId });
+                await invalidateAll();
+              } else {
+                toast.error(result.error || 'Error al guardar', { id: toastId });
+              }
+            }}
+            oncategorychange={async (categoryId) => {
+              if (!comprobante.final) return;
+              const result = await comprobanteService.updateInvoiceCategory(
+                comprobante.final.id,
+                categoryId
+              );
+              if (result.success) {
+                toast.success('Categoría actualizada');
+                await invalidateAll();
+              } else {
+                toast.error(result.error || 'Error al actualizar categoría');
               }
             }}
             ondelete={() => deleteHandler.open(comprobante)}

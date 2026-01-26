@@ -5,6 +5,8 @@
    * Soporta dos modos:
    * - 'view': Para facturas existentes. Click en campos activa edición.
    * - 'create': Para crear nueva factura. Empieza en modo edición.
+   *
+   * Types are segregated in InvoiceCard.types.ts following Interface Segregation Principle.
    */
 
   import Button from './ui/Button.svelte';
@@ -12,34 +14,10 @@
   import EmitterCombobox from './EmitterCombobox.svelte';
   import InvoiceTypeSelect from './InvoiceTypeSelect.svelte';
   import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
+  import type { Emitter, Category, InvoiceData, InvoiceSaveData } from './InvoiceCard.types';
 
-  type Emitter = {
-    id?: number;
-    name: string;
-    displayName: string;
-    cuit: string;
-    cuitNumeric?: string;
-    legalName?: string;
-    aliases?: string[];
-  };
-
-  type Category = {
-    id: number;
-    key: string;
-    description: string;
-  };
-
-  type InvoiceData = {
-    id?: number;
-    cuit: string;
-    emitterName?: string | null;
-    issueDate: string | null;
-    invoiceType: number | null;
-    pointOfSale: number | null;
-    invoiceNumber: number | null;
-    total?: number | null;
-    categoryId?: number | null;
-  };
+  // Re-export types for consumers
+  export type { Emitter, Category, InvoiceData, InvoiceSaveData } from './InvoiceCard.types';
 
   type Props = {
     /** Datos de la factura (parciales en modo create) */
@@ -48,17 +26,14 @@
     categories?: Category[];
     /** Modo: 'view' para editar existente, 'create' para nueva */
     mode?: 'view' | 'create';
-    /** Callback para guardar cambios */
-    onsave?: (data: {
-      cuit: string;
-      invoiceType: number | null;
-      pointOfSale: number | null;
-      invoiceNumber: number | null;
-      issueDate: string;
-      total: number | null;
-      categoryId: number | null;
-      emitterId?: number;
-    }) => void;
+    /** Callback para guardar cambios completos (formulario) */
+    onsave?: (data: InvoiceSaveData) => void;
+    /**
+     * Callback específico para cambio de categoría fuera de modo edición.
+     * Si no se provee, usa onsave con todos los datos (comportamiento legacy).
+     * Siguiendo Single Responsibility: separar la responsabilidad de guardar categoría.
+     */
+    oncategorychange?: (categoryId: number | null) => void;
     /** Callback para cancelar (solo en modo create) */
     oncancel?: () => void;
     /** Callback para eliminar (solo en modo view) */
@@ -72,6 +47,7 @@
     categories = [],
     mode = 'view',
     onsave,
+    oncategorychange,
     oncancel,
     ondelete,
     saving = false,
@@ -324,16 +300,22 @@
         onselect={(id) => {
           selectedCategoryId = id ?? null;
           // Guardar categoría inmediatamente si no estamos en modo edición
-          if (!editMode && onsave) {
-            onsave({
-              cuit: invoice.cuit,
-              invoiceType: invoice.invoiceType,
-              pointOfSale: invoice.pointOfSale,
-              invoiceNumber: invoice.invoiceNumber,
-              issueDate: invoice.issueDate || '',
-              total: invoice.total ?? null,
-              categoryId: id ?? null,
-            });
+          if (!editMode) {
+            if (oncategorychange) {
+              // Preferir callback específico (Single Responsibility)
+              oncategorychange(id ?? null);
+            } else if (onsave) {
+              // Fallback: usar onsave con todos los datos (legacy)
+              onsave({
+                cuit: invoice.cuit,
+                invoiceType: invoice.invoiceType,
+                pointOfSale: invoice.pointOfSale,
+                invoiceNumber: invoice.invoiceNumber,
+                issueDate: invoice.issueDate || '',
+                total: invoice.total ?? null,
+                categoryId: id ?? null,
+              });
+            }
           }
         }}
         mode="single"

@@ -1,0 +1,166 @@
+/**
+ * Service for comprobante detail page API operations.
+ * Centralizes all API calls for invoice viewing/editing.
+ */
+
+export type ExtractionMethod = 'ocr' | 'pdf_text' | 'qr';
+
+export interface ExpectedInvoiceSummary {
+  id: number;
+  cuit: string;
+  emitterName?: string | null;
+  issueDate: string;
+  invoiceType: number | null;
+  pointOfSale: number;
+  invoiceNumber: number;
+  total?: number | null;
+  status?: string;
+}
+
+export interface InvoiceUpdateData {
+  cuit: string;
+  invoiceType: number | null;
+  pointOfSale: number | null;
+  invoiceNumber: number | null;
+  issueDate: string;
+  total: number | null;
+  categoryId: number | null;
+  emitterId?: number;
+}
+
+export interface ProcessResult {
+  success: boolean;
+  error?: string;
+  extraction?: {
+    confidence: number;
+  };
+}
+
+export interface ApiResult<T = void> {
+  success: boolean;
+  data?: T;
+  error?: string;
+}
+
+class ComprobanteService {
+  /**
+   * Fetch pending expected invoices for linking
+   */
+  async fetchPendingExpected(cuit: string): Promise<ApiResult<ExpectedInvoiceSummary[]>> {
+    try {
+      const response = await fetch(
+        `/api/expected-invoices?status=pending&cuit=${encodeURIComponent(cuit)}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, data: data.invoices || [] };
+      }
+      return { success: false, error: 'Error al cargar facturas esperadas' };
+    } catch (err) {
+      console.error('Error fetching expected invoices:', err);
+      return { success: false, error: 'Error al cargar facturas esperadas' };
+    }
+  }
+
+  /**
+   * Link an invoice to an expected invoice
+   */
+  async linkExpected(invoiceId: number, expectedId: number): Promise<ApiResult> {
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedInvoiceId: expectedId }),
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al vincular' };
+    } catch {
+      return { success: false, error: 'Error al vincular' };
+    }
+  }
+
+  /**
+   * Process a file with specified extraction method
+   */
+  async processFile(fileId: number, method: ExtractionMethod = 'ocr'): Promise<ProcessResult> {
+    try {
+      const response = await fetch('/api/invoices/process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fileIds: [fileId],
+          method,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        return {
+          success: true,
+          extraction: { confidence: data.extraction?.confidence || 0 },
+        };
+      }
+      return { success: false, error: data.error || 'Error al procesar' };
+    } catch (err) {
+      console.error('Error processing file:', err);
+      return { success: false, error: 'Error al procesar archivo' };
+    }
+  }
+
+  /**
+   * Update an existing invoice
+   */
+  async updateInvoice(invoiceId: number, data: InvoiceUpdateData): Promise<ApiResult> {
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emitterCuit: data.cuit,
+          invoiceType: data.invoiceType,
+          pointOfSale: data.pointOfSale,
+          invoiceNumber: data.invoiceNumber,
+          issueDate: data.issueDate,
+          total: data.total,
+          categoryId: data.categoryId,
+        }),
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al guardar' };
+    } catch {
+      return { success: false, error: 'Error al guardar' };
+    }
+  }
+
+  /**
+   * Update only the category of an invoice (Single Responsibility - lightweight update)
+   */
+  async updateInvoiceCategory(invoiceId: number, categoryId: number | null): Promise<ApiResult> {
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId }),
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al actualizar categoría' };
+    } catch {
+      return { success: false, error: 'Error al actualizar categoría' };
+    }
+  }
+}
+
+export const comprobanteService = new ComprobanteService();

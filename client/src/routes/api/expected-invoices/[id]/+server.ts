@@ -5,6 +5,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice.js';
+import { ExpectedInvoicePatchSchema, formatZodError } from '@server/contracts/index.js';
 
 /**
  * GET /api/expected-invoices/:id
@@ -68,20 +69,28 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
 
     const body = await request.json();
 
+    // Validate with Zod schema
+    const parseResult = ExpectedInvoicePatchSchema.safeParse(body);
+    if (!parseResult.success) {
+      return json(formatZodError(parseResult.error), { status: 400 });
+    }
+
+    const updates = parseResult.data;
+
     // Actualizar categoryId si viene en el body
-    if ('categoryId' in body) {
-      await repo.updateCategory(id, body.categoryId);
+    if (updates.categoryId !== undefined) {
+      await repo.updateCategory(id, updates.categoryId);
       console.info(`✅ [EXPECTED] Categoría actualizada para expected invoice ${id}`);
     }
 
     // Actualizar otros campos editables
-    const updates: Record<string, string | number | null> = {};
-    if ('notes' in body) updates.notes = body.notes;
-    if ('emitterName' in body) updates.emitterName = body.emitterName;
-    if ('total' in body) updates.total = body.total;
+    const otherUpdates: Record<string, string | number | null> = {};
+    if (updates.notes !== undefined) otherUpdates.notes = updates.notes;
+    if (updates.emitterName !== undefined) otherUpdates.emitterName = updates.emitterName;
+    if (updates.total !== undefined) otherUpdates.total = updates.total;
 
-    if (Object.keys(updates).length > 0) {
-      await repo.updateInvoice(id, updates as any);
+    if (Object.keys(otherUpdates).length > 0) {
+      await repo.updateInvoice(id, otherUpdates as any);
     }
 
     // Obtener el registro actualizado
