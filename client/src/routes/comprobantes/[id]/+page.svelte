@@ -315,6 +315,19 @@
                 toast.error(result.error || 'Error al guardar', { id: toastId });
               }
             }}
+            oncategorychange={async (categoryId) => {
+              if (!comprobante.final) return;
+              const result = await comprobanteService.updateInvoiceCategory(
+                comprobante.final.id,
+                categoryId
+              );
+              if (result.success) {
+                toast.success('Categoría actualizada');
+                await invalidateAll();
+              } else {
+                toast.error(result.error || 'Error al actualizar categoría');
+              }
+            }}
             ondelete={() => deleteHandler.open(comprobante)}
           />
 

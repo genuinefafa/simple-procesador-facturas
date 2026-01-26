@@ -140,6 +140,27 @@ class ComprobanteService {
       return { success: false, error: 'Error al guardar' };
     }
   }
+
+  /**
+   * Update only the category of an invoice (Single Responsibility - lightweight update)
+   */
+  async updateInvoiceCategory(invoiceId: number, categoryId: number | null): Promise<ApiResult> {
+    try {
+      const response = await fetch(`/api/invoices/${invoiceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId }),
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al actualizar categoría' };
+    } catch {
+      return { success: false, error: 'Error al actualizar categoría' };
+    }
+  }
 }
 
 export const comprobanteService = new ComprobanteService();

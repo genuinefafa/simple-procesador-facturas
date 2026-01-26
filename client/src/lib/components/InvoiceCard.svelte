@@ -26,8 +26,14 @@
     categories?: Category[];
     /** Modo: 'view' para editar existente, 'create' para nueva */
     mode?: 'view' | 'create';
-    /** Callback para guardar cambios */
+    /** Callback para guardar cambios completos (formulario) */
     onsave?: (data: InvoiceSaveData) => void;
+    /**
+     * Callback específico para cambio de categoría fuera de modo edición.
+     * Si no se provee, usa onsave con todos los datos (comportamiento legacy).
+     * Siguiendo Single Responsibility: separar la responsabilidad de guardar categoría.
+     */
+    oncategorychange?: (categoryId: number | null) => void;
     /** Callback para cancelar (solo en modo create) */
     oncancel?: () => void;
     /** Callback para eliminar (solo en modo view) */
@@ -41,6 +47,7 @@
     categories = [],
     mode = 'view',
     onsave,
+    oncategorychange,
     oncancel,
     ondelete,
     saving = false,
@@ -293,16 +300,22 @@
         onselect={(id) => {
           selectedCategoryId = id ?? null;
           // Guardar categoría inmediatamente si no estamos en modo edición
-          if (!editMode && onsave) {
-            onsave({
-              cuit: invoice.cuit,
-              invoiceType: invoice.invoiceType,
-              pointOfSale: invoice.pointOfSale,
-              invoiceNumber: invoice.invoiceNumber,
-              issueDate: invoice.issueDate || '',
-              total: invoice.total ?? null,
-              categoryId: id ?? null,
-            });
+          if (!editMode) {
+            if (oncategorychange) {
+              // Preferir callback específico (Single Responsibility)
+              oncategorychange(id ?? null);
+            } else if (onsave) {
+              // Fallback: usar onsave con todos los datos (legacy)
+              onsave({
+                cuit: invoice.cuit,
+                invoiceType: invoice.invoiceType,
+                pointOfSale: invoice.pointOfSale,
+                invoiceNumber: invoice.invoiceNumber,
+                issueDate: invoice.issueDate || '',
+                total: invoice.total ?? null,
+                categoryId: id ?? null,
+              });
+            }
           }
         }}
         mode="single"
