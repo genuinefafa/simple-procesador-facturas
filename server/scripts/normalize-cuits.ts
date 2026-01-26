@@ -3,12 +3,12 @@
  *
  * Este script actualiza:
  * - expected_invoices.cuit
+ * - emisores.cuit
  * - file_extraction_results.extracted_cuit
+ * - facturas.emisor_cuit
  *
- * NO modifica:
- * - emisores.cuit (es la PK con formato XX-XXXXXXXX-X por compatibilidad)
- * - emisores.cuit_numerico (ya está en formato canónico)
- * - facturas.emisor_cuit (FK a emisores.cuit)
+ * NOTA: Desde la migración 0018, todos los CUITs se almacenan en formato canónico
+ * (11 dígitos sin guiones). El campo emisores.cuit_numerico fue eliminado.
  *
  * Uso: npx tsx server/scripts/normalize-cuits.ts [--dry-run]
  */

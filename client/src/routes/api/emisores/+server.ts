@@ -138,10 +138,10 @@ export const POST: RequestHandler = async ({ request }) => {
       );
     }
 
-    // Crear emisor en la DB
+    // Crear emisor en la DB (normalizar CUIT a formato canónico)
+    const normalizedCuit = cuit.replace(/[-\s]/g, '');
     const newEmitter = emitterRepo.create({
-      cuit,
-      cuitNumeric: cuit.replace(/[-\s]/g, ''),
+      cuit: normalizedCuit,
       name: nombre,
       legalName: razonSocial || nombre,
       aliases: aliases

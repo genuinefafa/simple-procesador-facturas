@@ -75,9 +75,8 @@ export class GoogleSheetsService {
    */
   public async getEmisorByCuit(cuit: string): Promise<EmisoresSheetRow | null> {
     const emisores = await this.getAllEmisores();
-    return (
-      emisores.find((e) => e.cuit === cuit || e.cuitNumerico === cuit.replace(/-/g, '')) || null
-    );
+    const normalizedCuit = cuit.replace(/[-\s]/g, '');
+    return emisores.find((e) => e.cuit === normalizedCuit) || null;
   }
 
   /**
@@ -107,9 +106,8 @@ export class GoogleSheetsService {
     this.ensureInitialized();
 
     const emisores = await this.getAllEmisores();
-    const index = emisores.findIndex(
-      (e) => e.cuit === cuit || e.cuitNumerico === cuit.replace(/-/g, '')
-    );
+    const normalizedCuit = cuit.replace(/[-\s]/g, '');
+    const index = emisores.findIndex((e) => e.cuit === normalizedCuit);
 
     if (index === -1) {
       throw new Error(`Emisor con CUIT ${cuit} no encontrado`);

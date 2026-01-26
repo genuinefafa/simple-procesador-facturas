@@ -14,8 +14,7 @@ export class EmitterRepository {
    */
   private mapToEmitter(row: Emisor): Emitter {
     const emitter: Emitter = {
-      cuit: row.cuit,
-      cuitNumeric: row.cuitNumerico,
+      cuit: row.cuit, // Formato canónico: 11 dígitos sin guiones
       name: row.nombre,
       displayName: '', // Se calcula después
       legalName: row.razonSocial ?? undefined,
@@ -24,8 +23,6 @@ export class EmitterRepository {
       configOverride: row.configOverride ?? undefined,
       personType: row.tipoPersona ?? undefined,
       active: row.activo ?? true,
-      // NOTA: firstInvoiceDate, lastInvoiceDate, totalInvoices se calculan
-      // dinámicamente en las APIs - ya no se almacenan en DB (migración 0016)
       totalInvoices: 0,
       createdAt: new Date(row.createdAt ?? ''),
       updatedAt: new Date(row.updatedAt ?? ''),
@@ -78,12 +75,7 @@ export class EmitterRepository {
   findByCUIT(cuit: string): Emitter | null {
     const cleaned = cuit.replace(/[-\s]/g, '');
 
-    const result = db
-      .select()
-      .from(emisores)
-      .where(eq(emisores.cuitNumerico, cleaned))
-      .limit(1)
-      .all();
+    const result = db.select().from(emisores).where(eq(emisores.cuit, cleaned)).limit(1).all();
 
     if (!result || result.length === 0 || !result[0]) return null;
 
@@ -107,18 +99,19 @@ export class EmitterRepository {
    */
   create(data: {
     cuit: string;
-    cuitNumeric: string;
     name: string;
     legalName?: string;
     aliases?: string[];
     personType?: 'FISICA' | 'JURIDICA';
   }): Emitter {
+    // Normalizar CUIT a formato canónico (11 dígitos sin guiones)
+    const normalizedCuit = data.cuit.replace(/[-\s]/g, '');
+
     const aliasesJson =
       data.aliases && data.aliases.length > 0 ? JSON.stringify(data.aliases) : null;
 
     const newEmisor: NewEmisor = {
-      cuit: data.cuit,
-      cuitNumerico: data.cuitNumeric,
+      cuit: normalizedCuit,
       nombre: data.name,
       razonSocial: data.legalName ?? null,
       aliases: aliasesJson,
@@ -127,9 +120,9 @@ export class EmitterRepository {
 
     db.insert(emisores).values(newEmisor).run();
 
-    const created = this.findByCUIT(data.cuit);
+    const created = this.findByCUIT(normalizedCuit);
     if (!created) {
-      throw new Error(`Failed to create emitter with CUIT ${data.cuit}`);
+      throw new Error(`Failed to create emitter with CUIT ${normalizedCuit}`);
     }
 
     return created;

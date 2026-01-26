@@ -129,7 +129,6 @@ async function generateBaselineYMLs() {
         emitter: {
           active: true,
           cuit: normalizedCuit,
-          cuitNumeric: normalizedCuit.replace(/-/g, ''),
           name: `Emisor ${normalizedCuit}`,
           displayName: `Emisor ${normalizedCuit}`,
           aliases: [],

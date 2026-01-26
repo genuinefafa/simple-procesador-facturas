@@ -8,8 +8,7 @@
  * Almacena información de los emisores de facturas
  */
 export interface EmisoresSheetRow {
-  cuit: string; // Formato XX-XXXXXXXX-X
-  cuitNumerico: string; // Sin guiones
+  cuit: string; // Formato canónico: 11 dígitos sin guiones
   nombre: string;
   razonSocial: string;
   aliases: string; // JSON array stringified
@@ -121,7 +120,6 @@ export interface GoogleDriveConfig {
 export const SHEET_HEADERS = {
   emisores: [
     'CUIT',
-    'CUIT Numérico',
     'Nombre',
     'Razón Social',
     'Aliases (JSON)',
@@ -190,15 +188,14 @@ export class SheetConverters {
   static rowToEmisores(row: unknown[]): EmisoresSheetRow {
     return {
       cuit: cellToString(row[0]),
-      cuitNumerico: cellToString(row[1]),
-      nombre: cellToString(row[2]),
-      razonSocial: cellToString(row[3]),
-      aliases: cellToString(row[4], '[]'),
-      templatePreferido: cellToString(row[5]),
-      tipoPersona: (row[6] as 'FISICA' | 'JURIDICA') || 'JURIDICA',
-      totalFacturas: Number(row[7]) || 0,
-      primeraFactura: cellToString(row[8]),
-      ultimaFactura: cellToString(row[9]),
+      nombre: cellToString(row[1]),
+      razonSocial: cellToString(row[2]),
+      aliases: cellToString(row[3], '[]'),
+      templatePreferido: cellToString(row[4]),
+      tipoPersona: (row[5] as 'FISICA' | 'JURIDICA') || 'JURIDICA',
+      totalFacturas: Number(row[6]) || 0,
+      primeraFactura: cellToString(row[7]),
+      ultimaFactura: cellToString(row[8]),
     };
   }
 
@@ -254,7 +251,6 @@ export class SheetConverters {
   static emisoresToRow(emisor: EmisoresSheetRow): (string | number)[] {
     return [
       emisor.cuit,
-      emisor.cuitNumerico,
       emisor.nombre,
       emisor.razonSocial,
       emisor.aliases,
