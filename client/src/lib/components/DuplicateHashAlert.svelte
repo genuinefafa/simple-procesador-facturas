@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { formatDateShort, getInvoiceTypeFromARCA } from '$lib/formatters';
+  import { formatDateShort, getInvoiceTypeFromARCA, formatCuit } from '$lib/formatters';
 
   interface Props {
     fileHash?: string | null;
@@ -145,7 +145,7 @@
                 <span class="duplicate-label">file:{file.id}</span>
                 <span class="duplicate-info">{file.filename}</span>
                 {#if file.extractedCuit}
-                  <span class="duplicate-meta">{file.extractedCuit}</span>
+                  <span class="duplicate-meta">{formatCuit(file.extractedCuit)}</span>
                 {/if}
                 {#if file.extractedDate}
                   <span class="duplicate-meta">{formatDateShort(file.extractedDate)}</span>
@@ -171,7 +171,7 @@
                   {/if}
                   {invoice.fullInvoiceNumber}
                 </span>
-                <span class="duplicate-meta">{invoice.emitterCuit}</span>
+                <span class="duplicate-meta">{formatCuit(invoice.emitterCuit)}</span>
                 <span class="duplicate-meta">{formatDateShort(invoice.issueDate)}</span>
                 {#if invoice.total}
                   <span class="duplicate-meta"

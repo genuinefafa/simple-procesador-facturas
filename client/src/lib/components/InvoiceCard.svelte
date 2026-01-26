@@ -11,7 +11,7 @@
   import CategoryPills from './CategoryPills.svelte';
   import EmitterCombobox from './EmitterCombobox.svelte';
   import InvoiceTypeSelect from './InvoiceTypeSelect.svelte';
-  import { getFriendlyType, formatCurrency, formatDateShort } from '$lib/formatters';
+  import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
 
   type Emitter = {
     id?: number;
@@ -238,7 +238,7 @@
         <button type="button" class="field-value clickable" onclick={enterEditMode}>
           <span class="emitter-name">{invoice.emitterName || '—'}</span>
           {#if invoice.cuit}
-            <span class="emitter-cuit">{invoice.cuit}</span>
+            <span class="emitter-cuit">{formatCuit(invoice.cuit)}</span>
           {/if}
         </button>
       {/if}

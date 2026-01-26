@@ -9,7 +9,7 @@
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
   import { invalidateAll, goto } from '$app/navigation';
-  import { formatDateTime, formatDateShort, getFriendlyType } from '$lib/formatters';
+  import { formatDateTime, formatDateShort, getFriendlyType, formatCuit } from '$lib/formatters';
   import { createInvoiceForm } from '$lib/stores/createInvoiceForm.svelte';
   import { createEmitterResolver } from '$lib/stores/emitterResolver.svelte';
   import { createDeleteHandler } from '$lib/stores/deleteInvoice.svelte';
@@ -253,14 +253,8 @@
   const navCuit = $derived.by(() => {
     const cuit = comprobante.final?.cuit || comprobante.expected?.cuit;
     if (!cuit) return undefined;
-    // Si ya tiene guiones, devolver tal cual
-    if (cuit.includes('-')) return cuit;
-    // Si es numérico puro, formatear XX-XXXXXXXX-X
-    const clean = cuit.replace(/\D/g, '');
-    if (clean.length === 11) {
-      return `${clean.slice(0, 2)}-${clean.slice(2, 10)}-${clean.slice(10)}`;
-    }
-    return cuit;
+    const formatted = formatCuit(cuit);
+    return formatted === '—' ? undefined : formatted;
   });
 </script>
 

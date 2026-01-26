@@ -17,6 +17,7 @@
     formatEmitterName,
     formatFileStatus,
     formatComprobanteKind,
+    formatCuit,
   } from '$lib/formatters';
   import { createFilterMatcher, serializeFilters, type FilterNode } from '$lib/search';
   import { navigationStore } from '$lib/stores/navigation';
@@ -535,10 +536,12 @@
           {#if getEmitterName(comp).short}
             <span class="emitter-name">{getEmitterName(comp).short}</span>
             <span class="cuit-inline"
-              >{comp.final?.cuit || comp.expected?.cuit || comp.file?.extractedCuit || '—'}</span
+              >{formatCuit(
+                comp.final?.cuit || comp.expected?.cuit || comp.file?.extractedCuit
+              )}</span
             >
           {:else}
-            {comp.final?.cuit || comp.expected?.cuit || comp.file?.extractedCuit || '—'}
+            {formatCuit(comp.final?.cuit || comp.expected?.cuit || comp.file?.extractedCuit)}
           {/if}
         </span>
 

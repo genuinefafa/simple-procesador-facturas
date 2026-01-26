@@ -11,7 +11,7 @@
   import MatchIndicator from './MatchIndicator.svelte';
   import Button from './ui/Button.svelte';
   import Dialog from './ui/Dialog.svelte';
-  import { getFriendlyType, formatCurrency, formatDateShort } from '$lib/formatters';
+  import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
   import { emitterService, type ResolvedEmitter } from '$lib/services/EmitterService';
 
   type ExtractionMethod = 'ocr' | 'pdf_text' | 'qr';
@@ -180,7 +180,7 @@
           </div>
           <div class="field">
             <span class="field-label">CUIT</span>
-            <span class="field-value mono">{file?.extractedCuit || '—'}</span>
+            <span class="field-value mono">{formatCuit(file?.extractedCuit)}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
@@ -273,7 +273,7 @@
           </div>
           <div class="field">
             <span class="field-label">CUIT</span>
-            <span class="field-value mono">{expected?.cuit || '—'}</span>
+            <span class="field-value mono">{formatCuit(expected?.cuit)}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
