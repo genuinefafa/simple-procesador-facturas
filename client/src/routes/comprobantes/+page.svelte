@@ -589,6 +589,7 @@
           {/if}
         </span>
         <span class="col-type-status">
+          <CompletenessIndicator comprobante={comp} />
           {#if comp.final}
             <span class="tag ok">Factura</span>
           {:else if comp.expected}
@@ -600,7 +601,6 @@
             <span class="tag neutral">Pendiente</span>
             <span class="tag info">{formatFileStatus(comp.file.status)}</span>
           {/if}
-          <CompletenessIndicator comprobante={comp} />
         </span>
         <span class="col-hash"
           >{comp.final?.fileHash || comp.file?.fileHash
