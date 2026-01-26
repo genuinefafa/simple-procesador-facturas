@@ -76,14 +76,9 @@
     return null;
   });
 
-  // File enriquecido con nombre del emisor (si está disponible)
-  const enrichedFile = $derived.by(() => {
-    if (!comprobante.file) return null;
-    return {
-      ...comprobante.file,
-      emitterName: comprobante.emitterName || null,
-    };
-  });
+  // File para SourceComparison (solo datos de extracción)
+  // El emitterName ya no se pasa - SourceComparison resuelve via EmitterService
+  const enrichedFile = $derived(comprobante.file ?? null);
 
   // Sincronizar facturaData con comprobante cuando cambie
   $effect(() => {
