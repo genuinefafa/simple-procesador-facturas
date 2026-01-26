@@ -10,15 +10,8 @@ import { InvoiceRepository } from '../database/repositories/invoice';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice';
 import { EmitterRepository } from '../database/repositories/emitter';
 import { CategoryRepository } from '../database/repositories/category';
-import { existsSync } from 'fs';
-import { copyFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { generateProcessedFilename, generateSubdirectory } from '../utils/file-naming';
+import { InvoiceFileService } from './invoice-file.service';
 import { validateCUIT, normalizeCUIT, formatCUIT } from '../validators/cuit';
-
-const PROJECT_ROOT = join(process.cwd(), '..');
-const DATA_DIR = join(PROJECT_ROOT, 'data');
-const FINALIZED_DIR = join(DATA_DIR, 'finalized');
 
 export interface InvoiceCreationData {
   cuit: string;
@@ -56,6 +49,7 @@ export class InvoiceCreationService {
   private expectedRepo: ExpectedInvoiceRepository;
   private emitterRepo: EmitterRepository;
   private categoryRepo: CategoryRepository;
+  private fileService: InvoiceFileService;
 
   constructor() {
     this.fileRepo = new FileRepository();
@@ -64,6 +58,7 @@ export class InvoiceCreationService {
     this.expectedRepo = new ExpectedInvoiceRepository();
     this.emitterRepo = new EmitterRepository();
     this.categoryRepo = new CategoryRepository();
+    this.fileService = new InvoiceFileService(this.fileRepo, this.categoryRepo);
   }
 
   /**
@@ -112,37 +107,26 @@ export class InvoiceCreationService {
       }
     }
 
-    // 5. Generar nombre y copiar archivo
-    const issueDate = new Date(data.issueDate);
-    const newFilename = generateProcessedFilename(
-      issueDate,
+    // 5. Copiar archivo a finalized/ usando InvoiceFileService
+    const copyResult = await this.fileService.copyToFinalized(
+      fileId,
+      {
+        emitterCuit: emitter.cuit,
+        invoiceType: data.invoiceType,
+        pointOfSale: data.pointOfSale,
+        invoiceNumber: data.invoiceNumber,
+        issueDate: data.issueDate,
+        fileId: fileId,
+      },
       emitter,
-      data.invoiceType,
-      data.pointOfSale,
-      data.invoiceNumber,
-      file.originalFilename,
       categoryKey
     );
 
-    const subdir = generateSubdirectory(issueDate);
-    const targetDir = join(FINALIZED_DIR, subdir);
-    const newPath = join(targetDir, newFilename);
-    const newRelativePath = `finalized/${subdir}/${newFilename}`;
-
-    const absoluteSourcePath = file.storagePath.startsWith('/')
-      ? file.storagePath
-      : join(DATA_DIR, file.storagePath);
-
-    if (!existsSync(absoluteSourcePath)) {
-      return { success: false, error: 'Archivo físico no encontrado' };
+    if (!copyResult.success) {
+      return { success: false, error: copyResult.error || 'Error copiando archivo' };
     }
 
-    await mkdir(targetDir, { recursive: true });
-    await copyFile(absoluteSourcePath, newPath);
-
-    // 6. Actualizar file
-    this.fileRepo.updatePath(fileId, newRelativePath);
-    this.fileRepo.updateStatus(fileId, 'processed');
+    const newRelativePath = copyResult.relativePath!;
 
     // 7. Crear factura
     // emitterCuit must match emisores.cuit PK format (with dashes)
