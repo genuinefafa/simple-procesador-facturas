@@ -88,12 +88,7 @@ export class InvoiceFileService {
    * Útil cuando storagePath en DB no coincide con el archivo real
    * (por ejemplo, después de un cambio de fecha o categoría).
    */
-  async findFileByInvoiceData(
-    cuit: string,
-    _tipo: number,
-    pv: number,
-    num: number
-  ): Promise<string | null> {
+  findFileByInvoiceData(cuit: string, _tipo: number, pv: number, num: number): string | null {
     try {
       const cuitNumeric = cuit.replace(/\D/g, '');
       const pvFormatted = String(pv).padStart(5, '0');
@@ -135,7 +130,7 @@ export class InvoiceFileService {
    * Obtiene la ruta actual de un archivo, intentando primero storagePath
    * y luego búsqueda por datos de factura como fallback.
    */
-  async resolveCurrentFilePath(invoice: InvoiceFileData): Promise<string | null> {
+  resolveCurrentFilePath(invoice: InvoiceFileData): string | null {
     // Intentar via storagePath
     if (invoice.fileId) {
       const file = this.fileRepo.findById(invoice.fileId);
@@ -262,7 +257,7 @@ export class InvoiceFileService {
     }
 
     // Buscar archivo actual
-    const currentPath = await this.resolveCurrentFilePath(invoice);
+    const currentPath = this.resolveCurrentFilePath(invoice);
     if (!currentPath) {
       console.warn(
         `[InvoiceFileService] ⚠️ No se encontró archivo físico para factura, no se puede renombrar`
