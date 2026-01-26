@@ -26,15 +26,19 @@
 </script>
 
 <div class="indicators">
-  {#if hasFile}
-    <span class="indicator file" title="Tiene archivo (PDF)">📄</span>
-  {/if}
-  {#if hasFinal}
-    <span class="indicator final" title="Factura creada">✓</span>
-  {/if}
-  {#if hasExpected}
-    <span class="indicator expected" title="Vinculada con AFIP">📋</span>
-  {/if}
+  <span class="indicator file" class:empty={!hasFile} title={hasFile ? 'Tiene archivo (PDF)' : ''}>
+    {hasFile ? '📄' : ''}
+  </span>
+  <span class="indicator final" class:empty={!hasFinal} title={hasFinal ? 'Factura creada' : ''}>
+    {hasFinal ? '✓' : ''}
+  </span>
+  <span
+    class="indicator expected"
+    class:empty={!hasExpected}
+    title={hasExpected ? 'Vinculada con AFIP' : ''}
+  >
+    {hasExpected ? '📋' : ''}
+  </span>
 </div>
 
 <style>
@@ -47,7 +51,14 @@
   .indicator {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     font-size: var(--font-size-sm);
+    width: 1.25em;
+    text-align: center;
+  }
+
+  .indicator.empty {
+    visibility: hidden;
   }
 
   .indicator.file {
