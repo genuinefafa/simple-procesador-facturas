@@ -4,11 +4,10 @@
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
   import { onMount } from 'svelte';
-  import { formatDateShort, formatCurrency } from '$lib/formatters';
+  import { formatDateShort, formatCurrency, formatCuit } from '$lib/formatters';
 
   type Emitter = {
     cuit: string;
-    cuitNumeric: string;
     name: string;
     displayName: string;
     legalName?: string;
@@ -41,7 +40,7 @@
             e.name.toLowerCase().includes(q) ||
             e.displayName.toLowerCase().includes(q) ||
             (e.aliases?.some((a) => a.toLowerCase().includes(q)) ?? false) ||
-            (qNum && e.cuitNumeric.includes(qNum))
+            (qNum && e.cuit.includes(qNum))
           );
         })
       : emitters
@@ -348,7 +347,7 @@
                     <span class="no-aliases">—</span>
                   {/if}
                 </td>
-                <td class="col-cuit">{emitter.cuit}</td>
+                <td class="col-cuit">{formatCuit(emitter.cuit)}</td>
                 <td class="col-actions">
                   <div class="row-toolbar">
                     <button
@@ -384,7 +383,7 @@
       <header class="drawer-header">
         <div class="drawer-title-section">
           <h2>{selectedEmitter.displayName || selectedEmitter.name}</h2>
-          <p class="drawer-subtitle">{selectedEmitter.cuit}</p>
+          <p class="drawer-subtitle">{formatCuit(selectedEmitter.cuit)}</p>
         </div>
         <button class="drawer-close" onclick={closeDrawer} aria-label="Cerrar">✕</button>
       </header>
