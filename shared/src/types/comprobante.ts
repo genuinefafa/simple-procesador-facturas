@@ -32,7 +32,7 @@ export type Expected = {
   pointOfSale: number;
   invoiceNumber: number;
   total?: number | null;
-  status?: string;
+  status?: "pending" | "matched";
   categoryId?: number | null;
 };
 
@@ -41,7 +41,7 @@ export type FileData = {
   originalFilename: string;
   filePath: string;
   fileHash?: string | null;
-  status: "uploaded" | "processed" | "failed";
+  status: "uploaded" | "processed";
   uploadDate?: string | null;
   extractedCuit?: string | null;
   extractedDate?: string | null;
@@ -64,7 +64,7 @@ export type Match = {
   pointOfSale: number;
   invoiceNumber: number;
   total?: number | null;
-  status?: string;
+  status?: "pending" | "matched";
   matchScore: number;
   categoryId?: number | null;
 };

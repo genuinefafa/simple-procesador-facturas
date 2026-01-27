@@ -58,7 +58,7 @@ export interface FacturasEsperadasSheetRow {
   numeroComprobante: number;
   total: number;
   cae: string;
-  status: 'pending' | 'matched' | 'discrepancy' | 'manual' | 'ignored';
+  status: 'pending' | 'matched';
   idFacturaMatched: string; // ID de la factura en "Facturas Procesadas"
   confianzaMatch: number; // 0-100
   notas: string;
@@ -233,12 +233,7 @@ export class SheetConverters {
       numeroComprobante: Number(row[7]) || 0,
       total: Number(row[8]) || 0,
       cae: cellToString(row[9]),
-      status: cellToString(row[10], 'pending') as
-        | 'pending'
-        | 'matched'
-        | 'discrepancy'
-        | 'manual'
-        | 'ignored',
+      status: cellToString(row[10], 'pending') as 'pending' | 'matched',
       idFacturaMatched: cellToString(row[11]),
       confianzaMatch: Number(row[12]) || 0,
       notas: cellToString(row[13]),

@@ -12,7 +12,7 @@ export async function GET() {
 
   const invoices = await invoiceRepo.list();
   const expectedInvoices = await expectedRepo.listWithFiles({
-    status: ['pending', 'discrepancy', 'manual', 'ignored'],
+    status: ['pending'],
   });
 
   const finals: Final[] = invoices.map((inv) => {

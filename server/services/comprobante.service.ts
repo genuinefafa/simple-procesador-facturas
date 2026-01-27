@@ -34,7 +34,7 @@ export class ComprobanteService {
   async listAll(): Promise<Comprobante[]> {
     const invoices = await this.invoiceRepo.list();
     const expectedInvoices = await this.expectedRepo.listWithFiles({
-      status: ['pending', 'discrepancy', 'manual', 'ignored'],
+      status: ['pending'],
     });
 
     const uploadedFiles = this.buildUploadedFiles();

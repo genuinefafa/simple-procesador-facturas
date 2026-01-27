@@ -162,7 +162,7 @@ const expectedInvoices_ = sqliteTable(
 
     // Estado del matching
     status: text('status', {
-      enum: ['pending', 'matched', 'discrepancy', 'manual', 'ignored'],
+      enum: ['pending', 'matched'],
     }).default('pending'),
     // FK a files
     matchedFileId: integer('matched_file_id'),

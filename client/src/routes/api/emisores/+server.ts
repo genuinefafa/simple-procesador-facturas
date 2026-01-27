@@ -35,7 +35,7 @@ async function countComprobantesByEmitter(): Promise<Map<string, number>> {
 
   // 2) Contar expected invoices (no matched)
   const expectedInvoices = await expectedRepo.listWithFiles({
-    status: ['pending', 'discrepancy', 'manual', 'ignored'],
+    status: ['pending'],
   });
   for (const exp of expectedInvoices) {
     const cuit = normalizeCuit(exp.cuit);
