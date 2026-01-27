@@ -21,7 +21,8 @@ const config = {
 			envPrefix: ''
 		}),
 		alias: {
-			'@server': path.resolve(__dirname, '../server')
+			'@server': path.resolve(__dirname, '../server'),
+			'@shared': path.resolve(__dirname, '../shared/src')
 		}
 	}
 };

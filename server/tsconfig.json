@@ -8,7 +8,7 @@
 
     /* Emit */
     "outDir": "./dist",
-    "rootDir": "..",
+    "rootDir": ".",
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
@@ -42,7 +42,8 @@
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@shared/*": ["../shared/src/*"]
     }
   },
   "include": [
