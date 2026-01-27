@@ -5,7 +5,7 @@
 import { eq, and, count, or, like } from 'drizzle-orm';
 import { db } from '../db';
 import { facturas, type Factura } from '../schema';
-import type { InvoiceType, Currency, ExtractionMethod } from '../../utils/types';
+import type { InvoiceType, Currency, ExtractionMethod } from '@shared/types';
 
 /**
  * Invoice interface - rutas de archivo se obtienen via fileId -> files table

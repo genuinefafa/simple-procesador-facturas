@@ -2,7 +2,7 @@
  * Utilidades para generar archivos YAML de anotación de facturas
  */
 
-import type { Emitter, InvoiceType } from './types';
+import type { Emitter, InvoiceType } from '@shared/types';
 import { formatDateForFilename } from './file-naming';
 import { writeFileSync } from 'fs';
 import path from 'path';
