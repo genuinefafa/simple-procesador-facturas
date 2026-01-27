@@ -67,7 +67,7 @@ export class PDFExtractor {
       // Mostrar top 3 candidatos si hay múltiples
       if (cuitsWithContext.length > 1) {
         console.info(`   📊 Top ${Math.min(3, cuitsWithContext.length)} candidatos:`);
-        cuitsWithContext.slice(0, 3).forEach((c, i) => {
+        cuitsWithContext.slice(0, 3).forEach((c, i: number) => {
           const preview =
             c.contextBefore.slice(-30) + '►' + c.cuit + '◄' + c.contextAfter.slice(0, 30);
           console.info(

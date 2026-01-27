@@ -35,6 +35,9 @@ jobs:
       - name: Setup Node and Dependencies
         uses: ./.github/actions/setup-node-deps
 
+      - name: Build shared types
+        run: cd shared && npx tsc
+
       - name: Check TypeScript (Client)
         run: cd client && npx tsc --noEmit
 
