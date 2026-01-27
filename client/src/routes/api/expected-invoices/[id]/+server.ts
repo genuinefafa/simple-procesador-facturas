@@ -5,7 +5,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice.js';
-import { ExpectedInvoicePatchSchema, formatZodError } from '@server/contracts/index.js';
+import { ExpectedInvoicePatchSchema, formatZodError } from '@shared/contracts';
 
 /**
  * GET /api/expected-invoices/:id
