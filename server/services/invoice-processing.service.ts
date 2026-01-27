@@ -11,7 +11,7 @@
 
 import { PDFExtractor } from '../extractors/pdf-extractor.js';
 import { OCRExtractor } from '../extractors/ocr-extractor.js';
-import { validateCUIT, normalizeCUIT, getPersonType } from '../validators/cuit.js';
+import { validateCUIT, normalizeCUIT, getPersonType } from '@shared/validators/cuit';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import {
   ExpectedInvoiceRepository,
@@ -19,7 +19,7 @@ import {
 } from '../database/repositories/expected-invoice.js';
 import { format } from 'date-fns';
 import { extname } from 'path';
-import type { DocumentType, ExtractionMethod } from '../utils/types.js';
+import type { DocumentType, ExtractionMethod } from '@shared/types';
 
 // Extensiones de imagen soportadas para OCR
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.tif', '.tiff', '.webp', '.heic', '.heif'];

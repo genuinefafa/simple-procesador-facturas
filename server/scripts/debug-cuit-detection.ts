@@ -3,7 +3,7 @@
  */
 
 import { PDFExtractor } from '../extractors/pdf-extractor.js';
-import { extractCUITsWithContext } from '../validators/cuit.js';
+import { extractCUITsWithContext } from '@shared/validators/cuit';
 
 const problemFiles = [
   'factura11643.pdf', // Debe detectar 30-51758323-1 pero detecta 30-50001770-4

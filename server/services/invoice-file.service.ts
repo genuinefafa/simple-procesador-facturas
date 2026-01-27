@@ -19,7 +19,7 @@ import { join } from 'path';
 import { FileRepository, type IFileRepository } from '../database/repositories/file.js';
 import { CategoryRepository } from '../database/repositories/category.js';
 import { generateProcessedFilename, generateSubdirectory } from '../utils/file-naming.js';
-import type { Emitter, InvoiceType } from '../utils/types.js';
+import type { Emitter, InvoiceType } from '@shared/types';
 
 const PROJECT_ROOT = join(process.cwd(), '..');
 const DATA_DIR = join(PROJECT_ROOT, 'data');

@@ -4,7 +4,7 @@
 
 import { readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
-import type { DocumentType } from '../utils/types';
+import type { DocumentType } from '@shared/types';
 
 export interface ScannedFile {
   path: string;

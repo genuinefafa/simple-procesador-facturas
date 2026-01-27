@@ -4,8 +4,8 @@
 
 import pdf from 'pdf-parse';
 import { readFileSync } from 'fs';
-import type { ExtractionResult, DocumentKind } from '../utils/types';
-import { extractCUITsWithContext } from '../validators/cuit';
+import type { ExtractionResult, DocumentKind } from '@shared/types';
+import { extractCUITsWithContext } from '@shared/validators/cuit';
 import { extractInvoiceTypeWithAFIP, convertLetterToARCACode } from '../utils/afip-codes';
 
 /**

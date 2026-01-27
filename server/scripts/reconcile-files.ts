@@ -20,7 +20,7 @@ import { createHash } from 'crypto';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { generateProcessedFilename, generateSubdirectory } from '../utils/file-naming.js';
-import type { Emitter } from '../utils/types.js';
+import type { Emitter } from '@shared/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
