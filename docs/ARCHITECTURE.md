@@ -1,7 +1,7 @@
 # Arquitectura del Sistema
 
-**Versión**: v0.4.0
-**Última actualización**: 2025-12-16
+**Versión**: v0.5.0
+**Última actualización**: 2026-01-26
 
 ---
 
@@ -14,7 +14,7 @@ El sistema es una **aplicación fullstack** construida con SvelteKit que procesa
 ### Frontend
 - **Framework**: SvelteKit 2.x
 - **UI Library**: Svelte 5.41.0 (runes: $state, $derived, $bindable)
-- **Components**: Melt UI Next v0.42 (beta) + @melt-ui/svelte v0.86
+- **Components**: Melt UI Next v0.44
 - **Styling**: CSS puro con design tokens (no Tailwind)
 - **Notifications**: svelte-sonner
 
@@ -58,6 +58,11 @@ simple-procesador-facturas/
 │   └── vite.config.ts
 │
 ├── server/                         # Backend (Services + DB)
+│   ├── contracts/                 # Zod schemas para validación
+│   │   ├── index.ts
+│   │   ├── invoice.ts
+│   │   ├── expected-invoice.ts
+│   │   └── shared.ts
 │   ├── database/
 │   │   ├── schema.ts              # Drizzle schema
 │   │   ├── repositories/          # Data access layer
@@ -133,7 +138,8 @@ simple-procesador-facturas/
 
 **Tablas principales**:
 - `invoices` - Facturas procesadas
-- `pending_files` - Archivos subidos pendientes de revisión
+- `files` - Archivos subidos (reemplaza pending_files desde v0.5)
+- `file_extraction_results` - Resultados de extracción por archivo
 - `expected_invoices` - Facturas esperadas desde Excel AFIP
 - `emitters` - Emisores de facturas
 - `categories` - Categorías de facturas
@@ -152,8 +158,8 @@ simple-procesador-facturas/
 ┌─────────────────────────────┐
 │  POST /api/invoices/upload  │
 └─────────────┬───────────────┘
-              │ 2. Guarda en pending_files
-              │    status = "pending"
+              │ 2. Guarda en `files` con hash SHA-256
+              │    status = "uploaded"
               ↓
 ┌──────────────────────────────┐
 │  GET /comprobantes           │ ← Usuario ve el archivo
@@ -169,8 +175,8 @@ simple-procesador-facturas/
 │  │ └─ Excel matching           │ │
 │  └─────────────────────────────┘ │
 └─────────────┬────────────────────┘
-              │ 4. Retorna extractedData
-              │    status = "reviewing"
+              │ 4. Guarda en `file_extraction_results`
+              │    Retorna extractedData
               ↓
 ┌──────────────────────────────────┐
 │  GET /comprobantes/[id]          │ ← Usuario revisa
@@ -220,7 +226,7 @@ simple-procesador-facturas/
 │  POST /api/expected-invoices/[id]/   │
 │       match                          │
 │  ├─ Marca expected_invoice matched   │
-│  └─ Vincula con pending_file         │
+│  └─ Vincula con file                 │
 └──────────────────────────────────────┘
 ```
 
@@ -271,11 +277,11 @@ Cada campo detectado recibe un score de confianza:
 - `DELETE /api/invoices/[id]` - Eliminar factura
 - `POST /api/invoices/export` - Exportar con renombrado
 
-#### Archivos Pendientes
-- `GET /api/pending-files` - Listar archivos pendientes
-- `GET /api/pending-files/[id]` - Obtener detalle
-- `GET /api/pending-files/[id]/matches` - Matches con Excel AFIP
-- `DELETE /api/pending-files/[id]` - Eliminar archivo
+#### Archivos
+- `GET /api/files` - Listar archivos
+- `GET /api/files/[id]` - Obtener detalle
+- `GET /api/files/[id]/matches` - Matches con Excel AFIP
+- `DELETE /api/files/[id]` - Eliminar archivo
 
 #### Excel AFIP
 - `POST /api/expected-invoices/import` - Importar Excel
@@ -391,13 +397,18 @@ NODE_ENV=production
 **v0.3 - OCR + Excel**
 - Tesseract.js
 - Matching AFIP
-- Sistema pending_files
+- Sistema pending_files (deprecado en v0.5)
 
-**v0.4 - Dashboard + Hub** (actual)
+**v0.4 - Dashboard + Hub**
 - Melt UI Next
 - Comprobantes Hub unificado
 - Gestión de emisores
 - Rail navigation
+
+**v0.5 - Unified File Management** (actual)
+- Migración de `pending_files` a `files` + `file_extraction_results`
+- Sistema de hashing SHA-256 para integridad
+- Contratos Zod para validación runtime
 
 ## 13. Decisiones de Diseño
 
@@ -439,5 +450,5 @@ NODE_ENV=production
 
 ---
 
-**Última revisión**: 2025-12-16
+**Última revisión**: 2026-01-26
 **Mantenedor**: @fcaldera
