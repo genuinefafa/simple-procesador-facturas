@@ -10,12 +10,7 @@ import { FileRepository } from '../database/repositories/file';
 import { FileExtractionRepository } from '../database/repositories/file-extraction';
 import { EmitterRepository } from '../database/repositories/emitter';
 import { normalizeToISO } from '../utils/dates';
-import type {
-  Final,
-  Expected,
-  FileData,
-  Comprobante,
-} from '../../client/src/lib/types/comprobante';
+import type { Final, Expected, FileData, Comprobante } from '@shared/types';
 
 export class ComprobanteService {
   private invoiceRepo: InvoiceRepository;

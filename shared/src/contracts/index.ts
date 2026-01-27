@@ -27,7 +27,8 @@ export {
   expectedInvoiceIdSchema,
 } from "./shared.js";
 
-export type { Cuit, InvoiceType, Currency } from "./shared.js";
+export type { Cuit } from "./shared.js";
+// Note: InvoiceType and Currency are exported from @shared/types
 
 // Invoice schemas
 export { InvoicePatchSchema, formatZodError } from "./invoice.js";

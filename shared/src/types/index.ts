@@ -19,3 +19,12 @@ export type {
   PatternConfig,
   ZoneConfig,
 } from "./domain.js";
+
+// Comprobante types (UI/API DTOs)
+export type {
+  Final,
+  Expected,
+  FileData,
+  Match,
+  Comprobante,
+} from "./comprobante.js";

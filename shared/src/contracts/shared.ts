@@ -81,6 +81,5 @@ export const categoryIdSchema = z.number().int().positive().nullable();
 export const expectedInvoiceIdSchema = z.number().int().positive().nullable();
 
 // Type exports for consumers
+// Note: InvoiceType and Currency are exported from @shared/types (domain.ts)
 export type Cuit = z.infer<typeof cuitSchema>;
-export type InvoiceType = z.infer<typeof invoiceTypeSchema>;
-export type Currency = z.infer<typeof currencySchema>;
