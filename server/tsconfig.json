@@ -57,6 +57,9 @@
     "**/*.test.ts",
     "**/*.spec.ts"
   ],
+  "references": [
+    { "path": "../shared" }
+  ],
   "ts-node": {
     "esm": true,
     "experimentalSpecifierResolution": "node"
