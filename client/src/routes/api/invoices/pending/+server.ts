@@ -6,7 +6,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 
 // Importar repositorios desde @server
-import type { Invoice } from '@server/utils/types.js';
+import type { Invoice } from '@shared/types';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
 

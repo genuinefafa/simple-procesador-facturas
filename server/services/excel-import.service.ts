@@ -3,7 +3,7 @@
  */
 
 import ExcelJS from 'exceljs';
-import { normalizeCUIT, validateCUIT } from '../validators/cuit.js';
+import { normalizeCUIT, validateCUIT } from '@shared/validators/cuit';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import { normalizeEmitterName } from '../utils/emitter-name-normalizer.js';

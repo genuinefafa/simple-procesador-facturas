@@ -6,10 +6,10 @@
 import { PDFExtractor } from '../extractors/pdf-extractor.js';
 import { OCRExtractor } from '../extractors/ocr-extractor.js';
 import { generateYAMLFile, type InvoiceAnnotation } from '../utils/yaml-generator.js';
-import { normalizeCUIT, validateCUIT, getPersonType } from '../validators/cuit.js';
+import { normalizeCUIT, validateCUIT, getPersonType } from '@shared/validators/cuit';
 import { readdirSync, statSync } from 'fs';
 import { join, extname } from 'path';
-import type { InvoiceType } from '../utils/types.js';
+import type { InvoiceType } from '@shared/types';
 
 const EXAMPLES_DIR = join(process.cwd(), '..', 'examples', 'facturas');
 

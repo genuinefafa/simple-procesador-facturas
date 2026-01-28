@@ -8,8 +8,8 @@ import { ExpectedInvoiceRepository } from '@server/database/repositories/expecte
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
 import { FileRepository } from '@server/database/repositories/file.js';
-import { getPersonType } from '@server/validators/cuit.js';
-import type { InvoiceType, Currency } from '@server/utils/types.js';
+import { getPersonType } from '@shared/validators/cuit';
+import type { InvoiceType, Currency } from '@shared/types';
 
 export const POST: RequestHandler = async ({ params, request }) => {
   const { id } = params;

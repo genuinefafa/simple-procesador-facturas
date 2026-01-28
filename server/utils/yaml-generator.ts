@@ -2,7 +2,7 @@
  * Utilidades para generar archivos YAML de anotación de facturas
  */
 
-import type { Emitter, InvoiceType } from './types';
+import type { Emitter, InvoiceType } from '@shared/types';
 import { formatDateForFilename } from './file-naming';
 import { writeFileSync } from 'fs';
 import path from 'path';
@@ -40,7 +40,9 @@ export function generateYAMLContent(annotation: InvoiceAnnotation): string {
   // Encontrar el alias más corto o usar el nombre
   const shortestAlias =
     emitter.aliases.length > 0
-      ? emitter.aliases.reduce((prev, curr) => (curr.length < prev.length ? curr : prev))
+      ? emitter.aliases.reduce((prev: string, curr: string) =>
+          curr.length < prev.length ? curr : prev
+        )
       : null;
 
   const lines: string[] = [

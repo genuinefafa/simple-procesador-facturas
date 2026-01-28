@@ -8,7 +8,7 @@
 		"postinstall": ".githooks/install.sh 2>/dev/null || echo '⚠️  Nota: No se pudieron instalar git hooks'",
 		"dev": "npm run dev -w client",
 		"build": "npm run check && npm run build -w client",
-		"check": "tsc --noEmit -p server/tsconfig.json && npm run check -w client",
+		"check": "tsc -b shared && tsc -b server/tsconfig.json --dry && npm run check -w client",
 		"preview": "npm run preview -w client",
 		"test": "npm run test -w server",
 		"test:coverage": "npm run test:coverage -w server",

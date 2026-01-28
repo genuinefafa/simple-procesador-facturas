@@ -12,7 +12,7 @@ import {
   type ImportBatch as DrizzelImportBatch,
 } from '../schema';
 
-export type ExpectedInvoiceStatus = 'pending' | 'matched' | 'discrepancy' | 'manual' | 'ignored';
+export type ExpectedInvoiceStatus = 'pending' | 'matched';
 
 export interface ExpectedInvoice {
   id: number;
@@ -505,10 +505,7 @@ export class ExpectedInvoiceRepository {
   /**
    * Actualiza el estado de una expected invoice
    */
-  updateStatus(
-    id: number,
-    status: 'pending' | 'matched' | 'discrepancy' | 'manual' | 'ignored'
-  ): void {
+  updateStatus(id: number, status: ExpectedInvoiceStatus): void {
     db.update(expectedInvoices).set({ status }).where(eq(expectedInvoices.id, id)).run();
   }
 
@@ -737,34 +734,6 @@ export class ExpectedInvoiceRepository {
     return this.mapDrizzleToExpectedInvoice(result[0]);
   }
 
-  async markAsManual(id: number, notes?: string): Promise<ExpectedInvoice> {
-    const result = await db
-      .update(expectedInvoices)
-      .set({ status: 'manual', notes: notes || null })
-      .where(eq(expectedInvoices.id, id))
-      .returning();
-
-    if (result.length === 0) {
-      throw new Error('Expected invoice not found after marking as manual');
-    }
-
-    return this.mapDrizzleToExpectedInvoice(result[0]);
-  }
-
-  async markAsIgnored(id: number, notes?: string): Promise<ExpectedInvoice> {
-    const result = await db
-      .update(expectedInvoices)
-      .set({ status: 'ignored', notes: notes || null })
-      .where(eq(expectedInvoices.id, id))
-      .returning();
-
-    if (result.length === 0) {
-      throw new Error('Expected invoice not found after marking as ignored');
-    }
-
-    return this.mapDrizzleToExpectedInvoice(result[0]);
-  }
-
   /**
    * Actualiza la categoría de una expected invoice
    */
@@ -791,9 +760,6 @@ export class ExpectedInvoiceRepository {
     const counts: Record<ExpectedInvoiceStatus, number> = {
       pending: 0,
       matched: 0,
-      discrepancy: 0,
-      manual: 0,
-      ignored: 0,
     };
 
     for (const row of result) {

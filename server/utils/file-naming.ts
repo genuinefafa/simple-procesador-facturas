@@ -8,7 +8,7 @@
  * Ejemplo: 2024-01/2024-01-15 Mi_Empresa 30-12345678-9 FACA 00001 00000123.pdf
  */
 
-import type { Emitter, InvoiceType } from './types';
+import type { Emitter, InvoiceType } from '@shared/types';
 import { getFriendlyType } from './afip-codes.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import path from 'path';

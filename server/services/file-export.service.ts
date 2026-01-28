@@ -8,7 +8,7 @@
 
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import type { Invoice } from '../utils/types.js';
+import type { Invoice } from '@shared/types';
 import { InvoiceRepository } from '../database/repositories/invoice.js';
 import { EmitterRepository } from '../database/repositories/emitter.js';
 import { generateSubdirectory, generateProcessedFilename } from '../utils/file-naming.js';

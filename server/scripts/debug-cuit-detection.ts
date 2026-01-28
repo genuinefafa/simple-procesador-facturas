@@ -3,7 +3,7 @@
  */
 
 import { PDFExtractor } from '../extractors/pdf-extractor.js';
-import { extractCUITsWithContext } from '../validators/cuit.js';
+import { extractCUITsWithContext } from '@shared/validators/cuit';
 
 const problemFiles = [
   'factura11643.pdf', // Debe detectar 30-51758323-1 pero detecta 30-50001770-4
@@ -24,7 +24,7 @@ for (const file of problemFiles) {
     const cuits = extractCUITsWithContext(text);
 
     console.log(`\n🔍 CUITs encontrados (${cuits.length}):\n`);
-    cuits.forEach((c, i) => {
+    cuits.forEach((c, i: number) => {
       console.log(`${i + 1}. ${c.cuit} (score: ${c.score}, posición: ${c.position})`);
       const preview = `${c.contextBefore.slice(-50)}►${c.cuit}◄${c.contextAfter.slice(0, 50)}`;
       console.log(`   Contexto: "${preview.replace(/\s+/g, ' ')}"`);

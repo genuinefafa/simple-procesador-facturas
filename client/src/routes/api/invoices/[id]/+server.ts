@@ -10,7 +10,7 @@ import { FileRepository } from '@server/database/repositories/file.js';
 import { ZoneAnnotationRepository } from '@server/database/repositories/zone-annotation.js';
 import { CategoryRepository } from '@server/database/repositories/category.js';
 import { InvoiceFileService } from '@server/services/invoice-file.service.js';
-import { InvoicePatchSchema, formatZodError } from '@server/contracts/index.js';
+import { InvoicePatchSchema, formatZodError } from '@server/contracts';
 
 export const GET: RequestHandler = async ({ params }) => {
   try {

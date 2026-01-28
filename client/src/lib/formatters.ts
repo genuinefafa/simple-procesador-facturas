@@ -249,11 +249,10 @@ export function formatCurrency(value?: number | null): string {
  * @param status Estado del file
  * @returns Estado traducido
  */
-export function formatFileStatus(status?: 'uploaded' | 'processed' | 'failed' | null): string {
+export function formatFileStatus(status?: 'uploaded' | 'processed' | null): string {
   const statusMap: Record<string, string> = {
     uploaded: 'Subido',
     processed: 'Procesado',
-    failed: 'Error',
   };
   return status ? statusMap[status] || status : '—';
 }
@@ -263,15 +262,10 @@ export function formatFileStatus(status?: 'uploaded' | 'processed' | 'failed' | 
  * @param status Estado del expected_invoice
  * @returns Estado traducido
  */
-export function formatExpectedStatus(
-  status?: 'pending' | 'matched' | 'discrepancy' | 'manual' | 'ignored' | null
-): string {
+export function formatExpectedStatus(status?: 'pending' | 'matched' | null): string {
   const statusMap: Record<string, string> = {
     pending: 'Pendiente',
     matched: 'Coincide',
-    discrepancy: 'Discrepancia',
-    manual: 'Manual',
-    ignored: 'Ignorado',
   };
   return status ? statusMap[status] || status : '—';
 }

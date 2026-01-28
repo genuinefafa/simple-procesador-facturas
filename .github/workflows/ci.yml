@@ -35,11 +35,8 @@ jobs:
       - name: Setup Node and Dependencies
         uses: ./.github/actions/setup-node-deps
 
-      - name: Check TypeScript (Client)
-        run: cd client && npx tsc --noEmit
-
-      - name: Check TypeScript (Server)
-        run: cd server && npx tsc --noEmit
+      - name: Check TypeScript (shared + server + client)
+        run: npm run check
 
   build:
     name: Build Frontend

@@ -68,8 +68,6 @@ export const GET: RequestHandler = async ({ url }) => {
     console.info(`      Total: ${total}`);
     console.info(`      Pending: ${stats.pending}`);
     console.info(`      Matched: ${stats.matched}`);
-    console.info(`      Manual: ${stats.manual}`);
-    console.info(`      Ignored: ${stats.ignored}`);
 
     return json({
       success: true,

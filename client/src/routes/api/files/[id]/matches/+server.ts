@@ -8,7 +8,7 @@ import type { RequestHandler } from './$types';
 import { FileRepository } from '@server/database/repositories/file.js';
 import { FileExtractionRepository } from '@server/database/repositories/file-extraction.js';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice.js';
-import { normalizeCUIT, validateCUIT } from '@server/validators/cuit.js';
+import { normalizeCUIT, validateCUIT } from '@shared/validators/cuit';
 
 /**
  * Normaliza fecha de formato DD/MM/YYYY o DD-MM-YYYY a YYYY-MM-DD

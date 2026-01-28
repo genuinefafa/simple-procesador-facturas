@@ -11,7 +11,7 @@ import { ExpectedInvoiceRepository } from '../database/repositories/expected-inv
 import { EmitterRepository } from '../database/repositories/emitter';
 import { CategoryRepository } from '../database/repositories/category';
 import { InvoiceFileService } from './invoice-file.service';
-import { validateCUIT, normalizeCUIT, formatCUIT } from '../validators/cuit';
+import { validateCUIT, normalizeCUIT, formatCUIT } from '@shared/validators/cuit';
 
 export interface InvoiceCreationData {
   cuit: string;

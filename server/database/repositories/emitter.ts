@@ -6,7 +6,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../db.js';
 import { emisores, type Emisor, type NewEmisor } from '../schema.js';
-import type { Emitter } from '../../utils/types.js';
+import type { Emitter } from '@shared/types';
 
 export class EmitterRepository {
   /**
