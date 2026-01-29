@@ -46,6 +46,9 @@ function evaluateFilterCondition(
     case 'tipo':
       return matchesTipo(c, filter.value);
 
+    case 'estado':
+      return matchesEstado(c, filter.value);
+
     case 'freetext':
       return matchesFreeText(c, filter.value);
 
@@ -227,6 +230,25 @@ function matchesTipo(c: Comprobante, query: string): boolean {
   }
 
   return false;
+}
+
+/**
+ * Match por estado del comprobante
+ */
+function matchesEstado(c: Comprobante, value: string): boolean {
+  switch (value) {
+    case 'pendientes':
+      // Archivos sin factura final
+      return !!c.file && !c.final;
+    case 'reconocidas':
+      // Facturas finalizadas o archivos procesados
+      return !!c.final || c.file?.status === 'processed';
+    case 'esperadas':
+      // Expected invoices sin factura final
+      return !!c.expected && !c.final;
+    default:
+      return false;
+  }
 }
 
 /**

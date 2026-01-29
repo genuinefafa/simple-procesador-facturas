@@ -1,6 +1,11 @@
 import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 
 /**
+ * Valores válidos para el filtro de estado
+ */
+export type EstadoValue = 'pendientes' | 'reconocidas' | 'esperadas';
+
+/**
  * Tipos de nodos de filtro soportados
  */
 export type FilterNode =
@@ -20,6 +25,7 @@ export type FilterNode =
       negate: boolean;
     }
   | { type: 'tipo'; value: string; negate: boolean }
+  | { type: 'estado'; value: EstadoValue; negate: boolean }
   | { type: 'freetext'; value: string; negate: boolean };
 
 export type DateRange = { start: Date; end: Date };
@@ -80,6 +86,8 @@ export function serializeFilters(filters: FilterNode[]): string {
           return `${prefix}numero:${f.value}`;
         case 'tipo':
           return `${prefix}tipo:${f.value}`;
+        case 'estado':
+          return `${prefix}estado:${f.value}`;
         case 'fecha':
           return `${prefix}fecha:${serializeDateFilter(f)}`;
         case 'total':
@@ -195,6 +203,9 @@ function parseToken(token: string): FilterNode | null {
         negate,
       };
 
+    case 'estado':
+      return parseEstadoField(value, negate);
+
     default:
       // Campo desconocido → tratar como texto libre
       return {
@@ -303,6 +314,43 @@ function parseDateField(value: string, negate: boolean): FilterNode {
     type: 'fecha',
     operator,
     value: parsedDate,
+    negate,
+  };
+}
+
+/**
+ * Valores válidos para estado con aliases
+ */
+const ESTADO_ALIASES: Record<string, EstadoValue> = {
+  pendiente: 'pendientes',
+  pendientes: 'pendientes',
+  pend: 'pendientes',
+  reconocida: 'reconocidas',
+  reconocidas: 'reconocidas',
+  rec: 'reconocidas',
+  procesada: 'reconocidas',
+  procesadas: 'reconocidas',
+  esperada: 'esperadas',
+  esperadas: 'esperadas',
+  esp: 'esperadas',
+};
+
+/**
+ * Parsea campo de estado
+ */
+function parseEstadoField(value: string, negate: boolean): FilterNode {
+  const valueLower = value.toLowerCase();
+  const estado = ESTADO_ALIASES[valueLower];
+
+  if (!estado) {
+    throw new Error(
+      `Estado inválido: ${value}. Valores válidos: pendientes, reconocidas, esperadas`
+    );
+  }
+
+  return {
+    type: 'estado',
+    value: estado,
     negate,
   };
 }
