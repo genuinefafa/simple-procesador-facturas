@@ -2,8 +2,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import CategoryPills from '$lib/components/CategoryPills.svelte';
   import CompletenessIndicator from '$lib/components/CompletenessIndicator.svelte';
-  import SearchBox from '$lib/components/SearchBox.svelte';
-  import ActiveFilters from '$lib/components/ActiveFilters.svelte';
+  import UnifiedSearchBox from '$lib/components/UnifiedSearchBox.svelte';
   import UploadReport from '$lib/components/UploadReport.svelte';
   import type { PageData } from './$types';
   import type { Comprobante } from '$lib/types/comprobante';
@@ -20,44 +19,43 @@
     formatComprobanteKind,
     formatCuit,
   } from '$lib/formatters';
-  import { createFilterMatcher, serializeFilters, type FilterNode } from '$lib/search';
+  import { createFilterMatcher, type FilterNode } from '$lib/search';
   import { navigationStore } from '$lib/stores/navigation';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
-  // null => Sin categoría; undefined => todas; number => específica
-  let activeCategoryId = $state<number | undefined | null>(undefined);
 
   // Track which invoice is being edited for category
   let editingCategoryId = $state<number | null>(null);
 
-  type FilterKind = 'all' | 'pendientes' | 'reconocidas' | 'esperadas';
-
-  // Cargar filtro desde la URL (?f=...) o localStorage; por defecto 'all'
-  let activeFilter = $state<FilterKind>('all');
-
-  // Estado para búsqueda meta-lenguaje
+  // Estado unificado para búsqueda meta-lenguaje (incluye estado y categoría)
   let searchQuery = $state('');
   let searchFilters = $state<FilterNode[]>([]);
 
   // Filter matcher
   const matchesSearchFilter = $derived(createFilterMatcher(categories));
 
+  // Extraer lista de emisores únicos de los comprobantes
+  let emitters = $derived(() => {
+    const seen = new Set<string>();
+    const result: Array<{ name: string; cuit?: string }> = [];
+
+    for (const c of data.comprobantes) {
+      const name = c.emitterName || c.final?.emitterName || c.expected?.emitterName;
+      const cuit = c.emitterCuit || c.final?.cuit || c.expected?.cuit;
+
+      if (name && !seen.has(name)) {
+        seen.add(name);
+        result.push({ name, cuit: cuit ?? undefined });
+      }
+    }
+
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  // Restaurar query de búsqueda desde URL o localStorage
   $effect.pre(() => {
     if (typeof window !== 'undefined') {
-      const rawParam = $page.url.searchParams.get('f');
-      // Mapear alias legacy 'procesadas' -> 'reconocidas'
-      const urlParam = (rawParam === 'procesadas' ? 'reconocidas' : rawParam) as FilterKind | null;
-      let saved = localStorage.getItem('comprobantes-filter');
-      if (saved === 'procesadas') saved = 'reconocidas';
-      const valid = ['all', 'pendientes', 'reconocidas', 'esperadas'];
-      const initial =
-        urlParam && valid.includes(urlParam)
-          ? (urlParam as FilterKind)
-          : (saved as FilterKind | null) || 'all';
-      activeFilter = initial as FilterKind;
-
-      // Restaurar query de búsqueda desde URL
       const q = $page.url.searchParams.get('q');
       if (q) {
         searchQuery = q;
@@ -67,7 +65,7 @@
         if (savedFilters) {
           try {
             const state = JSON.parse(savedFilters);
-            if (state.version === 1 && Date.now() - state.timestamp < 7 * 24 * 60 * 60 * 1000) {
+            if (state.version === 2 && Date.now() - state.timestamp < 7 * 24 * 60 * 60 * 1000) {
               searchQuery = state.query || '';
             }
           } catch (e) {
@@ -78,37 +76,23 @@
     }
   });
 
-  // Persistir filtros de búsqueda en localStorage
+  // Persistir filtros de búsqueda en localStorage y URL
   $effect(() => {
     if (typeof window !== 'undefined') {
       const state = {
-        version: 1,
+        version: 2,
         query: searchQuery,
-        categoryId: activeCategoryId,
-        statusFilter: activeFilter,
         timestamp: Date.now(),
       };
       localStorage.setItem('comprobantes-search-filters', JSON.stringify(state));
-    }
-  });
 
-  // Sincronizar cambios de filtro con URL y localStorage (SPA)
-  async function updateUrlForFilter(kind: FilterKind) {
-    const current = $state.snapshot(activeFilter);
-    if (current === kind) return;
-    activeFilter = kind;
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('comprobantes-filter', kind);
-
+      // Actualizar URL sin recargar
       const params = new URLSearchParams();
       if (searchQuery) params.set('q', searchQuery);
-      if (kind !== 'all') params.set('f', kind);
-
       const target = params.toString() ? `/comprobantes?${params}` : '/comprobantes';
-      // Reemplazar estado para no ensuciar el historial al alternar filtros
-      await goto(target, { replaceState: true, noScroll: true, keepFocus: true });
+      goto(target, { replaceState: true, noScroll: true, keepFocus: true });
     }
-  }
+  });
 
   function shortHash(hash?: string | null) {
     if (!hash) return '—';
@@ -140,35 +124,10 @@
   }
 
   function isVisible(c: Comprobante): boolean {
-    switch (activeFilter) {
-      case 'reconocidas':
-        // Incluir facturas finalizadas y archivos procesados
-        if (!(!!c.final || c.file?.status === 'processed')) return false;
-        break;
-      case 'esperadas':
-        if (!(!!c.expected && !c.final)) return false;
-        break;
-      case 'pendientes':
-        // Mostrar todos los comprobantes de tipo pending (sin factura finalizada)
-        if (!c.file || c.final) return false;
-        break;
-      default:
-        break;
-    }
-    // Filtro por categoría (solo aplica a facturas finales)
-    if (activeCategoryId === null) {
-      // Filtrar facturas sin categoría
-      return (c.final?.categoryId ?? null) === null;
-    }
-    if (activeCategoryId !== undefined) {
-      return (c.final?.categoryId ?? null) === activeCategoryId;
-    }
-
-    // Filtros de búsqueda meta-lenguaje
+    // Todos los filtros se aplican via meta-lenguaje (AND lógico)
     for (const filter of searchFilters) {
       if (!matchesSearchFilter(c, filter)) return false;
     }
-
     return true;
   }
 
@@ -280,20 +239,11 @@
   // Helpers para búsqueda meta-lenguaje
   let visibleComprobantes = $derived(data.comprobantes.filter(isVisible));
 
-  let hasActiveFilters = $derived(
-    activeFilter !== 'all' || activeCategoryId !== undefined || searchFilters.length > 0
-  );
+  let hasActiveFilters = $derived(searchFilters.length > 0);
 
   function clearAllFilters() {
     searchQuery = '';
     searchFilters = [];
-    activeCategoryId = undefined;
-    updateUrlForFilter('all');
-  }
-
-  function removeFilter(filter: FilterNode) {
-    const remaining = searchFilters.filter((f) => f !== filter);
-    searchQuery = serializeFilters(remaining);
   }
 
   /**
@@ -302,7 +252,7 @@
   function navigateToDetail(compId: string) {
     // Guardar los IDs de la lista visible actual para navegación prev/next
     const ids = visibleComprobantes.map((c) => c.id);
-    navigationStore.setContext(ids, activeFilter);
+    navigationStore.setContext(ids, searchQuery || undefined);
     goto(`/comprobantes/${compId}`);
   }
 
@@ -434,73 +384,23 @@
     </div>
   {/if}
 
-  <!-- BÚSQUEDA META-LENGUAJE -->
+  <!-- BÚSQUEDA UNIFICADA -->
   <section class="search-section">
-    <SearchBox
+    <UnifiedSearchBox
       bind:value={searchQuery}
       onfilter={(filters) => (searchFilters = filters)}
       {categories}
+      emitters={emitters()}
     />
   </section>
 
-  <section class="filters">
-    <button
-      class:active={activeFilter === 'all'}
-      onclick={() => updateUrlForFilter('all')}
-      type="button"
-    >
-      Todos
-    </button>
-    <button
-      class:active={activeFilter === 'pendientes'}
-      onclick={() => updateUrlForFilter('pendientes')}
-      type="button"
-    >
-      Pendientes
-    </button>
-    <button
-      class:active={activeFilter === 'reconocidas'}
-      onclick={() => updateUrlForFilter('reconocidas')}
-      type="button"
-    >
-      Reconocidas
-    </button>
-    <button
-      class:active={activeFilter === 'esperadas'}
-      onclick={() => updateUrlForFilter('esperadas')}
-      type="button"
-    >
-      Esperadas
-    </button>
-  </section>
-
-  <!-- Filtro por categoría -->
-  <section class="filters">
-    <label for="category-filter">Categoría:</label>
-    <CategoryPills
-      {categories}
-      selected={activeCategoryId}
-      onselect={(id) => (activeCategoryId = id)}
-      mode="filter"
-    />
-  </section>
-
-  <!-- RESUMEN DE FILTROS + LIMPIAR -->
+  <!-- RESUMEN DE FILTROS -->
   {#if hasActiveFilters}
     <section class="filter-summary">
       <div class="count">
         Mostrando {visibleComprobantes.length} de {data.comprobantes.length} comprobantes
       </div>
-      <button class="clear-all" onclick={clearAllFilters} type="button">
-        Limpiar todos los filtros
-      </button>
-    </section>
-  {/if}
-
-  <!-- FILTROS ACTIVOS VISUALES -->
-  {#if searchFilters.length > 0}
-    <section class="active-filters-section">
-      <ActiveFilters filters={searchFilters} onremove={removeFilter} />
+      <button class="clear-all" onclick={clearAllFilters} type="button"> Limpiar filtros </button>
     </section>
   {/if}
 
@@ -695,29 +595,6 @@
   .dz-hint {
     margin: 0;
     color: var(--color-text-tertiary);
-  }
-
-  .filters {
-    display: flex;
-    gap: 0.5rem;
-    margin-bottom: var(--spacing-3);
-  }
-  .filters button {
-    border: 1px solid var(--color-border);
-    background: var(--color-surface);
-    border-radius: var(--radius-full);
-    padding: 0.35rem 0.75rem;
-    cursor: pointer;
-    color: var(--color-text-secondary);
-  }
-  .filters button.active,
-  .filters button:hover {
-    border-color: var(--color-primary-300);
-    color: var(--color-primary-700);
-    background: var(--color-primary-50);
-  }
-  .clear-filter {
-    margin-left: 0.5rem;
   }
 
   .list {
