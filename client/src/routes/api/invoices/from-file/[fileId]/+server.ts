@@ -6,10 +6,10 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import {
-  InvoiceCreationService,
   type InvoiceCreationData,
   type InvoiceCreationOptions,
 } from '@server/services/invoice-creation.service';
+import { createInvoiceCreationService } from '@server/factories';
 
 export const POST: RequestHandler = async ({ params, request }) => {
   try {
@@ -42,7 +42,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 
     const options: InvoiceCreationOptions = { source, expectedId };
 
-    const service = new InvoiceCreationService();
+    const service = createInvoiceCreationService();
     const result = await service.createFromFile(fileId, data, options);
 
     if (!result.success) {

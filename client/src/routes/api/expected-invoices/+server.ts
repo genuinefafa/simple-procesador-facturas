@@ -4,17 +4,14 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import {
-  ExpectedInvoiceRepository,
-  type ExpectedInvoiceStatus,
-} from '@server/database/repositories/expected-invoice.js';
-import { ExcelImportService } from '@server/services/excel-import.service.js';
+import { type ExpectedInvoiceStatus } from '@server/database/repositories/expected-invoice.js';
+import { getExpectedInvoiceRepository, createExcelImportService } from '@server/factories';
 
 export const GET: RequestHandler = async ({ url }) => {
   console.info('\n📋 [API] GET /api/expected-invoices');
 
   try {
-    const repo = new ExpectedInvoiceRepository();
+    const repo = getExpectedInvoiceRepository();
 
     // Parsear query params
     const status = url.searchParams.get('status');
@@ -97,7 +94,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const { action, batchId } = await request.json();
 
     if (action === 'getBatchStats' && batchId) {
-      const service = new ExcelImportService();
+      const service = createExcelImportService();
       const stats = service.getBatchStats(batchId);
 
       return json({
@@ -107,7 +104,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     if (action === 'listBatches') {
-      const service = new ExcelImportService();
+      const service = createExcelImportService();
       const batches = service.listBatches();
 
       return json({

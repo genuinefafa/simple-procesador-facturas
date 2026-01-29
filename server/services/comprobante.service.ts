@@ -4,27 +4,39 @@
  * facturas finales, expected invoices, y archivos subidos.
  */
 
-import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice';
-import { InvoiceRepository } from '../database/repositories/invoice';
-import { FileRepository } from '../database/repositories/file';
-import { FileExtractionRepository } from '../database/repositories/file-extraction';
-import { EmitterRepository } from '../database/repositories/emitter';
+import {
+  ExpectedInvoiceRepository,
+  type IExpectedInvoiceRepository,
+} from '../database/repositories/expected-invoice';
+import { InvoiceRepository, type IInvoiceRepository } from '../database/repositories/invoice';
+import { FileRepository, type IFileRepository } from '../database/repositories/file';
+import {
+  FileExtractionRepository,
+  type IFileExtractionRepository,
+} from '../database/repositories/file-extraction';
+import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter';
 import { normalizeToISO } from '../utils/dates';
 import type { Final, Expected, FileData, Comprobante } from '@shared/types';
 
 export class ComprobanteService {
-  private invoiceRepo: InvoiceRepository;
-  private expectedRepo: ExpectedInvoiceRepository;
-  private fileRepo: FileRepository;
-  private extractionRepo: FileExtractionRepository;
-  private emitterRepo: EmitterRepository;
+  private invoiceRepo: IInvoiceRepository;
+  private expectedRepo: IExpectedInvoiceRepository;
+  private fileRepo: IFileRepository;
+  private extractionRepo: IFileExtractionRepository;
+  private emitterRepo: IEmitterRepository;
 
-  constructor() {
-    this.invoiceRepo = new InvoiceRepository();
-    this.expectedRepo = new ExpectedInvoiceRepository();
-    this.fileRepo = new FileRepository();
-    this.extractionRepo = new FileExtractionRepository();
-    this.emitterRepo = new EmitterRepository();
+  constructor(
+    invoiceRepo?: IInvoiceRepository,
+    expectedRepo?: IExpectedInvoiceRepository,
+    fileRepo?: IFileRepository,
+    extractionRepo?: IFileExtractionRepository,
+    emitterRepo?: IEmitterRepository
+  ) {
+    this.invoiceRepo = invoiceRepo ?? new InvoiceRepository();
+    this.expectedRepo = expectedRepo ?? new ExpectedInvoiceRepository();
+    this.fileRepo = fileRepo ?? new FileRepository();
+    this.extractionRepo = extractionRepo ?? new FileExtractionRepository();
+    this.emitterRepo = emitterRepo ?? new EmitterRepository();
   }
 
   /**

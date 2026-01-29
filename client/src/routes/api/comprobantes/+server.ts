@@ -1,8 +1,8 @@
 import { json } from '@sveltejs/kit';
-import { ComprobanteService } from '@server/services/comprobante.service';
+import { createComprobanteService } from '@server/factories';
 
 export async function GET() {
-  const service = new ComprobanteService();
+  const service = createComprobanteService();
   const comprobantes = await service.listAll();
   return json({ count: comprobantes.length, comprobantes });
 }

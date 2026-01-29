@@ -12,9 +12,10 @@
 import { PDFExtractor } from '../extractors/pdf-extractor.js';
 import { OCRExtractor } from '../extractors/ocr-extractor.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '@shared/validators/cuit';
-import { EmitterRepository } from '../database/repositories/emitter.js';
+import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter.js';
 import {
   ExpectedInvoiceRepository,
+  type IExpectedInvoiceRepository,
   type ExpectedInvoice,
 } from '../database/repositories/expected-invoice.js';
 import { format } from 'date-fns';
@@ -49,14 +50,19 @@ export interface ProcessingResult {
 export class InvoiceProcessingService {
   private pdfExtractor: PDFExtractor;
   private ocrExtractor: OCRExtractor;
-  private emitterRepo: EmitterRepository;
-  private expectedInvoiceRepo: ExpectedInvoiceRepository;
+  private emitterRepo: IEmitterRepository;
+  private expectedInvoiceRepo: IExpectedInvoiceRepository;
 
-  constructor() {
-    this.pdfExtractor = new PDFExtractor();
-    this.ocrExtractor = new OCRExtractor();
-    this.emitterRepo = new EmitterRepository();
-    this.expectedInvoiceRepo = new ExpectedInvoiceRepository();
+  constructor(
+    pdfExtractor?: PDFExtractor,
+    ocrExtractor?: OCRExtractor,
+    emitterRepo?: IEmitterRepository,
+    expectedInvoiceRepo?: IExpectedInvoiceRepository
+  ) {
+    this.pdfExtractor = pdfExtractor ?? new PDFExtractor();
+    this.ocrExtractor = ocrExtractor ?? new OCRExtractor();
+    this.emitterRepo = emitterRepo ?? new EmitterRepository();
+    this.expectedInvoiceRepo = expectedInvoiceRepo ?? new ExpectedInvoiceRepository();
   }
 
   /**

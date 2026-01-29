@@ -9,8 +9,8 @@
 import { copyFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import type { Invoice } from '@shared/types';
-import { InvoiceRepository } from '../database/repositories/invoice.js';
-import { EmitterRepository } from '../database/repositories/emitter.js';
+import { InvoiceRepository, type IInvoiceRepository } from '../database/repositories/invoice.js';
+import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter.js';
 import { generateSubdirectory, generateProcessedFilename } from '../utils/file-naming.js';
 
 export interface ExportOptions {
@@ -27,13 +27,17 @@ export interface ExportResult {
 }
 
 export class FileExportService {
-  private invoiceRepo: InvoiceRepository;
-  private emitterRepo: EmitterRepository;
+  private invoiceRepo: IInvoiceRepository;
+  private emitterRepo: IEmitterRepository;
   private defaultOutputDir: string;
 
-  constructor(outputDir?: string) {
-    this.invoiceRepo = new InvoiceRepository();
-    this.emitterRepo = new EmitterRepository();
+  constructor(
+    outputDir?: string,
+    invoiceRepo?: IInvoiceRepository,
+    emitterRepo?: IEmitterRepository
+  ) {
+    this.invoiceRepo = invoiceRepo ?? new InvoiceRepository();
+    this.emitterRepo = emitterRepo ?? new EmitterRepository();
     this.defaultOutputDir = outputDir || './data/finalized';
   }
 

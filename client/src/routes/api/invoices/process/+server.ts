@@ -6,9 +6,11 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { join } from 'path';
-import { InvoiceProcessingService } from '@server/services/invoice-processing.service.js';
-import { FileRepository } from '@server/database/repositories/file.js';
-import { FileExtractionRepository } from '@server/database/repositories/file-extraction.js';
+import {
+  createInvoiceProcessingService,
+  getFileRepository,
+  getFileExtractionRepository,
+} from '@server/factories';
 
 export const POST: RequestHandler = async ({ request }) => {
   console.info('⚙️  [PROCESS] Iniciando procesamiento de facturas...');
@@ -37,9 +39,9 @@ export const POST: RequestHandler = async ({ request }) => {
       return json({ success: false, error: 'Se requiere un array de fileIds' }, { status: 400 });
     }
 
-    const fileRepo = new FileRepository();
-    const extractionRepo = new FileExtractionRepository();
-    const processingService = new InvoiceProcessingService();
+    const fileRepo = getFileRepository();
+    const extractionRepo = getFileExtractionRepository();
+    const processingService = createInvoiceProcessingService();
 
     // Cargar files desde BD
     const filesPromises = fileIds.map((id) => fileRepo.findById(id));
