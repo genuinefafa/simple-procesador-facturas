@@ -35,21 +35,34 @@
   let parsedResult = $state<ParseResult>({ filters: [], errors: [] });
   let inputRef = $state<HTMLInputElement | null>(null);
   let isFocused = $state(false);
+  let isInitialized = $state(false);
 
   // Detectar si estamos escribiendo un campo con hints
   let activeHintField = $derived(detectActiveHintField(value));
   let hints = $derived(generateHints(activeHintField, categories, emitters));
   let selectedHintIndex = $state(0);
 
-  // Debounce de parsing (300ms)
+  // Debounce de parsing para typing (150ms)
   const debouncedParse = debounce((query: string) => {
     parsedResult = parseSearchQuery(query);
     onfilter(parsedResult.filters);
-  }, 300);
+  }, 150);
 
-  // Efecto que dispara el parsing cuando cambia el valor
+  // Parseo inicial SÍNCRONO (sin debounce) para evitar flicker al cargar con URL
+  $effect.pre(() => {
+    if (!isInitialized && value) {
+      parsedResult = parseSearchQuery(value);
+      onfilter(parsedResult.filters);
+    }
+  });
+
+  // Efecto que dispara el parsing cuando cambia el valor (con debounce para typing)
   $effect(() => {
-    debouncedParse(value);
+    if (isInitialized) {
+      debouncedParse(value);
+    } else {
+      isInitialized = true;
+    }
   });
 
   // Reset selected hint when hints change
