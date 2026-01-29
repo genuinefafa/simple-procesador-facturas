@@ -5,7 +5,7 @@
 import ExcelJS from 'exceljs';
 import { normalizeCUIT, validateCUIT } from '@shared/validators/cuit';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice.js';
-import { EmitterRepository } from '../database/repositories/emitter.js';
+import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter.js';
 import { normalizeEmitterName } from '../utils/emitter-name-normalizer.js';
 import path from 'path';
 
@@ -97,11 +97,11 @@ export type ExcelFormat = 'simple' | 'arca-full';
  */
 export class ExcelImportService {
   private repo: ExpectedInvoiceRepository;
-  private emitterRepo: EmitterRepository;
+  private emitterRepo: IEmitterRepository;
 
-  constructor() {
-    this.repo = new ExpectedInvoiceRepository();
-    this.emitterRepo = new EmitterRepository();
+  constructor(repo?: ExpectedInvoiceRepository, emitterRepo?: IEmitterRepository) {
+    this.repo = repo ?? new ExpectedInvoiceRepository();
+    this.emitterRepo = emitterRepo ?? new EmitterRepository();
   }
 
   /**

@@ -8,7 +8,23 @@ import { db } from '../db.js';
 import { emisores, type Emisor, type NewEmisor } from '../schema.js';
 import type { Emitter } from '@shared/types';
 
-export class EmitterRepository {
+/**
+ * Interface for EmitterRepository - enables dependency injection and testing
+ */
+export interface IEmitterRepository {
+  findByCUIT(cuit: string): Emitter | null;
+  create(data: {
+    cuit: string;
+    name: string;
+    legalName?: string;
+    aliases?: string[];
+    personType?: 'FISICA' | 'JURIDICA';
+  }): Emitter;
+  list(filters?: { active?: boolean }): Emitter[];
+  updateName(cuit: string, name: string, legalName?: string): void;
+}
+
+export class EmitterRepository implements IEmitterRepository {
   /**
    * Mapea un Emisor de Drizzle a la interfaz Emitter del sistema
    */

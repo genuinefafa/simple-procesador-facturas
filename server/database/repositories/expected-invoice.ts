@@ -46,7 +46,42 @@ export interface ImportBatch {
   notes: string | null;
 }
 
-export class ExpectedInvoiceRepository {
+/**
+ * Interface for ExpectedInvoiceRepository - enables dependency injection and testing
+ */
+export interface IExpectedInvoiceRepository {
+  findById(id: number): Promise<ExpectedInvoice | null>;
+  findExactMatch(
+    cuit: string,
+    type: number | null,
+    pointOfSale: number,
+    invoiceNumber: number
+  ): Promise<ExpectedInvoice | null>;
+  findPartialMatches(criteria: {
+    cuit?: string;
+    cuitPartial?: string;
+    invoiceType?: number | null;
+    pointOfSale?: number;
+    invoiceNumber?: number;
+    issueDate?: string;
+    total?: number;
+    limit?: number;
+  }): Promise<
+    Array<
+      ExpectedInvoice & { matchScore: number; matchedFields: string[]; totalFieldsCompared: number }
+    >
+  >;
+  listWithFiles(filters?: {
+    status?: ExpectedInvoiceStatus | ExpectedInvoiceStatus[];
+    batchId?: number;
+    cuit?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ExpectedInvoice[]>;
+  updateStatus(id: number, status: ExpectedInvoiceStatus): void;
+}
+
+export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
   private mapDrizzleToExpectedInvoice(row: DrizzelExpectedInvoice | undefined): ExpectedInvoice {
     if (!row) {
       throw new Error('Cannot map undefined row to ExpectedInvoice');

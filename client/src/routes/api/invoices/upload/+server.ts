@@ -8,11 +8,13 @@ import type { RequestHandler } from './$types';
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { FileRepository } from '@server/database/repositories/file.js';
-import { FileExtractionRepository } from '@server/database/repositories/file-extraction.js';
-import { InvoiceRepository } from '@server/database/repositories/invoice.js';
+import {
+  getFileRepository,
+  getFileExtractionRepository,
+  getInvoiceRepository,
+  createInvoiceProcessingService,
+} from '@server/factories';
 import { calculateFileHash } from '@server/utils/file-hash.js';
-import { InvoiceProcessingService } from '@server/services/invoice-processing.service.js';
 
 const UPLOAD_DIR = join(process.cwd(), '..', 'data', 'input');
 
@@ -39,10 +41,10 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const uploadedFiles = [];
     const errors = [];
-    const fileRepo = new FileRepository();
-    const extractionRepo = new FileExtractionRepository();
-    const invoiceRepo = new InvoiceRepository();
-    const processingService = new InvoiceProcessingService();
+    const fileRepo = getFileRepository();
+    const extractionRepo = getFileExtractionRepository();
+    const invoiceRepo = getInvoiceRepository();
+    const processingService = createInvoiceProcessingService();
 
     for (const file of files) {
       console.info(`📄 [UPLOAD] Procesando: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);

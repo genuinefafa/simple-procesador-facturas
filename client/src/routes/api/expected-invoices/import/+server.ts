@@ -4,7 +4,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { ExcelImportService } from '@server/services/excel-import.service.js';
+import { createExcelImportService } from '@server/factories';
 import { writeFile, mkdir } from 'fs/promises';
 import path from 'path';
 import { existsSync } from 'fs';
@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ request }) => {
     console.info(`   💾 Archivo guardado: ${filePath}`);
 
     // Importar con el servicio
-    const importService = new ExcelImportService();
+    const importService = createExcelImportService();
     const result = await importService.importFromFile(filePath);
 
     console.info(`   ✅ Importación completada:`);

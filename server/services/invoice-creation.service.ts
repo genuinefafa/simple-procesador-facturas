@@ -4,12 +4,18 @@
  * Extraído del endpoint POST /api/invoices/from-file/[fileId].
  */
 
-import { FileRepository } from '../database/repositories/file';
-import { FileExtractionRepository } from '../database/repositories/file-extraction';
-import { InvoiceRepository } from '../database/repositories/invoice';
-import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice';
-import { EmitterRepository } from '../database/repositories/emitter';
-import { CategoryRepository } from '../database/repositories/category';
+import { FileRepository, type IFileRepository } from '../database/repositories/file';
+import {
+  FileExtractionRepository,
+  type IFileExtractionRepository,
+} from '../database/repositories/file-extraction';
+import { InvoiceRepository, type IInvoiceRepository } from '../database/repositories/invoice';
+import {
+  ExpectedInvoiceRepository,
+  type IExpectedInvoiceRepository,
+} from '../database/repositories/expected-invoice';
+import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter';
+import { CategoryRepository, type ICategoryRepository } from '../database/repositories/category';
 import { InvoiceFileService } from './invoice-file.service';
 import { validateCUIT, normalizeCUIT, formatCUIT } from '@shared/validators/cuit';
 
@@ -43,22 +49,30 @@ export interface InvoiceCreationResult {
 }
 
 export class InvoiceCreationService {
-  private fileRepo: FileRepository;
-  private extractionRepo: FileExtractionRepository;
-  private invoiceRepo: InvoiceRepository;
-  private expectedRepo: ExpectedInvoiceRepository;
-  private emitterRepo: EmitterRepository;
-  private categoryRepo: CategoryRepository;
+  private fileRepo: IFileRepository;
+  private extractionRepo: IFileExtractionRepository;
+  private invoiceRepo: IInvoiceRepository;
+  private expectedRepo: IExpectedInvoiceRepository;
+  private emitterRepo: IEmitterRepository;
+  private categoryRepo: ICategoryRepository;
   private fileService: InvoiceFileService;
 
-  constructor() {
-    this.fileRepo = new FileRepository();
-    this.extractionRepo = new FileExtractionRepository();
-    this.invoiceRepo = new InvoiceRepository();
-    this.expectedRepo = new ExpectedInvoiceRepository();
-    this.emitterRepo = new EmitterRepository();
-    this.categoryRepo = new CategoryRepository();
-    this.fileService = new InvoiceFileService(this.fileRepo, this.categoryRepo);
+  constructor(
+    fileRepo?: IFileRepository,
+    extractionRepo?: IFileExtractionRepository,
+    invoiceRepo?: IInvoiceRepository,
+    expectedRepo?: IExpectedInvoiceRepository,
+    emitterRepo?: IEmitterRepository,
+    categoryRepo?: ICategoryRepository,
+    fileService?: InvoiceFileService
+  ) {
+    this.fileRepo = fileRepo ?? new FileRepository();
+    this.extractionRepo = extractionRepo ?? new FileExtractionRepository();
+    this.invoiceRepo = invoiceRepo ?? new InvoiceRepository();
+    this.expectedRepo = expectedRepo ?? new ExpectedInvoiceRepository();
+    this.emitterRepo = emitterRepo ?? new EmitterRepository();
+    this.categoryRepo = categoryRepo ?? new CategoryRepository();
+    this.fileService = fileService ?? new InvoiceFileService(this.fileRepo, this.categoryRepo);
   }
 
   /**

@@ -8,6 +8,70 @@ import { facturas, type Factura } from '../schema';
 import type { InvoiceType, Currency, ExtractionMethod } from '@shared/types';
 
 /**
+ * Interface for InvoiceRepository - enables dependency injection and testing
+ */
+export interface IInvoiceRepository {
+  create(data: {
+    emitterCuit: string;
+    templateUsedId?: number;
+    issueDate: Date | string;
+    invoiceType: InvoiceType;
+    pointOfSale: number;
+    invoiceNumber: number;
+    total?: number;
+    currency?: Currency;
+    fileId: number;
+    fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
+    extractionMethod: ExtractionMethod;
+    extractionConfidence?: number;
+    requiresReview?: boolean;
+    expectedInvoiceId?: number;
+    categoryId?: number;
+  }): Promise<Invoice>;
+  findById(id: number): Promise<Invoice | null>;
+  findByFileId(fileId: number): Promise<Invoice[]>;
+  findByInvoiceNumber(
+    emitterCuit: string,
+    type: InvoiceType,
+    pointOfSale: number,
+    number: number
+  ): Promise<Invoice | null>;
+  list(filters?: {
+    emitterCuit?: string;
+    dateFrom?: Date;
+    dateTo?: Date;
+    minAmount?: number;
+    maxAmount?: number;
+    invoiceType?: InvoiceType;
+    requiresReview?: boolean;
+    limit?: number;
+    offset?: number;
+  }): Promise<Invoice[]>;
+  update(
+    id: number,
+    data: Partial<{
+      emisorCuit: string;
+      tipoComprobante: InvoiceType;
+      puntoVenta: number;
+      numeroComprobante: number;
+      comprobanteCompleto: string;
+      total: number;
+      fechaEmision: string;
+      categoryId: number | null;
+      expectedInvoiceId: number | null;
+    }>
+  ): Promise<Invoice | null>;
+  deleteWithUnlink(
+    id: number
+  ): Promise<
+    | { success: true; unlinkedExpected?: number; unlinkedFile?: number }
+    | { success: false; error: string }
+  >;
+  /** @deprecated Use FileRepository.updatePath() instead */
+  updateProcessedFile(id: number, processedFile: string, finalizedFile?: string): void;
+}
+
+/**
  * Invoice interface - rutas de archivo se obtienen via fileId -> files table
  * Las columnas archivo_procesado y finalized_file fueron eliminadas en migración 0014
  *
@@ -43,7 +107,7 @@ export interface Invoice {
   categoryId?: number;
 }
 
-export class InvoiceRepository {
+export class InvoiceRepository implements IInvoiceRepository {
   private mapDrizzleToInvoice(row: Factura): Invoice {
     return {
       id: row.id,

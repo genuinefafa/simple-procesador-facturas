@@ -6,7 +6,16 @@ import { eq } from 'drizzle-orm';
 import { db } from '../db';
 import { categories, type Category, type NewCategory } from '../schema';
 
-export class CategoryRepository {
+/**
+ * Interface for CategoryRepository - enables dependency injection and testing
+ */
+export interface ICategoryRepository {
+  findById(id: number): Promise<Category | undefined>;
+  findByKey(key: string): Promise<Category | undefined>;
+  findAllActive(): Promise<Category[]>;
+}
+
+export class CategoryRepository implements ICategoryRepository {
   /**
    * Obtiene todas las categorías activas
    */
