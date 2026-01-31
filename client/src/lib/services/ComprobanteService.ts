@@ -161,6 +161,51 @@ class ComprobanteService {
       return { success: false, error: 'Error al actualizar categoría' };
     }
   }
+
+  /**
+   * Update category of an expected invoice
+   */
+  async updateExpectedInvoiceCategory(
+    expectedId: number,
+    categoryId: number | null
+  ): Promise<ApiResult> {
+    try {
+      const response = await fetch(`/api/expected-invoices/${expectedId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId }),
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al actualizar categoría' };
+    } catch {
+      return { success: false, error: 'Error al actualizar categoría' };
+    }
+  }
+
+  /**
+   * Update category of a file
+   */
+  async updateFileCategory(fileId: number, categoryId: number | null): Promise<ApiResult> {
+    try {
+      const response = await fetch(`/api/files/${fileId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ categoryId }),
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al actualizar categoría' };
+    } catch {
+      return { success: false, error: 'Error al actualizar categoría' };
+    }
+  }
 }
 
 export const comprobanteService = new ComprobanteService();
