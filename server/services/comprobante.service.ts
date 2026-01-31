@@ -155,6 +155,7 @@ export class ComprobanteService {
         extractedType: extraction?.extractedType ?? null,
         extractedPointOfSale: extraction?.extractedPointOfSale ?? null,
         extractedInvoiceNumber: extraction?.extractedInvoiceNumber ?? null,
+        categoryId: file.categoryId ?? null,
       };
     });
   }
@@ -229,6 +230,7 @@ export class ComprobanteService {
         invoiceNumber: inv.invoiceNumber,
         total: inv.total,
         status: inv.status,
+        categoryId: inv.categoryId ?? null,
       }));
   }
 }
