@@ -53,6 +53,7 @@ export type FileData = {
   extractionMethod?: string | null;
   extractionErrors?: string | null;
   linkedInvoiceId?: number | null;
+  categoryId?: number | null;
 };
 
 export type Match = {
