@@ -50,6 +50,7 @@ export function createInvoiceForm() {
     extractedInvoiceNumber?: number | null;
     extractedDate?: string | null;
     extractedTotal?: number | null;
+    categoryId?: number | null;
   }) {
     formData.cuit = file.extractedCuit || '';
     formData.invoiceType = file.extractedType ?? null;
@@ -57,6 +58,7 @@ export function createInvoiceForm() {
     formData.invoiceNumber = file.extractedInvoiceNumber ?? null;
     formData.issueDate = file.extractedDate || '';
     formData.total = file.extractedTotal ?? null;
+    selectedCategoryId = file.categoryId ?? null;
     editMode = true;
     toast.info('Datos copiados del archivo. Revisá y guardá.');
   }
