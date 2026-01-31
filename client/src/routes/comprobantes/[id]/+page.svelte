@@ -276,6 +276,33 @@
             }}
             onreprocess={processPending}
             {processing}
+            {categories}
+            onfilecategorychange={async (categoryId) => {
+              if (!comprobante.file) return;
+              const result = await comprobanteService.updateFileCategory(
+                comprobante.file.id,
+                categoryId
+              );
+              if (result.success) {
+                toast.success('Categoría actualizada');
+                await invalidateAll();
+              } else {
+                toast.error(result.error || 'Error al actualizar categoría');
+              }
+            }}
+            onexpectedcategorychange={async (categoryId) => {
+              if (!bestExpected) return;
+              const result = await comprobanteService.updateExpectedInvoiceCategory(
+                bestExpected.id,
+                categoryId
+              );
+              if (result.success) {
+                toast.success('Categoría actualizada');
+                await invalidateAll();
+              } else {
+                toast.error(result.error || 'Error al actualizar categoría');
+              }
+            }}
           />
         </section>
       {/if}
