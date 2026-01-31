@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
   import CategoryPills from '$lib/components/CategoryPills.svelte';
+  import CategorySelect from '$lib/components/CategorySelect.svelte';
   import CompletenessIndicator from '$lib/components/CompletenessIndicator.svelte';
   import UnifiedSearchBox from '$lib/components/UnifiedSearchBox.svelte';
   import UploadReport from '$lib/components/UploadReport.svelte';
@@ -21,12 +22,10 @@
   } from '$lib/formatters';
   import { createFilterMatcher, type FilterNode } from '$lib/search';
   import { navigationStore } from '$lib/stores/navigation';
+  import { comprobanteService } from '$lib/services/ComprobanteService';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
-
-  // Track which invoice is being edited for category
-  let editingCategoryId = $state<number | null>(null);
 
   // Estado unificado para búsqueda meta-lenguaje (incluye estado y categoría)
   let searchQuery = $state('');
@@ -135,24 +134,41 @@
    * Actualiza la categoría de una factura procesada
    */
   async function updateCategory(invoiceId: number, categoryId: number | null | undefined) {
-    try {
-      const res = await fetch(`/api/invoices/${invoiceId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categoryId: categoryId === undefined ? null : categoryId }),
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Error actualizando categoría');
-      }
-
+    const result = await comprobanteService.updateInvoiceCategory(
+      invoiceId,
+      categoryId === undefined ? null : categoryId
+    );
+    if (result.success) {
       toast.success('Categoría actualizada');
-      editingCategoryId = null; // Cerrar modo edición
       await invalidateAll();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al actualizar categoría');
-      console.error(e);
+    } else {
+      toast.error(result.error || 'Error al actualizar categoría');
+    }
+  }
+
+  /**
+   * Actualiza la categoría de un expected invoice
+   */
+  async function updateExpectedCategory(expectedId: number, categoryId: number | null) {
+    const result = await comprobanteService.updateExpectedInvoiceCategory(expectedId, categoryId);
+    if (result.success) {
+      toast.success('Categoría actualizada');
+      await invalidateAll();
+    } else {
+      toast.error(result.error || 'Error al actualizar categoría');
+    }
+  }
+
+  /**
+   * Actualiza la categoría de un archivo
+   */
+  async function updateFileCategory(fileId: number, categoryId: number | null) {
+    const result = await comprobanteService.updateFileCategory(fileId, categoryId);
+    if (result.success) {
+      toast.success('Categoría actualizada');
+      await invalidateAll();
+    } else {
+      toast.error(result.error || 'Error al actualizar categoría');
     }
   }
 
@@ -457,33 +473,24 @@
         >
         <span class="col-category">
           {#if comp.final}
-            {#if editingCategoryId === comp.final.id}
-              <!-- Modo edición: mostrar pills -->
-              <CategoryPills
-                {categories}
-                selected={comp.final?.categoryId ?? null}
-                onselect={(id) => comp.final && updateCategory(comp.final.id, id)}
-                mode="single"
-              />
-            {:else}
-              <!-- Modo readonly: mostrar categoría actual -->
-              <button
-                type="button"
-                class="category-display"
-                onclick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  editingCategoryId = comp.final?.id ?? null;
-                }}
-                title="Click para editar categoría"
-              >
-                {#if comp.final?.categoryId}
-                  {categories.find((c) => c.id === comp.final?.categoryId)?.description ?? '—'}
-                {:else}
-                  <span class="no-category">Sin categoría</span>
-                {/if}
-              </button>
-            {/if}
+            <CategorySelect
+              {categories}
+              value={comp.final.categoryId ?? null}
+              onchange={(id: number | null) => comp.final && updateCategory(comp.final.id, id)}
+            />
+          {:else if comp.expected}
+            <CategorySelect
+              {categories}
+              value={comp.expected.categoryId ?? null}
+              onchange={(id: number | null) =>
+                comp.expected && updateExpectedCategory(comp.expected.id, id)}
+            />
+          {:else if comp.file}
+            <CategorySelect
+              {categories}
+              value={comp.file.categoryId ?? null}
+              onchange={(id: number | null) => comp.file && updateFileCategory(comp.file.id, id)}
+            />
           {:else}
             —
           {/if}
@@ -606,7 +613,8 @@
   .list-head,
   .row {
     display: grid;
-    grid-template-columns: 180px 300px 85px 120px 90px 80px 60px 60px;
+    /* Comprobante | Emisor | Fecha | Total | Categoría | Estado | Hash | Acción */
+    grid-template-columns: 180px 260px 85px 110px 150px 80px 60px 60px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
@@ -664,30 +672,9 @@
     flex-wrap: wrap;
   }
 
-  /* Category display button (readonly mode) */
-  .category-display {
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: var(--spacing-1) var(--spacing-2);
-    border-radius: var(--radius-md);
-    font-size: var(--font-size-sm);
-    color: var(--color-text-primary);
-    transition: all var(--transition-base);
-  }
-
-  .category-display:hover {
-    background: var(--color-neutral-100);
-  }
-
-  .category-display .no-category {
-    color: var(--color-text-tertiary);
-    font-style: italic;
-  }
-
-  /* Ajustar tamaño de columna para pills */
+  /* Columna de categoría - ancho controlado por grid */
   .col-category {
-    min-width: 200px;
+    overflow: hidden;
   }
 
   /* Columna de comprobante */
