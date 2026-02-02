@@ -31,8 +31,13 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
+    const categoryIdRaw = formData.get('categoryId');
+    const categoryId = categoryIdRaw ? parseInt(String(categoryIdRaw), 10) : null;
 
     console.info(`📤 [UPLOAD] Archivos recibidos: ${files.length}`);
+    if (categoryId !== null) {
+      console.info(`📤 [UPLOAD] Categoría pre-seleccionada: ${categoryId}`);
+    }
 
     if (!files || files.length === 0) {
       console.warn('⚠️  [UPLOAD] No se recibieron archivos');
@@ -158,6 +163,7 @@ export const POST: RequestHandler = async ({ request }) => {
           fileHash: fileHash!,
           storagePath: relativePath,
           status: 'uploaded',
+          categoryId: categoryId,
         });
 
         console.info(`📝 [UPLOAD] File creado en BD: ID ${createdFile.id}`);

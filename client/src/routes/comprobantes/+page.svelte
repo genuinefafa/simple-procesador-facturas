@@ -193,6 +193,9 @@
   let isDraggingOverPage = $state(false);
   let dragCounter = $state(0);
 
+  // Categoría pre-seleccionada para uploads
+  let uploadCategoryId = $state<number | null>(null);
+
   // Cuando cambien los archivos seleccionados, procesarlos
   $effect(() => {
     const selected = fileUpload.selected;
@@ -322,6 +325,10 @@
     if (others.length > 0) {
       const fd = new FormData();
       others.forEach((f) => fd.append('files', f));
+      // Agregar categoría pre-seleccionada si existe
+      if (uploadCategoryId !== null) {
+        fd.append('categoryId', String(uploadCategoryId));
+      }
       const toastId = toast.loading(
         `Subiendo ${others.length} archivo${others.length > 1 ? 's' : ''}...`
       );
@@ -389,12 +396,25 @@
       onClose={() => (uploadResult = null)}
     />
   {:else}
-    <!-- Dropzone compacto clickeable -->
+    <!-- Dropzone compacto clickeable con selector de categoría -->
     <div class="dropzone-wrapper">
       <div {...fileUpload.dropzone} class="dropzone-compact">
         <span class="dz-compact-hint"
           >📎 Click para subir archivos o arrastrá a cualquier parte</span
         >
+      </div>
+      <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+      <div
+        class="upload-category-wrapper"
+        role="group"
+        aria-label="Selector de categoría para archivos subidos"
+        onclick={(e) => e.stopPropagation()}
+        onkeydown={(e) => e.stopPropagation()}
+      >
+        <span class="upload-category-label">Categoría:</span>
+        <div class="upload-category-select">
+          <CategorySelect {categories} bind:value={uploadCategoryId} />
+        </div>
       </div>
       <input {...fileUpload.input} />
     </div>
@@ -537,10 +557,14 @@
 
   /* Dropzone compacto clickeable */
   .dropzone-wrapper {
+    display: flex;
+    gap: var(--spacing-3);
+    align-items: center;
     margin-bottom: var(--spacing-4);
   }
 
   .dropzone-compact {
+    flex: 1;
     border: 1px solid var(--color-border);
     background: var(--color-surface);
     border-radius: var(--radius-md);
@@ -558,6 +582,24 @@
   .dz-compact-hint {
     font-size: var(--font-size-sm);
     color: var(--color-text-secondary);
+  }
+
+  .upload-category-wrapper {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-shrink: 0;
+    cursor: default;
+  }
+
+  .upload-category-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  .upload-category-select {
+    width: 160px;
   }
 
   /* Overlay que aparece cuando se arrastra sobre la página */
