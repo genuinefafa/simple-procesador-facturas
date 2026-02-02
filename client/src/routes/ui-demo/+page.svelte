@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Button, Input, Dialog, Tabs, Dropdown } from '$lib/components/ui';
+  import CategorySelect from '$lib/components/CategorySelect.svelte';
 
   // State
   let dialogOpen = $state(false);
@@ -7,6 +8,22 @@
   let emailValue = $state('');
   let emailError = $state('');
   let activeTab = $state('button');
+
+  // CategorySelect demo state
+  const demoCategories = [
+    { id: 1, description: 'Servicios', color: '#3b82f6' },
+    { id: 2, description: 'Productos', color: '#10b981' },
+    { id: 3, description: 'Impuestos', color: '#f59e0b' },
+    { id: 4, description: 'Otros', color: '#8b5cf6' },
+  ];
+  let categoryA = $state<number | null>(null);
+  let categoryB = $state<number | null>(2);
+  let categoryLogs = $state<string[]>([]);
+
+  function logCategory(msg: string) {
+    const time = new Date().toLocaleTimeString();
+    categoryLogs = [`[${time}] ${msg}`, ...categoryLogs.slice(0, 9)];
+  }
 
   // Handlers
   function handleButtonClick() {
@@ -27,6 +44,7 @@
     { value: 'input', label: 'Input' },
     { value: 'dialog', label: 'Dialog' },
     { value: 'dropdown', label: 'Dropdown' },
+    { value: 'category-select', label: 'CategorySelect' },
   ];
 
   const dropdownItems = [
@@ -223,6 +241,102 @@
             ></pre>
         </div>
       </section>
+    {:else if activeTab === 'category-select'}
+      <section class="demo-section">
+        <h2>CategorySelect Component</h2>
+        <p class="section-description">
+          Selector de categorías compacto usando Melt UI Select. Ideal para celdas de tabla.
+        </p>
+
+        <div class="demo-grid">
+          <div class="demo-item">
+            <h3>Sin selección inicial</h3>
+            <div class="category-demo-container">
+              <CategorySelect
+                categories={demoCategories}
+                bind:value={categoryA}
+                onchange={(id) => logCategory(`A: seleccionó ${id}`)}
+              />
+            </div>
+            <p class="value-display">Valor: {categoryA === null ? 'null' : categoryA}</p>
+          </div>
+
+          <div class="demo-item">
+            <h3>Con valor pre-seleccionado</h3>
+            <div class="category-demo-container">
+              <CategorySelect
+                categories={demoCategories}
+                bind:value={categoryB}
+                onchange={(id) => logCategory(`B: seleccionó ${id}`)}
+              />
+            </div>
+            <p class="value-display">Valor: {categoryB === null ? 'null' : categoryB}</p>
+          </div>
+
+          <div class="demo-item">
+            <h3>Disabled</h3>
+            <div class="category-demo-container">
+              <CategorySelect categories={demoCategories} value={3} disabled={true} />
+            </div>
+            <p class="value-display">disabled, valor fijo: 3</p>
+          </div>
+        </div>
+
+        <div class="demo-item">
+          <h3>Event Log</h3>
+          <div class="category-log">
+            {#if categoryLogs.length === 0}
+              <p class="no-logs">Interactúa con los selectores para ver eventos</p>
+            {:else}
+              {#each categoryLogs as log}
+                <div class="log-entry">{log}</div>
+              {/each}
+            {/if}
+          </div>
+          <div style="margin-top: var(--spacing-3); display: flex; gap: var(--spacing-2);">
+            <Button
+              size="sm"
+              variant="secondary"
+              onclick={() => {
+                categoryA = null;
+                logCategory('Reset A');
+              }}
+            >
+              Reset A
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              onclick={() => {
+                categoryB = 1;
+                logCategory('Set B = 1');
+              }}
+            >
+              Set B = 1
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onclick={() => {
+                categoryLogs = [];
+              }}
+            >
+              Clear Log
+            </Button>
+          </div>
+        </div>
+
+        <div class="code-example">
+          <h4>Ejemplo de código:</h4>
+          <pre><code
+              >&lt;CategorySelect
+  categories=&#123;categories&#125;
+  bind:value=&#123;categoryId&#125;
+  onchange=&#123;(id) => saveCategory(id)&#125;
+/&gt;</code
+            ></pre>
+        </div>
+      </section>
     {/if}
   </div>
 
@@ -391,6 +505,40 @@
     border-radius: var(--radius-sm);
     font-family: var(--font-mono);
     font-size: var(--font-size-sm);
+  }
+
+  /* CategorySelect demo styles */
+  .category-demo-container {
+    padding: var(--spacing-3);
+    background: var(--color-surface-alt);
+    border-radius: var(--radius-md);
+    display: inline-block;
+  }
+
+  .category-log {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    background: var(--color-neutral-50);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-3);
+    max-height: 150px;
+    overflow-y: auto;
+  }
+
+  .category-log .no-logs {
+    color: var(--color-text-tertiary);
+    font-style: italic;
+    margin: 0;
+  }
+
+  .category-log .log-entry {
+    padding: var(--spacing-1) 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .category-log .log-entry:last-child {
+    border-bottom: none;
   }
 
   @media (max-width: 768px) {

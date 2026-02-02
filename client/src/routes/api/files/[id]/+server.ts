@@ -44,6 +44,7 @@ export const GET: RequestHandler = async ({ params }) => {
       uploadDate: file.createdAt,
       fileSize: file.fileSize,
       fileType: file.fileType,
+      categoryId: file.categoryId ?? null,
       // Datos de extracción (si existen)
       extractedCuit: extraction?.extractedCuit ?? null,
       extractedDate: extraction?.extractedDate ?? null,

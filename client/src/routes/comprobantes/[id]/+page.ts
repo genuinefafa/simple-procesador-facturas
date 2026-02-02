@@ -66,6 +66,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
                 invoiceNumber: exp.invoiceNumber,
                 total: exp.total,
                 status: exp.status,
+                categoryId: exp.categoryId ?? null,
               };
             }
           }
@@ -95,6 +96,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
               extractionConfidence: d.extractionConfidence,
               extractionMethod: d.extractionMethod,
               extractionErrors: d.extractionErrors,
+              categoryId: d.categoryId ?? null,
             };
           }
         }
@@ -127,6 +129,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
             invoiceNumber: exp.invoiceNumber,
             total: exp.total,
             status: exp.status,
+            categoryId: exp.categoryId ?? null,
           };
           comprobante = {
             id: `expected:${expected.id}`,
@@ -189,6 +192,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           extractionConfidence: data.extractionConfidence,
           extractionMethod: data.extractionMethod,
           extractionErrors: data.extractionErrors,
+          categoryId: data.categoryId ?? null,
           linkedInvoiceId,
         };
 

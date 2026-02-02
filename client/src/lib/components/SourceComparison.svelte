@@ -9,10 +9,17 @@
    */
 
   import MatchIndicator from './MatchIndicator.svelte';
+  import CategorySelect from './CategorySelect.svelte';
   import Button from './ui/Button.svelte';
   import ReprocessDialog, { type ExtractionMethod } from './ReprocessDialog.svelte';
   import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
   import { emitterService, type ResolvedEmitter } from '$lib/services/EmitterService';
+
+  type Category = {
+    id: number;
+    description: string;
+    color?: string;
+  };
 
   type FileData = {
     extractedCuit?: string | null;
@@ -23,6 +30,7 @@
     extractedInvoiceNumber?: number | null;
     extractionConfidence?: number | null;
     extractionMethod?: string | null;
+    categoryId?: number | null;
     /** @deprecated Usar CUIT y resolver via EmitterService */
     emitterName?: string | null;
   };
@@ -38,6 +46,7 @@
     invoiceNumber: number;
     total?: number | null;
     status?: string;
+    categoryId?: number | null;
   };
 
   type Props = {
@@ -53,6 +62,12 @@
     onreprocess?: (method: ExtractionMethod) => void;
     /** Si está procesando algo */
     processing?: boolean;
+    /** Lista de categorías disponibles */
+    categories?: Category[];
+    /** Callback cuando cambia la categoría del archivo */
+    onfilecategorychange?: (categoryId: number | null) => void;
+    /** Callback cuando cambia la categoría del expected */
+    onexpectedcategorychange?: (categoryId: number | null) => void;
   };
 
   let {
@@ -62,6 +77,9 @@
     oncreatefromexpected,
     onreprocess,
     processing = false,
+    categories = [],
+    onfilecategorychange,
+    onexpectedcategorychange,
   }: Props = $props();
 
   const hasFile = $derived(!!file);
@@ -204,6 +222,21 @@
             <span class="field-label">Total</span>
             <span class="field-value mono">{formatCurrency(file?.extractedTotal)}</span>
           </div>
+          <div class="field">
+            <span class="field-label">Categoría</span>
+            <span class="field-value">
+              {#if categories.length > 0 && onfilecategorychange}
+                <CategorySelect
+                  {categories}
+                  value={file?.categoryId ?? null}
+                  onchange={onfilecategorychange}
+                  disabled={processing}
+                />
+              {:else}
+                {categories.find((c) => c.id === file?.categoryId)?.description ?? '—'}
+              {/if}
+            </span>
+          </div>
         </div>
 
         <div class="column-actions">
@@ -251,6 +284,9 @@
           <div class="match-row">
             <MatchIndicator left={file?.extractedTotal} right={expected?.total} type="amount" />
           </div>
+          <div class="match-row">
+            <MatchIndicator left={file?.categoryId} right={expected?.categoryId} type="exact" />
+          </div>
         </div>
       </div>
     {/if}
@@ -297,6 +333,21 @@
             <span class="field-label">Total</span>
             <span class="field-value mono">{formatCurrency(expected?.total)}</span>
           </div>
+          <div class="field">
+            <span class="field-label">Categoría</span>
+            <span class="field-value">
+              {#if categories.length > 0 && onexpectedcategorychange}
+                <CategorySelect
+                  {categories}
+                  value={expected?.categoryId ?? null}
+                  onchange={onexpectedcategorychange}
+                  disabled={processing}
+                />
+              {:else}
+                {categories.find((c) => c.id === expected?.categoryId)?.description ?? '—'}
+              {/if}
+            </span>
+          </div>
         </div>
 
         <div class="column-actions">
@@ -329,7 +380,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
-    overflow: hidden;
+    /* No overflow:hidden para que el dropdown de categoría no se corte */
   }
 
   .columns {
@@ -412,34 +463,33 @@
     color: var(--color-warning-700, #b45309);
   }
 
-  /* Fields - altura fija por campo para alinear con indicadores */
+  /* Fields - spacing relajado como InvoiceCard */
   .fields {
-    padding: var(--spacing-2) var(--spacing-3);
+    padding: var(--spacing-4);
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: var(--spacing-3);
     flex: 1;
   }
 
   .field {
     display: flex;
     flex-direction: column;
-    height: 32px;
-    justify-content: center;
+    gap: var(--spacing-1);
   }
 
   .field-label {
-    font-size: 9px;
+    font-size: var(--font-size-xs);
+    font-weight: var(--font-weight-medium);
     color: var(--color-text-tertiary);
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    line-height: 1;
   }
 
   .field-value {
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-base);
     color: var(--color-text-primary);
-    line-height: 1.2;
+    line-height: 1.4;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -454,7 +504,7 @@
   .match-column {
     display: flex;
     flex-direction: column;
-    padding: var(--spacing-2) var(--spacing-2);
+    padding: var(--spacing-4) var(--spacing-2);
     background: var(--color-neutral-50);
     border-left: 1px solid var(--color-border);
     border-right: 1px solid var(--color-border);
@@ -464,14 +514,15 @@
   .match-indicators {
     display: flex;
     flex-direction: column;
-    gap: 0;
+    gap: var(--spacing-3);
     align-items: center;
     /* Offset para el header */
     margin-top: 36px;
   }
 
   .match-row {
-    height: 32px;
+    /* Altura consistente con los campos */
+    min-height: 40px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -550,7 +601,7 @@
     }
 
     .match-row {
-      height: auto;
+      min-height: auto;
     }
   }
 </style>

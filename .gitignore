@@ -149,3 +149,6 @@ prompts-draft.md
 eng.traineddata
 *.traineddata
 
+# Playwright MCP (screenshots and snapshots)
+.playwright-mcp/
+

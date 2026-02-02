@@ -46,8 +46,14 @@ export function resetTestDb(): void {
     rawDb.prepare(`DELETE FROM ${table.name}`).run();
   }
 
-  // Resetear autoincrement
-  rawDb.prepare('DELETE FROM sqlite_sequence').run();
+  // Resetear autoincrement (solo si la tabla existe)
+  // sqlite_sequence solo existe si se ha usado AUTOINCREMENT al menos una vez
+  const sqliteSequenceExists = rawDb
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'")
+    .get();
+  if (sqliteSequenceExists) {
+    rawDb.prepare('DELETE FROM sqlite_sequence').run();
+  }
 
   // Reactivar foreign keys
   rawDb.pragma('foreign_keys = ON');
@@ -81,10 +87,13 @@ export async function runTestMigrations(): Promise<void> {
   // Ejecutar migraciones de Drizzle
   migrate(db, { migrationsFolder: migrationsPath });
 
-  // Ejecutar post-migration.sql (triggers y views)
+  // Ejecutar post-migration.sql (triggers y views) si existe
   const postMigrationPath = path.join(migrationsPath, 'post-migration.sql');
-  const postMigrationSQL = readFileSync(postMigrationPath, 'utf-8');
-  rawDb.exec(postMigrationSQL);
-
-  console.log('✅ Migraciones completadas');
+  if (existsSync(postMigrationPath)) {
+    const postMigrationSQL = readFileSync(postMigrationPath, 'utf-8');
+    rawDb.exec(postMigrationSQL);
+    console.log('✅ Migraciones + post-migration completadas');
+  } else {
+    console.log('✅ Migraciones completadas (sin post-migration.sql)');
+  }
 }
