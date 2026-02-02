@@ -1,181 +1,178 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2026-01-26)
+## Estado Actual (2026-02-02)
 
 | Área | Estado | Notas |
 |------|--------|-------|
-| **Sistema de Archivos** | ✅ Completo | `files` + `file_extraction_results` (Issue #40) |
-| **Matching Excel AFIP** | 🔶 85% | Backend completo, UI de comparación lista |
+| **Sistema de Archivos** | ✅ Completo | `files` + `file_extraction_results` |
+| **Matching Excel ARCA** | ✅ Completo | Backend + UI de comparación |
+| **Categorías** | ✅ Completo | En invoices, expected_invoices y files |
 | **Contratos Zod** | ✅ Completo | Validación runtime en PATCH endpoints |
-| **Patrones SOLID** | 🔶 En progreso | ISP y DIP implementados en componentes clave |
+| **Patrones SOLID** | ✅ Completo | ISP, DIP, Constructor Injection |
 | **Build/TypeScript** | ✅ Limpio | svelte-check pasa sin errores |
 
 ---
 
-## Issues Abiertos Prioritarios
+## Cascada de Desarrollo
 
-### Refactoring & Tech Debt
+Plan de trabajo organizado en fases progresivas, alternando features con tech debt.
 
-| Issue | Título | Prioridad |
-|-------|--------|-----------|
-| #113 | Implementar DI con Constructor Injection | Alta |
-| #102 | Mover tipos compartidos a `shared/` | Alta |
-| #101 | Separar DocumentType en InvoiceType + ExtractionMethod | Media |
-| #100 | Renombrar `/api/invoices/process` → `/api/files/extract` | Media |
-| #99 | Definir estrategia de tipos para fechas | Media |
-| #92 | Limpiar campos legacy en tabla facturas | Media |
-| #91 | Separar almacenamiento - OCR no debe renombrar | Media |
-| #89 | Contratos API tipados con Zod (parcialmente hecho) | Baja |
+### Fase 1: Limpiar UI + Quick Wins
+*Objetivo: Cerrar M7 y mejoras visuales rápidas*
 
-### Features
+| Orden | Issue | Título | Tipo | Esfuerzo |
+|-------|-------|--------|------|----------|
+| 1 | #136 | Eliminar TopBar Search temporalmente | Cleanup | Bajo |
+| 2 | #114 | Migrar íconos Unicode a lucide-svelte | UI | Bajo-Medio |
+| 3 | #124 | Fix emisores: historial desordenado y deep links | Bug | Bajo |
 
-| Issue | Título | Prioridad |
-|-------|--------|-----------|
-| #114 | Migrar íconos Unicode a lucide-svelte | Alta |
-| #76 | Múltiples métodos de extracción por archivo | Media |
-| #79 | Rediseño UI/UX de vista detalle | Media |
-| #78 | Mejorar TopBar Search | Baja |
-| #82 | Copiar lista de comprobantes al portapapeles | Baja |
-| #87 | Sincronización con OneDrive | Baja |
+→ **Cierra M7** ✅
 
-### Documentación & QA
+### Fase 2: Features Core
+*Objetivo: Funcionalidades de alto valor*
 
-| Issue | Título | Prioridad |
-|-------|--------|-----------|
-| #75 | Reorganizar documentación | Alta (este issue) |
-| #93 | Testing de extracción con docs confidenciales | Media |
+| Orden | Issue | Título | Tipo | Esfuerzo |
+|-------|-------|--------|------|----------|
+| 4 | #120 | Balancear expected invoices (FAC ↔ NCR) | Feature | Alto |
+| 5 | #76 | Múltiples métodos de extracción por archivo | Feature | Alto |
+| 6 | #135 | Buscador manual de expected invoices | Feature | Medio |
+
+### Fase 3: Tech Debt Estratégico
+*Objetivo: Simplificar el modelo de datos*
+
+| Orden | Issue | Título | Tipo | Esfuerzo |
+|-------|-------|--------|------|----------|
+| 7 | #91 | Verificar/cerrar: separar storage de OCR | Verificar | Bajo |
+| 8 | #123 | Derivar estados desde FKs (eliminar campo status) | Refactor | Medio |
+| 9 | #92 | Limpiar campos legacy en tabla facturas | Refactor | Bajo |
+
+### Fase 4: Robustez y Calidad
+*Objetivo: Estabilidad y UX avanzada*
+
+| Orden | Issue | Título | Tipo | Esfuerzo |
+|-------|-------|--------|------|----------|
+| 10 | #56 | Detector de duplicados + merge de facturas | Feature | Alto |
+| 11 | #51 | Operaciones batch en listado | Feature | Medio |
+| 12 | #119 | Tests E2E con Playwright | QA | Alto |
 
 ---
 
 ## Milestones
 
-### M6: Code Quality (Q1 2026)
-- [ ] #113 - Constructor Injection
-- [ ] #102 - Shared types
+### M7: UX Improvements (Febrero 2026) - En progreso
+- [ ] #136 - Eliminar TopBar Search
 - [ ] #114 - lucide-svelte icons
-- [ ] #75 - Documentación
+- [ ] #124 - Fix emisores
+- [x] #132 - Categorías en expected/files
+- [x] #121 - Consolidar filtros búsqueda
+- [x] #90 - Rediseño UX vista comprobante
+- [x] #83 - Navegación entre comprobantes
+- [x] #75 - Documentación
+- [x] #63 - Migrar Dialog a Melt Next
+- [x] #55 - Categoría en expected invoices
 
-### M7: UX Improvements (Q1 2026)
-- [ ] #79 - Rediseño vista detalle
-- [ ] #78 - TopBar Search
+### M8: UX & Data Quality (Q1 2026)
+- [ ] #120 - Balancear expected invoices
+- [ ] #56 - Detector duplicados
+- [ ] #51 - Operaciones batch
+- [ ] #119 - Tests E2E Playwright
+- [ ] #92 - Limpiar campos legacy
+- [ ] #123 - Derivar estados desde FKs
+- [x] #79 - Rediseño vista detalle
+
+### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
 - [ ] #76 - Múltiples métodos extracción
+- [ ] #60 - Códigos ARCA nativos en extractores
+- [ ] #54 - Simplificar algoritmo matching
+- [ ] #93 - Testing extracción docs confidenciales
 
-### M8: Integrations (Q2 2026)
-- [ ] #87 - OneDrive sync
-- [ ] Google Drive improvements
+### M10: Cloud Sync (Q2 2026)
+- [ ] #122 - Integración ARCA descarga automática
+- [ ] #87 - Sincronización OneDrive
+- [ ] #33 - Revisar UI Sincronización
+- [ ] #20 - Migrar SyncPage y AnnotatePage
+
+### Icebox
+Issues depriorizados o en espera de mejor definición:
+- #78 - Mejorar TopBar Search (reemplazado por #136)
+- #82 - Copiar lista al portapapeles
+- #89 - Contratos Zod completos
+- #99 - Estrategia tipos fechas
+- #100 - Renombrar endpoint process → extract
+- #101 - Separar DocumentType
+- #130 - Dashboard rediseño LayerChart
+- #134 - Receptores en config JSON
 
 ---
 
-## Patrones de Arquitectura Implementados
+## Issues sin asignar a milestone
+
+Pendientes de clasificar o relacionados con fases actuales:
+
+| Issue | Título | Sugerencia |
+|-------|--------|------------|
+| #135 | Buscador manual expected invoices | Fase 2 (relacionado #120) |
+| #128 | OR en filtros con coma | M7 o Icebox |
+| #129 | Importar desglose impositivo ARCA | M9 |
+
+---
+
+## Patrones de Arquitectura
 
 ### Contratos Zod (`server/contracts/`)
-Validación runtime con Zod para API boundaries:
-- `InvoicePatchSchema` - PATCH /api/invoices/:id
-- `ExpectedInvoicePatchSchema` - PATCH /api/expected-invoices/:id
-- `formatZodError()` - Respuestas de error consistentes
+Validación runtime para API boundaries:
+- `InvoicePatchSchema`, `ExpectedInvoicePatchSchema`
+- `formatZodError()` para respuestas consistentes
 
 ### Servicios de Cliente (`client/src/lib/services/`)
 Encapsulación de llamadas API:
-- `ComprobanteService` - Operaciones CRUD de facturas
-- `EmitterService` - Gestión de emisores
+- `ComprobanteService`, `EmitterService`, `CategoryService`
 - Patrón `ApiResult<T>` para respuestas tipadas
 
 ### Interface Segregation (ISP)
-Tipos segregados por caso de uso:
-- `InvoiceCard.types.ts` - Tipos separados para view/create
-- `InvoiceViewData` vs `InvoiceCreateData`
+Tipos segregados por caso de uso en `*.types.ts`
 
 ### Dependency Inversion (DIP)
-Callbacks opcionales para testing:
-- `NavigationBar.onnavigate` - Navegación inyectable
-- `InvoiceCard.oncategorychange` - Acciones delegadas
+Callbacks opcionales + Constructor Injection en servicios
 
 ---
 
 ## Historial de Releases
 
+### v0.6.0 - Categories & UX (2026-02)
+- Categorías en expected_invoices y files
+- Pre-selección de categoría en uploads
+- Filtros de búsqueda consolidados
+- Navegación entre comprobantes
+
 ### v0.5.0 - Unified File Management (2026-01-16)
-- Migración de `pending_files` a `files` + `file_extraction_results`
-- Sistema de hashing SHA-256 para integridad
+- Migración a `files` + `file_extraction_results`
+- Sistema de hashing SHA-256
 - Contratos Zod iniciales
 
 ### v0.4.0 - Dashboard + Hub (2025-12)
 - Dashboard principal
 - Comprobantes Hub unificado
 - Gestión de emisores
-- Rail navigation
 
 ### v0.3.0 - OCR + Excel (2025-11)
 - Tesseract.js OCR
 - Matching con Excel AFIP
 - Soporte HEIC
 
-### v0.2.0 - Web-Only (2025-11)
-- API REST completa
-- Drizzle ORM
-- Docker setup
-
----
-
-## Archivos Clave
-
-### Backend
-```
-server/
-├── contracts/           # Schemas Zod para validación
-│   ├── index.ts
-│   ├── invoice.ts
-│   ├── expected-invoice.ts
-│   └── shared.ts
-├── database/
-│   ├── schema.ts        # Drizzle schema
-│   └── repositories/
-├── services/
-│   ├── invoice-processing.service.ts
-│   └── excel-import.service.ts
-└── extractors/
-    ├── pdf-extractor.ts
-    └── ocr-extractor.ts
-```
-
-### Frontend
-```
-client/src/
-├── lib/
-│   ├── components/
-│   │   ├── InvoiceCard.svelte
-│   │   ├── InvoiceCard.types.ts   # Tipos segregados
-│   │   └── NavigationBar.svelte   # DI example
-│   └── services/
-│       ├── ComprobanteService.ts
-│       └── EmitterService.ts
-└── routes/
-    ├── comprobantes/
-    └── api/
-```
-
 ---
 
 ## Comandos de Desarrollo
 
 ```bash
-# Desarrollo
-npm run dev              # http://localhost:5173
-
-# Base de datos
-npm run db:migrate       # Aplicar migraciones
-npm run db:studio        # GUI Drizzle
-
-# Calidad
+npm run dev              # Desarrollo http://localhost:5173
 npm run check            # TypeScript
 npm run lint             # ESLint
-npm run format           # Prettier
-
-# Tests
 npm run test             # Vitest
-npm run test:extraction  # Tests de extracción
+npm run db:migrate       # Aplicar migraciones
+npm run db:studio        # GUI Drizzle
 ```
 
 ---
 
-**Última actualización**: 2026-01-26
+**Última actualización**: 2026-02-02
