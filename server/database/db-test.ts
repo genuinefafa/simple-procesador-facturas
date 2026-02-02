@@ -87,10 +87,13 @@ export async function runTestMigrations(): Promise<void> {
   // Ejecutar migraciones de Drizzle
   migrate(db, { migrationsFolder: migrationsPath });
 
-  // Ejecutar post-migration.sql (triggers y views)
+  // Ejecutar post-migration.sql (triggers y views) si existe
   const postMigrationPath = path.join(migrationsPath, 'post-migration.sql');
-  const postMigrationSQL = readFileSync(postMigrationPath, 'utf-8');
-  rawDb.exec(postMigrationSQL);
-
-  console.log('✅ Migraciones completadas');
+  if (existsSync(postMigrationPath)) {
+    const postMigrationSQL = readFileSync(postMigrationPath, 'utf-8');
+    rawDb.exec(postMigrationSQL);
+    console.log('✅ Migraciones + post-migration completadas');
+  } else {
+    console.log('✅ Migraciones completadas (sin post-migration.sql)');
+  }
 }

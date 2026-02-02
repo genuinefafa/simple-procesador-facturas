@@ -1,21 +1,25 @@
 /**
- * Tests unitarios para actualización de categorías en expected invoices y files.
+ * Tests de integración para actualización de categorías en expected invoices y files.
  * Issue #132: Categories in Expected Invoices and Files
  *
- * Estos tests verifican la lógica de los repositorios sin necesidad de
- * migraciones completas (asumen que la DB ya tiene el schema).
+ * Estos tests verifican la lógica de los repositorios usando una DB de test
+ * con migraciones aplicadas en beforeAll.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { FileRepository } from '../../database/repositories/file.js';
 import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice.js';
 import { CategoryRepository } from '../../database/repositories/category.js';
-import { resetTestDb } from '../../database/db-test.js';
+import { runTestMigrations, resetTestDb } from '../../database/db-test.js';
 
 describe('Category Updates API', () => {
   let fileRepo: FileRepository;
   let expectedRepo: ExpectedInvoiceRepository;
   let categoryRepo: CategoryRepository;
+
+  beforeAll(async () => {
+    await runTestMigrations();
+  });
 
   beforeEach(() => {
     resetTestDb();
