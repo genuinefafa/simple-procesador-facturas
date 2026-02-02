@@ -1,6 +1,5 @@
 <script lang="ts">
   import { page } from '$app/stores';
-  import Input from '$lib/components/ui/Input.svelte';
   import '$lib/components/ui/tokens.css';
 
   type NavItem = {
@@ -19,39 +18,9 @@
   ];
 
   let railExpanded = $state(false);
-  let searchQuery = $state('');
-  let searchResults = $state<any[]>([]);
-  let searchOpen = $state(false);
 
   function isActive(href: string): boolean {
     return $page.url.pathname.startsWith(href);
-  }
-
-  async function handleSearch(e: Event) {
-    const input = e.target as HTMLInputElement;
-    const q = input.value.trim();
-
-    if (!q) {
-      searchResults = [];
-      searchOpen = false;
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/invoices/search?q=${encodeURIComponent(q)}&limit=8`);
-      const json = await res.json();
-      searchResults = json.items ?? [];
-      searchOpen = true;
-    } catch (error) {
-      console.error('Search error:', error);
-      searchResults = [];
-    }
-  }
-
-  function clearSearch() {
-    searchQuery = '';
-    searchResults = [];
-    searchOpen = false;
   }
 </script>
 
@@ -75,30 +44,6 @@
         <img src="/favicon.svg" alt="Logo" class="logo-icon" />
         <span>Simple procesador de facturas</span>
       </a>
-    </div>
-
-    <div class="topbar-center">
-      <div class="search-wrapper">
-        <Input
-          type="search"
-          placeholder="Buscar facturas, CUIT, comprobante..."
-          bind:value={searchQuery}
-          oninput={handleSearch}
-          class="search-input"
-        />
-        {#if searchOpen && searchResults.length > 0}
-          <ul class="search-dropdown">
-            {#each searchResults as result}
-              <li>
-                <a href={`/comprobantes/factura:${result.id}`} onclick={clearSearch}>
-                  <span class="result-number">{result.fullInvoiceNumber ?? '—'}</span>
-                  <span class="result-cuit">{result.emitterCuit}</span>
-                </a>
-              </li>
-            {/each}
-          </ul>
-        {/if}
-      </div>
     </div>
 
     <div class="topbar-right">
@@ -166,7 +111,7 @@
     border-bottom: 1px solid var(--color-border);
     padding: var(--spacing-3) var(--spacing-4);
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr auto;
     gap: var(--spacing-4);
     align-items: center;
     box-shadow: var(--shadow-sm);
@@ -218,70 +163,6 @@
     width: auto;
     display: block;
     object-fit: contain;
-  }
-
-  .topbar-center {
-    display: flex;
-    justify-content: center;
-  }
-
-  .search-wrapper {
-    position: relative;
-    width: 100%;
-    max-width: 380px;
-  }
-
-  :global(.search-input) {
-    width: 100%;
-  }
-
-  .search-dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-top: none;
-    border-radius: 0 0 var(--radius-base) var(--radius-base);
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    max-height: 240px;
-    overflow-y: auto;
-    box-shadow: var(--shadow-md);
-    z-index: 1;
-  }
-
-  .search-dropdown li {
-    border-top: 1px solid var(--color-border);
-  }
-
-  .search-dropdown li:first-child {
-    border-top: none;
-  }
-
-  .search-dropdown a {
-    display: flex;
-    gap: var(--spacing-2);
-    padding: var(--spacing-2) var(--spacing-3);
-    color: var(--color-text-primary);
-    text-decoration: none;
-    transition: background var(--transition-fast);
-  }
-
-  .search-dropdown a:hover {
-    background: var(--color-surface-alt);
-  }
-
-  .result-number {
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-primary-700);
-  }
-
-  .result-cuit {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 
   .topbar-right {
@@ -428,15 +309,6 @@
 
     .logo-icon {
       height: 20px;
-    }
-
-    .search-wrapper {
-      max-width: 100%;
-    }
-
-    .topbar-center {
-      order: 3;
-      grid-column: 1 / -1;
     }
 
     .rail {
