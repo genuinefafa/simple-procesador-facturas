@@ -2,6 +2,7 @@
   import { Select as SelectBuilder } from 'melt/builders';
   import { getInvoiceTypeFromARCA } from '$lib/formatters';
   import { ARCA_INVOICE_TYPES } from '$lib/constants/arca-codes';
+  import { Check, ChevronDown } from '$lib/components/icons';
 
   interface Props {
     value: number | null;
@@ -48,7 +49,7 @@
           Seleccionar tipo...
         {/if}
       </span>
-      <span class="arrow">▾</span>
+      <span class="arrow"><ChevronDown size={16} /></span>
     </button>
 
     <div {...select.content} class="select-content">
@@ -56,7 +57,7 @@
         <div {...select.getOption(type.code, type.description)} class="select-option">
           <span>{type.icon} {type.description} ({type.code})</span>
           {#if select.isSelected(type.code)}
-            <span class="selected-indicator">✓</span>
+            <span class="selected-indicator"><Check size={16} /></span>
           {/if}
         </div>
       {/each}
@@ -122,6 +123,8 @@
   .select-trigger .arrow {
     margin-left: var(--spacing-2);
     transition: transform var(--transition-fast);
+    display: flex;
+    align-items: center;
   }
 
   .select-content {
@@ -159,6 +162,7 @@
 
   .select-option .selected-indicator {
     color: var(--color-primary-500);
-    font-weight: var(--font-weight-bold);
+    display: flex;
+    align-items: center;
   }
 </style>

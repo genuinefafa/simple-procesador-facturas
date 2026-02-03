@@ -1,5 +1,13 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
+  import {
+    Upload,
+    X,
+    CheckCircle,
+    AlertTriangle,
+    XCircle,
+    ArrowRight,
+  } from '$lib/components/icons';
 
   interface UploadedFile {
     fileId: number;
@@ -37,14 +45,16 @@
 
 <div class="upload-report">
   <div class="header">
-    <h3>📤 Resultado de importación</h3>
-    <button class="close-btn" onclick={onClose} aria-label="Cerrar">×</button>
+    <h3><Upload size={18} /> Resultado de importación</h3>
+    <button class="close-btn" onclick={onClose} aria-label="Cerrar">
+      <X size={18} />
+    </button>
   </div>
 
   <div class="summary">
     {#if successCount > 0}
       <div class="summary-item success">
-        <span class="icon">✅</span>
+        <span class="icon"><CheckCircle size={18} /></span>
         <span
           >{successCount} archivo{successCount !== 1 ? 's' : ''} procesado{successCount !== 1
             ? 's'
@@ -55,7 +65,7 @@
 
     {#if duplicateCount > 0}
       <div class="summary-item warning">
-        <span class="icon">⚠️</span>
+        <span class="icon"><AlertTriangle size={18} /></span>
         <span
           >{duplicateCount} archivo{duplicateCount !== 1 ? 's duplicado' : ' duplicado'} (ya existe{duplicateCount !==
           1
@@ -67,7 +77,7 @@
 
     {#if errorCount > 0}
       <div class="summary-item error">
-        <span class="icon">❌</span>
+        <span class="icon"><XCircle size={18} /></span>
         <span
           >{errorCount} archivo{errorCount !== 1 ? 's' : ''} con error{errorCount !== 1
             ? 'es'
@@ -84,7 +94,7 @@
         {#each errors.filter((e) => e.type === 'duplicate') as err}
           <li class="duplicate-item">
             <span class="filename">{err.name}</span>
-            <span class="arrow">→</span>
+            <span class="arrow"><ArrowRight size={14} /></span>
             {#if err.duplicateType && err.duplicateId}
               <button
                 class="link-button"
@@ -108,7 +118,7 @@
         {#each uploadedFiles as file}
           <li class="success-item">
             <span class="filename">{file.name}</span>
-            <span class="arrow">→</span>
+            <span class="arrow"><ArrowRight size={14} /></span>
             <button class="link-button" onclick={() => handleComprobanteClick('file', file.fileId)}>
               file:{file.fileId}
             </button>
@@ -159,6 +169,9 @@
     margin: 0;
     font-size: 1.1rem;
     font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
   }
 
   .close-btn {
@@ -270,6 +283,8 @@
   .arrow {
     color: var(--color-text-secondary);
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
   }
 
   .link-button {

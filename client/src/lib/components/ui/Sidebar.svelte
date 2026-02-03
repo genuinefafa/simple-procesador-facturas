@@ -1,10 +1,11 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte';
+  import type { Snippet, Component } from 'svelte';
+  import { Menu, X } from '$lib/components/icons';
 
   interface NavItem {
     href: string;
     label: string;
-    icon?: string;
+    icon?: Component;
   }
 
   interface Props {
@@ -42,7 +43,7 @@
     aria-label="Abrir navegación"
     title="Abrir navegación"
   >
-    ☰
+    <Menu size={24} />
   </button>
 {/if}
 
@@ -61,7 +62,7 @@
       aria-label="Cerrar navegación"
       title="Cerrar"
     >
-      ✕
+      <X size={20} />
     </button>
   </div>
 
@@ -77,7 +78,7 @@
             role="menuitem"
           >
             {#if item.icon}
-              <span class="nav-icon">{item.icon}</span>
+              <span class="nav-icon"><item.icon size={20} /></span>
             {/if}
             <span class="nav-label">{item.label}</span>
           </a>
@@ -232,10 +233,11 @@
   }
 
   .nav-icon {
-    font-size: var(--font-size-xl);
     flex-shrink: 0;
     width: 24px;
-    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .nav-label {
