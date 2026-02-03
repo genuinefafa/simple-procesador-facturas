@@ -117,7 +117,7 @@
 
   // Melt UI Select for extraction dropdown
   const extractionSelect = new SelectBuilder<number | null>({
-    sameWidth: true,
+    sameWidth: false,
     onValueChange: (newValue) => {
       if (!isSyncingSelect && newValue !== null && newValue !== undefined) {
         selectedExtractionId = newValue;
@@ -581,12 +581,13 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
-    /* No overflow:hidden para que el dropdown de categoría no se corte */
+    overflow: visible;
   }
 
   .columns {
     display: flex;
     gap: 0;
+    overflow: visible;
   }
 
   .source-column {
@@ -594,6 +595,7 @@
     flex-direction: column;
     min-width: 160px;
     flex: 1;
+    overflow: visible;
   }
 
   .source-column.file {
@@ -605,6 +607,7 @@
     flex-direction: column;
     background: var(--color-surface-alt);
     border-bottom: 1px solid var(--color-border);
+    overflow: visible;
   }
 
   .header-title-row {
@@ -616,6 +619,7 @@
   }
 
   .header-selector-row {
+    position: relative;
     padding: 0 var(--spacing-3) var(--spacing-2);
     height: 32px; /* Altura fija para alinear columnas */
     display: flex;
@@ -642,10 +646,13 @@
     text-transform: uppercase;
   }
 
-  /* Extraction select (Melt UI) */
+  /* Extraction select (Melt UI) - igual que InvoiceTypeSelect */
   .extraction-select-wrapper {
     position: relative;
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
   }
 
   .extraction-trigger {
@@ -687,8 +694,7 @@
 
   .extraction-content {
     position: absolute;
-    left: 0;
-    top: 100%;
+    margin-left: 0;
     z-index: var(--z-dropdown);
     min-width: var(--melt-invoker-width);
     width: fit-content;

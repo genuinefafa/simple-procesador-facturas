@@ -405,7 +405,66 @@ function closeDrawer() {
 
 ---
 
-## 6. Patrones Adicionales
+## 6. Melt UI Select/Dropdown Positioning
+
+### Problema
+
+Los dropdowns de Melt UI Select usan la Popover API nativa del navegador y calculan posiciones absolutas desde el viewport. Sin la estructura CSS correcta, el dropdown puede aparecer en ubicaciones incorrectas.
+
+### Solución
+
+El wrapper debe tener `position: relative` y el content debe tener `position: absolute` con `margin-left: 0`:
+
+```svelte
+<div class="select-wrapper">
+  <button {...select.trigger} class="select-trigger">
+    {selectedLabel}
+    <ChevronDown size={14} />
+  </button>
+
+  <div {...select.content} class="select-content">
+    {#each options as opt}
+      <div {...select.getOption(opt.value, opt.label)} class="select-option">
+        {opt.label}
+      </div>
+    {/each}
+  </div>
+</div>
+
+<style>
+  /* CRÍTICO: wrapper con position relative */
+  .select-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* CRÍTICO: content con position absolute y margin-left: 0 */
+  .select-content {
+    position: absolute;
+    margin-left: 0;
+    z-index: var(--z-dropdown);
+    min-width: var(--melt-invoker-width);
+    /* resto de estilos... */
+  }
+</style>
+```
+
+### Reglas Clave
+
+1. **Wrapper**: `position: relative` (ancla el contenedor)
+2. **Content**: `position: absolute` + `margin-left: 0` (posiciona respecto al wrapper)
+3. **Contenedores padre**: `overflow: visible` si el dropdown puede sobresalir
+4. **NO usar**: `left: 0; top: 100%;` - Melt calcula las coordenadas automáticamente
+
+### Referencias
+
+- [InvoiceTypeSelect.svelte](../client/src/lib/components/InvoiceTypeSelect.svelte)
+- [CategorySelect.svelte](../client/src/lib/components/CategorySelect.svelte)
+
+---
+
+## 7. Patrones Adicionales
 
 ### Repository Pattern
 
@@ -443,7 +502,7 @@ export class InvoiceProcessingService {
 
 ---
 
-## 7. Checklist para Nuevos Componentes
+## 8. Checklist para Nuevos Componentes
 
 - [ ] **Tipos**: ¿Hay múltiples modos/variantes? → Crear `Componente.types.ts` con ISP
 - [ ] **API calls**: ¿Múltiples endpoints? → Crear/usar Service
@@ -454,7 +513,7 @@ export class InvoiceProcessingService {
 
 ---
 
-## 8. Referencias
+## 9. Referencias
 
 - [SOLID Principles](https://en.wikipedia.org/wiki/SOLID)
 - [Zod Documentation](https://zod.dev/)
