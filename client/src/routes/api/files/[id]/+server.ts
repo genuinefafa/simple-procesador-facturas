@@ -31,8 +31,10 @@ export const GET: RequestHandler = async ({ params }) => {
 
     console.info(`✅ [FILE] Encontrado: ${file.originalFilename} → ${file.storagePath}`);
 
-    // Obtener datos de extracción si existen
-    const extraction = extractionRepo.findByFileId(id);
+    // Obtener todas las extracciones (ordenadas por fecha DESC)
+    const extractions = extractionRepo.findAllByFileId(id);
+    // For backward compatibility, use the most recent extraction
+    const extraction = extractions.length > 0 ? extractions[0] : null;
 
     // Formato compatible con el frontend
     const response = {
@@ -45,7 +47,7 @@ export const GET: RequestHandler = async ({ params }) => {
       fileSize: file.fileSize,
       fileType: file.fileType,
       categoryId: file.categoryId ?? null,
-      // Datos de extracción (si existen)
+      // Datos de extracción más reciente (backward compatible)
       extractedCuit: extraction?.extractedCuit ?? null,
       extractedDate: extraction?.extractedDate ?? null,
       extractedTotal: extraction?.extractedTotal ?? null,
@@ -55,6 +57,20 @@ export const GET: RequestHandler = async ({ params }) => {
       extractionConfidence: extraction?.confidence ?? null,
       extractionMethod: extraction?.method ?? null,
       extractionErrors: extraction?.errors ?? null,
+      // All extractions for this file
+      extractions: extractions.map((ext) => ({
+        id: ext.id,
+        method: ext.method,
+        confidence: ext.confidence,
+        extractedCuit: ext.extractedCuit,
+        extractedDate: ext.extractedDate,
+        extractedTotal: ext.extractedTotal,
+        extractedType: ext.extractedType,
+        extractedPointOfSale: ext.extractedPointOfSale,
+        extractedInvoiceNumber: ext.extractedInvoiceNumber,
+        extractedAt: ext.extractedAt,
+        errors: ext.errors,
+      })),
     };
 
     return json({
