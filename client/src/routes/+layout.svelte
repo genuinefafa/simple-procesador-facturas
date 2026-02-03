@@ -1,20 +1,22 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import '$lib/components/ui/tokens.css';
+  import { Home, ClipboardList, Users, FileEdit, Menu, Cloud, User } from '$lib/components/icons';
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type NavItem = {
     href: string;
     label: string;
-    icon: string;
+    icon: typeof Home; // Lucide icon component type
   };
 
   let { children } = $props();
 
   const navItems: NavItem[] = [
-    { href: '/dashboard', label: 'Dashboard', icon: '🏠' },
-    { href: '/comprobantes', label: 'Comprobantes', icon: '📋' },
-    { href: '/emisores', label: 'Emisores', icon: '👥' },
-    { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
+    { href: '/dashboard', label: 'Dashboard', icon: Home },
+    { href: '/comprobantes', label: 'Comprobantes', icon: ClipboardList },
+    { href: '/emisores', label: 'Emisores', icon: Users },
+    { href: '/entrenamiento', label: 'Entrenamiento', icon: FileEdit },
   ];
 
   let railExpanded = $state(false);
@@ -38,7 +40,7 @@
         aria-label="Toggle menu"
         title="Menú"
       >
-        ☰
+        <Menu size={20} />
       </button>
       <a href="/dashboard" class="logo app-logo" aria-label="Ir al dashboard">
         <img src="/favicon.svg" alt="Logo" class="logo-icon" />
@@ -47,8 +49,8 @@
     </div>
 
     <div class="topbar-right">
-      <a href="/google-sync" class="topbar-icon" title="Sync Google">☁️</a>
-      <div class="user-avatar">👤</div>
+      <a href="/google-sync" class="topbar-icon" title="Sync Google"><Cloud size={20} /></a>
+      <div class="user-avatar"><User size={20} /></div>
     </div>
   </header>
 
@@ -66,7 +68,7 @@
               if (window.innerWidth < 768) railExpanded = false;
             }}
           >
-            <span class="rail-icon">{item.icon}</span>
+            <span class="rail-icon"><item.icon size={20} /></span>
             <span class="rail-label">{item.label}</span>
           </a>
         {/each}
@@ -245,8 +247,9 @@
   }
 
   .rail-icon {
-    font-size: var(--font-size-lg);
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
   }
 
   .rail-label {
