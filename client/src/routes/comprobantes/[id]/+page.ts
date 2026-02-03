@@ -97,6 +97,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
               extractionMethod: d.extractionMethod,
               extractionErrors: d.extractionErrors,
               categoryId: d.categoryId ?? null,
+              extractions: d.extractions ?? [],
             };
           }
         }
@@ -194,6 +195,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           extractionErrors: data.extractionErrors,
           categoryId: data.categoryId ?? null,
           linkedInvoiceId,
+          extractions: data.extractions ?? [],
         };
 
         let matches: Match[] = [];

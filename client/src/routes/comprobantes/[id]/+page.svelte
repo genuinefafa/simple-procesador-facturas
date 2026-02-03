@@ -262,6 +262,7 @@
         <section class="section comparison-section">
           <SourceComparison
             file={enrichedFile}
+            extractions={comprobante.file?.extractions ?? []}
             expected={bestExpected}
             oncreatefromfile={() => {
               if (comprobante.file) {
