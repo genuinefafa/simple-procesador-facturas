@@ -1,5 +1,6 @@
 <script lang="ts">
   import { debounce, parseSearchQuery, type FilterNode, type ParseResult } from '$lib/search';
+  import { Search, X } from '$lib/components/icons';
 
   type Category = {
     id: number;
@@ -43,7 +44,9 @@
 
 <div class="search-box">
   <div class="search-input-wrapper">
-    <span class="search-icon">🔍</span>
+    <span class="search-icon">
+      <Search size={18} />
+    </span>
     <input
       type="search"
       bind:value
@@ -54,7 +57,7 @@
 
     {#if value}
       <button class="clear-btn" onclick={clearSearch} aria-label="Limpiar búsqueda" type="button">
-        ✕
+        <X size={18} />
       </button>
     {/if}
 
@@ -128,9 +131,10 @@
   .search-icon {
     position: absolute;
     left: 14px;
-    font-size: 1.1rem;
     pointer-events: none;
     color: var(--color-text-tertiary);
+    display: flex;
+    align-items: center;
   }
 
   .search-input {
@@ -174,7 +178,6 @@
     border: none;
     color: var(--color-text-tertiary);
     cursor: pointer;
-    font-size: 18px;
     padding: var(--spacing-1);
     transition: color var(--transition-fast);
     height: 32px;

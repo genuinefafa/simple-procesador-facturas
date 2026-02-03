@@ -8,6 +8,7 @@
 
   import { goto } from '$app/navigation';
   import { navigationStore } from '$lib/stores/navigation';
+  import { ChevronLeft, ChevronRight, ArrowLeft } from '$lib/components/icons';
 
   type Props = {
     /** ID actual del comprobante (ej: "factura:123") */
@@ -119,7 +120,7 @@
         onclick={goToPrevious}
         title="Anterior (← o j)"
       >
-        <span class="nav-icon">←</span>
+        <ChevronLeft size={18} class="nav-icon" />
         <span class="nav-label">Anterior</span>
       </button>
     {:else}
@@ -129,7 +130,7 @@
         onclick={goToList}
         title="Volver al listado (Esc)"
       >
-        <span class="nav-icon">←</span>
+        <ArrowLeft size={18} class="nav-icon" />
         <span class="nav-label">Volver</span>
       </button>
     {/if}
@@ -157,7 +158,7 @@
         onclick={goToList}
         title="Volver al listado (Esc)"
       >
-        ← Lista · {nav.position.current} de {nav.position.total}
+        <ArrowLeft size={12} /> Lista · {nav.position.current} de {nav.position.total}
       </button>
     {/if}
   </div>
@@ -172,7 +173,7 @@
         title="Siguiente (→ o k)"
       >
         <span class="nav-label">Siguiente</span>
-        <span class="nav-icon">→</span>
+        <ChevronRight size={18} class="nav-icon" />
       </button>
     {:else}
       <!-- Placeholder para mantener el layout centrado -->
@@ -291,8 +292,8 @@
     background: var(--color-primary-100);
   }
 
-  .nav-icon {
-    font-size: var(--font-size-base);
+  :global(.nav-icon) {
+    flex-shrink: 0;
   }
 
   .nav-placeholder {

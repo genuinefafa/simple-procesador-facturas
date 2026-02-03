@@ -2,9 +2,12 @@
   /**
    * Indicador de coincidencia entre dos valores.
    *
-   * Muestra ✓ (verde) para match exacto, ⚠ (amarillo) para similar,
-   * ✗ (rojo) para diferente, y — para datos faltantes.
+   * Muestra Check (verde) para match exacto, AlertTriangle (amarillo) para similar,
+   * X (rojo) para diferente, y Minus para datos faltantes.
    */
+
+  import { Check, AlertTriangle, X, Minus, type Icon } from 'lucide-svelte';
+  import type { ComponentType } from 'svelte';
 
   type Props = {
     /** Valor del archivo/OCR */
@@ -129,16 +132,16 @@
 
   const matchLevel = $derived(compareValues(left, right, type));
 
-  const icon = $derived.by(() => {
+  const IconComponent = $derived.by((): ComponentType<Icon> => {
     switch (matchLevel) {
       case 'exact':
-        return '✓';
+        return Check;
       case 'similar':
-        return '⚠';
+        return AlertTriangle;
       case 'different':
-        return '✗';
+        return X;
       case 'missing':
-        return '—';
+        return Minus;
     }
   });
 
@@ -157,7 +160,7 @@
 </script>
 
 <span class="match-indicator {matchLevel}" {title}>
-  {icon}
+  <IconComponent size={14} strokeWidth={2.5} />
 </span>
 
 <style>
