@@ -5,6 +5,7 @@
   import { toast, Toaster } from 'svelte-sonner';
   import { onMount } from 'svelte';
   import { formatDateShort, formatCurrency, formatCuit } from '$lib/formatters';
+  import { Plus, Eye, FileText, Trash2, X } from '$lib/components/icons';
 
   type Emitter = {
     cuit: string;
@@ -295,7 +296,7 @@
         <h1>Emisores</h1>
         <p class="hint">Gestión de emisores de facturas (proveedores/clientes)</p>
       </div>
-      <Button onclick={openCreateDialog}>+ Nuevo Emisor</Button>
+      <Button onclick={openCreateDialog}><Plus size={16} /> Nuevo Emisor</Button>
     </header>
 
     <div class="search-section">
@@ -356,7 +357,7 @@
                       onclick={() => openDrawer(emitter)}
                       class:active={isSelected}
                     >
-                      👁
+                      <Eye size={16} />
                     </button>
                     {#if comprobantes > 0}
                       <a
@@ -364,7 +365,8 @@
                         class="toolbar-btn comprobantes-btn"
                         title="Ver {comprobantes} comprobante(s)"
                       >
-                        📄 {comprobantes}
+                        <FileText size={14} />
+                        {comprobantes}
                       </a>
                     {/if}
                   </div>
@@ -385,7 +387,9 @@
           <h2>{selectedEmitter.displayName || selectedEmitter.name}</h2>
           <p class="drawer-subtitle">{formatCuit(selectedEmitter.cuit)}</p>
         </div>
-        <button class="drawer-close" onclick={closeDrawer} aria-label="Cerrar">✕</button>
+        <button class="drawer-close" onclick={closeDrawer} aria-label="Cerrar"
+          ><X size={18} /></button
+        >
       </header>
 
       <div class="drawer-body">
@@ -512,7 +516,7 @@
             disabled={!canDelete}
             title={deleteTooltip}
           >
-            🗑️ Eliminar
+            <Trash2 size={16} /> Eliminar
           </button>
           <Button onclick={startEdit}>Editar</Button>
         {/if}
