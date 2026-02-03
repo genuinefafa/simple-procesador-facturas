@@ -1,5 +1,20 @@
 <script lang="ts">
   import { toast, Toaster } from 'svelte-sonner';
+  import {
+    Building2,
+    FileText,
+    ClipboardList,
+    FileEdit,
+    RefreshCw,
+    Upload,
+    Download,
+    Loader2,
+    CheckCircle,
+    XCircle,
+    AlertTriangle,
+    Cloud,
+    Info,
+  } from '$lib/components/icons';
 
   type SyncMode = 'sync' | 'push' | 'pull';
   type SheetType = 'emisores' | 'facturas' | 'esperadas' | 'logs';
@@ -36,31 +51,31 @@
     type: SheetType;
     name: string;
     description: string;
-    icon: string;
+    icon: typeof Building2;
   }> = [
     {
       type: 'emisores',
       name: 'Emisores',
       description: 'Proveedores/Emisores de facturas',
-      icon: '🏢',
+      icon: Building2,
     },
     {
       type: 'facturas',
       name: 'Facturas Procesadas',
       description: 'Facturas ya procesadas y validadas',
-      icon: '📄',
+      icon: FileText,
     },
     {
       type: 'esperadas',
       name: 'Facturas Esperadas AFIP',
       description: 'Facturas importadas desde Excel AFIP',
-      icon: '📋',
+      icon: ClipboardList,
     },
     {
       type: 'logs',
       name: 'Logs',
       description: 'Registro de eventos y actividades',
-      icon: '📝',
+      icon: FileEdit,
     },
   ];
 
@@ -85,7 +100,7 @@
         const modeText =
           mode === 'sync' ? 'Sincronizado' : mode === 'push' ? 'Subido' : 'Descargado';
         toast.success(
-          `${modeText} "${sheet}": ⬆️ ${result.stats.uploaded} subidos, ⬇️ ${result.stats.downloaded} descargados`,
+          `${modeText} "${sheet}": ${result.stats.uploaded} subidos, ${result.stats.downloaded} descargados`,
           { duration: 5000 }
         );
       } else {
@@ -110,8 +125,8 @@
     return mode === 'sync' ? 'Sincronizar' : mode === 'push' ? 'Subir' : 'Descargar';
   }
 
-  function getModeIcon(mode: SyncMode): string {
-    return mode === 'sync' ? '🔄' : mode === 'push' ? '⬆️' : '⬇️';
+  function getModeIcon(mode: SyncMode) {
+    return mode === 'sync' ? RefreshCw : mode === 'push' ? Upload : Download;
   }
 
   function getModeDescription(mode: SyncMode): string {
@@ -127,7 +142,9 @@
 
 <div class="container mx-auto px-4 py-8">
   <div class="mb-8">
-    <h1 class="text-3xl font-bold mb-2">☁️ Sincronización con Google Sheets + Drive</h1>
+    <h1 class="text-3xl font-bold mb-2 flex items-center gap-2">
+      <Cloud size={32} /> Sincronización con Google Sheets + Drive
+    </h1>
     <p class="text-gray-600">
       Sincroniza datos manualmente entre tu base local (SQLite) y Google Sheets + Drive
     </p>
@@ -142,7 +159,7 @@
         <!-- Header de la sheet -->
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-3">
-            <span class="text-3xl">{sheet.icon}</span>
+            <span class="text-3xl"><sheet.icon size={32} /></span>
             <div>
               <h2 class="text-xl font-semibold">{sheet.name}</h2>
               <p class="text-sm text-gray-500">{sheet.description}</p>
@@ -154,6 +171,7 @@
         <div class="flex gap-3 mb-4">
           {#each ['sync', 'push', 'pull'] as mode}
             {@const m = mode as SyncMode}
+            {@const ModeIcon = getModeIcon(m)}
             <button
               onclick={() => syncSheet(sheet.type, m)}
               disabled={state.loading}
@@ -165,10 +183,10 @@
               title={getModeDescription(m)}
             >
               <div class="flex items-center justify-center gap-2">
-                <span class="text-lg">{getModeIcon(m)}</span>
+                <ModeIcon size={18} />
                 <span>{getModeLabel(m)}</span>
                 {#if state.loading && state.lastResult?.mode === m}
-                  <span class="animate-spin">⏳</span>
+                  <Loader2 size={16} class="animate-spin" />
                 {/if}
               </div>
             </button>
@@ -183,7 +201,13 @@
               : 'bg-red-50 border border-red-200'}"
           >
             <div class="flex items-start gap-2">
-              <span class="text-xl">{result.success ? '✅' : '❌'}</span>
+              <span class="text-xl">
+                {#if result.success}
+                  <CheckCircle size={24} class="text-green-600" />
+                {:else}
+                  <XCircle size={24} class="text-red-600" />
+                {/if}
+              </span>
               <div class="flex-1">
                 <div class="font-medium text-sm mb-2">
                   {result.success ? 'Sincronización exitosa' : 'Error en sincronización'}
@@ -195,18 +219,18 @@
                 {#if result.success}
                   <div class="grid grid-cols-2 gap-2 text-sm mb-2">
                     <div class="flex items-center gap-1">
-                      <span>⬆️</span>
+                      <Upload size={14} />
                       <span class="font-semibold">{result.stats.uploaded}</span>
                       <span class="text-gray-600">subidos</span>
                     </div>
                     <div class="flex items-center gap-1">
-                      <span>⬇️</span>
+                      <Download size={14} />
                       <span class="font-semibold">{result.stats.downloaded}</span>
                       <span class="text-gray-600">descargados</span>
                     </div>
                     {#if result.stats.errors > 0}
                       <div class="flex items-center gap-1 col-span-2">
-                        <span>⚠️</span>
+                        <AlertTriangle size={14} />
                         <span class="font-semibold">{result.stats.errors}</span>
                         <span class="text-gray-600">errores</span>
                       </div>
@@ -244,26 +268,32 @@
   <!-- Ayuda -->
   <div class="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
     <h3 class="font-semibold text-lg mb-3 flex items-center gap-2">
-      <span>ℹ️</span>
+      <Info size={20} />
       <span>¿Cómo funciona la sincronización?</span>
     </h3>
     <div class="space-y-2 text-sm text-gray-700">
-      <div class="flex gap-2">
-        <span class="font-semibold min-w-24">🔄 Sincronizar:</span>
+      <div class="flex gap-2 items-start">
+        <span class="font-semibold min-w-24 flex items-center gap-1"
+          ><RefreshCw size={14} /> Sincronizar:</span
+        >
         <span
           >Sube a Google lo que falta allá, baja a local lo que falta acá. Sincronización
           bidireccional completa.</span
         >
       </div>
-      <div class="flex gap-2">
-        <span class="font-semibold min-w-24">⬆️ Subir:</span>
+      <div class="flex gap-2 items-start">
+        <span class="font-semibold min-w-24 flex items-center gap-1"
+          ><Upload size={14} /> Subir:</span
+        >
         <span
           >Solo envía datos locales a Google. No modifica tu base de datos local. Útil para hacer
           backup.</span
         >
       </div>
-      <div class="flex gap-2">
-        <span class="font-semibold min-w-24">⬇️ Descargar:</span>
+      <div class="flex gap-2 items-start">
+        <span class="font-semibold min-w-24 flex items-center gap-1"
+          ><Download size={14} /> Descargar:</span
+        >
         <span
           >Solo trae datos de Google a local. No modifica Google. Útil para importar datos desde
           otro dispositivo.</span
@@ -271,10 +301,13 @@
       </div>
     </div>
     <div class="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-      <p class="text-sm text-yellow-800">
-        <strong>⚠️ Importante:</strong> La sincronización manual te permite trabajar sin conexión. Usa
-        esta página cuando quieras sincronizar con Google, pero no es necesario que lo hagas cada vez
-        que procesas facturas.
+      <p class="text-sm text-yellow-800 flex items-start gap-2">
+        <AlertTriangle size={16} class="flex-shrink-0 mt-0.5" />
+        <span
+          ><strong>Importante:</strong> La sincronización manual te permite trabajar sin conexión. Usa
+          esta página cuando quieras sincronizar con Google, pero no es necesario que lo hagas cada vez
+          que procesas facturas.</span
+        >
       </p>
     </div>
   </div>
