@@ -78,6 +78,10 @@
     oncreatefromexpected?: () => void;
     /** Callback para reprocesar con método específico */
     onreprocess?: (method: ExtractionMethod) => void;
+    /** Callback para buscar expected manualmente (issue #135) */
+    onsearchexpected?: () => void;
+    /** Callback cuando el usuario cambia la extracción seleccionada */
+    onextractionchange?: (extractionId: number) => void;
     /** Si está procesando algo */
     processing?: boolean;
     /** Lista de categorías disponibles */
@@ -95,6 +99,8 @@
     oncreatefromfile,
     oncreatefromexpected,
     onreprocess,
+    onsearchexpected,
+    onextractionchange,
     processing = false,
     categories = [],
     onfilecategorychange,
@@ -250,26 +256,38 @@
     <!-- Columna Archivo -->
     {#if hasFile}
       <div class="source-column file">
-        <div class="column-header">
-          <span class="source-icon">📦</span>
-          <span class="source-title">Archivo</span>
-          {#if hasMultipleExtractions}
-            <select
-              class="extraction-select"
-              bind:value={selectedExtractionId}
-              disabled={processing}
-            >
-              {#each extractions as ext (ext.id)}
-                <option value={ext.id}>{formatExtractionOption(ext)}</option>
-              {/each}
-            </select>
-          {:else if currentMethod}
-            <span class="method-badge">{currentMethod}</span>
-            {#if confidenceLevel}
-              <span class="confidence-badge {confidenceLevel.class}">
-                {displayedFile?.extractionConfidence}%
-              </span>
+        <div class="column-header" class:has-selector={hasMultipleExtractions}>
+          <div class="header-title-row">
+            <span class="source-icon">📦</span>
+            <span class="source-title">Archivo</span>
+            {#if !hasMultipleExtractions && currentMethod}
+              <span class="method-badge">{currentMethod}</span>
+              {#if confidenceLevel}
+                <span class="confidence-badge {confidenceLevel.class}">
+                  {displayedFile?.extractionConfidence}%
+                </span>
+              {/if}
             {/if}
+          </div>
+
+          {#if hasMultipleExtractions}
+            <div class="header-selector-row">
+              <select
+                class="extraction-select"
+                bind:value={selectedExtractionId}
+                onchange={(e) => {
+                  const newId = parseInt((e.target as HTMLSelectElement).value, 10);
+                  if (!isNaN(newId) && onextractionchange) {
+                    onextractionchange(newId);
+                  }
+                }}
+                disabled={processing}
+              >
+                {#each extractions as ext (ext.id)}
+                  <option value={ext.id}>{formatExtractionOption(ext)}</option>
+                {/each}
+              </select>
+            </div>
           {/if}
         </div>
 
@@ -349,7 +367,7 @@
 
     <!-- Indicador de Match (centro) -->
     {#if hasFile && hasExpected}
-      <div class="match-column">
+      <div class="match-column" class:has-selector={hasMultipleExtractions}>
         <div class="match-indicators">
           <div class="match-row"><span class="match-spacer"></span></div>
           <div class="match-row">
@@ -398,14 +416,20 @@
       </div>
     {/if}
 
-    <!-- Columna Expected -->
+    <!-- Columna Expected o Sin coincidencias -->
     {#if hasExpected}
       <div class="source-column expected">
-        <div class="column-header">
-          <span class="source-icon">📋</span>
-          <span class="source-title">#{expected?.id}</span>
-          {#if expected?.status}
-            <span class="status-badge {expected.status}">{expected.status}</span>
+        <div class="column-header" class:has-selector={hasMultipleExtractions}>
+          <div class="header-title-row">
+            <span class="source-icon">📋</span>
+            <span class="source-title">#{expected?.id}</span>
+            {#if expected?.status}
+              <span class="status-badge {expected.status}">{expected.status}</span>
+            {/if}
+          </div>
+
+          {#if hasMultipleExtractions}
+            <div class="header-selector-spacer"></div>
           {/if}
         </div>
 
@@ -470,6 +494,31 @@
           {/if}
         </div>
       </div>
+    {:else if hasFile}
+      <!-- Sin coincidencias - mostrar panel vacío con opción de buscar -->
+      <div class="source-column no-match">
+        <div class="column-header" class:has-selector={hasMultipleExtractions}>
+          <div class="header-title-row">
+            <span class="source-icon">📋</span>
+            <span class="source-title">Expected</span>
+          </div>
+
+          {#if hasMultipleExtractions}
+            <div class="header-selector-spacer"></div>
+          {/if}
+        </div>
+
+        <div class="no-match-content">
+          <div class="no-match-icon">🔍</div>
+          <p class="no-match-text">Sin coincidencias</p>
+          <p class="no-match-hint">No se encontró factura esperada que coincida con estos datos</p>
+          {#if onsearchexpected}
+            <Button variant="secondary" size="sm" onclick={onsearchexpected} disabled={processing}>
+              Buscar manualmente
+            </Button>
+          {/if}
+        </div>
+      </div>
     {/if}
   </div>
 </div>
@@ -508,12 +557,25 @@
 
   .column-header {
     display: flex;
+    flex-direction: column;
+    background: var(--color-surface-alt);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .header-title-row {
+    display: flex;
     align-items: center;
     gap: var(--spacing-1);
     padding: var(--spacing-2) var(--spacing-3);
-    background: var(--color-surface-alt);
-    border-bottom: 1px solid var(--color-border);
-    height: 36px;
+    min-height: 36px;
+  }
+
+  .header-selector-row {
+    padding: 0 var(--spacing-3) var(--spacing-2);
+  }
+
+  .header-selector-spacer {
+    height: 32px;
   }
 
   .source-icon {
@@ -535,14 +597,13 @@
   }
 
   .extraction-select {
-    margin-left: auto;
-    font-size: var(--font-size-xs);
-    padding: 2px 4px;
+    width: 100%;
+    font-size: var(--font-size-sm);
+    padding: var(--spacing-1) var(--spacing-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-surface);
     color: var(--color-text-primary);
-    max-width: 160px;
     cursor: pointer;
   }
 
@@ -645,8 +706,13 @@
     flex-direction: column;
     gap: var(--spacing-3);
     align-items: center;
-    /* Offset para el header */
+    /* Offset para el header (36px) */
     margin-top: 36px;
+  }
+
+  /* Offset extra cuando hay selector de extracción (~32px más) */
+  .match-column.has-selector .match-indicators {
+    margin-top: 68px;
   }
 
   .match-row {
@@ -695,6 +761,42 @@
   .icon-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  /* No match column */
+  .source-column.no-match {
+    background: var(--color-neutral-50);
+  }
+
+  .no-match-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-6) var(--spacing-4);
+    flex: 1;
+    text-align: center;
+    gap: var(--spacing-2);
+  }
+
+  .no-match-icon {
+    font-size: 2rem;
+    opacity: 0.5;
+  }
+
+  .no-match-text {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .no-match-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    margin: 0;
+    max-width: 180px;
+    line-height: 1.4;
   }
 
   /* Responsive */

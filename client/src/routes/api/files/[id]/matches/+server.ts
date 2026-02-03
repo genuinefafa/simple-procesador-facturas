@@ -34,9 +34,15 @@ function normalizeDateToISO(dateStr: string): string | null {
 /**
  * GET /api/files/:id/matches
  * Buscar expected_invoices que matcheen con el archivo
+ *
+ * Query params:
+ * - extractionId: ID de extracción específica a usar (opcional, default: más reciente)
  */
-export const GET: RequestHandler = async ({ params }) => {
-  console.info(`🔍 [MATCHES] Buscando matches para file ID ${params.id}...`);
+export const GET: RequestHandler = async ({ params, url }) => {
+  const extractionIdParam = url.searchParams.get('extractionId');
+  console.info(
+    `🔍 [MATCHES] Buscando matches para file ID ${params.id}${extractionIdParam ? ` (extracción ${extractionIdParam})` : ''}...`
+  );
 
   try {
     const id = parseInt(params.id, 10);
@@ -53,7 +59,23 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     // Obtener datos de extracción
-    const extraction = extractionRepo.findByFileId(id);
+    // Si se especifica extractionId, buscar esa extracción específica
+    // Sino, usar la más reciente (comportamiento legacy)
+    let extraction;
+    if (extractionIdParam) {
+      const extractionId = parseInt(extractionIdParam, 10);
+      if (!isNaN(extractionId)) {
+        const allExtractions = extractionRepo.findAllByFileId(id);
+        extraction = allExtractions.find((e) => e.id === extractionId) ?? null;
+        if (!extraction) {
+          console.warn(`⚠️  [MATCHES] Extracción ${extractionId} no encontrada para file ${id}`);
+        }
+      }
+    }
+    // Fallback to most recent if no specific extraction or not found
+    if (!extraction) {
+      extraction = extractionRepo.findByFileId(id);
+    }
 
     if (!extraction) {
       console.info('ℹ️  [MATCHES] Sin datos de extracción');

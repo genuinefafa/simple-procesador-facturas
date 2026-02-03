@@ -33,6 +33,22 @@
   let availableExpected = $state<ExpectedInvoiceSummary[]>([]);
   let loadingExpected = $state(false);
 
+  // Matches locales - pueden actualizarse al cambiar extracción
+  // Usamos un contador de versión del comprobante para resetear cuando cambia
+  let matchesOverride = $state<typeof comprobante.matches | null>(null);
+  let lastComprobanteId = $state(comprobante.id);
+
+  // Reset override when comprobante changes
+  $effect(() => {
+    if (comprobante.id !== lastComprobanteId) {
+      matchesOverride = null;
+      lastComprobanteId = comprobante.id;
+    }
+  });
+
+  // Computed matches: usa override si existe, sino los del comprobante
+  const localMatches = $derived(matchesOverride ?? comprobante.matches ?? []);
+
   const formatHash = (hash: string | null | undefined) => {
     if (!hash) return '—';
     return `${hash.substring(0, 16)}...`;
@@ -48,11 +64,11 @@
     !comprobante.final && (comprobante.file || comprobante.expected)
   );
 
-  // El mejor match: si hay expected vinculado, usarlo; sino el primer match
+  // El mejor match: si hay expected vinculado, usarlo; sino el primer match de localMatches
   const bestExpected = $derived.by(() => {
     if (comprobante.expected) return comprobante.expected;
-    if (comprobante.matches && comprobante.matches.length > 0) {
-      const m = comprobante.matches[0];
+    if (localMatches && localMatches.length > 0) {
+      const m = localMatches[0];
       return {
         id: m.id,
         cuit: m.cuit,
@@ -145,6 +161,35 @@
       toast.error(result.error || 'Error al procesar', { id: toastId });
     }
     processing = false;
+  }
+
+  // Re-fetch matches cuando el usuario cambia la extracción seleccionada
+  async function handleExtractionChange(extractionId: number) {
+    if (!comprobante.file) return;
+
+    try {
+      const res = await fetch(
+        `/api/files/${comprobante.file.id}/matches?extractionId=${extractionId}`
+      );
+      if (res.ok) {
+        const matchData = await res.json();
+        const newMatches: typeof comprobante.matches = [];
+
+        if (matchData.hasExactMatch && matchData.exactMatch) {
+          newMatches.push(matchData.exactMatch);
+        }
+        const additional = matchData.partialMatches || matchData.candidates || [];
+        for (const m of additional) {
+          if (!newMatches.find((e) => e.id === m.id)) {
+            newMatches.push(m);
+          }
+        }
+
+        matchesOverride = newMatches;
+      }
+    } catch (err) {
+      console.warn('Error al recargar matches:', err);
+    }
   }
 
   // Obtener ruta del archivo para preview
@@ -276,6 +321,7 @@
               invoiceForm.populateFromExpected(bestExpected, emitterName);
             }}
             onreprocess={processPending}
+            onextractionchange={handleExtractionChange}
             {processing}
             {categories}
             onfilecategorychange={async (categoryId) => {
