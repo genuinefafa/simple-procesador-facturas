@@ -3,7 +3,8 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
-  import { onMount } from 'svelte';
+  import { goto } from '$app/navigation';
+  import { page } from '$app/state';
   import { formatDateShort, formatCurrency, formatCuit } from '$lib/formatters';
   import { Plus, Eye, FileText, Trash2, X } from '$lib/components/icons';
 
@@ -47,7 +48,8 @@
       : emitters
   );
 
-  let selectedCuit = $state<string | null>(null);
+  // URL es la fuente de verdad para el drawer
+  let selectedCuit = $derived(page.url.searchParams.get('selected'));
   let selectedEmitter = $derived(emitters.find((e) => e.cuit === selectedCuit) || null);
   let selectedStats = $state<EmitterStats | null>(null);
   let editMode = $state(false);
@@ -56,13 +58,12 @@
   let saving = $state(false);
   let loadingStats = $state(false);
 
-  // Sincronizar URL con drawer SOLO al montar (carga inicial)
-  onMount(() => {
-    const url = new URL(window.location.href);
-    const cuitParam = url.searchParams.get('selected');
-    if (cuitParam) {
-      selectedCuit = cuitParam;
-      loadEmitterStats(cuitParam);
+  // Cargar stats cuando cambia selectedCuit (derivado de URL)
+  $effect(() => {
+    if (selectedCuit) {
+      loadEmitterStats(selectedCuit);
+    } else {
+      selectedStats = null;
     }
   });
 
@@ -98,27 +99,13 @@
   }
 
   function openDrawer(emitter: Emitter) {
-    selectedCuit = emitter.cuit;
     editMode = false;
-    loadEmitterStats(emitter.cuit);
-    updateUrl(emitter.cuit);
+    goto(`?selected=${emitter.cuit}`);
   }
 
   function closeDrawer() {
-    selectedCuit = null;
     editMode = false;
-    selectedStats = null;
-    updateUrl(null);
-  }
-
-  function updateUrl(cuit: string | null) {
-    const url = new URL(window.location.href);
-    if (cuit) {
-      url.searchParams.set('selected', cuit);
-    } else {
-      url.searchParams.delete('selected');
-    }
-    history.pushState({}, '', url.toString());
+    goto('/emisores');
   }
 
   function startEdit() {
