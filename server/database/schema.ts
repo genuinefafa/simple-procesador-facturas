@@ -3,7 +3,7 @@
  * Este schema reemplaza el schema.sql para migraciones automáticas
  */
 
-import { sqliteTable, text, integer, real, index } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Forward declarations for circular references (TypeScript only)
@@ -485,6 +485,8 @@ const fileExtractionResults_ = sqliteTable(
     fileIdx: index('idx_file_extraction_file').on(table.fileId),
     cuitIdx: index('idx_file_extraction_cuit').on(table.extractedCuit),
     dateIdx: index('idx_file_extraction_date').on(table.extractedDate),
+    // Unique constraint: one extraction per method per file
+    fileMethodIdx: uniqueIndex('idx_file_extraction_file_method').on(table.fileId, table.method),
   })
 );
 

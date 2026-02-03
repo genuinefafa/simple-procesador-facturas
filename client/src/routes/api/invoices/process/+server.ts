@@ -73,53 +73,22 @@ export const POST: RequestHandler = async ({ request }) => {
         forceMethod: forcedMethod,
       });
 
-      // Actualizar/crear file_extraction_results con datos extraídos
+      // Upsert file_extraction_results by method
+      // This allows multiple extractions per file (one per method)
       if (result.extractedData) {
-        console.info(`💾 Actualizando datos extraídos para file ${file.id}`);
+        const extractionMethod = result.method || 'OCR';
+        console.info(`💾 Guardando extracción [${extractionMethod}] para file ${file.id}`);
 
-        // Verificar si ya existe extraction result
-        const existingExtraction = extractionRepo.findByFileId(file.id);
-
-        if (existingExtraction) {
-          // Actualizar existente
-          extractionRepo.update(existingExtraction.id, {
-            extractedCuit: result.extractedData.cuit || null,
-            extractedDate: result.extractedData.date || null,
-            extractedTotal: result.extractedData.total || null,
-            extractedType: result.extractedData.invoiceType || null,
-            extractedPointOfSale: result.extractedData.pointOfSale || null,
-            extractedInvoiceNumber: result.extractedData.invoiceNumber || null,
-            confidence: result.confidence || null,
-            method: (result.method || 'OCR') as
-              | 'TEMPLATE'
-              | 'GENERICO'
-              | 'MANUAL'
-              | 'PDF_TEXT'
-              | 'OCR'
-              | 'PDF_TEXT+OCR',
-            errors: result.error || null,
-          });
-        } else {
-          // Crear nuevo
-          extractionRepo.create({
-            fileId: file.id,
-            extractedCuit: result.extractedData.cuit || null,
-            extractedDate: result.extractedData.date || null,
-            extractedTotal: result.extractedData.total || null,
-            extractedType: result.extractedData.invoiceType || null,
-            extractedPointOfSale: result.extractedData.pointOfSale || null,
-            extractedInvoiceNumber: result.extractedData.invoiceNumber || null,
-            confidence: result.confidence || null,
-            method: (result.method || 'OCR') as
-              | 'TEMPLATE'
-              | 'GENERICO'
-              | 'MANUAL'
-              | 'PDF_TEXT'
-              | 'OCR'
-              | 'PDF_TEXT+OCR',
-            errors: result.error || null,
-          });
-        }
+        extractionRepo.upsertByMethod(file.id, extractionMethod, {
+          extractedCuit: result.extractedData.cuit || null,
+          extractedDate: result.extractedData.date || null,
+          extractedTotal: result.extractedData.total || null,
+          extractedType: result.extractedData.invoiceType || null,
+          extractedPointOfSale: result.extractedData.pointOfSale || null,
+          extractedInvoiceNumber: result.extractedData.invoiceNumber || null,
+          confidence: result.confidence || null,
+          errors: result.error || null,
+        });
       }
 
       // Extracción exitosa con alta confianza — archivo listo para revisión del usuario

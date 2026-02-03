@@ -174,10 +174,9 @@ export const POST: RequestHandler = async ({ request }) => {
           const processingResult = await processingService.processInvoice(filePath, savedFilename);
 
           if (processingResult.extractedData) {
-            // Guardar resultados de extracción en file_extraction_results
+            // Guardar resultados de extracción usando upsert por método
             const method = processingResult.method || 'OCR';
-            extractionRepo.create({
-              fileId: createdFile.id,
+            extractionRepo.upsertByMethod(createdFile.id, method, {
               extractedCuit: processingResult.extractedData.cuit || null,
               extractedDate: processingResult.extractedData.date || null,
               extractedTotal: processingResult.extractedData.total || null,
@@ -185,13 +184,6 @@ export const POST: RequestHandler = async ({ request }) => {
               extractedPointOfSale: processingResult.extractedData.pointOfSale || null,
               extractedInvoiceNumber: processingResult.extractedData.invoiceNumber || null,
               confidence: processingResult.confidence || null,
-              method: method as
-                | 'TEMPLATE'
-                | 'GENERICO'
-                | 'MANUAL'
-                | 'PDF_TEXT'
-                | 'OCR'
-                | 'PDF_TEXT+OCR',
               errors: processingResult.error || null,
             });
             console.info(

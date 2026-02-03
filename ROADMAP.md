@@ -1,6 +1,6 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2026-02-02)
+## Estado Actual (2026-02-03)
 
 | Área | Estado | Notas |
 |------|--------|-------|
@@ -28,14 +28,14 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 
 → **M7 Cerrado** ✅
 
-### Fase 2: Features Core
+### Fase 2: Features Core (En progreso)
 *Objetivo: Funcionalidades de alto valor*
 
-| Orden | Issue | Título | Tipo | Esfuerzo |
-|-------|-------|--------|------|----------|
-| 4 | #120 | Balancear expected invoices (FAC ↔ NCR) | Feature | Alto |
-| 5 | #76 | Múltiples métodos de extracción por archivo | Feature | Alto |
-| 6 | #135 | Buscador manual de expected invoices | Feature | Medio |
+| Orden | Issue | Título | Tipo | Esfuerzo | Estado |
+|-------|-------|--------|------|----------|--------|
+| 4 | #120 | Balancear expected invoices (FAC ↔ NCR) | Feature | Alto | Pendiente |
+| 5 | #76 | Múltiples métodos de extracción por archivo | Feature | Alto | ✅ Completado |
+| 6 | #135 | Buscador manual de expected invoices | Feature | Medio | Pendiente |
 
 ### Fase 3: Tech Debt Estratégico
 *Objetivo: Simplificar el modelo de datos*
@@ -81,7 +81,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [x] #79 - Rediseño vista detalle
 
 ### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
-- [ ] #76 - Múltiples métodos extracción
+- [x] #76 - Múltiples métodos extracción
 - [ ] #60 - Códigos ARCA nativos en extractores
 - [ ] #54 - Simplificar algoritmo matching
 - [ ] #93 - Testing extracción docs confidenciales
@@ -175,4 +175,4 @@ npm run db:studio        # GUI Drizzle
 
 ---
 
-**Última actualización**: 2026-02-02
+**Última actualización**: 2026-02-03

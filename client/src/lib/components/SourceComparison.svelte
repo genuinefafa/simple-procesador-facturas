@@ -14,11 +14,29 @@
   import ReprocessDialog, { type ExtractionMethod } from './ReprocessDialog.svelte';
   import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
   import { emitterService, type ResolvedEmitter } from '$lib/services/EmitterService';
+  import { format } from 'date-fns';
+  import { es } from 'date-fns/locale';
+  import { Package, ClipboardList, RefreshCw, Search, ChevronDown, Check } from 'lucide-svelte';
+  import { Select as SelectBuilder } from 'melt/builders';
 
   type Category = {
     id: number;
     description: string;
     color?: string;
+  };
+
+  type ExtractionResult = {
+    id: number;
+    method: string | null;
+    confidence: number | null;
+    extractedCuit: string | null;
+    extractedDate: string | null;
+    extractedTotal: number | null;
+    extractedType: number | null;
+    extractedPointOfSale: number | null;
+    extractedInvoiceNumber: number | null;
+    extractedAt: string | null;
+    errors: string | null;
   };
 
   type FileData = {
@@ -54,12 +72,18 @@
     file?: FileData | null;
     /** Datos esperados */
     expected?: ExpectedData | null;
+    /** All extraction results for this file (for dropdown) */
+    extractions?: ExtractionResult[];
     /** Callback cuando se quiere crear factura desde archivo */
     oncreatefromfile?: () => void;
     /** Callback cuando se quiere crear factura desde expected */
     oncreatefromexpected?: () => void;
     /** Callback para reprocesar con método específico */
     onreprocess?: (method: ExtractionMethod) => void;
+    /** Callback para buscar expected manualmente (issue #135) */
+    onsearchexpected?: () => void;
+    /** Callback cuando el usuario cambia la extracción seleccionada */
+    onextractionchange?: (extractionId: number) => void;
     /** Si está procesando algo */
     processing?: boolean;
     /** Lista de categorías disponibles */
@@ -73,17 +97,96 @@
   let {
     file,
     expected,
+    extractions = [],
     oncreatefromfile,
     oncreatefromexpected,
     onreprocess,
+    onsearchexpected,
+    onextractionchange,
     processing = false,
     categories = [],
     onfilecategorychange,
     onexpectedcategorychange,
   }: Props = $props();
 
-  const hasFile = $derived(!!file);
+  // Selected extraction ID (defaults to first/most recent)
+  let selectedExtractionId = $state<number | null>(null);
+
+  // Flag para evitar llamar onchange durante sincronización programática
+  let isSyncingSelect = false;
+
+  // Melt UI Select for extraction dropdown
+  const extractionSelect = new SelectBuilder<number | null>({
+    sameWidth: false,
+    onValueChange: (newValue) => {
+      if (!isSyncingSelect && newValue !== null && newValue !== undefined) {
+        selectedExtractionId = newValue;
+        onextractionchange?.(newValue);
+      }
+    },
+  });
+
+  // Initialize selectedExtractionId when extractions change
+  $effect(() => {
+    if (extractions.length > 0 && selectedExtractionId === null) {
+      selectedExtractionId = extractions[0].id;
+    }
+  });
+
+  // Sync select value with selectedExtractionId
+  $effect(() => {
+    if (selectedExtractionId !== extractionSelect.value) {
+      isSyncingSelect = true;
+      extractionSelect.value = selectedExtractionId;
+      isSyncingSelect = false;
+    }
+  });
+
+  // Get currently selected extraction
+  const selectedExtraction = $derived(
+    extractions.find((e) => e.id === selectedExtractionId) ?? extractions[0] ?? null
+  );
+
+  // Override file data with selected extraction when available
+  const displayedFile = $derived.by<FileData | null>(() => {
+    if (selectedExtraction) {
+      return {
+        extractedCuit: selectedExtraction.extractedCuit,
+        extractedDate: selectedExtraction.extractedDate,
+        extractedTotal: selectedExtraction.extractedTotal,
+        extractedType: selectedExtraction.extractedType,
+        extractedPointOfSale: selectedExtraction.extractedPointOfSale,
+        extractedInvoiceNumber: selectedExtraction.extractedInvoiceNumber,
+        extractionConfidence: selectedExtraction.confidence,
+        extractionMethod: selectedExtraction.method,
+        categoryId: file?.categoryId,
+        emitterName: file?.emitterName,
+      };
+    }
+    return file ?? null;
+  });
+
+  // Format extraction option for dropdown
+  function formatExtractionOption(ext: ExtractionResult): string {
+    const method = ext.method?.toUpperCase() ?? 'UNKNOWN';
+    const methodLabel =
+      method === 'OCR'
+        ? 'OCR'
+        : method === 'PDF_TEXT'
+          ? 'PDF'
+          : method === 'PDF_TEXT+OCR'
+            ? 'PDF+OCR'
+            : method;
+    const confidence = ext.confidence ?? 0;
+    const date = ext.extractedAt
+      ? format(new Date(ext.extractedAt), 'dd/MM HH:mm', { locale: es })
+      : '';
+    return `${methodLabel} (${confidence}%) - ${date}`;
+  }
+
+  const hasFile = $derived(!!displayedFile);
   const hasExpected = $derived(!!expected);
+  const hasMultipleExtractions = $derived(extractions.length > 1);
 
   // Resolved emitters (from EmitterService)
   let fileEmitter = $state<ResolvedEmitter | null>(null);
@@ -91,7 +194,7 @@
 
   // Resolve emitters when CUITs change
   $effect(() => {
-    const cuit = file?.extractedCuit;
+    const cuit = displayedFile?.extractedCuit;
     if (cuit) {
       emitterService.resolve(cuit).then((resolved) => {
         fileEmitter = resolved;
@@ -115,8 +218,8 @@
   // Display names usando EmitterService.formatDisplay()
   const fileEmitterDisplay = $derived(
     fileEmitter
-      ? emitterService.formatDisplay(fileEmitter, file?.emitterName)
-      : file?.emitterName || '—'
+      ? emitterService.formatDisplay(fileEmitter, displayedFile?.emitterName)
+      : displayedFile?.emitterName || '—'
   );
 
   const expectedEmitterDisplay = $derived(
@@ -145,7 +248,7 @@
 
   // Método actual de extracción (para mostrar cuál se usó)
   const currentMethod = $derived.by(() => {
-    const method = file?.extractionMethod?.toUpperCase();
+    const method = displayedFile?.extractionMethod?.toUpperCase();
     if (!method) return null;
     if (method === 'OCR') return 'OCR';
     if (method === 'PDF_TEXT') return 'PDF Text';
@@ -156,7 +259,7 @@
 
   // Confidence badge
   const confidenceLevel = $derived.by(() => {
-    const conf = file?.extractionConfidence;
+    const conf = displayedFile?.extractionConfidence;
     if (conf == null) return null;
     if (conf >= 90) return { label: 'Alta', class: 'high' };
     if (conf >= 70) return { label: 'Media', class: 'medium' };
@@ -179,16 +282,48 @@
     {#if hasFile}
       <div class="source-column file">
         <div class="column-header">
-          <span class="source-icon">📦</span>
-          <span class="source-title">Archivo</span>
-          {#if currentMethod}
-            <span class="method-badge">{currentMethod}</span>
-          {/if}
-          {#if confidenceLevel}
-            <span class="confidence-badge {confidenceLevel.class}">
-              {file?.extractionConfidence}%
-            </span>
-          {/if}
+          <div class="header-title-row">
+            <span class="source-icon"><Package size={16} /></span>
+            <span class="source-title">Archivo</span>
+            {#if !hasMultipleExtractions && currentMethod}
+              <span class="method-badge">{currentMethod}</span>
+              {#if confidenceLevel}
+                <span class="confidence-badge {confidenceLevel.class}">
+                  {displayedFile?.extractionConfidence}%
+                </span>
+              {/if}
+            {/if}
+          </div>
+
+          <div class="header-selector-row">
+            {#if hasMultipleExtractions}
+              <div class="extraction-select-wrapper">
+                <button
+                  {...extractionSelect.trigger}
+                  class="extraction-trigger"
+                  disabled={processing}
+                >
+                  <span class="trigger-text">{formatExtractionOption(selectedExtraction!)}</span>
+                  <ChevronDown size={14} />
+                </button>
+
+                <div {...extractionSelect.content} class="extraction-content">
+                  {#each extractions as ext (ext.id)}
+                    <div
+                      {...extractionSelect.getOption(ext.id, formatExtractionOption(ext))}
+                      class="extraction-option"
+                      class:selected={extractionSelect.isSelected(ext.id)}
+                    >
+                      <span class="option-text">{formatExtractionOption(ext)}</span>
+                      {#if extractionSelect.isSelected(ext.id)}
+                        <Check size={14} />
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
         </div>
 
         <div class="fields">
@@ -200,27 +335,32 @@
           </div>
           <div class="field">
             <span class="field-label">CUIT</span>
-            <span class="field-value mono">{formatCuit(file?.extractedCuit)}</span>
+            <span class="field-value mono">{formatCuit(displayedFile?.extractedCuit)}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
-            <span class="field-value">{getFriendlyType(file?.extractedType)}</span>
+            <span class="field-value">{getFriendlyType(displayedFile?.extractedType)}</span>
           </div>
           <div class="field">
             <span class="field-label">Numero</span>
             <span class="field-value mono"
-              >{formatInvoiceNum(file?.extractedPointOfSale, file?.extractedInvoiceNumber)}</span
+              >{formatInvoiceNum(
+                displayedFile?.extractedPointOfSale,
+                displayedFile?.extractedInvoiceNumber
+              )}</span
             >
           </div>
           <div class="field">
             <span class="field-label">Fecha</span>
             <span class="field-value"
-              >{file?.extractedDate ? formatDateShort(file.extractedDate) : '—'}</span
+              >{displayedFile?.extractedDate
+                ? formatDateShort(displayedFile.extractedDate)
+                : '—'}</span
             >
           </div>
           <div class="field">
             <span class="field-label">Total</span>
-            <span class="field-value mono">{formatCurrency(file?.extractedTotal)}</span>
+            <span class="field-value mono">{formatCurrency(displayedFile?.extractedTotal)}</span>
           </div>
           <div class="field">
             <span class="field-label">Categoría</span>
@@ -228,12 +368,12 @@
               {#if categories.length > 0 && onfilecategorychange}
                 <CategorySelect
                   {categories}
-                  value={file?.categoryId ?? null}
+                  value={displayedFile?.categoryId ?? null}
                   onchange={onfilecategorychange}
                   disabled={processing}
                 />
               {:else}
-                {categories.find((c) => c.id === file?.categoryId)?.description ?? '—'}
+                {categories.find((c) => c.id === displayedFile?.categoryId)?.description ?? '—'}
               {/if}
             </span>
           </div>
@@ -248,7 +388,7 @@
               disabled={processing}
               title="Reprocesar con otro método"
             >
-              🔄
+              <RefreshCw size={14} />
             </button>
           {/if}
           {#if oncreatefromfile}
@@ -260,46 +400,82 @@
       </div>
     {/if}
 
-    <!-- Indicador de Match (centro) -->
-    {#if hasFile && hasExpected}
+    <!-- Indicador de Match (centro) - siempre visible para mantener layout -->
+    {#if hasFile}
       <div class="match-column">
         <div class="match-indicators">
           <div class="match-row"><span class="match-spacer"></span></div>
-          <div class="match-row">
-            <MatchIndicator left={file?.extractedCuit} right={expected?.cuit} type="cuit" />
-          </div>
-          <div class="match-row">
-            <MatchIndicator left={file?.extractedType} right={expected?.invoiceType} type="exact" />
-          </div>
-          <div class="match-row">
-            <MatchIndicator
-              left={`${file?.extractedPointOfSale}-${file?.extractedInvoiceNumber}`}
-              right={`${expected?.pointOfSale}-${expected?.invoiceNumber}`}
-              type="exact"
-            />
-          </div>
-          <div class="match-row">
-            <MatchIndicator left={file?.extractedDate} right={expected?.issueDate} type="date" />
-          </div>
-          <div class="match-row">
-            <MatchIndicator left={file?.extractedTotal} right={expected?.total} type="amount" />
-          </div>
-          <div class="match-row">
-            <MatchIndicator left={file?.categoryId} right={expected?.categoryId} type="exact" />
-          </div>
+          {#if hasExpected}
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.extractedCuit}
+                right={expected?.cuit}
+                type="cuit"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.extractedType}
+                right={expected?.invoiceType}
+                type="exact"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={`${displayedFile?.extractedPointOfSale}-${displayedFile?.extractedInvoiceNumber}`}
+                right={`${expected?.pointOfSale}-${expected?.invoiceNumber}`}
+                type="exact"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.extractedDate}
+                right={expected?.issueDate}
+                type="date"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.extractedTotal}
+                right={expected?.total}
+                type="amount"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.categoryId}
+                right={expected?.categoryId}
+                type="exact"
+              />
+            </div>
+          {:else}
+            <!-- Placeholders vacíos para mantener altura -->
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+          {/if}
         </div>
       </div>
     {/if}
 
-    <!-- Columna Expected -->
+    <!-- Columna Expected o Sin coincidencias -->
     {#if hasExpected}
       <div class="source-column expected">
         <div class="column-header">
-          <span class="source-icon">📋</span>
-          <span class="source-title">#{expected?.id}</span>
-          {#if expected?.status}
-            <span class="status-badge {expected.status}">{expected.status}</span>
-          {/if}
+          <div class="header-title-row">
+            <span class="source-icon"><ClipboardList size={16} /></span>
+            <span class="source-title">#{expected?.id}</span>
+            {#if expected?.status}
+              <span class="status-badge {expected.status}">{expected.status}</span>
+            {/if}
+          </div>
+
+          <div class="header-selector-row">
+            <!-- Spacer para alinear con la columna archivo -->
+          </div>
         </div>
 
         <div class="fields">
@@ -363,6 +539,31 @@
           {/if}
         </div>
       </div>
+    {:else if hasFile}
+      <!-- Sin coincidencias - mostrar panel vacío con opción de buscar -->
+      <div class="source-column no-match">
+        <div class="column-header">
+          <div class="header-title-row">
+            <span class="source-icon"><ClipboardList size={16} /></span>
+            <span class="source-title">Expected</span>
+          </div>
+
+          <div class="header-selector-row">
+            <!-- Spacer para alinear con la columna archivo -->
+          </div>
+        </div>
+
+        <div class="no-match-content">
+          <div class="no-match-icon"><Search size={32} strokeWidth={1.5} /></div>
+          <p class="no-match-text">Sin coincidencias</p>
+          <p class="no-match-hint">No se encontró factura esperada que coincida con estos datos</p>
+          {#if onsearchexpected}
+            <Button variant="secondary" size="sm" onclick={onsearchexpected} disabled={processing}>
+              Buscar manualmente
+            </Button>
+          {/if}
+        </div>
+      </div>
     {/if}
   </div>
 </div>
@@ -380,12 +581,13 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
-    /* No overflow:hidden para que el dropdown de categoría no se corte */
+    overflow: visible;
   }
 
   .columns {
     display: flex;
     gap: 0;
+    overflow: visible;
   }
 
   .source-column {
@@ -393,6 +595,7 @@
     flex-direction: column;
     min-width: 160px;
     flex: 1;
+    overflow: visible;
   }
 
   .source-column.file {
@@ -401,16 +604,32 @@
 
   .column-header {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-1);
-    padding: var(--spacing-2) var(--spacing-3);
+    flex-direction: column;
     background: var(--color-surface-alt);
     border-bottom: 1px solid var(--color-border);
+    overflow: visible;
+  }
+
+  .header-title-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
     height: 36px;
   }
 
+  .header-selector-row {
+    position: relative;
+    padding: 0 var(--spacing-3) var(--spacing-2);
+    height: 32px; /* Altura fija para alinear columnas */
+    display: flex;
+    align-items: center;
+  }
+
   .source-icon {
-    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    color: var(--color-text-secondary);
   }
 
   .source-title {
@@ -425,6 +644,100 @@
     background: var(--color-neutral-200);
     color: var(--color-text-secondary);
     text-transform: uppercase;
+  }
+
+  /* Extraction select (Melt UI) - igual que InvoiceTypeSelect */
+  .extraction-select-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+  }
+
+  .extraction-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    width: 100%;
+    padding: var(--spacing-1) var(--spacing-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+  }
+
+  .extraction-trigger:hover:not(:disabled) {
+    border-color: var(--color-primary-400);
+    background: var(--color-surface-alt);
+  }
+
+  .extraction-trigger:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+
+  .extraction-trigger:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .extraction-trigger .trigger-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .extraction-content {
+    position: absolute;
+    margin-left: 0;
+    z-index: var(--z-dropdown);
+    min-width: var(--melt-invoker-width);
+    width: fit-content;
+    max-width: max(var(--melt-invoker-width), 280px);
+    margin-top: var(--spacing-1);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    max-height: 200px;
+    overflow-y: auto;
+    padding: var(--spacing-1);
+  }
+
+  .extraction-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    transition: background-color var(--transition-fast);
+  }
+
+  .extraction-option:hover {
+    background: var(--color-surface-alt);
+  }
+
+  .extraction-option[data-highlighted] {
+    background: var(--color-primary-50);
+  }
+
+  .extraction-option.selected {
+    background: var(--color-primary-100);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .extraction-option .option-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .confidence-badge {
@@ -509,6 +822,7 @@
     border-left: 1px solid var(--color-border);
     border-right: 1px solid var(--color-border);
     flex-shrink: 0;
+    min-width: 32px;
   }
 
   .match-indicators {
@@ -516,8 +830,8 @@
     flex-direction: column;
     gap: var(--spacing-3);
     align-items: center;
-    /* Offset para el header */
-    margin-top: 36px;
+    /* Offset para el header (36px title + 32px selector row) */
+    margin-top: 68px;
   }
 
   .match-row {
@@ -566,6 +880,42 @@
   .icon-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  /* No match column */
+  .source-column.no-match {
+    background: var(--color-neutral-50);
+  }
+
+  .no-match-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-6) var(--spacing-4);
+    flex: 1;
+    text-align: center;
+    gap: var(--spacing-2);
+  }
+
+  .no-match-icon {
+    color: var(--color-text-tertiary);
+    opacity: 0.5;
+  }
+
+  .no-match-text {
+    font-size: var(--font-size-base);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .no-match-hint {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-tertiary);
+    margin: 0;
+    max-width: 180px;
+    line-height: 1.4;
   }
 
   /* Responsive */

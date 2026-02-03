@@ -36,6 +36,20 @@ export type Expected = {
   categoryId?: number | null;
 };
 
+export type FileExtractionRecord = {
+  id: number;
+  method: string | null;
+  confidence: number | null;
+  extractedCuit: string | null;
+  extractedDate: string | null;
+  extractedTotal: number | null;
+  extractedType: number | null;
+  extractedPointOfSale: number | null;
+  extractedInvoiceNumber: number | null;
+  extractedAt: string | null;
+  errors: string | null;
+};
+
 export type FileData = {
   id: number;
   originalFilename: string;
@@ -54,6 +68,8 @@ export type FileData = {
   extractionErrors?: string | null;
   linkedInvoiceId?: number | null;
   categoryId?: number | null;
+  /** All extraction results for this file */
+  extractions?: FileExtractionRecord[];
 };
 
 export type Match = {
