@@ -1,49 +1,13 @@
 # Especificación Técnica - Procesador de Facturas
 
-**Versión actual**: v0.4.0
-**Última actualización**: 2025-12-16
+**Versión actual**: v0.6.0
+**Última actualización**: 2026-02-02
 
 ---
 
-## 1. Visión y Evolución del Proyecto
+## 1. Visión del Proyecto
 
-### 1.1 Historia
-
-El proyecto nació como una **CLI** (command-line interface) para procesar PDFs de facturas y evolucionó a través de múltiples iteraciones:
-
-**v0.1 - CLI Básico** (Obsoleto)
-- Comando `procesador process` para extracción batch
-- Validación CUIT con módulo 11
-- SQLite con schema.sql manual
-- Web app solo para anotaciones
-
-**v0.2 - Refactor Web-Only** (Nov 2024)
-- ❌ CLI eliminado completamente
-- ✅ API REST completa
-- ✅ Drizzle ORM + migraciones automáticas
-- ✅ Docker multi-stage
-- Rutas: `/importar`, `/procesar`, `/facturas`
-
-**v0.3 - OCR + Excel AFIP** (Nov-Dec 2024)
-- ✅ Sistema OCR con Tesseract.js
-- ✅ Soporte HEIC (fotos iPhone)
-- ✅ Matching con Excel AFIP
-- ✅ Sistema de archivos pendientes (`pending_files` - posteriormente reemplazado en v0.4)
-- ✅ Toast notifications (sin alert/confirm)
-
-**v0.4 - Dashboard + Comprobantes Hub** (Dec 2024)
-- ✅ Melt UI Next (beta v0.42) migrado
-- ✅ Dashboard principal
-- ✅ **Comprobantes Hub** - Vista unificada reemplazando rutas legacy
-- ✅ Gestión de emisores (alta, listado)
-- ✅ Rail navigation con topbar
-- ✅ **Simplificación de arquitectura de archivos** - Issue #40 (M4)
-  - ✅ `pending_files` eliminada completamente
-  - ✅ Nuevo modelo: `files` + `file_extraction_results`
-  - ✅ Separación clara: Archivo ≠ Extracción ≠ Factura
-- ⚠️ Rutas legacy preservadas para referencia
-
-### 1.2 Filosofía Actual
+### 1.1 Filosofía
 
 > **"La intervención humana es el núcleo, no un fallback"**
 
@@ -52,1097 +16,142 @@ El proyecto nació como una **CLI** (command-line interface) para procesar PDFs 
 - OCR es **manual** (usuario clickea "Reconocer")
 - Excel AFIP sirve para **completar datos**, no para automatizar
 
----
+### 1.2 Historia
 
-## 2. Arquitectura Actual (v0.4)
-
-### 2.1 Stack Tecnológico
-
-| Capa | Tecnología | Versión |
-|------|------------|---------|
-| **Framework** | SvelteKit | 2.x |
-| **UI Library** | Svelte | 5.41.0 |
-| **Components** | Melt UI Next | 0.42.0 (beta) |
-| **Database** | SQLite + Drizzle ORM | - |
-| **OCR** | Tesseract.js | - |
-| **File Processing** | pdf-parse, sharp | - |
-| **Notifications** | svelte-sonner | - |
-
-### 2.2 Estructura de Directorios
-
-```
-simple-procesador-facturas/
-├── client/                    # 🎨 Frontend (SvelteKit)
-│   ├── src/
-│   │   ├── lib/
-│   │   │   ├── components/
-│   │   │   │   ├── ui/       # Componentes Melt UI
-│   │   │   │   │   ├── tokens.css
-│   │   │   │   │   ├── Button.svelte
-│   │   │   │   │   ├── Input.svelte
-│   │   │   │   │   ├── Dialog.svelte
-│   │   │   │   │   ├── Tabs.svelte
-│   │   │   │   │   ├── Dropdown.svelte
-│   │   │   │   │   └── Sidebar.svelte
-│   │   │   │   ├── TopBar.svelte
-│   │   │   │   ├── RailNav.svelte
-│   │   │   │   └── ComprobanteCard.svelte
-│   │   │   └── stores/
-│   │   │       └── toast.ts
-│   │   └── routes/
-│   │       ├── +layout.svelte          # Rail navigation
-│   │       ├── dashboard/              ⭐ NUEVA
-│   │       ├── comprobantes/           ⭐ HUB PRINCIPAL
-│   │       │   ├── +page.svelte        # Listado con filtros
-│   │       │   └── [id]/+page.svelte   # Detalle individual
-│   │       ├── emisores/               ⭐ NUEVA
-│   │       ├── google-sync/            ✅ Activa
-│   │       ├── entrenamiento/          ✅ Activa (baja prioridad)
-│   │       ├── annotate/               ✅ Activa (baja prioridad)
-│   │       └── api/                    # Endpoints REST
-│   └── vite.config.ts
-│
-├── server/                    # ⚙️ Backend (Services + DB)
-│   ├── database/
-│   │   ├── schema.ts                   # Drizzle schema
-│   │   ├── repositories/
-│   │   │   ├── invoice.ts
-│   │   │   ├── pending-file.ts
-│   │   │   ├── expected-invoice.ts
-│   │   │   └── emitter.ts
-│   │   └── migrations/
-│   ├── services/
-│   │   ├── invoice-processing.service.ts
-│   │   ├── excel-import.service.ts
-│   │   └── file-export.service.ts
-│   ├── extractors/
-│   │   ├── pdf-extractor.ts
-│   │   └── ocr-extractor.ts
-│   ├── validators/
-│   │   └── cuit.ts
-│   └── utils/
-│       └── afip-codes.ts
-│
-├── docs/                      # 📚 Documentación consolidada
-│   ├── ARCHITECTURE.md
-│   ├── MELT-UI.md
-│   ├── SIDEBAR.md
-│   └── UI_UX.md
-│
-├── legacy/                    # 🔴 Rutas deprecadas (solo dev)
-│   ├── +layout.svelte         # Guard: solo visible en dev
-│   ├── importar/
-│   ├── procesar/
-│   ├── facturas/
-│   └── pending-files/
-│
-├── SPEC.md                    # Este archivo
-├── README.md
-├── CHANGELOG.md
-├── ROADMAP.md
-└── package.json
-```
-
-### 2.3 Base de Datos (Drizzle Schema)
-
-**Motor**: SQLite
-**ORM**: Drizzle ORM
-**Ubicación del archivo**: `data/database.sqlite` (desde root del proyecto)
-
-**Acceso desde código**:
-```typescript
-// Importar ruta de DB desde db.ts
-import { DB_PATH } from './database/db.js';
-
-// Uso:
-// - Producción: /path/to/project/data/database.sqlite
-// - Tests: /path/to/project/data/database.test.sqlite
-```
-
-**Configuración**:
-- **Drizzle config**: `server/drizzle.config.ts`
-- **Conexión**: `server/database/db.ts`
-- **Schema**: `server/database/schema.ts`
-- **Migraciones**: `server/database/migrations/`
-
-**Comandos útiles**:
-```bash
-# Drizzle Studio (GUI)
-npm run db:studio
-# Conecta a: data/database.sqlite
-
-# SQLite CLI directo
-sqlite3 data/database.sqlite
-
-# Aplicar migraciones
-npm run db:migrate
-```
-
-**IMPORTANTE**: La base de datos NO está en `server/database/invoices.db` (archivo legacy vacío). Siempre usar `data/database.sqlite`.
+| Versión | Fecha | Hitos |
+|---------|-------|-------|
+| v0.1 | - | CLI básico, SQLite manual |
+| v0.2 | Nov 2024 | Web-only, Drizzle ORM |
+| v0.3 | Nov-Dec 2024 | OCR + Excel AFIP |
+| v0.4 | Dec 2024 | Comprobantes Hub, Melt UI |
+| v0.5 | Ene 2026 | Unified File Management |
+| v0.6 | Feb 2026 | Categories, lucide-svelte |
 
 ---
 
-**Tabla principal: `invoices`**
-```typescript
-{
-  id: serial,
-  emitterId: integer,          // FK a emitters
-  cuit: text,
-  invoiceType: text,           // "A", "B", "C"
-  pointOfSale: integer,
-  invoiceNumber: integer,
-  issueDate: text,
-  total: real,
-  personType: "fisica" | "juridica" | null,
-  categoryId: integer,         // FK a categories
-  status: "pending" | "processed"
-}
-```
+## 2. Flujos de Usuario
 
-**Archivos: `files`** (Reemplaza `pending_files`)
-```typescript
-{
-  id: serial,
-  originalFilename: text,
-  fileType: "PDF_DIGITAL" | "PDF_IMAGEN" | "IMAGEN" | "HEIC",
-  fileSize: integer,
-  fileHash: text unique,       // SHA-256 hex (64 chars)
-  storagePath: text,           // Ruta relativa a data/
-  status: "uploaded" | "processed",
-  createdAt: text,
-  updatedAt: text
-}
-```
-
-**Resultados de extracción: `file_extraction_results`** (NUEVA)
-```typescript
-{
-  id: serial,
-  fileId: integer,             // FK a files
-  extractedCuit: text,
-  extractedDate: text,
-  extractedTotal: real,
-  extractedType: integer,      // Código ARCA
-  extractedPointOfSale: integer,
-  extractedInvoiceNumber: integer,
-  confidence: integer,         // 0-100
-  method: text,                // "PDF_TEXT" | "OCR" | "TEMPLATE"
-  templateId: integer,         // FK a templatesExtraccion
-  errors: text,                // JSON con errores
-  extractedAt: text
-}
-```
-
-**Facturas esperadas (AFIP): `expected_invoices`**
-```typescript
-{
-  id: serial,
-  batchId: text,
-  cuit: text,
-  invoiceType: text,
-  pointOfSale: integer,
-  invoiceNumber: integer,
-  issueDate: text,
-  total: real,
-  status: "pending" | "matched" | "ignored"
-}
-```
-
-**Emisores: `emitters`**
-```typescript
-{
-  id: serial,
-  cuit: text unique,
-  name: text,
-  alias: text nullable,
-  createdAt: text
-}
-```
-
-**Categorías: `categories`**
-```typescript
-{
-  id: serial,
-  name: text unique,
-  icon: text,
-  color: text
-}
-```
-
-### 2.7 Sistema de File Hashing e Integridad
-
-**Objetivo:** Garantizar la integridad de los archivos mediante hashes SHA-256 y detectar archivos perdidos/modificados.
-
-#### Decisión de Diseño
-
-**Algoritmo:** SHA-256 (64 caracteres hexadecimales)
-
-**Justificación:**
-- Estándar de la industria para verificación de integridad
-- Resistente a colisiones (probabilidad prácticamente nula)
-- Performance aceptable (~50-100ms por archivo de 500KB)
-- Compatible con herramientas estándar (shasum, openssl)
-
-#### Flujo de Hashing
-
-**1. Upload (data/input/)**
-- Archivo subido por el usuario
-- Hash SHA-256 calculado inmediatamente después de guardar
-- Guardado en `files.file_hash` (único)
-- Logueo: `🔐 Hash: a1b2c3d4e5f6...`
-
-**2. Processing**
-- Hash copiado automáticamente de `files` a `facturas`
-- Fallback: si file no tiene hash, se calcula on-the-fly
-- Guardado en `facturas.file_hash` (redundancia de seguridad)
-- Logueo: `🔐 Hash copiado desde file`
-
-**3. Backfill (Archivos Existentes)**
-- Script manual: `npm run backfill-hashes`
-- Escanea todos los registros en `facturas` con `archivo_procesado` != NULL
-- Calcula hash para archivos que no tienen
-- Reporta archivos no encontrados (posibles archivos perdidos)
-
-#### Schema de Base de Datos
-
-**files**
-```sql
-file_hash TEXT UNIQUE NOT NULL  -- SHA-256 hex (64 chars)
-```
-
-**facturas**
-```sql
-file_hash TEXT  -- SHA-256 hex (64 chars), NULL si no calculado
-```
-
-**Índices:**
-- `UNIQUE` constraint en `files(file_hash)` (deduplicación automática)
-- `idx_facturas_hash` en `facturas(file_hash)`
-
-#### Script de Backfill
-
-Para hashear archivos que ya están en el sistema (antes de implementar hashing):
-
-```bash
-npm run backfill-hashes
-```
-
-**Funcionalidad:**
-- Escanea todos los registros en `facturas` con `archivo_procesado` != NULL
-- Calcula hash SHA-256 para los que no tienen
-- Reporta archivos no encontrados (posibles archivos perdidos)
-- Progress logging cada 10 archivos
-- Genera reporte final con estadísticas
-
-**Output ejemplo:**
-```
-🔐 Iniciando backfill de hashes...
-📊 Total de facturas procesadas: 1247
-
-⏳ Progreso: 1240/1247 (1195 hasheados)
-❌ Archivo no encontrado: 2023-11/deleted-file.pdf
-
-📊 Reporte Final:
-   Total procesados: 1247
-   ✅ Ya tenían hash: 45
-   🔐 Hasheados ahora: 1195
-   ❌ No encontrados: 7
-   ⚠️  Errores: 0
-```
-
-#### Casos de Uso
-
-| Escenario | Comportamiento |
-|-----------|----------------|
-| **Archivo nuevo** | Hash calculado automáticamente al upload |
-| **Archivo sin hash** | Calcular con script de backfill |
-| **Archivo movido** | Hash permite identificarlo (futuro: reconciliación) |
-| **Verificar integridad** | Comparar hash actual vs guardado en BD |
-| **Archivos duplicados** | Detectar por hash idéntico |
-
-#### Utilidades de Hashing
-
-**Función principal:**
-```typescript
-import { calculateFileHash } from '@server/utils/file-hash.js';
-
-const result = await calculateFileHash('/path/to/file.pdf');
-// {
-//   hash: 'a1b2c3d4e5f6...',
-//   algorithm: 'sha256',
-//   fileSize: 524288,
-//   calculatedAt: Date
-// }
-```
-
-**Verificación:**
-```typescript
-import { verifyFileHash } from '@server/utils/file-hash.js';
-
-const isValid = await verifyFileHash('/path/to/file.pdf', 'expected-hash');
-// true/false
-```
-
-**Batch processing:**
-```typescript
-import { calculateBatchHashes } from '@server/utils/file-hash.js';
-
-const hashes = await calculateBatchHashes(['/file1.pdf', '/file2.pdf']);
-// Map<string, HashCalculationResult>
-```
-
-#### Estado de Implementación
-
-**✅ Parte 1 (Implementada - Issue #38):**
-- Hashing automático en flujo operativo (upload → process)
-- Script de backfill masivo (`npm run backfill-hashes`)
-- Métodos de repository para búsqueda por hash
-- Tests de integración completos
-- Documentación actualizada
-
-**🔜 Parte 2 (Futuro):**
-- UI de reconciliación (`/files/integrity`)
-- FileIntegrityService con matching inteligente
-- Detección automática de archivos perdidos/huérfanos
-- Sugerencias de matching por hash
-- API endpoints de integridad
-
----
-
-## 3. Rutas y Funcionalidades
-
-### 3.1 Rutas Canónicas (v0.4)
-
-| Ruta | Descripción | Estado |
-|------|-------------|--------|
-| `/` | Redirect a `/dashboard` | ✅ |
-| `/dashboard` | Vista principal, métricas y accesos rápidos | ✅ Implementada |
-| `/comprobantes` | **Hub principal** - Listado unificado con filtros | ✅ Implementada |
-| `/comprobantes/[id]` | Detalle individual del comprobante | ✅ Implementada |
-| `/emisores` | Gestión de emisores (CRUD) | 🔶 Falta edit/delete |
-| `/google-sync` | Integración con Google Drive/Sheets | ✅ Funcional |
-| `/entrenamiento` | Templates de extracción (baja prioridad) | 🔵 Planeada |
-| `/annotate` | Anotaciones manuales | ✅ Funcional |
-
-### 3.2 Rutas Legacy (Archivadas)
-
-**NOTA**: Estas rutas se archivaron en `/legacy` y solo son visibles en desarrollo.
-
-| Ruta | Reemplazada por | Motivo |
-|------|-----------------|--------|
-| `/importar` | `/comprobantes` (tab Importar) | Hub unificado |
-| `/procesar` | `/comprobantes` (tab Procesar) | Hub unificado |
-| `/facturas` | `/comprobantes` | Hub unificado |
-| `/pending-files` | `/comprobantes` (filtro Pendientes) | Hub unificado |
-| `/revisar` | `/comprobantes` (tab Revisar) | Hub unificado |
-
-### 3.3 Comprobantes Hub - Detalle Funcional
-
-**Filtros disponibles:**
-- `all` - Todos los comprobantes
-- `pendientes` - Archivos subidos sin procesar
-- `reconocidas` - Facturas ya procesadas
-- `esperadas` - Importadas desde Excel AFIP sin match
-
-**Acciones disponibles:**
-- Subir archivo (PDF, JPG, PNG, HEIC)
-- Importar Excel AFIP
-- Reconocer automáticamente (OCR)
-- Editar campos manualmente
-- Asignar categoría
-- Eliminar comprobante
-- Exportar datos
-
-**Vista de detalle (`/comprobantes/[id]`):**
-- Preview del archivo
-- Datos extraídos vs. Excel AFIP (comparación)
-- Indicadores visuales: ✓ (coincide), ⚠ (difiere), ❌ (no detectado), ⚪ (sin datos)
-- Botón "Confirmar y procesar"
-- Botón "Reconocer de nuevo"
-
----
-
-## 4. Flujos de Usuario
-
-### 4.1 Flujo Principal (Happy Path)
+### 2.1 Flujo Principal (Happy Path)
 
 ```
 1. Usuario accede a /dashboard
-2. Clickea "Ir a Comprobantes" o navega desde rail
-3. En /comprobantes:
-   a. Sube archivo PDF/imagen (drag & drop)
-   b. Sistema guarda en `files` con status "uploaded"
-   c. Sistema extrae automáticamente texto (PDF_TEXT o OCR)
-   d. Guarda resultados en `file_extraction_results`
-   e. Busca match en expected_invoices (si existe Excel AFIP)
-   f. Muestra card en tab "Archivos subidos" con datos extraídos
+2. Navega a /comprobantes
+3. Sube archivo PDF/imagen (drag & drop)
+   → Sistema guarda en `files` con status "uploaded"
+   → Extrae texto (PDF_TEXT o OCR)
+   → Guarda en `file_extraction_results`
+   → Busca match en expected_invoices
 4. Usuario revisa detalle (/comprobantes/file:ID)
-   a. Ve datos extraídos con nivel de confianza
-   b. Corrige campos si es necesario
-   c. Asigna categoría (opcional)
-   d. Clickea "Crear factura"
-5. Factura creada en `facturas`
-6. Archivo actualizado: `files.status = 'processed'`
-7. Archivo movido a `data/finalized/` con nuevo nombre
+   → Ve datos extraídos con nivel de confianza
+   → Corrige campos si es necesario
+   → Asigna categoría (opcional)
+   → Clickea "Crear factura"
+5. Factura creada en `invoices`
+6. Archivo movido a `data/finalized/`
 ```
 
-### 4.2 Flujo Excel AFIP (Matching)
+### 2.2 Flujo Excel AFIP (Matching)
 
 ```
 1. Usuario importa Excel AFIP desde /comprobantes
-2. Sistema parsea columnas y crea registros en expected_invoices
+2. Sistema crea registros en expected_invoices
 3. Al procesar archivo:
-   a. Sistema busca match exacto (CUIT + Tipo + PuntoVenta + Número)
-   b. Si no hay exacto, busca candidatos (CUIT + Fecha ±7 días + Total ±10%)
-   c. Si hay match único → auto-completa campos
-   d. Si hay múltiples candidatos → usuario elige
-   e. Si no hay match → procesamiento normal OCR
+   a. Busca match exacto (CUIT + Tipo + PV + Número)
+   b. Si no hay exacto → candidatos (CUIT + Fecha ±7d + Total ±10%)
+   c. Match único → auto-completa campos
+   d. Múltiples candidatos → usuario elige
 4. Usuario confirma match
 5. expected_invoice marcado como "matched"
 ```
 
-### 4.3 Flujo Emisores
+### 2.3 Flujo Emisores
 
 ```
-1. Usuario accede a /emisores
-2. Ve lista de emisores existentes (CUIT, nombre, alias)
-3. Clickea "Nuevo Emisor"
-4. Ingresa CUIT, nombre, alias (opcional)
-5. Sistema valida CUIT (módulo 11)
-6. Emisor creado y disponible para asignar en facturas
-
-Pendiente (M3):
-- Editar emisor existente
-- Eliminar emisor (con validación de facturas asociadas)
-- Buscar emisor en facturas
+1. Acceder a /emisores
+2. Ver lista (CUIT, nombre, alias)
+3. "Nuevo Emisor" → CUIT, nombre, alias
+4. Sistema valida CUIT (módulo 11)
+5. Emisor disponible para asignar en facturas
 ```
 
 ---
 
-## 5. Componentes UI (Melt UI Next)
+## 3. Algoritmos y Decisiones Técnicas
 
-### 5.1 Primitivos Implementados
-
-| Componente | Ubicación | Basado en Melt | Notas |
-|------------|-----------|----------------|-------|
-| **Button** | `ui/Button.svelte` | ❌ CSS puro | 4 variantes, 3 tamaños |
-| **Input** | `ui/Input.svelte` | ❌ CSS puro | Validación, error, hint |
-| **Dialog** | `ui/Dialog.svelte` | ✅ Melt UI Next | Focus trap, ESC close, scroll lock |
-| **Tabs** | `ui/Tabs.svelte` | ✅ Melt UI Next | Keyboard navigation |
-| **Dropdown** | `ui/Dropdown.svelte` | ✅ CSS puro | Positioning inteligente |
-| **Sidebar** | `ui/Sidebar.svelte` | ❌ Patrón custom | Drawer mobile + sticky desktop |
-
-### 5.2 Design Tokens
-
-Sistema completo de tokens CSS en `tokens.css`:
-
-```css
---color-primary-600
---color-neutral-800
---spacing-4 (16px)
---font-size-base (1rem)
---border-radius-md (0.375rem)
---shadow-lg
---transition-base (300ms)
---z-modal (1050)
-```
-
-**Regla de oro**: NO usar valores hardcoded, siempre usar tokens.
-
-### 5.3 Componentes de Layout
-
-| Componente | Ubicación | Descripción |
-|------------|-----------|-------------|
-| **TopBar** | `TopBar.svelte` | Barra superior con título y acciones |
-| **RailNav** | `RailNav.svelte` | Navegación lateral colapsable |
-| **ComprobanteCard** | `ComprobanteCard.svelte` | Card individual en hub |
-
----
-
-## 6. API REST Endpoints
-
-### 6.1 Comprobantes
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/api/invoices/upload` | POST | Subir archivo (max 10MB) |
-| `/api/invoices/process` | POST | Procesar con OCR/Excel matching |
-| `/api/invoices/[id]` | PATCH | Editar campos manualmente |
-| `/api/invoices/[id]` | DELETE | Eliminar factura |
-| `/api/invoices/export` | POST | Exportar con renombrado |
-
-### 6.2 Archivos Pendientes
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/api/pending-files` | GET | Listar archivos pendientes |
-| `/api/pending-files/[id]` | GET | Obtener detalle |
-| `/api/pending-files/[id]/matches` | GET | Matches con Excel AFIP |
-| `/api/pending-files/[id]` | DELETE | Eliminar archivo |
-
-### 6.3 Excel AFIP
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/api/expected-invoices/import` | POST | Importar Excel AFIP |
-| `/api/expected-invoices` | GET | Listar facturas esperadas |
-| `/api/expected-invoices/[id]/match` | POST | Confirmar match |
-| `/api/expected-invoices/template` | GET | Descargar template Excel |
-
-### 6.4 Emisores
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/api/emitters` | GET | Listar emisores |
-| `/api/emitters` | POST | Crear emisor |
-| `/api/emitters/[id]` | PATCH | Editar emisor (⏳ pendiente) |
-| `/api/emitters/[id]` | DELETE | Eliminar emisor (⏳ pendiente) |
-
-### 6.5 Categorías
-
-| Endpoint | Método | Descripción |
-|----------|--------|-------------|
-| `/api/categories` | GET | Listar categorías |
-| `/api/categories` | POST | Crear categoría |
-| `/api/categories/[id]` | PATCH | Editar categoría |
-| `/api/categories/[id]` | DELETE | Eliminar categoría |
-
----
-
-## 7. Reglas de Desarrollo
-
-### 7.1 Convenciones de Código
-
-**TypeScript:**
-- Usar tipos estrictos, evitar `any`
-- Interfaces en PascalCase
-- Enums para estados: `"pending" | "processed"`
-
-**Svelte 5:**
-- Usar runes: `$state`, `$derived`, `$effect`, `$bindable`
-- NO usar stores (`writable`, `derived`) salvo para casos específicos
-
-**Formatters (`client/src/lib/formatters.ts`):**
-- Usar funciones centralizadas para formateo consistente
-- `formatCurrency(value)` → $1.234,56 (moneda con símbolo)
-- `formatNumber(value)` → 1.234,56 (número con separadores)
-- `formatCuit(cuit)` → 30‑12345678‑9 (guiones non-breaking)
-- `formatDateISO(date)` → 15-dic-2025 (fecha larga con guiones)
-- `formatDateShort(date)` → 15/dic o 15/dic/2024 (fecha compacta, sin año si es actual)
-- `formatDateTime(date)` → 15-dic-2025 14:30 (fecha + hora)
-- `getFullDateForTooltip(date)` → "15 de diciembre de 2025" (para tooltips)
-- `getFriendlyType(arcaCode)` → FACA, FACB, etc. (tipos de comprobante)
-- `formatEmitterName(name, maxLen)` → nombre truncado con ellipsis
-
-**Cuándo usar cada formatter de fecha:**
-- **Tablas/listas**: `formatDateShort()` - compacto, omite año actual
-- **Drawers/detalles**: `formatDateShort()` - consistente con tablas
-- **Tooltips**: `getFullDateForTooltip()` - fecha completa legible
-- **Exports/logs**: `formatDateISO()` - incluye año siempre
-
-- ❌ **NO duplicar** lógica de formateo inline
-- ❌ **NO usar** `toLocaleDateString()` directamente - usar formatters
-- Snippets en lugar de slots
-
-**Estilos:**
-- CSS puro con design tokens
-- NO Tailwind, NO @apply
-- BEM naming cuando sea necesario
-
-### 7.2 Políticas de UI/UX
-
-**Prohibido:**
-- ❌ `alert()`, `confirm()`, `prompt()`
-- ❌ `window.location.href`, `window.location.replace()` (rompe SPA)
-- ❌ Valores CSS hardcoded (usar tokens)
-- ❌ Tailwind classes
-- ❌ Stores para estado local (usar runes)
-
-**Requerido:**
-- ✅ Toast notifications (`svelte-sonner`)
-- ✅ Dialog component para confirmaciones
-- ✅ `goto()` de `$app/navigation` para navegación programática
-- ✅ `invalidateAll()` de `$app/navigation` para refresh de datos
-- ✅ Indicadores visuales (✓ ⚠ ❌ ⚪)
-- ✅ Tooltips informativos
-- ✅ Accesibilidad ARIA completa
-
-**Checklist Pre-Commit (scope-aware):**
-
-Este checklist aplica **exclusivamente** al código que estás modificando o agregando:
-
-- [ ] **Componentes de UI:** ¿Usaste componentes nativos de HTML (`<select>`, `<dialog>`, etc.) en lugar de Melt UI?
-  - ❌ Si usaste `<select>`, reemplazar por Melt UI Dropdown
-  - ❌ Si usaste `confirm()` o `alert()`, reemplazar por Dialog component
-  - ✅ Solo componentes de Melt UI Next (v0.44)
-
-- [ ] **Tamaño de archivo:** Si modificaste un archivo existente, ¿quedó muy grande?
-  - Si el archivo modificado tiene >500 líneas y agregaste nueva funcionalidad:
-    - ✅ Extraer **solo lo nuevo** a un componente separado
-    - ❌ NO modularizar código existente que no tocaste
-    - ✅ Si hay código viejo que necesita refactoring, crear issue separado
-
-- [ ] **Tipos TypeScript:** ¿Los tipos están sincronizados entre cliente/servidor?
-  - ✅ `invoiceType` debe ser `number | null` (códigos ARCA)
-  - ✅ Verificar que tipos en API, loader y componentes coincidan
-
-- [ ] **Formateo de datos:** ¿Usaste funciones centralizadas para display?
-  - ✅ `getFriendlyType()` para tipos de comprobante
-  - ✅ `formatInvoiceNumber()` para números completos
-  - ✅ Constantes de `arca-codes.ts` para listas
-
-- [ ] **Navegación:** ¿Usaste `goto()` en lugar de `window.location`?
-  - ✅ `goto('/path')` mantiene SPA
-  - ❌ `window.location.href` recarga toda la página
-
-**Navegación programática:**
-```typescript
-// ❌ MAL - Rompe SPA, recarga toda la página
-window.location.href = '/comprobantes';
-
-// ✅ BIEN - Mantiene SPA
-import { goto } from '$app/navigation';
-goto('/comprobantes');
-
-// Para refresh de datos después de mutaciones:
-import { invalidateAll } from '$app/navigation';
-await invalidateAll(); // Re-ejecuta load functions
-```
-
-### 7.3 Git Workflow
-
-**Idioma:**
-- ✅ **Commits**: Inglés técnico (convención estándar internacional)
-- ✅ **Pull Requests**: Español argentino formal (título y descripción)
-- ✅ **Issues**: Español argentino formal
-- ✅ **Documentación**: Español argentino formal
-- ✅ **Código y comentarios**: Inglés
-
-**Branches:**
-- `main` - Producción
-- `feat/*` - Nuevas features
-- `fix/*` - Bugfixes
-- `docs/*` - Solo documentación
-- `refactor/*` - Refactoring sin cambios funcionales
-
-**Estrategia de Commits:**
-
-✅ **Commits incrementales**: Realizar commits pequeños y frecuentes durante el desarrollo
-- **NO** esperar a terminar toda la feature para commitear
-- **SÍ** commitear cada fase/componente lógico completado
-- Ejemplo: Migration → Utility → Repository → Integration → Tests (5 commits mínimo)
-
-✅ **Nombres descriptivos**: Usar conventional commits con alcance específico
-```bash
-feat(database): add file_hash to files table
-feat(utils): create file-hash utility with SHA-256
-feat(repository): add hash methods to FileRepository
-```
-
-✅ **Branch por issue**: Crear branch `feat/nombre-issue-38` antes de comenzar
-```bash
-git checkout -b feat/file-hashing-issue-38
-```
-
-✅ **Push frecuente**: Subir cambios al menos una vez al día para backup
-```bash
-git push -u origin feat/file-hashing-issue-38
-```
-
-### 7.4 Gestión de Issues y Prioridades
-
-**Labels de Severidad:**
-- 🔴 `critical` - Bloqueante, sistema no funcional o pérdida de datos
-- 🟠 `bug` - Funcionalidad rota pero hay workaround
-- 🟡 `enhancement` - Mejora o nueva funcionalidad
-- 🔵 `documentation` - Solo documentación
-- 🟣 `refactor` - Refactoring/tech-debt
-
-**Labels de Prioridad:**
-- `P0` - Inmediato (resolver HOY) - Color: rojo oscuro (#b60205)
-- `P1` - Alto (resolver esta semana) - Color: naranja (#d93f0b)
-- `P2` - Medio (resolver este mes) - Color: amarillo (#fbca04)
-- `P3` - Bajo (cuando haya tiempo) - Color: verde (#0e8a16)
-
-**Workflow de Priorización:**
-
-1. **Bug crítico detectado**:
-   - Crear issue con título descriptivo (ej: "bug: no se pueden guardar facturas editadas")
-   - Asignar labels: `bug` + `critical` y/o `P0`/`P1` según severidad
-   - Agregar a milestone `Hotfixes` si es P0/crítico
-   - **Resolver ANTES que cualquier feature nueva**
-
-2. **Feature/Enhancement**:
-   - Asignar label: `enhancement` + prioridad (`P2`/`P3` típicamente)
-   - Agregar a milestone correspondiente (ej: M3.6, M4.0)
-   - Planificar en backlog
-
-3. **Orden de ejecución**:
-   ```
-   P0/critical > P1/bug > P2/enhancement > P3
-   ```
-
-**Ejemplos:**
-- `bug` + `P0` → Factura editada no se guarda (bloqueante) - Resolver HOY
-- `bug` + `P1` → Tipo de comprobante parseado mal en import - Resolver esta semana
-- `enhancement` + `P2` → Nuevo filtro de categorías - Resolver este mes
-- `enhancement` + `P3` → Exportar a PDF - Backlog
-
-**Commits (inglés):**
-```
-feat(comprobantes): add category filter
-fix(ocr): improve CUIT detection with fallback
-docs: consolidate sidebar documentation
-refactor: archive legacy routes to /legacy
-chore: update dependencies
-```
-
-**Pull Requests (español argentino formal):**
-- Título y descripción en español argentino formal
-- Asociar a milestone correspondiente
-- Incluir descripción detallada con:
-  - Resumen de cambios
-  - Cambios específicos (bullet points)
-  - Issues que cierra
-  - Verificaciones realizadas
-- Screenshots si hay cambios visuales
-- Tests si hay lógica nueva
-
-**Ejemplo de PR:**
-```markdown
-## 📋 Resumen
-
-Consolida la documentación y archiva las rutas deprecadas.
-
-## ✅ Cambios Realizados
-
-- ✅ Creado SPEC.md completo
-- ✅ Consolidados docs en /docs
-- ✅ Archivadas rutas legacy
-
-## 🎯 Cierra
-
-- Cierra #45
-- Cierra #46
-```
-
-### 7.4 Validaciones y CI/CD
-
-**Git Hooks (Pre-commit):**
-
-El proyecto usa un hook personalizado en `.githooks/pre-commit` que se ejecuta automáticamente antes de cada commit:
-
-```bash
-# Configurar hook (necesario en primera instalación)
-git config core.hooksPath .githooks
-```
-
-**Qué hace el pre-commit hook:**
-1. 🎨 **Auto-formateo con Prettier**: Formatea archivos `.ts` y `.svelte` en staging
-2. 🔍 **Validación sintaxis Svelte**: Detecta errores comunes (etiquetas mal cerradas, etc.)
-3. 🔬 **svelte-check**: Valida tipos TypeScript en componentes Svelte (opcional con confirmación)
-
-**Importante**: Si no se ejecutó el hook, verificar:
-```bash
-# Ver configuración actual
-git config core.hooksPath
-
-# Debería mostrar: .githooks
-# Si no, configurar manualmente:
-git config core.hooksPath .githooks
-```
-
-**GitHub Actions CI:**
-
-El proyecto tiene workflows configurados en `.github/workflows/`:
-
-**`ci.yml` - Ejecuta en:**
-- Push a `main` o `master`
-- Pull Requests hacia `main` o `master`
-
-**Jobs del CI:**
-1. **Code Quality** (ESLint + Prettier check)
-   - `npm run lint` - ESLint en todo el workspace
-   - `npm run format:check` - Verificar formato Prettier
-
-2. **TypeScript Validation**
-   - `tsc --noEmit` en client/ y server/
-   - Detecta errores de tipos sin generar archivos
-
-3. **Build Frontend**
-   - `npm run build` - Build completo de SvelteKit
-   - Sube artifacts del build
-
-4. **Tests & Coverage** (opcional, `continue-on-error: true`)
-   - `npm run test:coverage` - Ejecuta tests con coverage
-   - Sube reporte de cobertura
-
-5. **Security Audit**
-   - `npm audit` con diferentes niveles (high/critical)
-   - No bloquea el merge (informativo)
-
-6. **CI Summary**
-   - Agrega resumen visual al PR
-   - Falla si jobs críticos (quality, typescript, build) fallan
-
-**Comandos locales equivalentes al CI:**
-```bash
-# Validación completa (igual que CI)
-npm run check          # TypeScript check (client + server)
-npm run lint           # ESLint
-npm run format:check   # Prettier check
-npm run build          # Build completo
-
-# Autofix
-npm run format         # Auto-formatear todo
-```
-
-**Troubleshooting común:**
-
-| Problema | Causa | Solución |
-|----------|-------|----------|
-| Hook no se ejecuta | `core.hooksPath` no configurado | `git config core.hooksPath .githooks` |
-| CI no corre en PR | PR no apunta a `main`/`master` | Cambiar base del PR |
-| Falla lint en CI pero no local | Imports sin usar, tipos incorrectos | Ejecutar `npm run lint` localmente |
-| Falla build en CI | Dependencias faltantes | Verificar `package.json` sincronizado |
-
-**Convención de errores de lint permitidos:**
-
-- ❌ **NO permitido**: Variables sin usar sin prefijo `_`
-- ✅ **Permitido**: Variables con prefijo `_` (ej. `_unusedVar`)
-- ❌ **NO permitido**: `any` sin justificación
-- ❌ **NO permitido**: Imports sin usar
-
----
-
-## 8. Testing
-
-### 8.1 Base de Datos de Test
-
-**IMPORTANTE**: Los tests automáticos **DEBEN usar una base de datos independiente** para evitar contaminar los datos de producción.
-
-**Implementación:**
-- `database.test.sqlite` - Base de datos exclusiva para tests
-- Auto-detect: `db.ts` detecta `VITEST=true` y usa automáticamente la DB de test
-- Setup: Ejecutar migraciones en `beforeAll()` de cada test suite
-- Cleanup: Eliminar DB de test en `afterAll()`
-- Reset: Limpiar todas las tablas en `beforeEach()` para estado limpio
-
-**Ejemplo:**
-```typescript
-import { runTestMigrations, resetTestDb, cleanupTestDb } from '../../database/db-test.js';
-
-beforeAll(async () => {
-  await runTestMigrations();  // Crear schema
-});
-
-beforeEach(() => {
-  resetTestDb();  // Limpiar datos entre tests
-});
-
-afterAll(() => {
-  cleanupTestDb();  // Eliminar database.test.sqlite
-});
-```
-
-**Archivos relacionados:**
-- `server/database/db.ts` - Auto-detect de modo test
-- `server/database/db-test.ts` - Utilidades para DB de test
-- `.gitignore` - Ignora `*.sqlite` (incluye database.test.sqlite)
-
-### 8.2 Estado Actual
-
-**Unit Tests:**
-- ✅ Tests de extracción de archivos (`server/scripts/test-extraction-accuracy.ts`)
-- ✅ Tests de validación CUIT
-- ✅ Tests de detección de códigos AFIP
-- ✅ Tests de file hashing (13 unit + 5 integration)
-- ❌ Falta: Tests de matching con Excel AFIP
-- ❌ Falta: Tests de servicios completos
-
-**Integration Tests:**
-- ✅ File hashing flow (usa DB de test)
-- ✅ Extraction accuracy (usa ejemplos en `examples/facturas/`)
-- ❌ Falta: Upload → Process flow completo
-
-**E2E Tests:**
-- ❌ No implementados
-
-### 8.3 Archivos de Test
-
-**Ejemplos para testing:**
-```
-examples/facturas/
-├── factura1.yml          # Metadata esperada
-├── factura1.pdf
-├── factura2.yml
-└── factura2.pdf
-```
-
-**Comando:**
-```bash
-npm run test:extraction
-```
-
-**Métricas actuales:**
-- CUIT: 100% (con OCR fallback)
-- Fecha: 100%
-- Tipo: 100%
-- Punto Venta: 87.5%
-- Número: 87.5%
-- Total: 50%
-
----
-
-## 9. Roadmap y Backlog
-
-### 9.1 Milestones Activos
-
-Consultar GitHub Issues para tareas específicas:
-
-**M0.5: Documentation & Cleanup** (Due: 2025-12-20)
-- #45: Consolidar documentación y crear SPEC.md
-- #46: Archivar rutas legacy a /legacy
-- #47: Cerrar issues obsoletos
-
-**M3: Emisores management** (Due: 2026-01-15)
-- #48: Implementar edición de emisores
-- Implementar eliminación con validación
-- Búsqueda por CUIT/nombre
-
-**M4: Dashboard features** (Due: 2026-02-01)
-- Métricas y gráficos
-- Accesos rápidos
-- Notificaciones
-
-**M5: Mejoras secundarias y nice-to-have**
-- #31: Integración Google Sync
-- #33: Annotate improvements
-- Templates de extracción
-- Mejoras de performance
-
-### 9.2 Milestones Completados
-
-**M0: DevOps y CI/CD** ✅
-- Docker setup
-- GitHub Actions
-- Security audit
-
-**M1: Navegación y layout** ✅
-- Rail navigation
-- TopBar component
-- Responsive design
-
-**M2: UI Components** ✅
-- Melt UI migration
-- Design tokens
-- Sidebar pattern
-
----
-
-## 10. Consideraciones Técnicas
-
-### 10.1 Extracción de Datos
+### 3.1 Extracción de Datos
 
 **Prioridad de métodos:**
-1. **PDF_TEXT** (si el PDF tiene texto embebido)
-2. **OCR** (Tesseract.js para PDFs escaneados/imágenes)
-3. **Excel AFIP** (auto-completar campos desde datos fiscales)
+1. **PDF_TEXT** - PDF con texto embebido
+2. **OCR** - Tesseract.js para PDFs escaneados/imágenes
+3. **Excel AFIP** - Auto-completar desde datos fiscales
 
-**Estrategia de scoring:**
-- Cada campo tiene un score de confianza
+**Scoring:**
+- Cada campo tiene score de confianza (0-100)
 - CUIT tiene prioridad absoluta (activa OCR si falla)
 - Fecha usa patrones específicos (±200 pts para match definitivo)
-- Tipo de factura soporta texto pegado ("AFACTURA" → "A")
+- Tipo soporta texto pegado ("AFACTURA" → "A")
 
 **Fallbacks:**
-- Si CUIT detectado es de receptor conocido → penalización -300
-- Si CUIT no se encuentra → OCR automático
-- Si confianza total < threshold → status "reviewing"
+- CUIT de receptor conocido → penalización -300
+- CUIT no encontrado → OCR automático
+- Confianza < threshold → status "reviewing"
 
-### 10.2 Matching Excel AFIP
+### 3.2 Matching Excel AFIP
 
 **Match exacto:**
-```typescript
+```
 CUIT + Tipo + PuntoVenta + Número === expected_invoice
 ```
 
 **Match por proximidad:**
-```typescript
+```
 CUIT === expected.cuit
 && |Date - expected.date| <= 7 días
 && |Total - expected.total| <= 10%
 ```
 
-**Estados:**
-- `pending` - Factura esperada sin match
-- `matched` - Match confirmado por usuario
-- `ignored` - Usuario descartó la factura esperada
+**Estados:** `pending` | `matched` | `ignored`
 
-### 10.3 Performance
+### 3.3 File Hashing (SHA-256)
 
-**Optimizaciones implementadas:**
-- Lazy loading de componentes pesados
+**Decisión:** SHA-256 (64 caracteres hex)
+
+**Justificación:**
+- Estándar de la industria
+- Resistente a colisiones
+- ~50-100ms por archivo de 500KB
+- Compatible con herramientas estándar
+
+**Flujo:**
+1. **Upload** → Hash calculado inmediatamente, guardado en `files.file_hash`
+2. **Processing** → Hash copiado a `invoices.file_hash`
+3. **Backfill** → `npm run backfill-hashes` para archivos existentes
+
+### 3.4 Performance
+
+**Implementado:**
+- Lazy loading de componentes
 - Debounce en búsquedas (300ms)
-- localStorage para filtros persistentes
-- SPA navigation con `goto()` (sin full page reload)
+- localStorage para filtros
+- SPA navigation con `goto()`
 
-**Pendientes:**
+**Pendiente:**
 - Paginación en listados largos
-- Virtual scrolling para miles de comprobantes
-- Cache de previews de PDF
+- Virtual scrolling
+- Cache de previews PDF
 
 ---
 
-## 11. Dependencias Clave
+## 4. Deployment
 
-### 11.1 Frontend (client/package.json)
+### 4.1 Docker
 
-```json
-{
-  "@sveltejs/kit": "^2.x",
-  "svelte": "^5.41.0",
-  "melt": "^0.44.0",                  // Melt UI Next (incluye Dialog, Tabs, etc.)
-  "svelte-sonner": "^0.3.x",          // Toast notifications
-  "prettier": "^3.x"
-}
-```
-
-### 11.2 Backend (server/package.json)
-
-```json
-{
-  "drizzle-orm": "^1.x",              // v1.0.0-beta (RC)
-  "better-sqlite3": "^11.x",
-  "pdf-parse": "^1.x",
-  "sharp": "^0.x",                    // Procesamiento de imágenes
-  "tesseract.js": "^5.x",             // OCR
-  "heic-convert": "^2.x"              // HEIC → JPEG
-}
-```
-
----
-
-## 12. Deployment
-
-### 12.1 Docker
-
-**Build:**
 ```bash
 docker build -t procesador-facturas .
-```
-
-**Run:**
-```bash
 docker compose up -d
 ```
 
-**Healthcheck:**
-```
-GET http://localhost:5173/api/health
-```
-
-### 12.2 Variables de Entorno
+### 4.2 Variables de Entorno
 
 **Client (.env):**
 ```bash
@@ -1156,115 +165,43 @@ DATABASE_URL=file:./database/invoices.db
 NODE_ENV=production
 ```
 
----
+### 4.3 Healthcheck
 
-## 13. Futuras Posibilidades (No Compromisos)
-
-Estas ideas NO están en el roadmap actual pero podrían considerarse:
-
-- [ ] Multi-tenant (varios usuarios, empresas separadas)
-- [ ] API pública con autenticación JWT
-- [ ] Exportación a formatos contables (Excel, CSV, JSON)
-- [ ] Integración con sistemas ERP
-- [ ] Machine Learning para mejorar detección
-- [ ] OCR en tiempo real (mientras sube archivo)
-- [ ] App mobile (React Native/Flutter)
-- [ ] Notificaciones push
-- [ ] Auditoría de cambios (historial de ediciones)
-- [ ] Backup automático a Google Drive
-- [ ] Plantillas de extracción por CUIT
-- [ ] Detección de duplicados
-- [ ] Validación contra constancia AFIP
-
----
-
-## 14. Testing y Datos de Prueba
-
-### 14.1 Política de Privacidad en Tests
-
-**⚠️ CRÍTICO**: Este proyecto es **público en GitHub**. **NUNCA** usar datos reales en tests:
-
-- ❌ **NO** usar CUITs reales de clientes/proveedores
-- ❌ **NO** usar nombres reales de personas o empresas
-- ❌ **NO** usar datos sensibles (direcciones, teléfonos, emails reales)
-- ❌ **NO** commitear archivos de prueba con información confidencial
-
-### 14.2 CUITs de Prueba Estándar
-
-Usar **SIEMPRE** estos CUITs ficticios en tests y ejemplos:
-
-```typescript
-// CUITs de prueba aprobados (ya usados en el proyecto)
-const TEST_CUITS = {
-  persona: '20-12345678-9',
-  empresa: '30-12345678-9',
-  monotributista: '23-12345678-9',
-  // Alternativo
-  persona2: '20-13046568-5',
-};
+```
+GET http://localhost:5173/api/health
 ```
 
-### 14.3 Datos de Prueba
+---
 
-**Nombres ficticios aprobados**:
-- Personas: "Test Company", "Test User", "Empresa Prueba"
-- Archivos: "factura_test.pdf", "comprobante_ejemplo.pdf"
+## 5. Futuras Posibilidades
 
-**Números de comprobante**:
-- Usar rangos altos no realistas: `99999-99999999`
-- O rangos bajos obvios: `00001-00000001`
+Ideas NO comprometidas que podrían considerarse:
 
-### 14.4 Archivos de Ejemplo
-
-Los archivos en `/examples` son seguros porque:
-- Usan datos completamente ficticios
-- Están diseñados como plantillas genéricas
-- No contienen información real
-
-**Al agregar nuevos ejemplos**:
-1. Asegurarse de usar CUITs de prueba
-2. Usar nombres ficticios
-3. Marcar claramente como "EJEMPLO" o "TEST"
-
-### 14.5 Revisión Pre-Commit
-
-**Antes de cada commit**:
-```bash
-# Buscar posibles CUITs reales (formato XX-XXXXXXXX-X)
-git diff --cached | grep -E '\d{2}-\d{8}-\d'
-
-# Revisar nombres que no sean "Test", "Prueba", "Example"
-git diff --cached | grep -i -E '(S\.A\.|S\.R\.L\.|S\.A\.|Inc\.|Ltd\.)'
-```
-
-**Si se detectan datos reales**:
-1. Revertir el commit inmediatamente
-2. Limpiar el historial con `git reset --soft`
-3. Reemplazar con datos ficticios
-4. Volver a commitear
+- Multi-tenant (varios usuarios/empresas)
+- API pública con JWT
+- Integración con ERPs
+- Machine Learning para detección
+- App mobile
+- Auditoría de cambios
+- Validación contra constancia AFIP
 
 ---
 
-## 15. Referencias
+## 6. Índice de Documentación
 
-**Documentación oficial:**
-- [Melt UI Next](https://context7.com/melt-ui/next-gen)
-- [SvelteKit Docs](https://kit.svelte.dev/docs)
-- [Svelte 5 Runes](https://svelte.dev/docs/svelte/overview)
-- [Drizzle ORM](https://orm.drizzle.team/)
-
-**Issues y Milestones:**
-- [GitHub Issues](https://github.com/fcaldera/simple-procesador-facturas/issues)
-- [GitHub Milestones](https://github.com/fcaldera/simple-procesador-facturas/milestones)
-
-**Documentación interna:**
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
-- [docs/MELT-UI.md](docs/MELT-UI.md)
-- [docs/SIDEBAR.md](docs/SIDEBAR.md)
-- [docs/UI_UX.md](docs/UI_UX.md)
+| Documento | Contenido |
+|-----------|-----------|
+| [CLAUDE.md](./CLAUDE.md) | Reglas de desarrollo, prohibiciones, convenciones |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Stack, estructura, schema DB, API endpoints |
+| [docs/PATTERNS.md](./docs/PATTERNS.md) | Patrones SOLID, Zod contracts, servicios |
+| [docs/ICONS.md](./docs/ICONS.md) | Sistema de iconos (lucide-svelte) |
+| [docs/UI_UX.md](./docs/UI_UX.md) | Guidelines UI, componentes, accesibilidad |
+| [docs/MELT-UI.md](./docs/MELT-UI.md) | Uso de Melt UI Next |
+| [ROADMAP.md](./ROADMAP.md) | Milestones, issues, releases |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Guía para contributors |
+| [CHANGELOG.md](./CHANGELOG.md) | Historial de versiones |
 
 ---
 
-**Última revisión**: 2025-12-16
+**Última revisión**: 2026-02-02
 **Mantenedor**: @fcaldera
-**Contribuidores**: Claude Sonnet 4.5, GitHub Copilot
