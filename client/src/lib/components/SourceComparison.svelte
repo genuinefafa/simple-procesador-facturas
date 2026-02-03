@@ -14,11 +14,27 @@
   import ReprocessDialog, { type ExtractionMethod } from './ReprocessDialog.svelte';
   import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
   import { emitterService, type ResolvedEmitter } from '$lib/services/EmitterService';
+  import { format } from 'date-fns';
+  import { es } from 'date-fns/locale';
 
   type Category = {
     id: number;
     description: string;
     color?: string;
+  };
+
+  type ExtractionResult = {
+    id: number;
+    method: string | null;
+    confidence: number | null;
+    extractedCuit: string | null;
+    extractedDate: string | null;
+    extractedTotal: number | null;
+    extractedType: number | null;
+    extractedPointOfSale: number | null;
+    extractedInvoiceNumber: number | null;
+    extractedAt: string | null;
+    errors: string | null;
   };
 
   type FileData = {
@@ -54,6 +70,8 @@
     file?: FileData | null;
     /** Datos esperados */
     expected?: ExpectedData | null;
+    /** All extraction results for this file (for dropdown) */
+    extractions?: ExtractionResult[];
     /** Callback cuando se quiere crear factura desde archivo */
     oncreatefromfile?: () => void;
     /** Callback cuando se quiere crear factura desde expected */
@@ -73,6 +91,7 @@
   let {
     file,
     expected,
+    extractions = [],
     oncreatefromfile,
     oncreatefromexpected,
     onreprocess,
@@ -82,8 +101,61 @@
     onexpectedcategorychange,
   }: Props = $props();
 
-  const hasFile = $derived(!!file);
+  // Selected extraction ID (defaults to first/most recent)
+  let selectedExtractionId = $state<number | null>(null);
+
+  // Initialize selectedExtractionId when extractions change
+  $effect(() => {
+    if (extractions.length > 0 && selectedExtractionId === null) {
+      selectedExtractionId = extractions[0].id;
+    }
+  });
+
+  // Get currently selected extraction
+  const selectedExtraction = $derived(
+    extractions.find((e) => e.id === selectedExtractionId) ?? extractions[0] ?? null
+  );
+
+  // Override file data with selected extraction when available
+  const displayedFile = $derived.by<FileData | null>(() => {
+    if (selectedExtraction) {
+      return {
+        extractedCuit: selectedExtraction.extractedCuit,
+        extractedDate: selectedExtraction.extractedDate,
+        extractedTotal: selectedExtraction.extractedTotal,
+        extractedType: selectedExtraction.extractedType,
+        extractedPointOfSale: selectedExtraction.extractedPointOfSale,
+        extractedInvoiceNumber: selectedExtraction.extractedInvoiceNumber,
+        extractionConfidence: selectedExtraction.confidence,
+        extractionMethod: selectedExtraction.method,
+        categoryId: file?.categoryId,
+        emitterName: file?.emitterName,
+      };
+    }
+    return file ?? null;
+  });
+
+  // Format extraction option for dropdown
+  function formatExtractionOption(ext: ExtractionResult): string {
+    const method = ext.method?.toUpperCase() ?? 'UNKNOWN';
+    const methodLabel =
+      method === 'OCR'
+        ? 'OCR'
+        : method === 'PDF_TEXT'
+          ? 'PDF'
+          : method === 'PDF_TEXT+OCR'
+            ? 'PDF+OCR'
+            : method;
+    const confidence = ext.confidence ?? 0;
+    const date = ext.extractedAt
+      ? format(new Date(ext.extractedAt), 'dd/MM HH:mm', { locale: es })
+      : '';
+    return `${methodLabel} (${confidence}%) - ${date}`;
+  }
+
+  const hasFile = $derived(!!displayedFile);
   const hasExpected = $derived(!!expected);
+  const hasMultipleExtractions = $derived(extractions.length > 1);
 
   // Resolved emitters (from EmitterService)
   let fileEmitter = $state<ResolvedEmitter | null>(null);
@@ -91,7 +163,7 @@
 
   // Resolve emitters when CUITs change
   $effect(() => {
-    const cuit = file?.extractedCuit;
+    const cuit = displayedFile?.extractedCuit;
     if (cuit) {
       emitterService.resolve(cuit).then((resolved) => {
         fileEmitter = resolved;
@@ -115,8 +187,8 @@
   // Display names usando EmitterService.formatDisplay()
   const fileEmitterDisplay = $derived(
     fileEmitter
-      ? emitterService.formatDisplay(fileEmitter, file?.emitterName)
-      : file?.emitterName || '—'
+      ? emitterService.formatDisplay(fileEmitter, displayedFile?.emitterName)
+      : displayedFile?.emitterName || '—'
   );
 
   const expectedEmitterDisplay = $derived(
@@ -145,7 +217,7 @@
 
   // Método actual de extracción (para mostrar cuál se usó)
   const currentMethod = $derived.by(() => {
-    const method = file?.extractionMethod?.toUpperCase();
+    const method = displayedFile?.extractionMethod?.toUpperCase();
     if (!method) return null;
     if (method === 'OCR') return 'OCR';
     if (method === 'PDF_TEXT') return 'PDF Text';
@@ -156,7 +228,7 @@
 
   // Confidence badge
   const confidenceLevel = $derived.by(() => {
-    const conf = file?.extractionConfidence;
+    const conf = displayedFile?.extractionConfidence;
     if (conf == null) return null;
     if (conf >= 90) return { label: 'Alta', class: 'high' };
     if (conf >= 70) return { label: 'Media', class: 'medium' };
@@ -181,13 +253,23 @@
         <div class="column-header">
           <span class="source-icon">📦</span>
           <span class="source-title">Archivo</span>
-          {#if currentMethod}
+          {#if hasMultipleExtractions}
+            <select
+              class="extraction-select"
+              bind:value={selectedExtractionId}
+              disabled={processing}
+            >
+              {#each extractions as ext (ext.id)}
+                <option value={ext.id}>{formatExtractionOption(ext)}</option>
+              {/each}
+            </select>
+          {:else if currentMethod}
             <span class="method-badge">{currentMethod}</span>
-          {/if}
-          {#if confidenceLevel}
-            <span class="confidence-badge {confidenceLevel.class}">
-              {file?.extractionConfidence}%
-            </span>
+            {#if confidenceLevel}
+              <span class="confidence-badge {confidenceLevel.class}">
+                {displayedFile?.extractionConfidence}%
+              </span>
+            {/if}
           {/if}
         </div>
 
@@ -200,27 +282,32 @@
           </div>
           <div class="field">
             <span class="field-label">CUIT</span>
-            <span class="field-value mono">{formatCuit(file?.extractedCuit)}</span>
+            <span class="field-value mono">{formatCuit(displayedFile?.extractedCuit)}</span>
           </div>
           <div class="field">
             <span class="field-label">Tipo</span>
-            <span class="field-value">{getFriendlyType(file?.extractedType)}</span>
+            <span class="field-value">{getFriendlyType(displayedFile?.extractedType)}</span>
           </div>
           <div class="field">
             <span class="field-label">Numero</span>
             <span class="field-value mono"
-              >{formatInvoiceNum(file?.extractedPointOfSale, file?.extractedInvoiceNumber)}</span
+              >{formatInvoiceNum(
+                displayedFile?.extractedPointOfSale,
+                displayedFile?.extractedInvoiceNumber
+              )}</span
             >
           </div>
           <div class="field">
             <span class="field-label">Fecha</span>
             <span class="field-value"
-              >{file?.extractedDate ? formatDateShort(file.extractedDate) : '—'}</span
+              >{displayedFile?.extractedDate
+                ? formatDateShort(displayedFile.extractedDate)
+                : '—'}</span
             >
           </div>
           <div class="field">
             <span class="field-label">Total</span>
-            <span class="field-value mono">{formatCurrency(file?.extractedTotal)}</span>
+            <span class="field-value mono">{formatCurrency(displayedFile?.extractedTotal)}</span>
           </div>
           <div class="field">
             <span class="field-label">Categoría</span>
@@ -228,12 +315,12 @@
               {#if categories.length > 0 && onfilecategorychange}
                 <CategorySelect
                   {categories}
-                  value={file?.categoryId ?? null}
+                  value={displayedFile?.categoryId ?? null}
                   onchange={onfilecategorychange}
                   disabled={processing}
                 />
               {:else}
-                {categories.find((c) => c.id === file?.categoryId)?.description ?? '—'}
+                {categories.find((c) => c.id === displayedFile?.categoryId)?.description ?? '—'}
               {/if}
             </span>
           </div>
@@ -266,26 +353,46 @@
         <div class="match-indicators">
           <div class="match-row"><span class="match-spacer"></span></div>
           <div class="match-row">
-            <MatchIndicator left={file?.extractedCuit} right={expected?.cuit} type="cuit" />
-          </div>
-          <div class="match-row">
-            <MatchIndicator left={file?.extractedType} right={expected?.invoiceType} type="exact" />
+            <MatchIndicator
+              left={displayedFile?.extractedCuit}
+              right={expected?.cuit}
+              type="cuit"
+            />
           </div>
           <div class="match-row">
             <MatchIndicator
-              left={`${file?.extractedPointOfSale}-${file?.extractedInvoiceNumber}`}
+              left={displayedFile?.extractedType}
+              right={expected?.invoiceType}
+              type="exact"
+            />
+          </div>
+          <div class="match-row">
+            <MatchIndicator
+              left={`${displayedFile?.extractedPointOfSale}-${displayedFile?.extractedInvoiceNumber}`}
               right={`${expected?.pointOfSale}-${expected?.invoiceNumber}`}
               type="exact"
             />
           </div>
           <div class="match-row">
-            <MatchIndicator left={file?.extractedDate} right={expected?.issueDate} type="date" />
+            <MatchIndicator
+              left={displayedFile?.extractedDate}
+              right={expected?.issueDate}
+              type="date"
+            />
           </div>
           <div class="match-row">
-            <MatchIndicator left={file?.extractedTotal} right={expected?.total} type="amount" />
+            <MatchIndicator
+              left={displayedFile?.extractedTotal}
+              right={expected?.total}
+              type="amount"
+            />
           </div>
           <div class="match-row">
-            <MatchIndicator left={file?.categoryId} right={expected?.categoryId} type="exact" />
+            <MatchIndicator
+              left={displayedFile?.categoryId}
+              right={expected?.categoryId}
+              type="exact"
+            />
           </div>
         </div>
       </div>
@@ -425,6 +532,28 @@
     background: var(--color-neutral-200);
     color: var(--color-text-secondary);
     text-transform: uppercase;
+  }
+
+  .extraction-select {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    padding: 2px 4px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    max-width: 160px;
+    cursor: pointer;
+  }
+
+  .extraction-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .extraction-select:focus {
+    outline: none;
+    border-color: var(--color-primary-500);
   }
 
   .confidence-badge {
