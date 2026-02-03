@@ -25,6 +25,7 @@ export type {
   Final,
   Expected,
   FileData,
+  FileExtractionRecord,
   Match,
   Comprobante,
 } from "./comprobante.js";
