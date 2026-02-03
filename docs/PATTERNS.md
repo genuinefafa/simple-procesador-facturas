@@ -328,7 +328,84 @@ function navigate(targetId: string | null) {
 
 ---
 
-## 5. Patrones Adicionales
+## 5. URL como Fuente de Verdad (Navigation State)
+
+### Principio
+
+La URL debe ser la **única fuente de verdad** para el estado de navegación visible al usuario. Esto incluye:
+- Drawers/paneles laterales abiertos
+- Modales con contexto (ej: `/emisores?selected=CUIT`)
+- Filtros de búsqueda activos
+- Tabs o vistas seleccionadas
+
+### Por qué
+
+1. **Deep links**: Los usuarios pueden compartir/guardar URLs específicas
+2. **Historial coherente**: Back/forward funcionan como el usuario espera
+3. **Refresh**: Recargar la página mantiene el estado visible
+4. **SSR-friendly**: El servidor puede pre-renderizar el estado correcto
+
+### Implementación con SvelteKit
+
+```typescript
+// ❌ MAL: Estado local como fuente de verdad
+let selectedId = $state<string | null>(null);
+
+function openDrawer(id: string) {
+  selectedId = id;
+  history.pushState({}, '', `?selected=${id}`); // Sincronización manual
+}
+
+// ✅ BIEN: URL como fuente de verdad
+import { goto } from '$app/navigation';
+import { page } from '$app/state';
+
+// Derivar estado de la URL
+let selectedId = $derived(page.url.searchParams.get('selected'));
+
+// Reaccionar a cambios de URL
+$effect(() => {
+  if (selectedId) {
+    loadData(selectedId);
+  }
+});
+
+function openDrawer(id: string) {
+  goto(`?selected=${id}`); // La URL es la fuente de verdad
+}
+
+function closeDrawer() {
+  goto('/ruta-base');
+}
+```
+
+### replaceState vs pushState
+
+| Escenario | Método | Ejemplo |
+|-----------|--------|---------|
+| Abrir drawer/modal | `goto(url)` (push) | Usuario puede hacer "back" para cerrar |
+| Cerrar drawer/modal | `goto(url)` (push) | Usuario puede hacer "back" para reabrir |
+| Cambiar filtros | `goto(url)` (push) | Usuario navega por historial de filtros |
+| Corrección de URL | `goto(url, { replaceState: true })` | Normalizar URL sin agregar entrada |
+| Redirección | `goto(url, { replaceState: true })` | No contaminar historial |
+
+### Qué NO va en la URL
+
+- Estado de UI temporal (hover, focus, animaciones)
+- Estado de formularios en edición (antes de guardar)
+- Estado de carga (loading spinners)
+- Mensajes de error/éxito (toasts)
+
+### Checklist
+
+- [ ] ¿El estado es visible para el usuario y compartible? → URL
+- [ ] ¿Back/forward debería afectar este estado? → URL con pushState
+- [ ] ¿Es estado transitorio de UI? → `$state` local
+- [ ] ¿Es estado de formulario sin guardar? → `$state` local
+
+---
+
+## 6. Patrones Adicionales
 
 ### Repository Pattern
 
@@ -366,17 +443,18 @@ export class InvoiceProcessingService {
 
 ---
 
-## 6. Checklist para Nuevos Componentes
+## 7. Checklist para Nuevos Componentes
 
 - [ ] **Tipos**: ¿Hay múltiples modos/variantes? → Crear `Componente.types.ts` con ISP
 - [ ] **API calls**: ¿Múltiples endpoints? → Crear/usar Service
 - [ ] **Navegación**: ¿Usa `goto()`? → Considerar callback `onnavigate`
+- [ ] **URL State**: ¿Estado visible/compartible? → Derivar de `page.url`, usar `goto()`
 - [ ] **Acciones**: ¿Tiene efectos secundarios? → Considerar callbacks delegados
 - [ ] **Validación**: ¿Endpoint recibe datos? → Usar schema Zod
 
 ---
 
-## 7. Referencias
+## 8. Referencias
 
 - [SOLID Principles](https://en.wikipedia.org/wiki/SOLID)
 - [Zod Documentation](https://zod.dev/)
