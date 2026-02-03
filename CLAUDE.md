@@ -71,11 +71,38 @@ class MiService {
 export const miService = new MiService();
 ```
 
+### 5. URL como Fuente de Verdad (estado de navegación)
+
+Para drawers, modales con contexto, filtros: derivar estado de la URL.
+
+```typescript
+import { goto } from '$app/navigation';
+import { page } from '$app/state';
+
+// ✅ Derivar de URL
+let selectedId = $derived(page.url.searchParams.get('selected'));
+
+$effect(() => {
+  if (selectedId) loadData(selectedId);
+});
+
+function openDrawer(id: string) {
+  goto(`?selected=${id}`);  // pushState por defecto
+}
+
+function closeDrawer() {
+  goto('/ruta-base');
+}
+```
+
+Ver [docs/PATTERNS.md](./docs/PATTERNS.md#5-url-como-fuente-de-verdad-navigation-state) para más detalle.
+
 ## Prohibiciones
 
 ### UI/UX
 - ❌ `alert()`, `confirm()`, `prompt()` → Usar Dialog de Melt UI
 - ❌ `window.location.href` → Usar `goto()` de `$app/navigation`
+- ❌ `history.pushState()` → Usar `goto()` (ver patrón #5)
 - ❌ Tailwind classes
 - ❌ Valores CSS hardcoded → Usar tokens de `tokens.css`
 

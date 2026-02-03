@@ -17,16 +17,16 @@
 
 Plan de trabajo organizado en fases progresivas, alternando features con tech debt.
 
-### Fase 1: Limpiar UI + Quick Wins
+### ~~Fase 1: Limpiar UI + Quick Wins~~ ✅ Completada
 *Objetivo: Cerrar M7 y mejoras visuales rápidas*
 
 | Orden | Issue | Título | Tipo | Esfuerzo |
 |-------|-------|--------|------|----------|
-| 1 | #136 | Eliminar TopBar Search temporalmente | Cleanup | Bajo |
-| 2 | #114 | Migrar íconos Unicode a lucide-svelte | UI | Bajo-Medio |
-| 3 | #124 | Fix emisores: historial desordenado y deep links | Bug | Bajo |
+| 1 | #136 | ~~Eliminar TopBar Search temporalmente~~ | Cleanup | Bajo |
+| 2 | #114 | ~~Migrar íconos Unicode a lucide-svelte~~ | UI | Bajo-Medio |
+| 3 | #124 | ~~Fix emisores: historial desordenado y deep links~~ | Bug | Bajo |
 
-→ **Cierra M7** ✅
+→ **M7 Cerrado** ✅
 
 ### Fase 2: Features Core
 *Objetivo: Funcionalidades de alto valor*
@@ -59,10 +59,10 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 
 ## Milestones
 
-### M7: UX Improvements (Febrero 2026) - En progreso
-- [ ] #136 - Eliminar TopBar Search
-- [ ] #114 - lucide-svelte icons
-- [ ] #124 - Fix emisores
+### M7: UX Improvements (Febrero 2026) ✅ Cerrado
+- [x] #136 - Eliminar TopBar Search
+- [x] #114 - lucide-svelte icons
+- [x] #124 - Fix emisores
 - [x] #132 - Categorías en expected/files
 - [x] #121 - Consolidar filtros búsqueda
 - [x] #90 - Rediseño UX vista comprobante
