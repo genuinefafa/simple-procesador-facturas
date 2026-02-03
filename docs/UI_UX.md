@@ -236,6 +236,26 @@ Si querés usar una librería:
 - Consistencia en espaciado y escala tipográfica; evitar valores hardcoded repetidos.
 - Desktop-first; mobile fuera de alcance por ahora.
 
+## 🎯 Iconos
+
+Usamos **lucide-svelte** para todos los iconos. Ver [docs/ICONS.md](./ICONS.md) para la guía completa.
+
+### Reglas rápidas
+- Importar: `import { Check, X, Search } from '$lib/components/icons'`
+- Tamaños estándar: xs (14px), sm (16px), md (20px), lg (24px)
+- **NO usar**: emoji Unicode (`📄`, `✓`), HTML entities (`&times;`), strings como iconos
+
+### Ejemplo
+```svelte
+<script>
+  import { Check, AlertTriangle, Loader2 } from '$lib/components/icons';
+</script>
+
+<Check size={16} />
+<AlertTriangle size={20} class="text-warning" />
+<Loader2 size={16} class="animate-spin" />
+```
+
 ## 🧩 Librería de Componentes (M1)
 
 ### Componentes Base Disponibles

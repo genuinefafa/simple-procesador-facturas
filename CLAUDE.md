@@ -79,6 +79,10 @@ export const miService = new MiService();
 - ❌ Tailwind classes
 - ❌ Valores CSS hardcoded → Usar tokens de `tokens.css`
 
+### Iconos
+- ❌ Unicode emoji como iconos (`📄`, `✓`, `←`, `🔍`, etc.) → Usar lucide-svelte
+- ❌ HTML entities (`&times;`, `&check;`) → Usar componentes de `$lib/components/icons`
+
 ### Svelte
 - ❌ Stores (`writable`, `derived`) para estado local → Usar runes (`$state`, `$derived`)
 - ❌ Slots → Usar snippets
@@ -106,6 +110,11 @@ Usar funciones de `client/src/lib/formatters.ts`:
 - Tipos: `PascalCase.types.ts`
 - Servicios: `PascalCase.ts` en `lib/services/`
 - Contracts: `kebab-case.ts` en `server/contracts/`
+
+### Iconos
+- Importar desde `$lib/components/icons` o `$lib/components`
+- Tamaños estándar: xs (14), sm (16), md (20), lg (24)
+- Ver [docs/ICONS.md](./docs/ICONS.md) para referencia completa
 
 ## Estructura de Archivos
 
@@ -165,4 +174,5 @@ Ver [ROADMAP.md](./ROADMAP.md) para la lista actualizada de issues y prioridades
 - [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) - Arquitectura completa
 - [docs/PATTERNS.md](./docs/PATTERNS.md) - Patrones SOLID detallados
 - [docs/UI_UX.md](./docs/UI_UX.md) - Guías de UI/UX
+- [docs/ICONS.md](./docs/ICONS.md) - Sistema de iconos (lucide-svelte)
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - Guía para contributors
