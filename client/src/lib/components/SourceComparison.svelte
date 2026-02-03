@@ -16,6 +16,8 @@
   import { emitterService, type ResolvedEmitter } from '$lib/services/EmitterService';
   import { format } from 'date-fns';
   import { es } from 'date-fns/locale';
+  import { Package, ClipboardList, RefreshCw, Search, ChevronDown, Check } from 'lucide-svelte';
+  import { Select as SelectBuilder } from 'melt/builders';
 
   type Category = {
     id: number;
@@ -110,10 +112,33 @@
   // Selected extraction ID (defaults to first/most recent)
   let selectedExtractionId = $state<number | null>(null);
 
+  // Flag para evitar llamar onchange durante sincronización programática
+  let isSyncingSelect = false;
+
+  // Melt UI Select for extraction dropdown
+  const extractionSelect = new SelectBuilder<number | null>({
+    sameWidth: true,
+    onValueChange: (newValue) => {
+      if (!isSyncingSelect && newValue !== null && newValue !== undefined) {
+        selectedExtractionId = newValue;
+        onextractionchange?.(newValue);
+      }
+    },
+  });
+
   // Initialize selectedExtractionId when extractions change
   $effect(() => {
     if (extractions.length > 0 && selectedExtractionId === null) {
       selectedExtractionId = extractions[0].id;
+    }
+  });
+
+  // Sync select value with selectedExtractionId
+  $effect(() => {
+    if (selectedExtractionId !== extractionSelect.value) {
+      isSyncingSelect = true;
+      extractionSelect.value = selectedExtractionId;
+      isSyncingSelect = false;
     }
   });
 
@@ -256,9 +281,9 @@
     <!-- Columna Archivo -->
     {#if hasFile}
       <div class="source-column file">
-        <div class="column-header" class:has-selector={hasMultipleExtractions}>
+        <div class="column-header">
           <div class="header-title-row">
-            <span class="source-icon">📦</span>
+            <span class="source-icon"><Package size={16} /></span>
             <span class="source-title">Archivo</span>
             {#if !hasMultipleExtractions && currentMethod}
               <span class="method-badge">{currentMethod}</span>
@@ -270,25 +295,35 @@
             {/if}
           </div>
 
-          {#if hasMultipleExtractions}
-            <div class="header-selector-row">
-              <select
-                class="extraction-select"
-                bind:value={selectedExtractionId}
-                onchange={(e) => {
-                  const newId = parseInt((e.target as HTMLSelectElement).value, 10);
-                  if (!isNaN(newId) && onextractionchange) {
-                    onextractionchange(newId);
-                  }
-                }}
-                disabled={processing}
-              >
-                {#each extractions as ext (ext.id)}
-                  <option value={ext.id}>{formatExtractionOption(ext)}</option>
-                {/each}
-              </select>
-            </div>
-          {/if}
+          <div class="header-selector-row">
+            {#if hasMultipleExtractions}
+              <div class="extraction-select-wrapper">
+                <button
+                  {...extractionSelect.trigger}
+                  class="extraction-trigger"
+                  disabled={processing}
+                >
+                  <span class="trigger-text">{formatExtractionOption(selectedExtraction!)}</span>
+                  <ChevronDown size={14} />
+                </button>
+
+                <div {...extractionSelect.content} class="extraction-content">
+                  {#each extractions as ext (ext.id)}
+                    <div
+                      {...extractionSelect.getOption(ext.id, formatExtractionOption(ext))}
+                      class="extraction-option"
+                      class:selected={extractionSelect.isSelected(ext.id)}
+                    >
+                      <span class="option-text">{formatExtractionOption(ext)}</span>
+                      {#if extractionSelect.isSelected(ext.id)}
+                        <Check size={14} />
+                      {/if}
+                    </div>
+                  {/each}
+                </div>
+              </div>
+            {/if}
+          </div>
         </div>
 
         <div class="fields">
@@ -353,7 +388,7 @@
               disabled={processing}
               title="Reprocesar con otro método"
             >
-              🔄
+              <RefreshCw size={14} />
             </button>
           {/if}
           {#if oncreatefromfile}
@@ -365,53 +400,63 @@
       </div>
     {/if}
 
-    <!-- Indicador de Match (centro) -->
-    {#if hasFile && hasExpected}
-      <div class="match-column" class:has-selector={hasMultipleExtractions}>
+    <!-- Indicador de Match (centro) - siempre visible para mantener layout -->
+    {#if hasFile}
+      <div class="match-column">
         <div class="match-indicators">
           <div class="match-row"><span class="match-spacer"></span></div>
-          <div class="match-row">
-            <MatchIndicator
-              left={displayedFile?.extractedCuit}
-              right={expected?.cuit}
-              type="cuit"
-            />
-          </div>
-          <div class="match-row">
-            <MatchIndicator
-              left={displayedFile?.extractedType}
-              right={expected?.invoiceType}
-              type="exact"
-            />
-          </div>
-          <div class="match-row">
-            <MatchIndicator
-              left={`${displayedFile?.extractedPointOfSale}-${displayedFile?.extractedInvoiceNumber}`}
-              right={`${expected?.pointOfSale}-${expected?.invoiceNumber}`}
-              type="exact"
-            />
-          </div>
-          <div class="match-row">
-            <MatchIndicator
-              left={displayedFile?.extractedDate}
-              right={expected?.issueDate}
-              type="date"
-            />
-          </div>
-          <div class="match-row">
-            <MatchIndicator
-              left={displayedFile?.extractedTotal}
-              right={expected?.total}
-              type="amount"
-            />
-          </div>
-          <div class="match-row">
-            <MatchIndicator
-              left={displayedFile?.categoryId}
-              right={expected?.categoryId}
-              type="exact"
-            />
-          </div>
+          {#if hasExpected}
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.extractedCuit}
+                right={expected?.cuit}
+                type="cuit"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.extractedType}
+                right={expected?.invoiceType}
+                type="exact"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={`${displayedFile?.extractedPointOfSale}-${displayedFile?.extractedInvoiceNumber}`}
+                right={`${expected?.pointOfSale}-${expected?.invoiceNumber}`}
+                type="exact"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.extractedDate}
+                right={expected?.issueDate}
+                type="date"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.extractedTotal}
+                right={expected?.total}
+                type="amount"
+              />
+            </div>
+            <div class="match-row">
+              <MatchIndicator
+                left={displayedFile?.categoryId}
+                right={expected?.categoryId}
+                type="exact"
+              />
+            </div>
+          {:else}
+            <!-- Placeholders vacíos para mantener altura -->
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+            <div class="match-row"></div>
+          {/if}
         </div>
       </div>
     {/if}
@@ -419,18 +464,18 @@
     <!-- Columna Expected o Sin coincidencias -->
     {#if hasExpected}
       <div class="source-column expected">
-        <div class="column-header" class:has-selector={hasMultipleExtractions}>
+        <div class="column-header">
           <div class="header-title-row">
-            <span class="source-icon">📋</span>
+            <span class="source-icon"><ClipboardList size={16} /></span>
             <span class="source-title">#{expected?.id}</span>
             {#if expected?.status}
               <span class="status-badge {expected.status}">{expected.status}</span>
             {/if}
           </div>
 
-          {#if hasMultipleExtractions}
-            <div class="header-selector-spacer"></div>
-          {/if}
+          <div class="header-selector-row">
+            <!-- Spacer para alinear con la columna archivo -->
+          </div>
         </div>
 
         <div class="fields">
@@ -497,19 +542,19 @@
     {:else if hasFile}
       <!-- Sin coincidencias - mostrar panel vacío con opción de buscar -->
       <div class="source-column no-match">
-        <div class="column-header" class:has-selector={hasMultipleExtractions}>
+        <div class="column-header">
           <div class="header-title-row">
-            <span class="source-icon">📋</span>
+            <span class="source-icon"><ClipboardList size={16} /></span>
             <span class="source-title">Expected</span>
           </div>
 
-          {#if hasMultipleExtractions}
-            <div class="header-selector-spacer"></div>
-          {/if}
+          <div class="header-selector-row">
+            <!-- Spacer para alinear con la columna archivo -->
+          </div>
         </div>
 
         <div class="no-match-content">
-          <div class="no-match-icon">🔍</div>
+          <div class="no-match-icon"><Search size={32} strokeWidth={1.5} /></div>
           <p class="no-match-text">Sin coincidencias</p>
           <p class="no-match-hint">No se encontró factura esperada que coincida con estos datos</p>
           {#if onsearchexpected}
@@ -565,21 +610,22 @@
   .header-title-row {
     display: flex;
     align-items: center;
-    gap: var(--spacing-1);
+    gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
-    min-height: 36px;
+    height: 36px;
   }
 
   .header-selector-row {
     padding: 0 var(--spacing-3) var(--spacing-2);
-  }
-
-  .header-selector-spacer {
-    height: 32px;
+    height: 32px; /* Altura fija para alinear columnas */
+    display: flex;
+    align-items: center;
   }
 
   .source-icon {
-    font-size: var(--font-size-sm);
+    display: flex;
+    align-items: center;
+    color: var(--color-text-secondary);
   }
 
   .source-title {
@@ -596,25 +642,93 @@
     text-transform: uppercase;
   }
 
-  .extraction-select {
+  /* Extraction select (Melt UI) */
+  .extraction-select-wrapper {
+    position: relative;
     width: 100%;
-    font-size: var(--font-size-sm);
+  }
+
+  .extraction-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    width: 100%;
     padding: var(--spacing-1) var(--spacing-2);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-surface);
     color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
     cursor: pointer;
+    transition: all var(--transition-fast);
   }
 
-  .extraction-select:disabled {
+  .extraction-trigger:hover:not(:disabled) {
+    border-color: var(--color-primary-400);
+    background: var(--color-surface-alt);
+  }
+
+  .extraction-trigger:focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+
+  .extraction-trigger:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .extraction-select:focus {
-    outline: none;
-    border-color: var(--color-primary-500);
+  .extraction-trigger .trigger-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .extraction-content {
+    position: absolute;
+    z-index: var(--z-dropdown);
+    width: max-content;
+    min-width: 100%;
+    margin-top: var(--spacing-1);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    max-height: 200px;
+    overflow-y: auto;
+    padding: var(--spacing-1);
+  }
+
+  .extraction-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    transition: background-color var(--transition-fast);
+  }
+
+  .extraction-option:hover {
+    background: var(--color-surface-alt);
+  }
+
+  .extraction-option[data-highlighted] {
+    background: var(--color-primary-50);
+  }
+
+  .extraction-option.selected {
+    background: var(--color-primary-100);
+    font-weight: var(--font-weight-medium);
+  }
+
+  .extraction-option .option-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .confidence-badge {
@@ -699,6 +813,7 @@
     border-left: 1px solid var(--color-border);
     border-right: 1px solid var(--color-border);
     flex-shrink: 0;
+    min-width: 32px;
   }
 
   .match-indicators {
@@ -706,12 +821,7 @@
     flex-direction: column;
     gap: var(--spacing-3);
     align-items: center;
-    /* Offset para el header (36px) */
-    margin-top: 36px;
-  }
-
-  /* Offset extra cuando hay selector de extracción (~32px más) */
-  .match-column.has-selector .match-indicators {
+    /* Offset para el header (36px title + 32px selector row) */
     margin-top: 68px;
   }
 
@@ -780,7 +890,7 @@
   }
 
   .no-match-icon {
-    font-size: 2rem;
+    color: var(--color-text-tertiary);
     opacity: 0.5;
   }
 
