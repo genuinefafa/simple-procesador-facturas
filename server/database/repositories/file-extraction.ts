@@ -3,7 +3,7 @@
  * Gestiona resultados de extracción OCR/PDF de archivos
  */
 
-import { eq } from 'drizzle-orm';
+import { eq, and, desc } from 'drizzle-orm';
 import { db } from '../db.js';
 import {
   fileExtractionResults,
@@ -14,6 +14,13 @@ import {
 export interface IFileExtractionRepository {
   create(data: Omit<NewFileExtractionResult, 'id' | 'extractedAt'>): FileExtractionResult;
   findByFileId(fileId: number): FileExtractionResult | null;
+  findAllByFileId(fileId: number): FileExtractionResult[];
+  findByFileIdAndMethod(fileId: number, method: string): FileExtractionResult | null;
+  upsertByMethod(
+    fileId: number,
+    method: string,
+    data: Omit<NewFileExtractionResult, 'id' | 'fileId' | 'method' | 'extractedAt'>
+  ): FileExtractionResult;
   update(
     id: number,
     data: Partial<Omit<NewFileExtractionResult, 'id' | 'fileId' | 'extractedAt'>>
@@ -40,15 +47,75 @@ export class FileExtractionRepository implements IFileExtractionRepository {
 
   /**
    * Busca resultado de extracción por ID de archivo
+   * Returns the most recent extraction for backward compatibility
    */
   findByFileId(fileId: number): FileExtractionResult | null {
     const result = db
       .select()
       .from(fileExtractionResults)
       .where(eq(fileExtractionResults.fileId, fileId))
+      .orderBy(desc(fileExtractionResults.extractedAt))
       .get();
 
     return result ?? null;
+  }
+
+  /**
+   * Returns all extractions for a file, ordered by extractedAt DESC
+   */
+  findAllByFileId(fileId: number): FileExtractionResult[] {
+    return db
+      .select()
+      .from(fileExtractionResults)
+      .where(eq(fileExtractionResults.fileId, fileId))
+      .orderBy(desc(fileExtractionResults.extractedAt))
+      .all();
+  }
+
+  /**
+   * Finds extraction by file ID and method
+   */
+  findByFileIdAndMethod(fileId: number, method: string): FileExtractionResult | null {
+    const result = db
+      .select()
+      .from(fileExtractionResults)
+      .where(
+        and(eq(fileExtractionResults.fileId, fileId), eq(fileExtractionResults.method, method))
+      )
+      .get();
+
+    return result ?? null;
+  }
+
+  /**
+   * Creates or updates extraction by (fileId, method)
+   * - If extraction for this method exists: updates it
+   * - If not: creates new extraction
+   */
+  upsertByMethod(
+    fileId: number,
+    method: string,
+    data: Omit<NewFileExtractionResult, 'id' | 'fileId' | 'method' | 'extractedAt'>
+  ): FileExtractionResult {
+    const existing = this.findByFileIdAndMethod(fileId, method);
+
+    if (existing) {
+      db.update(fileExtractionResults)
+        .set({
+          ...data,
+          extractedAt: new Date().toISOString(),
+        })
+        .where(eq(fileExtractionResults.id, existing.id))
+        .run();
+
+      return this.findByFileIdAndMethod(fileId, method)!;
+    }
+
+    return this.create({
+      fileId,
+      method,
+      ...data,
+    });
   }
 
   /**
