@@ -687,9 +687,12 @@
 
   .extraction-content {
     position: absolute;
+    left: 0;
+    top: 100%;
     z-index: var(--z-dropdown);
-    width: max-content;
-    min-width: 100%;
+    min-width: var(--melt-invoker-width);
+    width: fit-content;
+    max-width: max(var(--melt-invoker-width), 280px);
     margin-top: var(--spacing-1);
     background: var(--color-surface);
     border: 1px solid var(--color-border);
