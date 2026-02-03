@@ -1,5 +1,6 @@
 <script lang="ts">
   import { toast } from 'svelte-sonner';
+  import { Folder, FileText, Image, X, Loader2, Upload, Trash2 } from '$lib/components/icons';
 
   interface Props {
     onUpload: (files: File[]) => void;
@@ -61,7 +62,7 @@
 
 <div class="upload-section">
   <div class="dropzone" ondragover={handleDragOver} ondrop={handleDrop} role="button" tabindex="0">
-    <p class="dropzone-icon">📁</p>
+    <p class="dropzone-icon"><Folder size={64} strokeWidth={1.5} /></p>
     <p class="dropzone-text">Arrastrá archivos aquí</p>
     <p class="dropzone-hint">o hacé click para seleccionar</p>
     <p class="dropzone-formats">Formatos: PDF, JPG, PNG, TIFF, WEBP, HEIC (máx 10MB c/u)</p>
@@ -80,11 +81,21 @@
       {#each uploadedFiles as file, index (index)}
         <div class="file-item">
           <span class="file-icon">
-            {file.type === 'application/pdf' ? '📄' : '🖼️'}
+            {#if file.type === 'application/pdf'}
+              <FileText size={24} />
+            {:else}
+              <Image size={24} />
+            {/if}
           </span>
           <span class="file-name">{file.name}</span>
           <span class="file-size">{(file.size / 1024).toFixed(0)} KB</span>
-          <button class="btn-remove" onclick={() => removeFile(index)}>✕</button>
+          <button
+            class="btn-remove"
+            onclick={() => removeFile(index)}
+            aria-label="Eliminar archivo"
+          >
+            <X size={16} />
+          </button>
         </div>
       {/each}
     </div>
@@ -92,13 +103,13 @@
     <div class="upload-actions">
       <button class="btn btn-primary btn-large" onclick={handleUpload} disabled={isLoading}>
         {#if isLoading}
-          ⏳ Procesando...
+          <Loader2 size={18} class="spin" /> Procesando...
         {:else}
-          🚀 Subir y Procesar ({uploadedFiles.length} archivos)
+          <Upload size={18} /> Subir y Procesar ({uploadedFiles.length} archivos)
         {/if}
       </button>
       <button class="btn btn-secondary" onclick={() => (uploadedFiles = [])} disabled={isLoading}>
-        🗑️ Limpiar todo
+        <Trash2 size={16} /> Limpiar todo
       </button>
     </div>
   {/if}
@@ -128,8 +139,8 @@
   }
 
   .dropzone-icon {
-    font-size: 4rem;
     margin: 0;
+    color: var(--color-text-tertiary, #94a3b8);
   }
 
   .dropzone-text {
@@ -184,7 +195,9 @@
   }
 
   .file-icon {
-    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    color: var(--color-text-secondary, #64748b);
   }
 
   .file-name {
@@ -207,7 +220,6 @@
     height: 2rem;
     border-radius: 50%;
     cursor: pointer;
-    font-size: 1.2rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -216,6 +228,19 @@
 
   .btn-remove:hover {
     background: #fecaca;
+  }
+
+  :global(.spin) {
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .upload-actions {
