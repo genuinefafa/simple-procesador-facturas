@@ -7,6 +7,7 @@
     getFullDateForTooltip,
   } from '$lib/formatters';
   import FilePreview from './FilePreview.svelte';
+  import { X, FileSpreadsheet, FileText } from '$lib/components/icons';
 
   interface KnownInvoice {
     id?: number;
@@ -41,12 +42,11 @@
     new Map(knownCategories.map((c) => [c.id, c.description || c.name || c.key || '']))
   );
 
-  const getOriginIcon = (item: KnownInvoice) => {
+  // Origin icons are rendered as Lucide components in the template
+  const getOriginFlags = (item: KnownInvoice) => {
     const hasExcel = item.source === 'expected' || !!item.expectedInvoiceId;
     const hasProcessed = item.source === 'final' || !!item.fileId;
-    if (hasExcel && hasProcessed) return '📊📄';
-    if (hasExcel) return '📊';
-    return '📄';
+    return { hasExcel, hasProcessed };
   };
 
   const getOriginTitle = (item: KnownInvoice) => {
@@ -107,6 +107,7 @@
           <tr><td colspan="8" class="empty-row">No hay registros</td></tr>
         {:else}
           {#each invoices as item, idx}
+            {@const flags = getOriginFlags(item)}
             <tr
               class="invoice-row"
               class:selected={selectedKnown &&
@@ -116,8 +117,9 @@
               role="button"
               tabindex={idx}
             >
-              <td class="text-center" title={getOriginTitle(item)}>
-                {getOriginIcon(item)}
+              <td class="text-center origin-icons" title={getOriginTitle(item)}>
+                {#if flags.hasExcel}<FileSpreadsheet size={16} />{/if}
+                {#if flags.hasProcessed}<FileText size={16} />{/if}
               </td>
               <td class="nowrap">{formatCuit(item.cuit, item.cuit_guess)}</td>
               <td title={getFullDateForTooltip(item.issueDate)}
@@ -143,8 +145,9 @@
   <aside class="sidebar-panel">
     <div class="sidebar-header">
       <h3>Detalle del {selectedKnown.source === 'expected' ? 'AFIP' : 'PDF'}</h3>
-      <button class="close-btn" onclick={() => onSelect?.(null)} aria-label="Cerrar">&times;</button
-      >
+      <button class="close-btn" onclick={() => onSelect?.(null)} aria-label="Cerrar">
+        <X size={20} />
+      </button>
     </div>
 
     <div class="sidebar-content">
@@ -306,6 +309,13 @@
 
   .text-center {
     text-align: center;
+  }
+
+  .origin-icons {
+    display: flex;
+    gap: 2px;
+    justify-content: center;
+    color: var(--color-text-secondary, #64748b);
   }
 
   .text-right {
