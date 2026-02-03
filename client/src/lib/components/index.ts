@@ -4,3 +4,6 @@ export { default as Card } from './Card.svelte';
 export { default as PageHeader } from './PageHeader.svelte';
 export { default as StatsBar } from './StatsBar.svelte';
 export { default as UploadSection } from './UploadSection.svelte';
+
+// Sistema de iconos (lucide-svelte)
+export * from './icons';
