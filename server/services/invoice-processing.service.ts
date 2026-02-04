@@ -35,7 +35,12 @@ export interface ProcessingResult {
   requiresReview: boolean;
   confidence: number;
   source?: 'PDF_EXTRACTION' | 'EXCEL_MATCH_UNIQUE' | 'EXCEL_MATCH_AMBIGUOUS' | 'NO_MATCH';
+  /** Método de extracción efectivamente usado */
   method?: ExtractionMethod;
+  /** Método solicitado por el usuario (si fue forzado) */
+  requestedMethod?: 'OCR' | 'PDF_TEXT' | 'QR';
+  /** True si se usó un método diferente al solicitado (fallback automático) */
+  usedFallback?: boolean;
   matchedExpectedInvoiceId?: number;
   matchCandidates?: ExpectedInvoice[];
   extractedData?: {
@@ -156,10 +161,18 @@ export class InvoiceProcessingService {
           console.info(`   📱 Extrayendo datos con QR (forzado)...`);
           extraction = await this.qrExtractor.extract(filePath);
 
-          // Si QR falla o no encuentra código, usar OCR como fallback
+          // Si el usuario eligió QR explícitamente y falló, NO hacer fallback
+          // Devolver el error para que el usuario sepa que el método elegido no funcionó
           if (!extraction.success) {
-            console.warn(`   ⚠️ QR no encontrado, intentando OCR como fallback...`);
-            extraction = await this.ocrExtractor.extract(filePath);
+            console.warn(`   ❌ QR no encontrado - método forzado, sin fallback`);
+            return {
+              success: false,
+              error: extraction.errors?.join('; ') || 'No se encontró código QR en el documento',
+              requiresReview: true,
+              confidence: 0,
+              method: 'QR',
+              extractedData: {},
+            };
           }
         } else {
           extraction = await this.pdfExtractor.extract(filePath);
@@ -359,7 +372,9 @@ export class InvoiceProcessingService {
           requiresReview: true,
           confidence,
           source: 'PDF_EXTRACTION',
-          method: extractionMethod, // Incluir método específico
+          method: extractionMethod,
+          requestedMethod: forceMethod,
+          usedFallback,
           extractedData: {
             cuit: data.cuit,
             date: data.date,
@@ -506,6 +521,8 @@ export class InvoiceProcessingService {
         confidence,
         source: 'PDF_EXTRACTION',
         method: extractionMethod,
+        requestedMethod: forceMethod,
+        usedFallback,
         extractedData: {
           cuit: normalizedCuit,
           date: data.date,
