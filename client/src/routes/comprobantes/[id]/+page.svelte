@@ -30,6 +30,7 @@
 
   let processing = $state(false);
   let linkExpectedDialogOpen = $state(false);
+  let sourceComparisonRef: SourceComparison | null = $state(null);
   let availableExpected = $state<ExpectedInvoiceSummary[]>([]);
   let loadingExpected = $state(false);
 
@@ -157,6 +158,8 @@
         { id: toastId }
       );
       await invalidateAll();
+      // Select the newly created extraction (most recent)
+      sourceComparisonRef?.selectMostRecent();
     } else {
       toast.error(result.error || 'Error al procesar', { id: toastId });
     }
@@ -306,6 +309,7 @@
       {#if showSourceComparison}
         <section class="section comparison-section">
           <SourceComparison
+            bind:this={sourceComparisonRef}
             file={enrichedFile}
             extractions={comprobante.file?.extractions ?? []}
             expected={bestExpected}

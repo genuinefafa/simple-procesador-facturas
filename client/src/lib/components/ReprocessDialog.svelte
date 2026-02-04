@@ -60,13 +60,15 @@
       disabled={processing}
     >
       <span class="method-icon">🔍</span>
-      <span class="method-name">OCR</span>
+      <span class="method-name">
+        OCR
+        {#if hasExisting('ocr')}
+          <span class="existing-badge" title="Ya existe una extracción con este método">
+            <Check size={12} />
+          </span>
+        {/if}
+      </span>
       <span class="method-desc">Reconocimiento óptico de caracteres (imágenes)</span>
-      {#if hasExisting('ocr')}
-        <span class="existing-badge" title="Ya existe una extracción con este método">
-          <Check size={12} />
-        </span>
-      {/if}
     </button>
 
     <button
@@ -77,13 +79,15 @@
       disabled={processing}
     >
       <span class="method-icon">📄</span>
-      <span class="method-name">PDF Text</span>
+      <span class="method-name">
+        PDF Text
+        {#if hasExisting('pdf_text')}
+          <span class="existing-badge" title="Ya existe una extracción con este método">
+            <Check size={12} />
+          </span>
+        {/if}
+      </span>
       <span class="method-desc">Extraer texto embebido del PDF</span>
-      {#if hasExisting('pdf_text')}
-        <span class="existing-badge" title="Ya existe una extracción con este método">
-          <Check size={12} />
-        </span>
-      {/if}
     </button>
 
     <button
@@ -94,13 +98,15 @@
       disabled={processing}
     >
       <span class="method-icon">📱</span>
-      <span class="method-name">QR</span>
+      <span class="method-name">
+        QR
+        {#if hasExisting('qr')}
+          <span class="existing-badge" title="Ya existe una extracción con este método">
+            <Check size={12} />
+          </span>
+        {/if}
+      </span>
       <span class="method-desc">Leer código QR de AFIP/ARCA</span>
-      {#if hasExisting('qr')}
-        <span class="existing-badge" title="Ya existe una extracción con este método">
-          <Check size={12} />
-        </span>
-      {/if}
     </button>
   </div>
 
@@ -159,9 +165,13 @@
 
   .method-icon {
     font-size: var(--font-size-xl);
+    flex-shrink: 0;
   }
 
   .method-name {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
     font-weight: var(--font-weight-medium);
     font-size: var(--font-size-sm);
     color: var(--color-text-primary);
@@ -177,12 +187,11 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 1.25rem;
-    height: 1.25rem;
+    width: 1rem;
+    height: 1rem;
     background: var(--color-success-500);
     color: white;
     border-radius: var(--radius-full);
-    margin-left: auto;
     flex-shrink: 0;
   }
 
