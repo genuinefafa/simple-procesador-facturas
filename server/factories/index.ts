@@ -109,8 +109,7 @@ export function createInvoiceProcessingService(): InvoiceProcessingService {
     new PDFExtractor(),
     new OCRExtractor(),
     new QRExtractor(),
-    getEmitterRepository(),
-    getExpectedInvoiceRepository()
+    getEmitterRepository()
   );
 }
 

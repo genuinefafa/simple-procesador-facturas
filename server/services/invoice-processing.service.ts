@@ -1,12 +1,14 @@
 /**
  * Servicio de procesamiento de facturas
- * Responsabilidad: extracción de datos + matching contra Excel AFIP.
+ * Responsabilidad: SOLO extracción de datos de documentos.
+ * NO hace matching con Excel AFIP - eso lo maneja el comparador on-demand.
  * NO crea facturas ni gestiona archivos — eso lo hace InvoiceCreationService.
  *
  * Soporta:
  * - PDFs digitales (texto embebido)
  * - PDFs escaneados (via OCR)
  * - Imágenes: JPG, PNG, TIFF, WEBP, HEIC
+ * - Códigos QR de AFIP/ARCA
  */
 
 import { PDFExtractor } from '../extractors/pdf-extractor.js';
@@ -14,12 +16,6 @@ import { OCRExtractor } from '../extractors/ocr-extractor.js';
 import { QRExtractor } from '../extractors/qr-extractor.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '@shared/validators/cuit';
 import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter.js';
-import {
-  ExpectedInvoiceRepository,
-  type IExpectedInvoiceRepository,
-  type ExpectedInvoice,
-} from '../database/repositories/expected-invoice.js';
-import { format } from 'date-fns';
 import { extname } from 'path';
 import type { DocumentType, ExtractionMethod } from '@shared/types';
 
@@ -34,15 +30,13 @@ export interface ProcessingResult {
   error?: string;
   requiresReview: boolean;
   confidence: number;
-  source?: 'PDF_EXTRACTION' | 'EXCEL_MATCH_UNIQUE' | 'EXCEL_MATCH_AMBIGUOUS' | 'NO_MATCH';
+  source?: 'PDF_EXTRACTION' | 'NO_MATCH';
   /** Método de extracción efectivamente usado */
   method?: ExtractionMethod;
   /** Método solicitado por el usuario (si fue forzado) */
   requestedMethod?: 'OCR' | 'PDF_TEXT' | 'QR';
   /** True si se usó un método diferente al solicitado (fallback automático) */
   usedFallback?: boolean;
-  matchedExpectedInvoiceId?: number;
-  matchCandidates?: ExpectedInvoice[];
   extractedData?: {
     cuit?: string;
     date?: string;
@@ -58,20 +52,17 @@ export class InvoiceProcessingService {
   private ocrExtractor: OCRExtractor;
   private qrExtractor: QRExtractor;
   private emitterRepo: IEmitterRepository;
-  private expectedInvoiceRepo: IExpectedInvoiceRepository;
 
   constructor(
     pdfExtractor?: PDFExtractor,
     ocrExtractor?: OCRExtractor,
     qrExtractor?: QRExtractor,
-    emitterRepo?: IEmitterRepository,
-    expectedInvoiceRepo?: IExpectedInvoiceRepository
+    emitterRepo?: IEmitterRepository
   ) {
     this.pdfExtractor = pdfExtractor ?? new PDFExtractor();
     this.ocrExtractor = ocrExtractor ?? new OCRExtractor();
     this.qrExtractor = qrExtractor ?? new QRExtractor();
     this.emitterRepo = emitterRepo ?? new EmitterRepository();
-    this.expectedInvoiceRepo = expectedInvoiceRepo ?? new ExpectedInvoiceRepository();
   }
 
   /**
@@ -386,61 +377,7 @@ export class InvoiceProcessingService {
         };
       }
 
-      // 2. MATCHING CON EXCEL AFIP (si hay CUIT detectado)
-      if (data.cuit && validateCUIT(data.cuit)) {
-        const normalizedCuit = normalizeCUIT(data.cuit);
-        console.info(`   🔍 Buscando matches en Excel AFIP para CUIT: ${normalizedCuit}`);
-
-        const matchResult = await this.findExcelMatch(normalizedCuit, data);
-
-        // MATCH ÚNICO - Auto-completar desde Excel
-        if (matchResult.type === 'UNIQUE') {
-          console.info(`   ✅ Match único encontrado en Excel AFIP - Auto-completando datos`);
-          const expected = matchResult.match;
-
-          return {
-            success: false, // Aún requiere revisión del usuario
-            requiresReview: true,
-            confidence: 95,
-            source: 'EXCEL_MATCH_UNIQUE',
-            matchedExpectedInvoiceId: expected.id,
-            extractedData: {
-              cuit: expected.cuit,
-              date: expected.issueDate,
-              total: expected.total || undefined,
-              invoiceType: expected.invoiceType,
-              pointOfSale: expected.pointOfSale,
-              invoiceNumber: expected.invoiceNumber,
-            },
-          };
-        }
-
-        // MÚLTIPLES MATCHES - Mostrar al usuario para elegir
-        if (matchResult.type === 'AMBIGUOUS') {
-          console.info(
-            `   ⚠️  ${matchResult.candidates.length} posibles matches encontrados - Requiere selección manual`
-          );
-          return {
-            success: false,
-            requiresReview: true,
-            confidence: 60,
-            source: 'EXCEL_MATCH_AMBIGUOUS',
-            matchCandidates: matchResult.candidates,
-            extractedData: {
-              cuit: normalizedCuit,
-              date: data.date,
-              total: data.total,
-              invoiceType: data.invoiceType,
-              pointOfSale: data.pointOfSale,
-              invoiceNumber: data.invoiceNumber,
-            },
-          };
-        }
-
-        console.info(`   ℹ️  Sin match en Excel AFIP - Procesamiento normal con OCR`);
-      }
-
-      // 3. Validar CUIT
+      // 2. Validar CUIT
       console.info(`   🔍 Validando CUIT...`);
       if (!data.cuit || !validateCUIT(data.cuit)) {
         console.warn(`   ❌ CUIT inválido o no encontrado: ${data.cuit}`);
@@ -450,6 +387,9 @@ export class InvoiceProcessingService {
           requiresReview: true,
           confidence,
           source: 'NO_MATCH',
+          method: extractionMethod,
+          requestedMethod: forceMethod,
+          usedFallback,
           extractedData: {
             cuit: data.cuit,
             date: data.date,
@@ -500,6 +440,9 @@ export class InvoiceProcessingService {
           requiresReview: true,
           confidence,
           source: 'PDF_EXTRACTION',
+          method: extractionMethod,
+          requestedMethod: forceMethod,
+          usedFallback,
           extractedData: {
             cuit: normalizedCuit,
             date: data.date,
@@ -547,119 +490,6 @@ export class InvoiceProcessingService {
         source: 'PDF_EXTRACTION',
       };
     }
-  }
-
-  /**
-   * Busca matches de una factura en el Excel AFIP
-   */
-  private async findExcelMatch(
-    cuit: string,
-    extractedData: {
-      date?: string;
-      total?: number;
-      invoiceType?: number | null; // Código ARCA numérico
-      pointOfSale?: number;
-      invoiceNumber?: number;
-    }
-  ): Promise<
-    | { type: 'NONE' }
-    | { type: 'UNIQUE'; match: ExpectedInvoice }
-    | { type: 'AMBIGUOUS'; candidates: ExpectedInvoice[] }
-  > {
-    // Estrategia de matching progresiva:
-
-    // 1. Si tenemos TODOS los datos, buscar match exacto
-    if (
-      extractedData.invoiceType &&
-      extractedData.pointOfSale !== undefined &&
-      extractedData.invoiceNumber !== undefined
-    ) {
-      const exactMatch = await this.expectedInvoiceRepo.findExactMatch(
-        cuit,
-        extractedData.invoiceType,
-        extractedData.pointOfSale,
-        extractedData.invoiceNumber
-      );
-
-      if (exactMatch) {
-        return { type: 'UNIQUE', match: exactMatch };
-      }
-    }
-
-    // 2. Buscar candidatos usando matching inteligente (no requiere CUIT exacto)
-    // Parseamos la fecha para pasarla en formato correcto
-    let issueDate: string | undefined;
-    if (extractedData.date) {
-      try {
-        // Parsear fecha extraída (formato DD/MM/YYYY o DD-MM-YYYY)
-        let date: Date;
-        if (/^\d{1,2}[/-]\d{1,2}[/-]\d{4}$/.test(extractedData.date)) {
-          const [day, month, year] = extractedData.date.split(/[/-]/);
-          if (day && month && year) {
-            date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-          } else {
-            date = new Date(extractedData.date);
-          }
-        } else {
-          date = new Date(extractedData.date);
-        }
-        issueDate = format(date, 'yyyy-MM-dd');
-      } catch {
-        console.warn(`   ⚠️  No se pudo parsear fecha para matching: ${extractedData.date}`);
-      }
-    }
-
-    // Usar findPartialMatches que hace scoring sin requerir CUIT exacto
-    const candidatesWithScore = await this.expectedInvoiceRepo.findPartialMatches({
-      cuit, // Puede estar incorrecto, el scoring lo maneja
-      invoiceType: extractedData.invoiceType,
-      pointOfSale: extractedData.pointOfSale,
-      invoiceNumber: extractedData.invoiceNumber,
-      issueDate,
-      total: extractedData.total,
-      limit: 10, // Buscar hasta 10 candidatos
-    });
-
-    // Filtrar solo candidatos con score mínimo de 50% (al menos mitad de campos coinciden)
-    const viableCandidates = candidatesWithScore.filter((c) => c.matchScore >= 50);
-
-    console.info(
-      `   🔍 Matching parcial: ${candidatesWithScore.length} candidatos encontrados, ${viableCandidates.length} con score ≥50`
-    );
-
-    if (viableCandidates.length > 0) {
-      // Loguear top 3 para debugging
-      viableCandidates.slice(0, 3).forEach((c) => {
-        console.info(
-          `      - ID ${c.id}: score=${c.matchScore}%, campos=[${c.matchedFields.join(', ')}]`
-        );
-      });
-    }
-
-    if (viableCandidates.length === 0) {
-      return { type: 'NONE' };
-    }
-
-    // Si el mejor candidato tiene score ≥80% y es único con ese score, considerarlo match único
-    const bestScore = viableCandidates[0]!.matchScore;
-    const topCandidates = viableCandidates.filter((c) => c.matchScore === bestScore);
-
-    if (bestScore >= 80 && topCandidates.length === 1) {
-      console.info(`   ✅ Match único encontrado (score=${bestScore}%)`);
-      return { type: 'UNIQUE', match: topCandidates[0]! };
-    }
-
-    // Si hay entre 1 y 5 candidatos viables, devolver para selección manual
-    if (viableCandidates.length <= 5) {
-      console.info(
-        `   ⚠️  ${viableCandidates.length} candidatos ambiguos - requiere selección manual`
-      );
-      return { type: 'AMBIGUOUS', candidates: viableCandidates };
-    }
-
-    // Si hay más de 5 candidatos viables, tomar solo top 5
-    console.warn(`   ⚠️  Demasiados candidatos (${viableCandidates.length}) - mostrando top 5`);
-    return { type: 'AMBIGUOUS', candidates: viableCandidates.slice(0, 5) };
   }
 
   /**
