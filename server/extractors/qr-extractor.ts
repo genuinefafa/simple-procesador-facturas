@@ -22,10 +22,11 @@ import { pdf } from 'pdf-to-img';
 import convert from 'heic-convert';
 import type { AFIPQRData, QRDetectionResult, AFIPUrlParseResult } from './qr-extractor.types';
 
-// URLs válidas de AFIP QR (ambos formatos son oficiales)
+// URLs válidas de AFIP/ARCA QR (todos los formatos oficiales)
 const AFIP_QR_URL_PATTERNS = [
   'https://www.afip.gob.ar/fe/qr/',
   'https://servicioscf.afip.gob.ar/publico/comprobantes/',
+  'https://www.arca.gob.ar/fe/qr/', // Nuevo formato ARCA 2024+
 ];
 
 // Extensiones de imagen soportadas
@@ -77,9 +78,9 @@ export class QRExtractor {
 
   /**
    * Convierte PDF a imagen (primera página)
-   * Usa scale 3.0 para mejor detección de QR codes pequeños
+   * Usa scale 5.0 para mejor detección de QR codes pequeños en documentos escaneados
    */
-  private async pdfToImage(filePath: string, scale = 3.0): Promise<Buffer | null> {
+  private async pdfToImage(filePath: string, scale = 5.0): Promise<Buffer | null> {
     try {
       console.info(`   🔄 Convirtiendo PDF a imagen (scale: ${scale})...`);
       const pdfBuffer = readFileSync(filePath);
@@ -122,7 +123,9 @@ export class QRExtractor {
   }
 
   /**
-   * Detecta y decodifica QR code de una imagen
+   * Detecta y decodifica QR code de una imagen.
+   * Busca específicamente QR codes de AFIP/ARCA usando sliding window
+   * para manejar documentos con múltiples QR codes.
    */
   private async detectQR(filePath: string): Promise<QRDetectionResult> {
     if (!existsSync(filePath)) {
@@ -146,49 +149,101 @@ export class QRExtractor {
       imageSource = await this.convertHeicToJpeg(filePath);
     }
 
-    // Obtener pixels
-    const pixels = await this.getImagePixels(imageSource);
-    if (!pixels) {
-      return { found: false, error: 'No se pudo procesar la imagen' };
+    // Obtener pixels e info de imagen
+    const metadata = await sharp(imageSource).metadata();
+    const width = metadata.width || 0;
+    const height = metadata.height || 0;
+
+    console.info(`   🔍 Buscando código QR AFIP/ARCA (${width}x${height})...`);
+
+    // Primero intentar detección directa en imagen completa
+    const fullImageResult = await this.detectQRInRegion(imageSource, 0, 0, width, height);
+    if (
+      fullImageResult.found &&
+      fullImageResult.rawData &&
+      this.isAFIPUrl(fullImageResult.rawData)
+    ) {
+      console.info(`   ✅ QR AFIP/ARCA detectado directamente`);
+      return fullImageResult;
     }
 
-    console.info(`   🔍 Buscando código QR (${pixels.width}x${pixels.height})...`);
+    // Si hay QR pero no es de AFIP, o no se encontró QR,
+    // usar sliding window para buscar múltiples QR codes
+    console.info(`   🔄 Usando sliding window para buscar QR AFIP/ARCA...`);
 
-    // Detectar QR
-    const qrCode = jsQR(pixels.data, pixels.width, pixels.height, {
-      inversionAttempts: 'attemptBoth',
-    });
+    const windowSize = 400;
+    const step = 200;
+    const foundQRs = new Map<string, { x: number; y: number }>();
 
-    if (!qrCode) {
-      // Intentar con imagen preprocesada (grayscale, mayor contraste)
-      console.info(`   🔄 Reintentando con preprocesamiento...`);
+    for (let y = 0; y <= height - windowSize; y += step) {
+      for (let x = 0; x <= width - windowSize; x += step) {
+        try {
+          const regionResult = await this.detectQRInRegion(
+            imageSource,
+            x,
+            y,
+            windowSize,
+            windowSize
+          );
+          if (regionResult.found && regionResult.rawData && !foundQRs.has(regionResult.rawData)) {
+            foundQRs.set(regionResult.rawData, { x, y });
 
-      const processedBuffer = await sharp(imageSource)
-        .grayscale()
-        .normalize()
-        .sharpen({ sigma: 1.5 })
-        .toBuffer();
-
-      const processedPixels = await this.getImagePixels(processedBuffer);
-      if (processedPixels) {
-        const qrCodeRetry = jsQR(
-          processedPixels.data,
-          processedPixels.width,
-          processedPixels.height,
-          { inversionAttempts: 'attemptBoth' }
-        );
-
-        if (qrCodeRetry) {
-          console.info(`   ✅ QR detectado con preprocesamiento`);
-          return { found: true, rawData: qrCodeRetry.data };
+            // Si encontramos un QR de AFIP/ARCA, retornarlo inmediatamente
+            if (this.isAFIPUrl(regionResult.rawData)) {
+              console.info(`   ✅ QR AFIP/ARCA encontrado en región [${x},${y}]`);
+              return regionResult;
+            }
+          }
+        } catch {
+          // Ignorar errores en regiones individuales
         }
       }
-
-      return { found: false, error: 'No se encontró código QR en la imagen' };
     }
 
-    console.info(`   ✅ QR detectado`);
-    return { found: true, rawData: qrCode.data };
+    // No se encontró QR de AFIP/ARCA
+    if (foundQRs.size > 0) {
+      const otherUrls = Array.from(foundQRs.keys()).slice(0, 2);
+      console.info(`   ⚠️ Se encontraron ${foundQRs.size} QR(s), pero ninguno de AFIP/ARCA`);
+      return {
+        found: false,
+        error: `Se encontraron ${foundQRs.size} código(s) QR pero ninguno de AFIP/ARCA. URLs: ${otherUrls.map((u) => u.substring(0, 40)).join(', ')}...`,
+      };
+    }
+
+    return { found: false, error: 'No se encontró código QR en la imagen' };
+  }
+
+  /**
+   * Detecta QR code en una región específica de la imagen
+   */
+  private async detectQRInRegion(
+    imageSource: string | Buffer,
+    x: number,
+    y: number,
+    regionWidth: number,
+    regionHeight: number
+  ): Promise<QRDetectionResult> {
+    try {
+      const { data, info } = await sharp(imageSource)
+        .extract({ left: x, top: y, width: regionWidth, height: regionHeight })
+        .ensureAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+
+      const pixels = new Uint8ClampedArray(data);
+
+      const qrCode = jsQR(pixels, info.width, info.height, {
+        inversionAttempts: 'attemptBoth',
+      });
+
+      if (qrCode) {
+        return { found: true, rawData: qrCode.data };
+      }
+
+      return { found: false };
+    } catch {
+      return { found: false };
+    }
   }
 
   /**
