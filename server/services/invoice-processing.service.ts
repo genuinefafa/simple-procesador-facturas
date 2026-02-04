@@ -11,6 +11,7 @@
 
 import { PDFExtractor } from '../extractors/pdf-extractor.js';
 import { OCRExtractor } from '../extractors/ocr-extractor.js';
+import { QRExtractor } from '../extractors/qr-extractor.js';
 import { validateCUIT, normalizeCUIT, getPersonType } from '@shared/validators/cuit';
 import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter.js';
 import {
@@ -50,17 +51,20 @@ export interface ProcessingResult {
 export class InvoiceProcessingService {
   private pdfExtractor: PDFExtractor;
   private ocrExtractor: OCRExtractor;
+  private qrExtractor: QRExtractor;
   private emitterRepo: IEmitterRepository;
   private expectedInvoiceRepo: IExpectedInvoiceRepository;
 
   constructor(
     pdfExtractor?: PDFExtractor,
     ocrExtractor?: OCRExtractor,
+    qrExtractor?: QRExtractor,
     emitterRepo?: IEmitterRepository,
     expectedInvoiceRepo?: IExpectedInvoiceRepository
   ) {
     this.pdfExtractor = pdfExtractor ?? new PDFExtractor();
     this.ocrExtractor = ocrExtractor ?? new OCRExtractor();
+    this.qrExtractor = qrExtractor ?? new QRExtractor();
     this.emitterRepo = emitterRepo ?? new EmitterRepository();
     this.expectedInvoiceRepo = expectedInvoiceRepo ?? new ExpectedInvoiceRepository();
   }
@@ -149,9 +153,14 @@ export class InvoiceProcessingService {
           console.info(`   📄 Extrayendo datos con PDF_TEXT (forzado)...`);
           extraction = await this.pdfExtractor.extract(filePath);
         } else if (forceMethod === 'QR') {
-          // QR no está implementado aún, usar OCR como fallback
-          console.info(`   📱 QR no implementado, usando OCR como fallback...`);
-          extraction = await this.ocrExtractor.extract(filePath);
+          console.info(`   📱 Extrayendo datos con QR (forzado)...`);
+          extraction = await this.qrExtractor.extract(filePath);
+
+          // Si QR falla o no encuentra código, usar OCR como fallback
+          if (!extraction.success) {
+            console.warn(`   ⚠️ QR no encontrado, intentando OCR como fallback...`);
+            extraction = await this.ocrExtractor.extract(filePath);
+          }
         } else {
           extraction = await this.pdfExtractor.extract(filePath);
         }

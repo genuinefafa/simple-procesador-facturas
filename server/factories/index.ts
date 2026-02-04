@@ -23,6 +23,7 @@ import { FileExportService } from '../services/file-export.service';
 // Extractors
 import { PDFExtractor } from '../extractors/pdf-extractor';
 import { OCRExtractor } from '../extractors/ocr-extractor';
+import { QRExtractor } from '../extractors/qr-extractor';
 
 /**
  * Singleton instances of repositories.
@@ -107,6 +108,7 @@ export function createInvoiceProcessingService(): InvoiceProcessingService {
   return new InvoiceProcessingService(
     new PDFExtractor(),
     new OCRExtractor(),
+    new QRExtractor(),
     getEmitterRepository(),
     getExpectedInvoiceRepository()
   );
