@@ -33,7 +33,8 @@ export type ExtractionMethod =
   | "MANUAL"
   | "PDF_TEXT"
   | "OCR"
-  | "PDF_TEXT+OCR";
+  | "PDF_TEXT+OCR"
+  | "QR";
 
 // Tipo de documento (Factura, Nota de Crédito, Nota de Débito)
 export type DocumentKind = "FAC" | "NCR" | "NDB";
