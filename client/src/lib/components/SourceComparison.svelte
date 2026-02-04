@@ -140,6 +140,14 @@
     }
   }
 
+  // Exposed method to select a specific extraction by ID
+  export function selectExtraction(id: number) {
+    const exists = extractions.some((e) => e.id === id);
+    if (exists) {
+      selectedExtractionId = id;
+    }
+  }
+
   // Sync select value with selectedExtractionId
   $effect(() => {
     if (selectedExtractionId !== extractionSelect.value) {
