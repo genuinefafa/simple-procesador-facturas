@@ -4,7 +4,9 @@
  * Los comprobantes electrónicos de AFIP incluyen un código QR que contiene
  * datos estructurados en formato JSON codificado en Base64.
  *
- * URL formato: https://www.afip.gob.ar/fe/qr/?p={BASE64_JSON}
+ * URLs soportadas:
+ * - https://www.afip.gob.ar/fe/qr/?p={BASE64_JSON}
+ * - https://servicioscf.afip.gob.ar/publico/comprobantes/cae.aspx?p={BASE64_JSON}
  *
  * Soporta: JPG, PNG, TIFF, WEBP, HEIC, PDF
  */
@@ -20,8 +22,11 @@ import { pdf } from 'pdf-to-img';
 import convert from 'heic-convert';
 import type { AFIPQRData, QRDetectionResult, AFIPUrlParseResult } from './qr-extractor.types';
 
-// URL base de AFIP QR
-const AFIP_QR_URL_PREFIX = 'https://www.afip.gob.ar/fe/qr/';
+// URLs válidas de AFIP QR (ambos formatos son oficiales)
+const AFIP_QR_URL_PATTERNS = [
+  'https://www.afip.gob.ar/fe/qr/',
+  'https://servicioscf.afip.gob.ar/publico/comprobantes/',
+];
 
 // Extensiones de imagen soportadas
 const SUPPORTED_IMAGE_EXTENSIONS = [
@@ -72,12 +77,13 @@ export class QRExtractor {
 
   /**
    * Convierte PDF a imagen (primera página)
+   * Usa scale 3.0 para mejor detección de QR codes pequeños
    */
-  private async pdfToImage(filePath: string): Promise<Buffer | null> {
+  private async pdfToImage(filePath: string, scale = 3.0): Promise<Buffer | null> {
     try {
-      console.info(`   🔄 Convirtiendo PDF a imagen...`);
+      console.info(`   🔄 Convirtiendo PDF a imagen (scale: ${scale})...`);
       const pdfBuffer = readFileSync(filePath);
-      const document = await pdf(pdfBuffer, { scale: 2.0 });
+      const document = await pdf(pdfBuffer, { scale });
 
       for await (const page of document) {
         console.info(`   📄 Página 1 convertida (${page.length} bytes)`);
@@ -186,11 +192,19 @@ export class QRExtractor {
   }
 
   /**
+   * Verifica si una URL es de AFIP (cualquiera de los formatos válidos)
+   */
+  private isAFIPUrl(url: string): boolean {
+    return AFIP_QR_URL_PATTERNS.some((pattern) => url.startsWith(pattern));
+  }
+
+  /**
    * Parsea URL de AFIP y extrae datos JSON
+   * Soporta ambos formatos de URL oficiales de AFIP
    */
   private parseAFIPUrl(url: string): AFIPUrlParseResult {
     // Verificar que es URL de AFIP
-    if (!url.startsWith(AFIP_QR_URL_PREFIX)) {
+    if (!this.isAFIPUrl(url)) {
       return { valid: false, error: `URL no es de AFIP: ${url.substring(0, 50)}...` };
     }
 
