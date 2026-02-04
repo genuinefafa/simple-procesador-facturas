@@ -133,6 +133,21 @@
     }
   });
 
+  // Exposed method to select the most recent extraction (called after reprocessing)
+  export function selectMostRecent() {
+    if (extractions.length > 0) {
+      selectedExtractionId = extractions[0].id;
+    }
+  }
+
+  // Exposed method to select a specific extraction by ID
+  export function selectExtraction(id: number) {
+    const exists = extractions.some((e) => e.id === id);
+    if (exists) {
+      selectedExtractionId = id;
+    }
+  }
+
   // Sync select value with selectedExtractionId
   $effect(() => {
     if (selectedExtractionId !== extractionSelect.value) {
@@ -571,6 +586,7 @@
 <!-- Diálogo de reprocesamiento -->
 <ReprocessDialog
   bind:open={reprocessDialogOpen}
+  existingMethods={extractions.map((e) => e.method).filter((m): m is string => m != null)}
   onselect={handleReprocess}
   onclose={closeReprocessDialog}
   {processing}

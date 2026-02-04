@@ -30,8 +30,66 @@
 
   let processing = $state(false);
   let linkExpectedDialogOpen = $state(false);
+  let sourceComparisonRef: SourceComparison | null = $state(null);
   let availableExpected = $state<ExpectedInvoiceSummary[]>([]);
   let loadingExpected = $state(false);
+
+  // Track si ya intentamos QR automático para este file (evitar loops)
+  let autoQrAttemptedForFileId = $state<number | null>(null);
+
+  // Auto-QR: cuando abrimos un file sin expected vinculado, intentar QR si no existe
+  $effect(() => {
+    // Solo para archivos pendientes (sin factura final)
+    if (comprobante.kind !== 'file' || comprobante.final) return;
+
+    // Solo si no tiene expected vinculado
+    if (comprobante.expected) return;
+
+    const file = comprobante.file;
+    if (!file) return;
+
+    // Evitar re-intentar si ya lo hicimos para este file
+    if (autoQrAttemptedForFileId === file.id) return;
+
+    // Verificar si ya existe una extracción QR
+    const extractions = file.extractions ?? [];
+    const hasQrExtraction = extractions.some((e) => e.method?.toUpperCase() === 'QR');
+
+    if (hasQrExtraction) {
+      // Ya tiene QR, marcar como intentado y auto-seleccionarlo
+      autoQrAttemptedForFileId = file.id;
+      // Buscar el ID de la extracción QR para seleccionarla
+      const qrExtraction = extractions.find((e) => e.method?.toUpperCase() === 'QR');
+      if (qrExtraction && sourceComparisonRef) {
+        // Dar tiempo a que el componente se monte
+        setTimeout(() => sourceComparisonRef?.selectExtraction(qrExtraction.id), 50);
+      }
+      return;
+    }
+
+    // Marcar como intentado antes de disparar (evitar re-trigger)
+    autoQrAttemptedForFileId = file.id;
+
+    // Disparar QR automáticamente (sin toast de loading, es background)
+    console.info(`[AUTO-QR] Iniciando extracción QR automática para file:${file.id}`);
+    processQrAutomatically(file.id);
+  });
+
+  // Función separada para evitar problemas con async en $effect
+  async function processQrAutomatically(fileId: number) {
+    const result = await comprobanteService.processFile(fileId, 'qr');
+
+    if (result.success && result.extraction) {
+      console.info(`[AUTO-QR] Extracción exitosa (${result.extraction.confidence}% confianza)`);
+      toast.success(`QR detectado: ${result.extraction.confidence}% confianza`);
+      await invalidateAll();
+      // Seleccionar la nueva extracción QR
+      setTimeout(() => sourceComparisonRef?.selectMostRecent(), 100);
+    } else {
+      // QR falló silenciosamente (es esperado para muchos documentos)
+      console.info(`[AUTO-QR] No se encontró QR: ${result.error}`);
+    }
+  }
 
   // Matches locales - pueden actualizarse al cambiar extracción
   // Usamos un contador de versión del comprobante para resetear cuando cambia
@@ -157,6 +215,8 @@
         { id: toastId }
       );
       await invalidateAll();
+      // Select the newly created extraction (most recent)
+      sourceComparisonRef?.selectMostRecent();
     } else {
       toast.error(result.error || 'Error al procesar', { id: toastId });
     }
@@ -306,6 +366,7 @@
       {#if showSourceComparison}
         <section class="section comparison-section">
           <SourceComparison
+            bind:this={sourceComparisonRef}
             file={enrichedFile}
             extractions={comprobante.file?.extractions ?? []}
             expected={bestExpected}
