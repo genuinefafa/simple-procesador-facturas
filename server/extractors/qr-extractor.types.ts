@@ -12,8 +12,8 @@
 export interface AFIPQRData {
   /** Version (currently always 1) */
   ver: number;
-  /** Issue date in ISO format (YYYY-MM-DD) */
-  fecha: string;
+  /** Issue date in ISO format (YYYY-MM-DD) - may be false/missing in malformed QRs */
+  fecha: string | false;
   /** Issuer CUIT as 11-digit number (no dashes) */
   cuit: number;
   /** Point of sale (up to 5 digits) */

@@ -100,29 +100,6 @@ export class QRExtractor {
   }
 
   /**
-   * Obtiene raw RGBA pixels de una imagen para jsQR
-   */
-  private async getImagePixels(
-    imageSource: string | Buffer
-  ): Promise<{ data: Uint8ClampedArray; width: number; height: number } | null> {
-    try {
-      const { data, info } = await sharp(imageSource)
-        .ensureAlpha()
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-
-      return {
-        data: new Uint8ClampedArray(data),
-        width: info.width,
-        height: info.height,
-      };
-    } catch (error) {
-      console.error(`   ❌ Error procesando imagen:`, error);
-      return null;
-    }
-  }
-
-  /**
    * Detecta y decodifica QR code de una imagen.
    * Busca específicamente QR codes de AFIP/ARCA usando sliding window
    * para manejar documentos con múltiples QR codes.
@@ -276,13 +253,19 @@ export class QRExtractor {
       const jsonStr = Buffer.from(base64Data, 'base64').toString('utf-8');
       const data = JSON.parse(jsonStr) as AFIPQRData;
 
-      // Validar campos requeridos
-      if (!data.ver || !data.cuit || !data.fecha) {
-        return { valid: false, error: 'JSON de AFIP con campos faltantes' };
+      // Validar campos mínimos requeridos (CUIT es el único obligatorio)
+      // NOTA: Algunos QR de AFIP tienen "fecha": false en lugar de fecha real
+      if (!data.ver || !data.cuit) {
+        return { valid: false, error: 'JSON de AFIP con campos faltantes (ver/cuit)' };
+      }
+
+      // Advertencia si falta fecha (pero no es error fatal)
+      if (typeof data.fecha !== 'string' || !data.fecha) {
+        console.warn(`   ⚠️ QR AFIP sin fecha válida (fecha=${String(data.fecha)})`);
       }
 
       console.info(
-        `   📋 Datos AFIP: CUIT=${data.cuit}, Fecha=${data.fecha}, Tipo=${data.tipoCmp}`
+        `   📋 Datos AFIP: CUIT=${data.cuit}, Fecha=${data.fecha || 'N/A'}, Tipo=${data.tipoCmp}`
       );
       return { valid: true, data };
     } catch (error) {
@@ -332,14 +315,17 @@ export class QRExtractor {
       const afipData = parseResult.data;
 
       // Calcular confianza basada en campos presentes
+      // Fecha válida solo si es string (no false o undefined)
+      const hasValidDate = typeof afipData.fecha === 'string' && afipData.fecha.length > 0;
       const hasAllRequired =
         afipData.cuit &&
-        afipData.fecha &&
+        hasValidDate &&
         afipData.tipoCmp &&
         afipData.ptoVta !== undefined &&
         afipData.nroCmp !== undefined;
 
-      const confidence = hasAllRequired ? 100 : 90;
+      // Menor confianza si falta fecha
+      const confidence = hasAllRequired ? 100 : hasValidDate ? 90 : 80;
 
       console.info(`   ✅ Extracción QR exitosa (confianza: ${confidence}%)`);
 
@@ -348,7 +334,8 @@ export class QRExtractor {
         confidence,
         data: {
           cuit: formatCuit(afipData.cuit),
-          date: afipData.fecha, // Ya viene en formato ISO (YYYY-MM-DD)
+          // Solo incluir fecha si es válida (string), no si es false
+          date: hasValidDate ? (afipData.fecha as string) : undefined,
           total: afipData.importe,
           invoiceType: afipData.tipoCmp,
           pointOfSale: afipData.ptoVta,
