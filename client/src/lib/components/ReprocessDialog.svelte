@@ -2,15 +2,19 @@
   /**
    * Dialog for selecting file reprocessing method.
    * Extracted from SourceComparison for Single Responsibility.
+   * Shows which methods already have extractions and warns before overwriting.
    */
 
   import Dialog from './ui/Dialog.svelte';
+  import { Check } from 'lucide-svelte';
 
   export type ExtractionMethod = 'ocr' | 'pdf_text' | 'qr';
 
   type Props = {
     /** Whether the dialog is open */
     open: boolean;
+    /** Methods that already have extractions */
+    existingMethods?: string[];
     /** Callback when a method is selected */
     onselect: (method: ExtractionMethod) => void;
     /** Callback when dialog is closed */
@@ -19,7 +23,19 @@
     processing?: boolean;
   };
 
-  let { open = $bindable(), onselect, onclose, processing = false }: Props = $props();
+  let {
+    open = $bindable(),
+    existingMethods = [],
+    onselect,
+    onclose,
+    processing = false,
+  }: Props = $props();
+
+  // Normalize method names for comparison
+  function hasExisting(method: ExtractionMethod): boolean {
+    const normalized = method.toUpperCase();
+    return existingMethods.some((m) => m?.toUpperCase() === normalized);
+  }
 
   function handleSelect(method: ExtractionMethod) {
     onselect(method);
@@ -39,36 +55,60 @@
     <button
       type="button"
       class="method-option"
+      class:has-existing={hasExisting('ocr')}
       onclick={() => handleSelect('ocr')}
       disabled={processing}
     >
       <span class="method-icon">🔍</span>
       <span class="method-name">OCR</span>
       <span class="method-desc">Reconocimiento óptico de caracteres (imágenes)</span>
+      {#if hasExisting('ocr')}
+        <span class="existing-badge" title="Ya existe una extracción con este método">
+          <Check size={12} />
+        </span>
+      {/if}
     </button>
 
     <button
       type="button"
       class="method-option"
+      class:has-existing={hasExisting('pdf_text')}
       onclick={() => handleSelect('pdf_text')}
       disabled={processing}
     >
       <span class="method-icon">📄</span>
       <span class="method-name">PDF Text</span>
       <span class="method-desc">Extraer texto embebido del PDF</span>
+      {#if hasExisting('pdf_text')}
+        <span class="existing-badge" title="Ya existe una extracción con este método">
+          <Check size={12} />
+        </span>
+      {/if}
     </button>
 
     <button
       type="button"
       class="method-option"
+      class:has-existing={hasExisting('qr')}
       onclick={() => handleSelect('qr')}
       disabled={processing}
     >
       <span class="method-icon">📱</span>
       <span class="method-name">QR</span>
-      <span class="method-desc">Leer código QR de AFIP</span>
+      <span class="method-desc">Leer código QR de AFIP/ARCA</span>
+      {#if hasExisting('qr')}
+        <span class="existing-badge" title="Ya existe una extracción con este método">
+          <Check size={12} />
+        </span>
+      {/if}
     </button>
   </div>
+
+  {#if existingMethods.length > 0}
+    <p class="existing-note">
+      <Check size={12} /> indica que ya existe una extracción. Reprocesar la reemplazará.
+    </p>
+  {/if}
 </Dialog>
 
 <style>
@@ -107,6 +147,16 @@
     cursor: not-allowed;
   }
 
+  .method-option.has-existing {
+    border-color: var(--color-success-200);
+    background: var(--color-success-50);
+  }
+
+  .method-option.has-existing:hover:not(:disabled) {
+    border-color: var(--color-success-300);
+    background: var(--color-success-100);
+  }
+
   .method-icon {
     font-size: var(--font-size-xl);
   }
@@ -121,6 +171,31 @@
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
     margin-left: auto;
+  }
+
+  .existing-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    background: var(--color-success-500);
+    color: white;
+    border-radius: var(--radius-full);
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  .existing-note {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    margin-top: var(--spacing-3);
+    padding: var(--spacing-2);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+    background: var(--color-surface-alt);
+    border-radius: var(--radius-sm);
   }
 
   @media (max-width: 640px) {

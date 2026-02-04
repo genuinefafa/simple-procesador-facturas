@@ -126,11 +126,30 @@
     },
   });
 
-  // Initialize selectedExtractionId when extractions change
+  // Track previous extractions to detect new ones
+  let prevExtractionIds = $state<number[]>([]);
+
+  // Initialize or update selectedExtractionId when extractions change
   $effect(() => {
-    if (extractions.length > 0 && selectedExtractionId === null) {
-      selectedExtractionId = extractions[0].id;
+    const currentIds = extractions.map((e) => e.id);
+
+    if (extractions.length > 0) {
+      // Check if there's a new extraction (ID not in previous list)
+      const newExtraction = extractions.find((e) => !prevExtractionIds.includes(e.id));
+
+      if (newExtraction) {
+        // Select the new extraction automatically
+        selectedExtractionId = newExtraction.id;
+      } else if (selectedExtractionId === null) {
+        // First load: select first extraction
+        selectedExtractionId = extractions[0].id;
+      } else if (!currentIds.includes(selectedExtractionId)) {
+        // Selected extraction was removed, select first
+        selectedExtractionId = extractions[0].id;
+      }
     }
+
+    prevExtractionIds = currentIds;
   });
 
   // Sync select value with selectedExtractionId
@@ -571,6 +590,7 @@
 <!-- Diálogo de reprocesamiento -->
 <ReprocessDialog
   bind:open={reprocessDialogOpen}
+  existingMethods={extractions.map((e) => e.method).filter((m): m is string => m != null)}
   onselect={handleReprocess}
   onclose={closeReprocessDialog}
   {processing}
