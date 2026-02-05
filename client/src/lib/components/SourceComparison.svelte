@@ -12,7 +12,14 @@
   import CategorySelect from './CategorySelect.svelte';
   import Button from './ui/Button.svelte';
   import ReprocessDialog, { type ExtractionMethod } from './ReprocessDialog.svelte';
-  import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
+  import {
+    formatCurrency,
+    formatDateShort,
+    formatCuit,
+    formatInvoiceLabel,
+    formatInvoiceNumber,
+    getFriendlyType,
+  } from '$lib/formatters';
   import { emitterService, type ResolvedEmitter } from '$lib/services/EmitterService';
   import { format } from 'date-fns';
   import { es } from 'date-fns/locale';
@@ -67,11 +74,18 @@
     categoryId?: number | null;
   };
 
+  type ExpectedCandidate = ExpectedData & {
+    matchScore: number;
+    matchedFields: string[];
+  };
+
   type Props = {
     /** Datos extraídos del archivo (OCR) */
     file?: FileData | null;
-    /** Datos esperados */
+    /** Datos esperados (el mejor match actual) */
     expected?: ExpectedData | null;
+    /** Candidatos alternativos con scoring */
+    alternativeExpected?: ExpectedCandidate[];
     /** All extraction results for this file (for dropdown) */
     extractions?: ExtractionResult[];
     /** Callback cuando se quiere crear factura desde archivo */
@@ -80,8 +94,10 @@
     oncreatefromexpected?: () => void;
     /** Callback para reprocesar con método específico */
     onreprocess?: (method: ExtractionMethod) => void;
-    /** Callback para buscar expected manualmente (issue #135) */
+    /** Callback para buscar expected manualmente (abre diálogo completo) */
     onsearchexpected?: () => void;
+    /** Callback cuando el usuario selecciona un expected alternativo */
+    onexpectedchange?: (expectedId: number) => void;
     /** Callback cuando el usuario cambia la extracción seleccionada */
     onextractionchange?: (extractionId: number) => void;
     /** Si está procesando algo */
@@ -97,11 +113,13 @@
   let {
     file,
     expected,
+    alternativeExpected = [],
     extractions = [],
     oncreatefromfile,
     oncreatefromexpected,
     onreprocess,
     onsearchexpected,
+    onexpectedchange,
     onextractionchange,
     processing = false,
     categories = [],
@@ -160,6 +178,31 @@
   // Get currently selected extraction
   const selectedExtraction = $derived(
     extractions.find((e) => e.id === selectedExtractionId) ?? extractions[0] ?? null
+  );
+
+  // Melt UI Select for expected alternatives dropdown
+  // Value: expected ID or 'search' for "Buscar más..."
+  const expectedSelect = new SelectBuilder<number | 'search'>({
+    sameWidth: false,
+    onValueChange: (newValue) => {
+      if (newValue === 'search') {
+        onsearchexpected?.();
+      } else if (newValue !== null && newValue !== undefined) {
+        onexpectedchange?.(newValue);
+      }
+    },
+  });
+
+  // Sync expected select value with current expected
+  $effect(() => {
+    if (expected?.id && expectedSelect.value !== expected.id) {
+      expectedSelect.value = expected.id;
+    }
+  });
+
+  // Check if we have alternatives to show
+  const hasAlternatives = $derived(
+    alternativeExpected.length > 0 || onsearchexpected !== undefined
   );
 
   // Override file data with selected extraction when available
@@ -245,14 +288,6 @@
 
   // Estado del diálogo de reprocesamiento
   let reprocessDialogOpen = $state(false);
-
-  // Formateadores
-  const formatInvoiceNum = (pv: number | null | undefined, num: number | null | undefined) => {
-    if (pv == null && num == null) return '—';
-    const pvStr = pv != null ? String(pv).padStart(4, '0') : '----';
-    const numStr = num != null ? String(num).padStart(8, '0') : '--------';
-    return `${pvStr}-${numStr}`;
-  };
 
   // Truncar nombre largo
   const truncateName = (name: string | null | undefined, maxLen: number = 20) => {
@@ -359,7 +394,7 @@
           <div class="field">
             <span class="field-label">Numero</span>
             <span class="field-value mono"
-              >{formatInvoiceNum(
+              >{formatInvoiceNumber(
                 displayedFile?.extractedPointOfSale,
                 displayedFile?.extractedInvoiceNumber
               )}</span
@@ -489,7 +524,68 @@
           </div>
 
           <div class="header-selector-row">
-            <!-- Spacer para alinear con la columna archivo -->
+            {#if hasAlternatives}
+              <div class="expected-select-wrapper">
+                <button
+                  {...expectedSelect.trigger}
+                  class="extraction-trigger"
+                  disabled={processing}
+                >
+                  <span class="trigger-text">
+                    {#if expected}
+                      {formatInvoiceLabel(
+                        expected.invoiceType,
+                        expected.pointOfSale,
+                        expected.invoiceNumber
+                      )}
+                    {:else}
+                      Seleccionar
+                    {/if}
+                  </span>
+                  <ChevronDown size={14} />
+                </button>
+
+                <div {...expectedSelect.content} class="extraction-content expected-content">
+                  {#each alternativeExpected.slice(0, 6) as alt (alt.id)}
+                    {@const altLabel = formatInvoiceLabel(
+                      alt.invoiceType,
+                      alt.pointOfSale,
+                      alt.invoiceNumber
+                    )}
+                    {@const isCurrentlyViewing = alt.id === expected?.id}
+                    <div
+                      {...expectedSelect.getOption(alt.id, altLabel)}
+                      class="extraction-option"
+                      class:selected={isCurrentlyViewing}
+                    >
+                      <span class="option-text">{altLabel}</span>
+                      {#if isCurrentlyViewing}
+                        <Check size={14} />
+                      {:else}
+                        <span
+                          class="confidence-badge {alt.matchScore >= 80
+                            ? 'high'
+                            : alt.matchScore >= 50
+                              ? 'medium'
+                              : 'low'}"
+                        >
+                          {alt.matchScore}%
+                        </span>
+                      {/if}
+                    </div>
+                  {/each}
+                  {#if onsearchexpected}
+                    <div
+                      {...expectedSelect.getOption('search', 'Buscar más...')}
+                      class="extraction-option search-more"
+                    >
+                      <Search size={14} />
+                      <span class="option-text">Buscar más...</span>
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            {/if}
           </div>
         </div>
 
@@ -511,7 +607,7 @@
           <div class="field">
             <span class="field-label">Numero</span>
             <span class="field-value mono"
-              >{formatInvoiceNum(expected?.pointOfSale, expected?.invoiceNumber)}</span
+              >{formatInvoiceNumber(expected?.pointOfSale, expected?.invoiceNumber)}</span
             >
           </div>
           <div class="field">
@@ -756,6 +852,12 @@
     white-space: nowrap;
   }
 
+  .extraction-option .option-hint {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+    margin-left: var(--spacing-1);
+  }
+
   .confidence-badge {
     margin-left: auto;
     font-size: var(--font-size-xs);
@@ -969,5 +1071,31 @@
     .match-row {
       min-height: auto;
     }
+  }
+
+  /* Expected select wrapper - same as extraction-select-wrapper */
+  .expected-select-wrapper {
+    position: relative;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+  }
+
+  .expected-content {
+    right: 0;
+    left: auto;
+  }
+
+  .extraction-option.search-more {
+    border-top: 1px solid var(--color-border);
+    margin-top: var(--spacing-1);
+    padding-top: var(--spacing-2);
+    color: var(--color-primary-600);
+    gap: var(--spacing-2);
+  }
+
+  .extraction-option.search-more:hover {
+    background: var(--color-primary-50);
   }
 </style>

@@ -160,13 +160,11 @@ const expectedInvoices_ = sqliteTable(
     caeExpiration: text('cae_expiration'),
     currency: text('currency').default('ARS'),
 
-    // Estado del matching
+    // Estado: pending (sin factura vinculada), matched (con factura vinculada)
+    // Futuro: dismissed (balanceado con NCR, cancelado, nunca recibido)
     status: text('status', {
       enum: ['pending', 'matched'],
     }).default('pending'),
-    // FK a files
-    matchedFileId: integer('matched_file_id'),
-    matchConfidence: real('match_confidence'),
 
     // Categorización
     categoryId: integer('category_id').references(() => categories_.id, {

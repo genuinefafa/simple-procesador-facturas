@@ -83,6 +83,7 @@ export type Match = {
   total?: number | null;
   status?: "pending" | "matched";
   matchScore: number;
+  matchedFields?: string[];
   categoryId?: number | null;
 };
 

@@ -97,6 +97,26 @@ Usamos **lucide-svelte** para todos los iconos. Ver [ICONS.md](./ICONS.md) para 
 
 ---
 
+## Componentes con Labels Integrados
+
+Algunos componentes ya incluyen su propio label. **NO agregar labels externos:**
+
+```svelte
+<!-- ❌ INCORRECTO - Label duplicado -->
+<div class="field">
+  <label>Emisor</label>
+  <EmitterCombobox />  <!-- Ya tiene label interno -->
+</div>
+
+<!-- ✅ CORRECTO - Usar directamente -->
+<EmitterCombobox />
+```
+
+**Componentes con label integrado:**
+- `EmitterCombobox` - label "Emisor"
+
+---
+
 ## Accesibilidad
 
 - ARIA labels en elementos interactivos
@@ -117,4 +137,4 @@ Usamos **lucide-svelte** para todos los iconos. Ver [ICONS.md](./ICONS.md) para 
 
 ---
 
-Última actualización: 2026-02-02
+Última actualización: 2026-02-04

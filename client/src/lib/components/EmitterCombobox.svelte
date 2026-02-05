@@ -216,20 +216,25 @@
   }
 
   .combobox-listbox {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
-    margin-top: 0.25rem;
     max-height: 250px;
     overflow-y: auto;
-    z-index: 20;
+    z-index: var(--z-tooltip);
     list-style: none;
     padding: 0;
     box-shadow: var(--shadow-md);
+  }
+
+  /* Override Melt's popover positioning - uses anchor positioning when available */
+  .combobox-listbox[popover] {
+    position: absolute;
+    inset: unset;
+    top: calc(var(--melt-invoker-y, 0) + var(--melt-invoker-height, 34px) + 4px);
+    left: var(--melt-invoker-x, 0);
+    width: var(--melt-invoker-width, 100%);
+    margin: 0;
   }
 
   .combobox-item {
