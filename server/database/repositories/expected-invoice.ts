@@ -28,8 +28,6 @@ export interface ExpectedInvoice {
   caeExpiration: string | null;
   currency: string | null;
   status: ExpectedInvoiceStatus;
-  matchedFileId: number | null;
-  matchConfidence: number | null;
   categoryId: number | null;
   importDate: string | null;
   notes: string | null;
@@ -100,8 +98,6 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       caeExpiration: row.caeExpiration || null,
       currency: row.currency || 'ARS',
       status: (row.status as ExpectedInvoiceStatus) || 'pending',
-      matchedFileId: row.matchedFileId || null,
-      matchConfidence: row.matchConfidence || null,
       categoryId: row.categoryId || null,
       importDate: row.importDate || null,
       notes: row.notes || null,
@@ -372,7 +368,9 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     }
 
     if (filters?.cuit) {
-      conditions.push(eq(expectedInvoices.cuit, filters.cuit));
+      // Normalize CUIT to digits only for comparison
+      const cuitDigits = filters.cuit.replace(/\D/g, '');
+      conditions.push(eq(expectedInvoices.cuit, cuitDigits));
     }
 
     // Build query step by step to avoid type issues with leftJoin
@@ -750,23 +748,6 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       }
       return invoice;
     });
-  }
-
-  async markAsMatched(id: number, _fileId: number, confidence: number): Promise<ExpectedInvoice> {
-    const result = await db
-      .update(expectedInvoices)
-      .set({
-        status: 'matched',
-        matchConfidence: confidence,
-      })
-      .where(eq(expectedInvoices.id, id))
-      .returning();
-
-    if (result.length === 0) {
-      throw new Error('Expected invoice not found after marking as matched');
-    }
-
-    return this.mapDrizzleToExpectedInvoice(result[0]);
   }
 
   /**

@@ -319,6 +319,40 @@ export function getExtractionMethodLabel(method: string | null): string {
 }
 
 /**
+ * Formatea el número de comprobante con padding (0001-00000001)
+ * @param pointOfSale Punto de venta
+ * @param invoiceNumber Número de factura
+ * @returns Número formateado con padding
+ */
+export function formatInvoiceNumber(
+  pointOfSale: number | null | undefined,
+  invoiceNumber: number | null | undefined
+): string {
+  if (pointOfSale == null && invoiceNumber == null) return '—';
+  const pv = pointOfSale != null ? String(pointOfSale).padStart(4, '0') : '----';
+  const num = invoiceNumber != null ? String(invoiceNumber).padStart(8, '0') : '--------';
+  return `${pv}-${num}`;
+}
+
+/**
+ * Formatea la etiqueta completa de un comprobante (FACA 0001-00000001)
+ * Uso consistente en toda la UI para identificar comprobantes
+ * @param invoiceType Código ARCA del tipo de comprobante
+ * @param pointOfSale Punto de venta
+ * @param invoiceNumber Número de factura
+ * @returns Etiqueta completa formateada
+ */
+export function formatInvoiceLabel(
+  invoiceType: number | null | undefined,
+  pointOfSale: number | null | undefined,
+  invoiceNumber: number | null | undefined
+): string {
+  const type = getFriendlyType(invoiceType);
+  const number = formatInvoiceNumber(pointOfSale, invoiceNumber);
+  return `${type} ${number}`;
+}
+
+/**
  * Formatea el nombre de un emisor para mostrar en UI
  * Retorna versión corta y completa para usar con tooltip
  * @param name Nombre del emisor (puede ser null/undefined)

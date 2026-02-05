@@ -15,6 +15,12 @@ export interface ExpectedInvoiceSummary {
   invoiceNumber: number;
   total?: number | null;
   status?: string;
+  categoryId?: number | null;
+}
+
+export interface ExpectedCandidate extends ExpectedInvoiceSummary {
+  matchScore: number;
+  matchedFields: string[];
 }
 
 export interface InvoiceUpdateData {
@@ -59,6 +65,41 @@ class ComprobanteService {
     } catch (err) {
       console.error('Error fetching expected invoices:', err);
       return { success: false, error: 'Error al cargar facturas esperadas' };
+    }
+  }
+
+  /**
+   * Search expected invoices with scoring based on extracted data
+   */
+  async searchExpectedCandidates(criteria: {
+    cuit?: string;
+    invoiceType?: number | null;
+    pointOfSale?: number;
+    invoiceNumber?: number;
+    issueDate?: string;
+    total?: number;
+    limit?: number;
+  }): Promise<ApiResult<ExpectedCandidate[]>> {
+    try {
+      const params = new URLSearchParams();
+      if (criteria.cuit) params.set('cuit', criteria.cuit);
+      if (criteria.invoiceType != null) params.set('type', String(criteria.invoiceType));
+      if (criteria.pointOfSale != null) params.set('pointOfSale', String(criteria.pointOfSale));
+      if (criteria.invoiceNumber != null)
+        params.set('invoiceNumber', String(criteria.invoiceNumber));
+      if (criteria.issueDate) params.set('date', criteria.issueDate);
+      if (criteria.total != null) params.set('total', String(criteria.total));
+      if (criteria.limit != null) params.set('limit', String(criteria.limit));
+
+      const response = await fetch(`/api/expected-invoices/search?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, data: data.candidates || [] };
+      }
+      return { success: false, error: 'Error al buscar candidatos' };
+    } catch (err) {
+      console.error('Error searching expected candidates:', err);
+      return { success: false, error: 'Error al buscar candidatos' };
     }
   }
 

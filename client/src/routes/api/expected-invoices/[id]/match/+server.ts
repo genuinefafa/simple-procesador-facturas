@@ -128,8 +128,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
     fileRepo.updateStatus(fileId, 'processed');
     console.info(`   🔗 Archivo marcado como procesado`);
 
-    // Marcar expected invoice como matched
-    await expectedRepo.markAsMatched(parseInt(id), fileId, invoice.id);
+    // Marcar expected invoice como matched (el status se actualiza porque ya hay factura vinculada)
+    expectedRepo.updateStatus(parseInt(id), 'matched');
     console.info(`   ✅ Factura esperada marcada como matched`);
 
     return json({
