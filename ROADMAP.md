@@ -33,27 +33,33 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 
 | Orden | Issue | Título | Tipo | Esfuerzo | Estado |
 |-------|-------|--------|------|----------|--------|
-| 4 | #120 | Balancear expected invoices (FAC ↔ NCR) | Feature | Alto | → M8 |
+| 4 | #120 | ~~Balancear expected invoices (FAC ↔ NCR)~~ | Feature | Alto | ✅ PR #148 |
 | 5 | #76 | ~~Múltiples métodos de extracción por archivo~~ | Feature | Alto | ✅ Completado |
 | 6 | #135 | ~~Buscador manual de expected invoices~~ | Feature | Medio | ✅ Completado |
 | - | #60 | ~~Extracción QR ARCA~~ | Feature | Medio | ✅ Completado |
 
-### Fase 3: Tech Debt Estratégico (En progreso - M8)
+### ~~Fase 3: Balance Groups~~ ✅ Completada
+*Objetivo: Resolver expected invoices anuladas sin PDF*
+
+| Orden | Issue | Título | Tipo | Esfuerzo | Estado |
+|-------|-------|--------|------|----------|--------|
+| 7 | #120 | Balancear expected invoices (FAC ↔ NCR) | Feature | Alto | ✅ PR #148 |
+
+### Fase 4: Tech Debt Estratégico (M8)
 *Objetivo: Simplificar el modelo de datos*
 
 | Orden | Issue | Título | Tipo | Esfuerzo | Prioridad |
 |-------|-------|--------|------|----------|-----------|
-| 7 | #91 | Separar storage de OCR | Refactor | Bajo | ⬆️ Alta |
-| 8 | #92 | Limpiar campos legacy en tabla facturas | Refactor | Bajo | ⬆️ Alta |
-| 9 | #146 | Eliminar campo status de expected_invoices | Refactor | Bajo | Media |
-| 10 | #123 | Derivar estados desde FKs | Refactor | Medio | Media |
+| 8 | #91 | Separar storage de OCR | Refactor | Bajo | ⬆️ Alta |
+| 9 | #92 | Limpiar campos legacy en tabla facturas | Refactor | Bajo | ⬆️ Alta |
+| 10 | #146 | Eliminar campo status de expected_invoices | Refactor | Bajo | Media |
+| 11 | #123 | Derivar estados desde FKs | Refactor | Medio | Media |
 
-### Fase 4: Robustez y Calidad (M8)
+### Fase 5: Robustez y Calidad (M8)
 *Objetivo: Estabilidad y UX avanzada*
 
 | Orden | Issue | Título | Tipo | Esfuerzo | Prioridad |
 |-------|-------|--------|------|----------|-----------|
-| 11 | #120 | Balancear expected invoices (FAC ↔ NCR) | Feature | Alto | ⬆️ Alta |
 | 12 | #56 | Detector de duplicados + merge de facturas | Feature | Alto | Media |
 | 13 | #51 | Operaciones batch en listado | Feature | Medio | Baja |
 | 14 | #119 | Tests E2E con Playwright | QA | Alto | Paralelo |
@@ -79,8 +85,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 1. #91 - Separar storage de OCR (Low)
 2. #92 - Limpiar campos legacy (Low)
 3. #146 - Eliminar campo status expected_invoices (Low)
-4. #120 - Balancear expected invoices (High)
-5. #56 - Detector duplicados (High)
+4. #56 - Detector duplicados (High)
 
 **Otros:**
 - [ ] #51 - Operaciones batch
@@ -90,6 +95,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [ ] #89 - Contratos Zod completos
 - [x] #79 - Rediseño vista detalle
 - [x] #135 - Buscador manual expected invoices
+- [x] #120 - Balancear expected invoices (PR #148)
 
 ### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
 - [x] #76 - Múltiples métodos extracción
