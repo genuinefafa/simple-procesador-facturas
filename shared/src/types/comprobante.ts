@@ -32,8 +32,12 @@ export type Expected = {
   pointOfSale: number;
   invoiceNumber: number;
   total?: number | null;
-  status?: "pending" | "matched";
+  status?: "pending" | "matched" | "balanced";
   categoryId?: number | null;
+  /** Balance group: NULL = principal o sin grupo, ID = apunta al principal */
+  balancedWithId?: number | null;
+  /** Computed: true if this is the principal of a balance group */
+  isBalanceGroupPrincipal?: boolean;
 };
 
 export type FileExtractionRecord = {
@@ -81,7 +85,7 @@ export type Match = {
   pointOfSale: number;
   invoiceNumber: number;
   total?: number | null;
-  status?: "pending" | "matched";
+  status?: "pending" | "matched" | "balanced";
   matchScore: number;
   matchedFields?: string[];
   categoryId?: number | null;

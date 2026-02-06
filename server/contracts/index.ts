@@ -20,9 +20,21 @@ export {
   // API schemas
   InvoicePatchSchema,
   ExpectedInvoicePatchSchema,
+  // Balance group schemas
+  BalanceGroupAddSchema,
+  BalanceGroupSetPrincipalSchema,
+  BalanceGroupMemberSchema,
+  BalanceGroupResponseSchema,
 } from './schemas.js';
 
-export type { InvoicePatchInput, ExpectedInvoicePatchInput } from './schemas.js';
+export type {
+  InvoicePatchInput,
+  ExpectedInvoicePatchInput,
+  BalanceGroupAddInput,
+  BalanceGroupSetPrincipalInput,
+  BalanceGroupMember,
+  BalanceGroupResponse,
+} from './schemas.js';
 
 // Utilities
 export { formatZodError } from './utils.js';

@@ -1,6 +1,6 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2026-02-03)
+## Estado Actual (2026-02-05)
 
 | Área | Estado | Notas |
 |------|--------|-------|
@@ -28,32 +28,41 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 
 → **M7 Cerrado** ✅
 
-### Fase 2: Features Core (En progreso)
+### ~~Fase 2: Features Core~~ ✅ Completada
 *Objetivo: Funcionalidades de alto valor*
 
 | Orden | Issue | Título | Tipo | Esfuerzo | Estado |
 |-------|-------|--------|------|----------|--------|
-| 4 | #120 | Balancear expected invoices (FAC ↔ NCR) | Feature | Alto | Pendiente |
-| 5 | #76 | Múltiples métodos de extracción por archivo | Feature | Alto | ✅ Completado |
-| 6 | #135 | Buscador manual de expected invoices | Feature | Medio | Pendiente |
+| 4 | #120 | ~~Balancear expected invoices (FAC ↔ NCR)~~ | Feature | Alto | ✅ PR #148 |
+| 5 | #76 | ~~Múltiples métodos de extracción por archivo~~ | Feature | Alto | ✅ Completado |
+| 6 | #135 | ~~Buscador manual de expected invoices~~ | Feature | Medio | ✅ Completado |
+| - | #60 | ~~Extracción QR ARCA~~ | Feature | Medio | ✅ Completado |
 
-### Fase 3: Tech Debt Estratégico
+### ~~Fase 3: Balance Groups~~ ✅ Completada
+*Objetivo: Resolver expected invoices anuladas sin PDF*
+
+| Orden | Issue | Título | Tipo | Esfuerzo | Estado |
+|-------|-------|--------|------|----------|--------|
+| 7 | #120 | Balancear expected invoices (FAC ↔ NCR) | Feature | Alto | ✅ PR #148 |
+
+### Fase 4: Tech Debt Estratégico (M8)
 *Objetivo: Simplificar el modelo de datos*
 
-| Orden | Issue | Título | Tipo | Esfuerzo |
-|-------|-------|--------|------|----------|
-| 7 | #91 | Verificar/cerrar: separar storage de OCR | Verificar | Bajo |
-| 8 | #123 | Derivar estados desde FKs (eliminar campo status) | Refactor | Medio |
-| 9 | #92 | Limpiar campos legacy en tabla facturas | Refactor | Bajo |
+| Orden | Issue | Título | Tipo | Esfuerzo | Prioridad |
+|-------|-------|--------|------|----------|-----------|
+| 8 | #91 | Separar storage de OCR | Refactor | Bajo | ⬆️ Alta |
+| 9 | #92 | Limpiar campos legacy en tabla facturas | Refactor | Bajo | ⬆️ Alta |
+| 10 | #146 | Eliminar campo status de expected_invoices | Refactor | Bajo | Media |
+| 11 | #123 | Derivar estados desde FKs | Refactor | Medio | Media |
 
-### Fase 4: Robustez y Calidad
+### Fase 5: Robustez y Calidad (M8)
 *Objetivo: Estabilidad y UX avanzada*
 
-| Orden | Issue | Título | Tipo | Esfuerzo |
-|-------|-------|--------|------|----------|
-| 10 | #56 | Detector de duplicados + merge de facturas | Feature | Alto |
-| 11 | #51 | Operaciones batch en listado | Feature | Medio |
-| 12 | #119 | Tests E2E con Playwright | QA | Alto |
+| Orden | Issue | Título | Tipo | Esfuerzo | Prioridad |
+|-------|-------|--------|------|----------|-----------|
+| 12 | #56 | Detector de duplicados + merge de facturas | Feature | Alto | Media |
+| 13 | #51 | Operaciones batch en listado | Feature | Medio | Baja |
+| 14 | #119 | Tests E2E con Playwright | QA | Alto | Paralelo |
 
 ---
 
@@ -71,20 +80,30 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [x] #63 - Migrar Dialog a Melt Next
 - [x] #55 - Categoría en expected invoices
 
-### M8: UX & Data Quality (Q1 2026)
-- [ ] #120 - Balancear expected invoices
-- [ ] #56 - Detector duplicados
+### M8: UX & Data Quality (Q1 2026) - Sprint Activo
+**Prioridades sugeridas:**
+1. #91 - Separar storage de OCR (Low)
+2. #92 - Limpiar campos legacy (Low)
+3. #146 - Eliminar campo status expected_invoices (Low)
+4. #56 - Detector duplicados (High)
+
+**Otros:**
 - [ ] #51 - Operaciones batch
 - [ ] #119 - Tests E2E Playwright
-- [ ] #92 - Limpiar campos legacy
 - [ ] #123 - Derivar estados desde FKs
+- [ ] #36 - Auditoría cambios
+- [ ] #89 - Contratos Zod completos
 - [x] #79 - Rediseño vista detalle
+- [x] #135 - Buscador manual expected invoices
+- [x] #120 - Balancear expected invoices (PR #148)
 
 ### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
 - [x] #76 - Múltiples métodos extracción
-- [ ] #60 - Códigos ARCA nativos en extractores
+- [x] #60 - Extracción QR ARCA
 - [ ] #54 - Simplificar algoritmo matching
 - [ ] #93 - Testing extracción docs confidenciales
+- [ ] #129 - Importar desglose impositivo ARCA
+- [ ] #134 - Receptores conocidos en JSON
 
 ### M10: Cloud Sync (Q2 2026)
 - [ ] #122 - Integración ARCA descarga automática
@@ -96,24 +115,17 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 Issues depriorizados o en espera de mejor definición:
 - #78 - Mejorar TopBar Search (reemplazado por #136)
 - #82 - Copiar lista al portapapeles
-- #89 - Contratos Zod completos
 - #99 - Estrategia tipos fechas
 - #100 - Renombrar endpoint process → extract
-- #101 - Separar DocumentType
+- #128 - OR en filtros con coma
 - #130 - Dashboard rediseño LayerChart
-- #134 - Receptores en config JSON
+- #140 - Migrar íconos Unicode restantes
 
 ---
 
 ## Issues sin asignar a milestone
 
-Pendientes de clasificar o relacionados con fases actuales:
-
-| Issue | Título | Sugerencia |
-|-------|--------|------------|
-| #135 | Buscador manual expected invoices | Fase 2 (relacionado #120) |
-| #128 | OR en filtros con coma | M7 o Icebox |
-| #129 | Importar desglose impositivo ARCA | M9 |
+✅ **Todos los issues tienen milestone asignado** (actualizado 2026-02-05)
 
 ---
 
@@ -175,4 +187,4 @@ npm run db:studio        # GUI Drizzle
 
 ---
 
-**Última actualización**: 2026-02-03
+**Última actualización**: 2026-02-05

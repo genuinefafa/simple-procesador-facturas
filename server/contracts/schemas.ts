@@ -136,3 +136,66 @@ export const ExpectedInvoicePatchSchema = z
   });
 
 export type ExpectedInvoicePatchInput = z.infer<typeof ExpectedInvoicePatchSchema>;
+
+// =============================================================================
+// Balance Group Schemas
+// =============================================================================
+
+/**
+ * Schema for POST /api/expected-invoices/:id/balance
+ * Adds an expected invoice to the balance group
+ */
+export const BalanceGroupAddSchema = z.object({
+  /** ID of the expected invoice to add to the group */
+  expectedId: z.number().int().positive({
+    message: 'ID del expected invoice es requerido',
+  }),
+});
+
+export type BalanceGroupAddInput = z.infer<typeof BalanceGroupAddSchema>;
+
+/**
+ * Schema for PATCH /api/expected-invoices/:id/balance
+ * Changes the principal of a balance group
+ */
+export const BalanceGroupSetPrincipalSchema = z.object({
+  /** ID of the expected invoice that will become the new principal */
+  newPrincipalId: z.number().int().positive({
+    message: 'ID del nuevo principal es requerido',
+  }),
+});
+
+export type BalanceGroupSetPrincipalInput = z.infer<typeof BalanceGroupSetPrincipalSchema>;
+
+/**
+ * Balance group member info returned by API
+ */
+export const BalanceGroupMemberSchema = z.object({
+  id: z.number(),
+  cuit: z.string(),
+  emitterName: z.string().nullable(),
+  invoiceType: z.number().nullable(),
+  pointOfSale: z.number(),
+  invoiceNumber: z.number(),
+  total: z.number().nullable(),
+  issueDate: z.string(),
+  isPrincipal: z.boolean(),
+});
+
+export type BalanceGroupMember = z.infer<typeof BalanceGroupMemberSchema>;
+
+/**
+ * Balance group response from GET/POST endpoints
+ */
+export const BalanceGroupResponseSchema = z.object({
+  /** ID of the principal (group ID) */
+  principalId: z.number(),
+  /** All members including principal */
+  members: z.array(BalanceGroupMemberSchema),
+  /** Sum of all totals */
+  total: z.number(),
+  /** True if |total| <= $10 */
+  isBalanced: z.boolean(),
+});
+
+export type BalanceGroupResponse = z.infer<typeof BalanceGroupResponseSchema>;

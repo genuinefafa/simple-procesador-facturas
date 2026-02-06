@@ -56,6 +56,12 @@ export {
   Cloud,
   Package,
   Inbox,
+
+  // Balance
+  Scale,
+  Link2,
+  Unlink2,
+  Star,
 } from 'lucide-svelte';
 
 /**

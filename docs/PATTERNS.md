@@ -1,7 +1,7 @@
 # Patrones de Arquitectura
 
-**Versión**: v0.5.0
-**Última actualización**: 2026-01-26
+**Versión**: v0.6.0
+**Última actualización**: 2026-02-05
 
 Este documento describe los patrones arquitectónicos implementados en el proyecto, con énfasis en principios SOLID.
 
@@ -464,7 +464,104 @@ El wrapper debe tener `position: relative` y el content debe tener `position: ab
 
 ---
 
-## 7. Patrones Adicionales
+## 7. CSS/Layout Patterns
+
+### Tablas con Columnas Alineadas
+
+Para layouts tabulares donde las columnas deben estar perfectamente alineadas entre filas, usar HTML `<table>` con `<tbody>` y `<tfoot>`:
+
+```svelte
+<table class="data-table">
+  <tbody>
+    {#each items as item}
+      <tr>
+        <td class="col-label">{item.label}</td>
+        <td class="col-value">{item.value}</td>
+        <td class="col-actions">...</td>
+      </tr>
+    {/each}
+  </tbody>
+  <tfoot>
+    <tr class="total-row">
+      <td>Total</td>
+      <td>{total}</td>
+      <td></td>
+    </tr>
+  </tfoot>
+</table>
+
+<style>
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--font-size-xs);
+  }
+  .data-table td {
+    padding: 2px var(--spacing-2);
+  }
+</style>
+```
+
+### Paneles Anidados (Evitar "Doble Cuadro")
+
+Cuando un panel contiene otro componente con borde propio, el contenedor **NO debe tener borde**:
+
+```css
+/* ❌ MAL: doble borde */
+.section { border: 1px solid var(--color-border); }
+.panel-inside { border: 1px solid var(--color-border); }
+
+/* ✅ BIEN: solo el hijo tiene borde */
+.section {
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+.panel-inside {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+```
+
+### Columnas Flexibles en Grid
+
+Para que una columna crezca con el viewport pero tenga un mínimo:
+
+```css
+.list-row {
+  display: grid;
+  /* Emisor crece, otras columnas fijas */
+  grid-template-columns: 180px minmax(200px, 1fr) 85px 110px 60px;
+}
+```
+
+### Texto Truncado con CSS (no JS)
+
+No truncar texto en JavaScript cuando CSS puede manejarlo:
+
+```typescript
+// ❌ MAL: truncar en JS
+function getEmitterName(name: string) {
+  return name.length > 20 ? name.slice(0, 20) + '...' : name;
+}
+
+// ✅ BIEN: dejar que CSS lo maneje
+function getEmitterName(name: string) {
+  return name; // CSS hace el truncado si es necesario
+}
+```
+
+```css
+.emitter-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+```
+
+---
+
+## 8. Patrones Adicionales
 
 ### Repository Pattern
 
@@ -502,7 +599,7 @@ export class InvoiceProcessingService {
 
 ---
 
-## 8. Checklist para Nuevos Componentes
+## 9. Checklist para Nuevos Componentes
 
 - [ ] **Tipos**: ¿Hay múltiples modos/variantes? → Crear `Componente.types.ts` con ISP
 - [ ] **API calls**: ¿Múltiples endpoints? → Crear/usar Service
@@ -513,7 +610,7 @@ export class InvoiceProcessingService {
 
 ---
 
-## 9. Referencias
+## 10. Referencias
 
 - [SOLID Principles](https://en.wikipedia.org/wiki/SOLID)
 - [Zod Documentation](https://zod.dev/)
@@ -522,5 +619,5 @@ export class InvoiceProcessingService {
 
 ---
 
-**Última revisión**: 2026-01-26
+**Última revisión**: 2026-02-05
 **Mantenedor**: @fcaldera

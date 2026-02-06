@@ -119,7 +119,8 @@
 
   function getEmitterName(c: Comprobante): { short: string; full: string } {
     const name = c.emitterName || c.final?.emitterName || c.expected?.emitterName;
-    return formatEmitterName(name, 20);
+    // No truncar - dejar que CSS maneje el overflow con text-overflow: ellipsis
+    return { short: name || '', full: name || '' };
   }
 
   function isVisible(c: Comprobante): boolean {
@@ -655,8 +656,8 @@
   .list-head,
   .row {
     display: grid;
-    /* Comprobante | Emisor | Fecha | Total | Categoría | Estado | Hash | Acción */
-    grid-template-columns: 180px 260px 85px 110px 150px 80px 60px 60px;
+    /* Comprobante | Emisor (flexible) | Fecha | Total | Categoría | Estado | Hash | Acción */
+    grid-template-columns: 180px minmax(200px, 1fr) 85px 110px 150px 90px 70px 60px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;

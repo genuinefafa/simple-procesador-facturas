@@ -12,7 +12,38 @@ import {
   type ImportBatch as DrizzelImportBatch,
 } from '../schema';
 
-export type ExpectedInvoiceStatus = 'pending' | 'matched';
+export type ExpectedInvoiceStatus = 'pending' | 'matched' | 'balanced';
+
+/**
+ * Coeficiente de signo por tipo de comprobante ARCA.
+ * Notas de crédito restan (-1), facturas y notas de débito suman (+1).
+ * Fuente: https://www.afip.gob.ar/inversiones-bienes-uso/documentos/tabla-comprobantes-bienes-de-uso.pdf
+ */
+const ARCA_SIGN_MAP: Record<number, -1 | 1> = {
+  // Facturas (+)
+  1: 1,
+  6: 1,
+  11: 1,
+  19: 1,
+  51: 1,
+  // Notas de Crédito (-)
+  3: -1,
+  8: -1,
+  13: -1,
+  21: -1,
+  53: -1,
+  // Notas de Débito (+)
+  2: 1,
+  7: 1,
+  12: 1,
+  20: 1,
+  52: 1,
+};
+
+function getInvoiceSign(invoiceType: number | null): 1 | -1 {
+  if (invoiceType === null) return 1;
+  return ARCA_SIGN_MAP[invoiceType] ?? 1;
+}
 
 export interface ExpectedInvoice {
   id: number;
@@ -31,6 +62,8 @@ export interface ExpectedInvoice {
   categoryId: number | null;
   importDate: string | null;
   notes: string | null;
+  // Balance group: NULL = principal o sin grupo, ID = apunta al principal
+  balancedWithId: number | null;
 }
 
 export interface ImportBatch {
@@ -77,6 +110,7 @@ export interface IExpectedInvoiceRepository {
     offset?: number;
   }): Promise<ExpectedInvoice[]>;
   updateStatus(id: number, status: ExpectedInvoiceStatus): void;
+  getPrincipalIds(): Promise<Set<number>>;
 }
 
 export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
@@ -101,6 +135,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       categoryId: row.categoryId || null,
       importDate: row.importDate || null,
       notes: row.notes || null,
+      balancedWithId: row.balancedWithId || null,
     };
   }
 
@@ -776,6 +811,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     const counts: Record<ExpectedInvoiceStatus, number> = {
       pending: 0,
       matched: 0,
+      balanced: 0,
     };
 
     for (const row of result) {
@@ -788,5 +824,282 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
 
   async listPending(limit?: number): Promise<ExpectedInvoice[]> {
     return this.list({ status: 'pending', limit });
+  }
+
+  // =============================================================================
+  // BALANCE GROUPS (FAC + NCR que se anulan mutuamente)
+  // =============================================================================
+
+  /**
+   * Obtiene todos los miembros de un grupo de balance.
+   * Si el ID es de un secundario, busca su principal primero.
+   * @returns Array con principal + secundarios, o solo el invoice si no tiene grupo
+   */
+  async getBalanceGroup(id: number): Promise<ExpectedInvoice[]> {
+    const invoice = await this.findById(id);
+    if (!invoice) return [];
+
+    // Si es secundario, buscar desde el principal
+    const principalId = invoice.balancedWithId ?? id;
+
+    // Obtener principal
+    const principal = invoice.balancedWithId ? await this.findById(principalId) : invoice;
+    if (!principal) return [];
+
+    // Obtener secundarios
+    const secundarios = await db
+      .select()
+      .from(expectedInvoices)
+      .where(eq(expectedInvoices.balancedWithId, principalId));
+
+    // Retornar principal + secundarios
+    return [principal, ...secundarios.map((r) => this.mapDrizzleToExpectedInvoice(r))];
+  }
+
+  /**
+   * Calcula el balance total de un grupo.
+   * Aplica coeficientes según tipo de comprobante:
+   * - Facturas y Notas de Débito: suman (+)
+   * - Notas de Crédito: restan (-)
+   * @returns Suma con signo, miembros del grupo, e indicador si está balanceado (~0)
+   */
+  async calculateGroupBalance(principalId: number): Promise<{
+    total: number;
+    members: Array<{
+      id: number;
+      total: number | null;
+      invoiceType: number | null;
+      signedTotal: number;
+    }>;
+    isBalanced: boolean;
+  }> {
+    const group = await this.getBalanceGroup(principalId);
+
+    const members = group.map((inv) => {
+      const sign = getInvoiceSign(inv.invoiceType);
+      const signedTotal = (inv.total ?? 0) * sign;
+      return {
+        id: inv.id,
+        total: inv.total,
+        invoiceType: inv.invoiceType,
+        signedTotal,
+      };
+    });
+
+    const total = members.reduce((sum, m) => sum + m.signedTotal, 0);
+    const isBalanced = Math.abs(total) <= 10; // Threshold de $10
+
+    return { total, members, isBalanced };
+  }
+
+  /**
+   * Actualiza el status de todos los miembros de un grupo de balance.
+   * Si el grupo está balanceado (total ~$0), status = 'balanced'.
+   * Si no está balanceado, status = 'pending'.
+   * No cambia el status de invoices con status = 'matched'.
+   */
+  async updateGroupStatus(principalId: number): Promise<void> {
+    const { isBalanced } = await this.calculateGroupBalance(principalId);
+    const group = await this.getBalanceGroup(principalId);
+    const newStatus: ExpectedInvoiceStatus = isBalanced ? 'balanced' : 'pending';
+
+    // Actualizar todos los miembros que no estén 'matched'
+    const memberIds = group.map((m) => m.id);
+    if (memberIds.length > 0) {
+      await db
+        .update(expectedInvoices)
+        .set({ status: newStatus })
+        .where(
+          and(inArray(expectedInvoices.id, memberIds), sql`${expectedInvoices.status} != 'matched'`)
+        );
+    }
+  }
+
+  /**
+   * Agrega un expected invoice a un grupo de balance.
+   * El invoice con `principalId` se convierte en principal si no lo era.
+   * @throws Si alguno no existe, ya tiene archivo/factura, o ya pertenece a otro grupo
+   */
+  async addToBalanceGroup(id: number, principalId: number): Promise<void> {
+    if (id === principalId) {
+      throw new Error('No se puede agregar un invoice a sí mismo');
+    }
+
+    const [toAdd, principal] = await Promise.all([this.findById(id), this.findById(principalId)]);
+
+    if (!toAdd) {
+      throw new Error(`Expected invoice ${id} no encontrado`);
+    }
+    if (!principal) {
+      throw new Error(`Expected invoice principal ${principalId} no encontrado`);
+    }
+
+    // Validar que el principal no sea secundario de otro grupo
+    if (principal.balancedWithId !== null) {
+      throw new Error(
+        `El invoice ${principalId} ya pertenece a otro grupo (principal: ${principal.balancedWithId})`
+      );
+    }
+
+    // Validar que el invoice a agregar no tenga archivo/factura vinculada
+    if (toAdd.status === 'matched') {
+      throw new Error(
+        `El invoice ${id} ya tiene una factura asociada y no puede agregarse a un grupo de balance`
+      );
+    }
+
+    // Validar que no pertenezca ya a un grupo (a menos que sea el mismo)
+    if (toAdd.balancedWithId !== null && toAdd.balancedWithId !== principalId) {
+      throw new Error(
+        `El invoice ${id} ya pertenece al grupo del principal ${toAdd.balancedWithId}`
+      );
+    }
+
+    // Agregar al grupo
+    await db
+      .update(expectedInvoices)
+      .set({ balancedWithId: principalId })
+      .where(eq(expectedInvoices.id, id));
+
+    // Actualizar status de todos los miembros según balance
+    await this.updateGroupStatus(principalId);
+  }
+
+  /**
+   * Quita un expected invoice de su grupo de balance.
+   * @throws Si no pertenece a ningún grupo
+   */
+  async removeFromBalanceGroup(id: number): Promise<void> {
+    const invoice = await this.findById(id);
+    if (!invoice) {
+      throw new Error(`Expected invoice ${id} no encontrado`);
+    }
+
+    if (invoice.balancedWithId === null) {
+      // Es principal - verificar si tiene secundarios
+      const secundarios = await db
+        .select()
+        .from(expectedInvoices)
+        .where(eq(expectedInvoices.balancedWithId, id));
+
+      if (secundarios.length === 0) {
+        throw new Error(`El invoice ${id} no pertenece a ningún grupo de balance`);
+      }
+
+      // Es principal con secundarios - no se puede quitar directamente
+      throw new Error(
+        `El invoice ${id} es principal de un grupo con ${secundarios.length} miembros. ` +
+          `Primero disuelva el grupo o cambie el principal.`
+      );
+    }
+
+    const principalId = invoice.balancedWithId;
+
+    // Es secundario - simplemente quitar del grupo y volver a pending
+    await db
+      .update(expectedInvoices)
+      .set({ balancedWithId: null, status: 'pending' })
+      .where(eq(expectedInvoices.id, id));
+
+    // Actualizar status del grupo restante
+    await this.updateGroupStatus(principalId);
+  }
+
+  /**
+   * Disuelve un grupo de balance completo.
+   * Quita la referencia de todos los secundarios y los pone en pending.
+   */
+  async dissolveBalanceGroup(principalId: number): Promise<number> {
+    // Obtener todos los miembros antes de disolver
+    const group = await this.getBalanceGroup(principalId);
+    const memberIds = group.map((m) => m.id);
+
+    // Quitar la referencia de los secundarios
+    const result = await db
+      .update(expectedInvoices)
+      .set({ balancedWithId: null })
+      .where(eq(expectedInvoices.balancedWithId, principalId));
+
+    // Poner todos los miembros en pending (excepto los que tengan matched)
+    if (memberIds.length > 0) {
+      await db
+        .update(expectedInvoices)
+        .set({ status: 'pending' })
+        .where(
+          and(inArray(expectedInvoices.id, memberIds), sql`${expectedInvoices.status} != 'matched'`)
+        );
+    }
+
+    return result.changes;
+  }
+
+  /**
+   * Cambia el principal de un grupo de balance.
+   * El nuevo principal debe ser un miembro actual del grupo.
+   */
+  async setGroupPrincipal(newPrincipalId: number): Promise<void> {
+    const newPrincipal = await this.findById(newPrincipalId);
+    if (!newPrincipal) {
+      throw new Error(`Expected invoice ${newPrincipalId} no encontrado`);
+    }
+
+    // El nuevo principal debe ser un secundario actual
+    if (newPrincipal.balancedWithId === null) {
+      throw new Error(`El invoice ${newPrincipalId} no pertenece a ningún grupo como secundario`);
+    }
+
+    const oldPrincipalId = newPrincipal.balancedWithId;
+
+    // Actualizar todos los secundarios para apuntar al nuevo principal
+    await db
+      .update(expectedInvoices)
+      .set({ balancedWithId: newPrincipalId })
+      .where(eq(expectedInvoices.balancedWithId, oldPrincipalId));
+
+    // El viejo principal también debe apuntar al nuevo
+    await db
+      .update(expectedInvoices)
+      .set({ balancedWithId: newPrincipalId })
+      .where(eq(expectedInvoices.id, oldPrincipalId));
+
+    // El nuevo principal ya no apunta a nadie
+    await db
+      .update(expectedInvoices)
+      .set({ balancedWithId: null })
+      .where(eq(expectedInvoices.id, newPrincipalId));
+  }
+
+  /**
+   * Verifica si un expected invoice tiene grupo de balance
+   */
+  async hasBalanceGroup(id: number): Promise<boolean> {
+    const invoice = await this.findById(id);
+    if (!invoice) return false;
+
+    // Es secundario
+    if (invoice.balancedWithId !== null) return true;
+
+    // Es principal - verificar si tiene secundarios
+    const secundarios = await db
+      .select()
+      .from(expectedInvoices)
+      .where(eq(expectedInvoices.balancedWithId, id))
+      .limit(1);
+
+    return secundarios.length > 0;
+  }
+
+  /**
+   * Obtiene todos los IDs de expected invoices que son principales de un grupo.
+   * Un principal es aquel que tiene al menos un secundario apuntando a él.
+   * @returns Set de IDs de principales
+   */
+  async getPrincipalIds(): Promise<Set<number>> {
+    const result = await db
+      .selectDistinct({ principalId: expectedInvoices.balancedWithId })
+      .from(expectedInvoices)
+      .where(sql`${expectedInvoices.balancedWithId} IS NOT NULL`);
+
+    return new Set(result.map((r) => r.principalId!));
   }
 }
