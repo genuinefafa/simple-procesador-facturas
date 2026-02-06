@@ -6,13 +6,14 @@
    * - FileText: Archivo físico (PDF)
    * - Check: Factura creada
    * - ClipboardList: Vinculada con expected (AFIP)
+   * - Scale: Balanceado (FAC + NCR)
    *
    * El componente encapsula la lógica de determinar qué tiene cada comprobante.
    * Solo necesita recibir el comprobante, no las flags calculadas.
    */
 
   import type { Comprobante } from '$lib/types/comprobante';
-  import { FileText, Check, ClipboardList } from '$lib/components/icons';
+  import { FileText, Check, ClipboardList, Scale } from '$lib/components/icons';
 
   type Props = {
     comprobante: Comprobante;
@@ -24,6 +25,8 @@
   const hasFile = $derived(!!comprobante.file || !!comprobante.final?.fileId);
   const hasFinal = $derived(!!comprobante.final);
   const hasExpected = $derived(!!comprobante.expected || !!comprobante.final?.expectedInvoiceId);
+  // Balance: solo mostrar Scale para el principal del grupo
+  const isBalancePrincipal = $derived(comprobante.expected?.isBalanceGroupPrincipal ?? false);
 </script>
 
 <div class="indicators">
@@ -39,6 +42,13 @@
     title={hasExpected ? 'Vinculada con AFIP' : ''}
   >
     {#if hasExpected}<ClipboardList size={14} />{/if}
+  </span>
+  <span
+    class="indicator balanced"
+    class:empty={!isBalancePrincipal}
+    title={isBalancePrincipal ? 'Principal de grupo de balance' : ''}
+  >
+    {#if isBalancePrincipal}<Scale size={14} />{/if}
   </span>
 </div>
 
@@ -72,5 +82,9 @@
 
   .indicator.expected {
     color: var(--color-warning-600);
+  }
+
+  .indicator.balanced {
+    color: var(--color-primary-600);
   }
 </style>

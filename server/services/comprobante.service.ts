@@ -46,8 +46,10 @@ export class ComprobanteService {
   async listAll(): Promise<Comprobante[]> {
     const invoices = await this.invoiceRepo.list();
     const expectedInvoices = await this.expectedRepo.listWithFiles({
-      status: ['pending'],
+      status: ['pending', 'balanced'],
     });
+    // Get IDs of principals (those that have secundarios pointing to them)
+    const principalIds = await this.expectedRepo.getPrincipalIds();
 
     const uploadedFiles = this.buildUploadedFiles();
 
@@ -79,7 +81,8 @@ export class ComprobanteService {
     const expecteds = this.buildExpecteds(
       expectedInvoices,
       expectedIdsLinkedToInvoice,
-      emitterCache
+      emitterCache,
+      principalIds
     );
 
     for (const e of expecteds) {
@@ -215,22 +218,37 @@ export class ComprobanteService {
   private buildExpecteds(
     expectedInvoices: Awaited<ReturnType<ExpectedInvoiceRepository['listWithFiles']>>,
     linkedIds: Set<number>,
-    emitterCache: Map<string, string | null>
+    emitterCache: Map<string, string | null>,
+    principalIds: Set<number>
   ): Expected[] {
     return expectedInvoices
-      .filter((inv) => !linkedIds.has(inv.id))
-      .map((inv) => ({
-        source: 'expected' as const,
-        id: inv.id,
-        cuit: inv.cuit,
-        emitterName: emitterCache.get(inv.cuit) || inv.emitterName,
-        issueDate: inv.issueDate,
-        invoiceType: inv.invoiceType,
-        pointOfSale: inv.pointOfSale,
-        invoiceNumber: inv.invoiceNumber,
-        total: inv.total,
-        status: inv.status,
-        categoryId: inv.categoryId ?? null,
-      }));
+      .filter((inv) => {
+        // Exclude if already linked to an invoice
+        if (linkedIds.has(inv.id)) return false;
+        // Exclude secundarios from balanced groups - only show the principal
+        // A secundario has balancedWithId pointing to someone else
+        if (inv.balancedWithId !== null) return false;
+        return true;
+      })
+      .map((inv) => {
+        // Only show Scale icon for principals (the ones that "own" the group)
+        const isBalanceGroupPrincipal = principalIds.has(inv.id);
+
+        return {
+          source: 'expected' as const,
+          id: inv.id,
+          cuit: inv.cuit,
+          emitterName: emitterCache.get(inv.cuit) || inv.emitterName,
+          issueDate: inv.issueDate,
+          invoiceType: inv.invoiceType,
+          pointOfSale: inv.pointOfSale,
+          invoiceNumber: inv.invoiceNumber,
+          total: inv.total,
+          status: inv.status,
+          categoryId: inv.categoryId ?? null,
+          balancedWithId: inv.balancedWithId ?? null,
+          isBalanceGroupPrincipal,
+        };
+      });
   }
 }

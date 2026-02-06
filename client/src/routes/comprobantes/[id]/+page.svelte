@@ -7,10 +7,18 @@
   import SourceComparison from '$lib/components/SourceComparison.svelte';
   import InvoiceCard from '$lib/components/InvoiceCard.svelte';
   import EmitterCombobox from '$lib/components/EmitterCombobox.svelte';
+  import BalanceGroupPanel from '$lib/components/BalanceGroupPanel.svelte';
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
   import { invalidateAll, goto } from '$app/navigation';
-  import { formatDateTime, formatDateShort, getFriendlyType, formatCuit } from '$lib/formatters';
+  import {
+    formatDateTime,
+    formatDateShort,
+    getFriendlyType,
+    formatCuit,
+    formatInvoiceLabel,
+    formatCurrency,
+  } from '$lib/formatters';
   import { createInvoiceForm } from '$lib/stores/createInvoiceForm.svelte';
   import { createEmitterResolver } from '$lib/stores/emitterResolver.svelte';
   import { createDeleteHandler } from '$lib/stores/deleteInvoice.svelte';
@@ -19,6 +27,7 @@
     type ExpectedInvoiceSummary,
     type ExpectedCandidate,
     type ExtractionMethod,
+    type BalanceGroup,
   } from '$lib/services/ComprobanteService';
 
   let { data } = $props();
@@ -34,6 +43,11 @@
   let linkExpectedDialogOpen = $state(false);
   let sourceComparisonRef: SourceComparison | null = $state(null);
   let availableExpected = $state<ExpectedInvoiceSummary[]>([]);
+
+  // Balance group state (for expected invoices without files)
+  let balanceGroup = $state<BalanceGroup | null>(null);
+  let loadingBalance = $state(false);
+  let balanceSearchDialogOpen = $state(false);
   // Candidatos automáticos (del scoring basado en extracción)
   let autoCandidates = $state<ExpectedCandidate[]>([]);
   // Candidatos agregados manualmente desde el diálogo de búsqueda
@@ -244,10 +258,117 @@
       selectedEmitterForSearch = null;
       availableExpected = [];
       manualCandidates = [];
+      // Reset balance group state
+      balanceGroup = null;
 
       lastComprobanteId = comprobante.id;
     }
   });
+
+  // Load balance group for expected invoices without files
+  $effect(() => {
+    if (comprobante.kind === 'expected' && comprobante.expected && !comprobante.file) {
+      loadBalanceGroup(comprobante.expected.id);
+    }
+  });
+
+  async function loadBalanceGroup(expectedId: number) {
+    loadingBalance = true;
+    const result = await comprobanteService.getBalanceGroup(expectedId);
+    if (result.success) {
+      balanceGroup = result.data ?? null;
+    } else {
+      console.error('Error loading balance group:', result.error);
+    }
+    loadingBalance = false;
+  }
+
+  function openBalanceSearchDialog() {
+    // Pre-select the emitter from current expected invoice
+    if (comprobante.expected?.cuit) {
+      const cuit = comprobante.expected.cuit;
+      const name = comprobante.expected.emitterName || comprobante.emitterName || cuit;
+      selectedEmitterForSearch = { cuit, name };
+      searchExpectedByEmitter({ cuit, name });
+    }
+    balanceSearchDialogOpen = true;
+  }
+
+  async function handleAddToBalance(expectedId: number) {
+    if (!comprobante.expected) return;
+
+    const result = await comprobanteService.addToBalanceGroup(comprobante.expected.id, expectedId);
+
+    if (result.success) {
+      toast.success('Comprobante agregado al grupo de balance');
+      if (result.warnings) {
+        for (const warning of result.warnings) {
+          toast.warning(warning);
+        }
+      }
+      balanceSearchDialogOpen = false;
+      // Refresh all page data (including comprobante status)
+      await invalidateAll();
+      // Re-load balance group from updated data
+      if (comprobante.expected) {
+        await loadBalanceGroup(comprobante.expected.id);
+      }
+    } else {
+      toast.error(result.error || 'Error al agregar al grupo');
+    }
+  }
+
+  async function handleRemoveFromBalance(memberId: number) {
+    if (!comprobante.expected || !balanceGroup) return;
+
+    const result = await comprobanteService.removeFromBalanceGroup(
+      balanceGroup.principalId,
+      memberId
+    );
+
+    if (result.success) {
+      toast.success('Comprobante quitado del grupo');
+      await invalidateAll();
+      if (comprobante.expected) {
+        await loadBalanceGroup(comprobante.expected.id);
+      }
+    } else {
+      toast.error(result.error || 'Error al quitar del grupo');
+    }
+  }
+
+  async function handleSetBalancePrincipal(memberId: number) {
+    if (!comprobante.expected || !balanceGroup) return;
+
+    const result = await comprobanteService.setBalanceGroupPrincipal(
+      balanceGroup.principalId,
+      memberId
+    );
+
+    if (result.success) {
+      toast.success('Principal del grupo cambiado');
+      await invalidateAll();
+      if (comprobante.expected) {
+        await loadBalanceGroup(comprobante.expected.id);
+      }
+    } else {
+      toast.error(result.error || 'Error al cambiar el principal');
+    }
+  }
+
+  async function handleDissolveBalanceGroup() {
+    if (!comprobante.expected || !balanceGroup) return;
+
+    const result = await comprobanteService.dissolveBalanceGroup(balanceGroup.principalId);
+
+    if (result.success) {
+      toast.success('Grupo de balance disuelto');
+      balanceGroup = null;
+      await invalidateAll();
+    } else {
+      toast.error(result.error || 'Error al disolver el grupo');
+    }
+  }
 
   // Computed matches: usa override si existe, sino los del comprobante
   const localMatches = $derived(matchesOverride ?? comprobante.matches ?? []);
@@ -594,6 +715,7 @@
             extractions={comprobante.file?.extractions ?? []}
             expected={bestExpected}
             alternativeExpected={alternativeCandidates}
+            readonly={isExpectedWithoutFile}
             oncreatefromfile={() => {
               if (comprobante.file) {
                 invoiceForm.populateFromFile(comprobante.file);
@@ -756,11 +878,28 @@
       {:else if !isExpectedWithoutFile}
         <!-- El SourceComparison ya se muestra arriba, no necesitamos más acá -->
 
-        <!-- Expected sin archivo: mensaje informativo -->
+        <!-- Expected sin archivo: Balance Group (arriba) + mensaje informativo (abajo) -->
       {:else}
+        <!-- Balance Group Panel - separado del mensaje informativo -->
+        {#if comprobante.expected}
+          <section class="section balance-section">
+            <BalanceGroupPanel
+              expectedId={comprobante.expected.id}
+              group={balanceGroup}
+              loading={loadingBalance}
+              onadd={openBalanceSearchDialog}
+              onremove={handleRemoveFromBalance}
+              onsetprincipal={handleSetBalancePrincipal}
+              ondissolve={handleDissolveBalanceGroup}
+              onmemberclick={(memberId) => goto(`/comprobantes/expected:${memberId}`)}
+            />
+          </section>
+        {/if}
+
+        <!-- Mensaje informativo sobre factura sin archivo -->
         <section class="section factura-section">
           <div class="alert alert-info">
-            <strong>📋 Factura esperada sin archivo</strong>
+            <strong>Factura esperada sin archivo</strong>
             <p>
               Esta factura está registrada en el sistema pero aún no tiene un comprobante digital
               asociado.
@@ -770,7 +909,7 @@
               Luego el sistema lo vinculará automáticamente con esta expected y podrás finalizarla.
             </p>
             <Button size="sm" variant="secondary" onclick={() => goto('/comprobantes')}>
-              ← Ir a Comprobantes
+              Ir a Comprobantes
             </Button>
           </div>
         </section>
@@ -905,6 +1044,75 @@
   </div>
 </Dialog>
 
+<!-- Dialog para buscar expected invoices para Balance Group -->
+<Dialog bind:open={balanceSearchDialogOpen} title="Agregar a grupo de balance">
+  <div class="link-expected-content">
+    <EmitterCombobox
+      value={selectedEmitterForSearch
+        ? {
+            id: 0,
+            cuit: selectedEmitterForSearch.cuit,
+            name: selectedEmitterForSearch.name,
+            displayName: selectedEmitterForSearch.name,
+          }
+        : null}
+      onselect={(emitter) => {
+        if (emitter) {
+          selectedEmitterForSearch = { cuit: emitter.cuit, name: emitter.name };
+          searchExpectedByEmitter({ cuit: emitter.cuit, name: emitter.name });
+        } else {
+          selectedEmitterForSearch = null;
+          availableExpected = [];
+        }
+      }}
+    />
+
+    {#if selectedEmitterForSearch}
+      <div class="balance-search-results">
+        {#if loadingExpected}
+          <p class="loading-text">Buscando facturas pendientes...</p>
+        {:else if availableExpected.length === 0}
+          <p class="empty-text">No hay facturas pendientes de este emisor.</p>
+        {:else}
+          <p class="result-count">{availableExpected.length} factura(s) pendiente(s)</p>
+          <div class="balance-candidate-list">
+            {#each availableExpected as exp (exp.id)}
+              {@const isCurrentExpected = exp.id === comprobante.expected?.id}
+              {@const isAlreadyInGroup = balanceGroup?.members.some((m) => m.id === exp.id)}
+              <button
+                type="button"
+                class="balance-candidate"
+                class:disabled={isCurrentExpected || isAlreadyInGroup}
+                disabled={isCurrentExpected || isAlreadyInGroup}
+                onclick={() => handleAddToBalance(exp.id)}
+              >
+                <span class="candidate-label">
+                  {formatInvoiceLabel(exp.invoiceType, exp.pointOfSale, exp.invoiceNumber)}
+                </span>
+                <span class="candidate-date">{formatDateShort(exp.issueDate)}</span>
+                <span class="candidate-total">{formatCurrency(exp.total)}</span>
+                <span class="candidate-actions">
+                  {#if isCurrentExpected}
+                    <span class="candidate-badge">actual</span>
+                  {:else if isAlreadyInGroup}
+                    <span class="candidate-badge">en grupo</span>
+                  {/if}
+                </span>
+              </button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {:else}
+      <p class="hint-text">Seleccioná un emisor para ver sus facturas pendientes.</p>
+    {/if}
+
+    <div class="dialog-actions">
+      <Button variant="secondary" onclick={() => (balanceSearchDialogOpen = false)}>Cerrar</Button>
+    </div>
+  </div>
+</Dialog>
+
 <style>
   .container {
     max-width: 1400px;
@@ -1028,6 +1236,14 @@
     background: white;
     border-radius: var(--radius-sm);
     border-left: 3px solid var(--color-primary-600);
+  }
+
+  /* Balance section - sin borde propio, integrado con el panel padre */
+  .balance-section {
+    margin-top: var(--spacing-4);
+    border: none;
+    padding: 0;
+    background: transparent;
   }
 
   /* Expected indicator */
@@ -1224,5 +1440,96 @@
     background: var(--color-primary-100);
     color: var(--color-primary-700);
     margin-left: auto;
+  }
+
+  /* Balance search dialog - table-like results */
+  .balance-search-results {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+
+  .result-count {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+
+  .hint-text {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    text-align: center;
+    padding: var(--spacing-4);
+  }
+
+  .balance-candidate-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    max-height: 300px;
+    overflow-y: auto;
+  }
+
+  .balance-candidate {
+    display: grid;
+    grid-template-columns: 1fr auto auto 4.5rem;
+    align-items: center;
+    gap: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition:
+      background var(--transition-fast),
+      border-color var(--transition-fast);
+    text-align: left;
+  }
+
+  .balance-candidate:hover:not(:disabled) {
+    background: var(--color-primary-50);
+    border-color: var(--color-primary-300);
+  }
+
+  .balance-candidate.disabled,
+  .balance-candidate:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .candidate-label {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    white-space: nowrap;
+  }
+
+  .candidate-date {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+  }
+
+  .candidate-total {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-medium);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .candidate-actions {
+    display: flex;
+    justify-content: flex-end;
+    min-width: 4.5rem;
+  }
+
+  .candidate-badge {
+    font-size: var(--font-size-xs);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    background: var(--color-primary-100);
+    color: var(--color-primary-700);
+    white-space: nowrap;
   }
 </style>

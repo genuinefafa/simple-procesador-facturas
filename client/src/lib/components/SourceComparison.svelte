@@ -108,6 +108,8 @@
     onfilecategorychange?: (categoryId: number | null) => void;
     /** Callback cuando cambia la categoría del expected */
     onexpectedcategorychange?: (categoryId: number | null) => void;
+    /** Modo solo lectura: oculta botones de acción */
+    readonly?: boolean;
   };
 
   let {
@@ -125,6 +127,7 @@
     categories = [],
     onfilecategorychange,
     onexpectedcategorychange,
+    readonly = false,
   }: Props = $props();
 
   // Selected extraction ID (defaults to first/most recent)
@@ -429,24 +432,26 @@
           </div>
         </div>
 
-        <div class="column-actions">
-          {#if onreprocess}
-            <button
-              type="button"
-              class="icon-btn"
-              onclick={() => (reprocessDialogOpen = true)}
-              disabled={processing}
-              title="Reprocesar con otro método"
-            >
-              <RefreshCw size={14} />
-            </button>
-          {/if}
-          {#if oncreatefromfile}
-            <Button variant="primary" size="sm" onclick={oncreatefromfile} disabled={processing}>
-              Usar estos datos
-            </Button>
-          {/if}
-        </div>
+        {#if !readonly}
+          <div class="column-actions">
+            {#if onreprocess}
+              <button
+                type="button"
+                class="icon-btn"
+                onclick={() => (reprocessDialogOpen = true)}
+                disabled={processing}
+                title="Reprocesar con otro método"
+              >
+                <RefreshCw size={14} />
+              </button>
+            {/if}
+            {#if oncreatefromfile}
+              <Button variant="primary" size="sm" onclick={oncreatefromfile} disabled={processing}>
+                Usar estos datos
+              </Button>
+            {/if}
+          </div>
+        {/if}
       </div>
     {/if}
 
@@ -525,11 +530,12 @@
 
           <div class="header-selector-row">
             {#if hasAlternatives}
-              <div class="expected-select-wrapper">
+              <div class="expected-select-wrapper" class:readonly>
                 <button
                   {...expectedSelect.trigger}
                   class="extraction-trigger"
-                  disabled={processing}
+                  class:readonly
+                  disabled={processing || readonly}
                 >
                   <span class="trigger-text">
                     {#if expected}
@@ -542,48 +548,52 @@
                       Seleccionar
                     {/if}
                   </span>
-                  <ChevronDown size={14} />
+                  {#if !readonly}
+                    <ChevronDown size={14} />
+                  {/if}
                 </button>
 
-                <div {...expectedSelect.content} class="extraction-content expected-content">
-                  {#each alternativeExpected.slice(0, 6) as alt (alt.id)}
-                    {@const altLabel = formatInvoiceLabel(
-                      alt.invoiceType,
-                      alt.pointOfSale,
-                      alt.invoiceNumber
-                    )}
-                    {@const isCurrentlyViewing = alt.id === expected?.id}
-                    <div
-                      {...expectedSelect.getOption(alt.id, altLabel)}
-                      class="extraction-option"
-                      class:selected={isCurrentlyViewing}
-                    >
-                      <span class="option-text">{altLabel}</span>
-                      {#if isCurrentlyViewing}
-                        <Check size={14} />
-                      {:else}
-                        <span
-                          class="confidence-badge {alt.matchScore >= 80
-                            ? 'high'
-                            : alt.matchScore >= 50
-                              ? 'medium'
-                              : 'low'}"
-                        >
-                          {alt.matchScore}%
-                        </span>
-                      {/if}
-                    </div>
-                  {/each}
-                  {#if onsearchexpected}
-                    <div
-                      {...expectedSelect.getOption('search', 'Buscar más...')}
-                      class="extraction-option search-more"
-                    >
-                      <Search size={14} />
-                      <span class="option-text">Buscar más...</span>
-                    </div>
-                  {/if}
-                </div>
+                {#if !readonly}
+                  <div {...expectedSelect.content} class="extraction-content expected-content">
+                    {#each alternativeExpected.slice(0, 6) as alt (alt.id)}
+                      {@const altLabel = formatInvoiceLabel(
+                        alt.invoiceType,
+                        alt.pointOfSale,
+                        alt.invoiceNumber
+                      )}
+                      {@const isCurrentlyViewing = alt.id === expected?.id}
+                      <div
+                        {...expectedSelect.getOption(alt.id, altLabel)}
+                        class="extraction-option"
+                        class:selected={isCurrentlyViewing}
+                      >
+                        <span class="option-text">{altLabel}</span>
+                        {#if isCurrentlyViewing}
+                          <Check size={14} />
+                        {:else}
+                          <span
+                            class="confidence-badge {alt.matchScore >= 80
+                              ? 'high'
+                              : alt.matchScore >= 50
+                                ? 'medium'
+                                : 'low'}"
+                          >
+                            {alt.matchScore}%
+                          </span>
+                        {/if}
+                      </div>
+                    {/each}
+                    {#if onsearchexpected}
+                      <div
+                        {...expectedSelect.getOption('search', 'Buscar más...')}
+                        class="extraction-option search-more"
+                      >
+                        <Search size={14} />
+                        <span class="option-text">Buscar más...</span>
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
               </div>
             {/if}
           </div>
@@ -637,18 +647,20 @@
           </div>
         </div>
 
-        <div class="column-actions">
-          {#if oncreatefromexpected}
-            <Button
-              variant="primary"
-              size="sm"
-              onclick={oncreatefromexpected}
-              disabled={processing}
-            >
-              Usar estos datos
-            </Button>
-          {/if}
-        </div>
+        {#if !readonly}
+          <div class="column-actions">
+            {#if oncreatefromexpected}
+              <Button
+                variant="primary"
+                size="sm"
+                onclick={oncreatefromexpected}
+                disabled={processing}
+              >
+                Usar estos datos
+              </Button>
+            {/if}
+          </div>
+        {/if}
       </div>
     {:else if hasFile}
       <!-- Sin coincidencias - mostrar panel vacío con opción de buscar -->
@@ -668,7 +680,7 @@
           <div class="no-match-icon"><Search size={32} strokeWidth={1.5} /></div>
           <p class="no-match-text">Sin coincidencias</p>
           <p class="no-match-hint">No se encontró factura esperada que coincida con estos datos</p>
-          {#if onsearchexpected}
+          {#if onsearchexpected && !readonly}
             <Button variant="secondary" size="sm" onclick={onsearchexpected} disabled={processing}>
               Buscar manualmente
             </Button>
@@ -796,6 +808,14 @@
   .extraction-trigger:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .extraction-trigger.readonly {
+    background: var(--color-surface-alt);
+    border-color: var(--color-border);
+    color: var(--color-text-secondary);
+    opacity: 1;
+    cursor: default;
   }
 
   .extraction-trigger .trigger-text {

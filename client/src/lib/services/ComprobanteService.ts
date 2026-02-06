@@ -46,6 +46,30 @@ export interface ApiResult<T = void> {
   success: boolean;
   data?: T;
   error?: string;
+  warnings?: string[];
+}
+
+// =============================================================================
+// Balance Group Types
+// =============================================================================
+
+export interface BalanceGroupMember {
+  id: number;
+  cuit: string;
+  emitterName: string | null;
+  invoiceType: number | null;
+  pointOfSale: number;
+  invoiceNumber: number;
+  total: number | null;
+  issueDate: string;
+  isPrincipal: boolean;
+}
+
+export interface BalanceGroup {
+  principalId: number;
+  members: BalanceGroupMember[];
+  total: number;
+  isBalanced: boolean;
 }
 
 class ComprobanteService {
@@ -245,6 +269,126 @@ class ComprobanteService {
       return { success: false, error: err.error || 'Error al actualizar categoría' };
     } catch {
       return { success: false, error: 'Error al actualizar categoría' };
+    }
+  }
+
+  // =============================================================================
+  // Balance Group Operations
+  // =============================================================================
+
+  /**
+   * Get the balance group for an expected invoice
+   */
+  async getBalanceGroup(expectedId: number): Promise<ApiResult<BalanceGroup | null>> {
+    try {
+      const response = await fetch(`/api/expected-invoices/${expectedId}/balance`);
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, data: data.group };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al obtener grupo de balance' };
+    } catch {
+      return { success: false, error: 'Error al obtener grupo de balance' };
+    }
+  }
+
+  /**
+   * Add an expected invoice to a balance group
+   * @param principalId - The principal (or future principal) of the group
+   * @param expectedId - The invoice to add to the group
+   */
+  async addToBalanceGroup(
+    principalId: number,
+    expectedId: number
+  ): Promise<ApiResult<BalanceGroup>> {
+    try {
+      const response = await fetch(`/api/expected-invoices/${principalId}/balance`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expectedId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return {
+          success: true,
+          data: data.group,
+          warnings: data.warnings,
+        };
+      }
+      return { success: false, error: data.error || 'Error al agregar al grupo' };
+    } catch {
+      return { success: false, error: 'Error al agregar al grupo de balance' };
+    }
+  }
+
+  /**
+   * Remove a member from a balance group
+   * @param principalId - The principal of the group
+   * @param memberId - The member to remove
+   */
+  async removeFromBalanceGroup(principalId: number, memberId: number): Promise<ApiResult> {
+    try {
+      const response = await fetch(`/api/expected-invoices/${principalId}/balance/${memberId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al quitar del grupo' };
+    } catch {
+      return { success: false, error: 'Error al quitar del grupo de balance' };
+    }
+  }
+
+  /**
+   * Dissolve an entire balance group
+   * @param principalId - The principal of the group to dissolve
+   */
+  async dissolveBalanceGroup(principalId: number): Promise<ApiResult> {
+    try {
+      const response = await fetch(`/api/expected-invoices/${principalId}/balance`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        return { success: true };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al disolver el grupo' };
+    } catch {
+      return { success: false, error: 'Error al disolver el grupo de balance' };
+    }
+  }
+
+  /**
+   * Change the principal of a balance group
+   * @param currentPrincipalId - Current principal of the group
+   * @param newPrincipalId - New principal (must be a current member)
+   */
+  async setBalanceGroupPrincipal(
+    currentPrincipalId: number,
+    newPrincipalId: number
+  ): Promise<ApiResult<BalanceGroup>> {
+    try {
+      const response = await fetch(`/api/expected-invoices/${currentPrincipalId}/balance`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ newPrincipalId }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return { success: true, data: data.group };
+      }
+      return { success: false, error: data.error || 'Error al cambiar el principal' };
+    } catch {
+      return { success: false, error: 'Error al cambiar el principal del grupo' };
     }
   }
 }

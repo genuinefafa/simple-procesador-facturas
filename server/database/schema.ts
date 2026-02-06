@@ -3,7 +3,15 @@
  * Este schema reemplaza el schema.sql para migraciones automáticas
  */
 
-import { sqliteTable, text, integer, real, index, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  sqliteTable,
+  text,
+  integer,
+  real,
+  index,
+  uniqueIndex,
+  type AnySQLiteColumn,
+} from 'drizzle-orm/sqlite-core';
 import { sql } from 'drizzle-orm';
 
 // Forward declarations for circular references (TypeScript only)
@@ -160,10 +168,9 @@ const expectedInvoices_ = sqliteTable(
     caeExpiration: text('cae_expiration'),
     currency: text('currency').default('ARS'),
 
-    // Estado: pending (sin factura vinculada), matched (con factura vinculada)
-    // Futuro: dismissed (balanceado con NCR, cancelado, nunca recibido)
+    // Estado: pending (sin factura vinculada), matched (con factura vinculada), balanced (en grupo balanceado)
     status: text('status', {
-      enum: ['pending', 'matched'],
+      enum: ['pending', 'matched', 'balanced'],
     }).default('pending'),
 
     // Categorización
@@ -174,6 +181,16 @@ const expectedInvoices_ = sqliteTable(
     // Metadata
     importDate: text('import_date').default(sql`CURRENT_TIMESTAMP`),
     notes: text('notes'),
+
+    // Balance group: permite agrupar FAC + NCR que se anulan mutuamente
+    // NULL = es principal del grupo o no pertenece a grupo
+    // ID = apunta al principal del grupo (self-reference)
+    balancedWithId: integer('balanced_with_id').references(
+      (): AnySQLiteColumn => expectedInvoices_.id,
+      {
+        onDelete: 'restrict',
+      }
+    ),
   },
   (table) => ({
     cuitIdx: index('idx_expected_invoices_cuit').on(table.cuit),
@@ -181,6 +198,7 @@ const expectedInvoices_ = sqliteTable(
     batchIdx: index('idx_expected_invoices_batch').on(table.importBatchId),
     issueDateIdx: index('idx_expected_invoices_date').on(table.issueDate),
     categoryIdx: index('idx_expected_invoices_category').on(table.categoryId),
+    balancedIdx: index('idx_expected_invoices_balanced').on(table.balancedWithId),
     uniqueInvoice: index('unique_expected_invoice').on(
       table.cuit,
       table.invoiceType,

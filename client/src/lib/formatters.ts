@@ -159,19 +159,35 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 /**
  * Mapeo de códigos ARCA a información de tipo de comprobante
  * Basado en los códigos numéricos oficiales de AFIP/ARCA
+ *
+ * sign: Coeficiente para cálculo de balance
+ *   +1 = suma (facturas, notas de débito)
+ *   -1 = resta (notas de crédito)
+ *
+ * Fuente: https://www.afip.gob.ar/inversiones-bienes-uso/documentos/tabla-comprobantes-bienes-de-uso.pdf
  */
-const ARCA_CODE_MAP: Record<number, { friendlyType: string; icon: string; description: string }> = {
-  1: { friendlyType: 'FACA', icon: '📄', description: 'Factura A' },
-  6: { friendlyType: 'FACB', icon: '📋', description: 'Factura B' },
-  11: { friendlyType: 'FACC', icon: '📑', description: 'Factura C' },
-  19: { friendlyType: 'FACE', icon: '📄', description: 'Factura E' },
-  51: { friendlyType: 'FACM', icon: '📄', description: 'Factura M' },
-  3: { friendlyType: 'NCRA', icon: '↩️', description: 'Nota de Crédito A' },
-  8: { friendlyType: 'NCRB', icon: '↩️', description: 'Nota de Crédito B' },
-  13: { friendlyType: 'NCRC', icon: '↩️', description: 'Nota de Crédito C' },
-  2: { friendlyType: 'NDBA', icon: '➡️', description: 'Nota de Débito A' },
-  7: { friendlyType: 'NDBB', icon: '➡️', description: 'Nota de Débito B' },
-  12: { friendlyType: 'NDBC', icon: '➡️', description: 'Nota de Débito C' },
+const ARCA_CODE_MAP: Record<
+  number,
+  { friendlyType: string; icon: string; description: string; sign: 1 | -1 }
+> = {
+  // Facturas (+)
+  1: { friendlyType: 'FACA', icon: '📄', description: 'Factura A', sign: 1 },
+  6: { friendlyType: 'FACB', icon: '📋', description: 'Factura B', sign: 1 },
+  11: { friendlyType: 'FACC', icon: '📑', description: 'Factura C', sign: 1 },
+  19: { friendlyType: 'FACE', icon: '📄', description: 'Factura E', sign: 1 },
+  51: { friendlyType: 'FACM', icon: '📄', description: 'Factura M', sign: 1 },
+  // Notas de Crédito (-)
+  3: { friendlyType: 'NCRA', icon: '↩️', description: 'Nota de Crédito A', sign: -1 },
+  8: { friendlyType: 'NCRB', icon: '↩️', description: 'Nota de Crédito B', sign: -1 },
+  13: { friendlyType: 'NCRC', icon: '↩️', description: 'Nota de Crédito C', sign: -1 },
+  21: { friendlyType: 'NCRE', icon: '↩️', description: 'Nota de Crédito E', sign: -1 },
+  53: { friendlyType: 'NCRM', icon: '↩️', description: 'Nota de Crédito M', sign: -1 },
+  // Notas de Débito (+)
+  2: { friendlyType: 'NDBA', icon: '➡️', description: 'Nota de Débito A', sign: 1 },
+  7: { friendlyType: 'NDBB', icon: '➡️', description: 'Nota de Débito B', sign: 1 },
+  12: { friendlyType: 'NDBC', icon: '➡️', description: 'Nota de Débito C', sign: 1 },
+  20: { friendlyType: 'NDBE', icon: '➡️', description: 'Nota de Débito E', sign: 1 },
+  52: { friendlyType: 'NDBM', icon: '➡️', description: 'Nota de Débito M', sign: 1 },
 };
 
 /**
@@ -182,6 +198,17 @@ const ARCA_CODE_MAP: Record<number, { friendlyType: string; icon: string; descri
 export function getFriendlyType(arcaCode: number | null | undefined): string {
   if (arcaCode === null || arcaCode === undefined) return 'UNKN';
   return ARCA_CODE_MAP[arcaCode]?.friendlyType || 'UNKN';
+}
+
+/**
+ * Obtiene el coeficiente de signo para un tipo de comprobante ARCA.
+ * Usado para calcular balances correctamente.
+ * @param arcaCode Código ARCA numérico (1, 6, 11, etc.)
+ * @returns 1 para facturas/notas de débito, -1 para notas de crédito
+ */
+export function getInvoiceSign(arcaCode: number | null | undefined): 1 | -1 {
+  if (arcaCode === null || arcaCode === undefined) return 1;
+  return ARCA_CODE_MAP[arcaCode]?.sign ?? 1;
 }
 
 /**
