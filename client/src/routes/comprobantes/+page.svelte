@@ -726,12 +726,9 @@
     grid-column: span 2;
   }
 
-  /* Ocultar emisor pero mantener en grid */
+  /* Ocultar emisor y quitar del grid flow (para que col-cmp-extended span 2 funcione) */
   .hidden {
-    visibility: hidden;
-    width: 0;
-    padding: 0;
-    overflow: hidden;
+    display: none;
   }
 
   /* Emisor y CUIT en la misma columna */
