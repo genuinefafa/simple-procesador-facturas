@@ -145,34 +145,48 @@ export class QRExtractor {
     }
 
     // Si hay QR pero no es de AFIP, o no se encontró QR,
-    // usar sliding window para buscar múltiples QR codes
+    // usar sliding window para buscar múltiples QR codes.
+    // Multiple window sizes handle QR codes of different physical sizes
+    // (e.g. ARCA QR on receipts can be >400px at high render scales).
     console.info(`   🔄 Usando sliding window para buscar QR AFIP/ARCA...`);
 
-    const windowSize = 400;
-    const step = 200;
+    const windowConfigs = [
+      { size: 800, step: 400 },
+      { size: 600, step: 300 },
+      { size: 400, step: 200 },
+    ];
     const foundQRs = new Map<string, { x: number; y: number }>();
 
-    for (let y = 0; y <= height - windowSize; y += step) {
-      for (let x = 0; x <= width - windowSize; x += step) {
-        try {
-          const regionResult = await this.detectQRInRegion(
-            imageSource,
-            x,
-            y,
-            windowSize,
-            windowSize
-          );
-          if (regionResult.found && regionResult.rawData && !foundQRs.has(regionResult.rawData)) {
-            foundQRs.set(regionResult.rawData, { x, y });
+    for (const { size: windowSize, step } of windowConfigs) {
+      if (windowSize > width || windowSize > height) continue;
 
-            // Si encontramos un QR de AFIP/ARCA, retornarlo inmediatamente
-            if (this.isAFIPUrl(regionResult.rawData)) {
-              console.info(`   ✅ QR AFIP/ARCA encontrado en región [${x},${y}]`);
-              return regionResult;
+      const yPositions = this.slidingPositions(height, windowSize, step);
+      const xPositions = this.slidingPositions(width, windowSize, step);
+
+      for (const y of yPositions) {
+        for (const x of xPositions) {
+          try {
+            const regionResult = await this.detectQRInRegion(
+              imageSource,
+              x,
+              y,
+              windowSize,
+              windowSize
+            );
+            if (regionResult.found && regionResult.rawData && !foundQRs.has(regionResult.rawData)) {
+              foundQRs.set(regionResult.rawData, { x, y });
+
+              // Si encontramos un QR de AFIP/ARCA, retornarlo inmediatamente
+              if (this.isAFIPUrl(regionResult.rawData)) {
+                console.info(
+                  `   ✅ QR AFIP/ARCA encontrado en región [${x},${y}] (ventana ${windowSize}px)`
+                );
+                return regionResult;
+              }
             }
+          } catch {
+            // Ignorar errores en regiones individuales
           }
-        } catch {
-          // Ignorar errores en regiones individuales
         }
       }
     }
@@ -188,6 +202,27 @@ export class QRExtractor {
     }
 
     return { found: false, error: 'No se encontró código QR en la imagen' };
+  }
+
+  /**
+   * Generates sliding window positions from the edge inward (bottom-to-top).
+   * ARCA QR codes are almost always at the bottom of invoices, so scanning
+   * in reverse finds them faster. Always includes both edges.
+   */
+  private slidingPositions(length: number, windowSize: number, step: number): number[] {
+    const positions: number[] = [];
+    const maxPos = length - windowSize;
+    for (let pos = 0; pos <= maxPos; pos += step) {
+      positions.push(pos);
+    }
+    // Always include the edge position if the last step didn't land on it
+    const last = positions[positions.length - 1];
+    if (last === undefined || last < maxPos) {
+      positions.push(maxPos);
+    }
+    // Reverse: scan from bottom/right edge first
+    positions.reverse();
+    return positions;
   }
 
   /**
