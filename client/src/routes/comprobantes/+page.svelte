@@ -85,11 +85,17 @@
       };
       localStorage.setItem('comprobantes-search-filters', JSON.stringify(state));
 
-      // Actualizar URL sin recargar
+      // Actualizar URL sin recargar (trim para URLs limpias y compartibles)
       const params = new URLSearchParams();
-      if (searchQuery) params.set('q', searchQuery);
+      const trimmed = searchQuery.trim();
+      if (trimmed) params.set('q', trimmed);
       const target = params.toString() ? `/comprobantes?${params}` : '/comprobantes';
-      goto(target, { replaceState: true, noScroll: true, keepFocus: true });
+
+      // Evitar goto() redundante si la URL ya coincide (ej: carga inicial desde link compartido)
+      const currentPath = `${$page.url.pathname}${$page.url.search}`;
+      if (target !== currentPath) {
+        goto(target, { replaceState: true, noScroll: true, keepFocus: true });
+      }
     }
   });
 
