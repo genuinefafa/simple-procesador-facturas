@@ -65,12 +65,15 @@
     box-shadow: var(--shadow-lg);
     overflow-y: auto;
     padding: var(--spacing-1);
-  }
 
-  /*
-   * Do NOT set: position, top, left, right, bottom, margin, inset, transform
-   * Floating UI (via useFloating) computes and applies these as inline styles.
-   * The Popover API renders the element in the top layer — no need for
-   * position: relative on the parent.
-   */
+    /*
+     * Reset browser defaults for [popover]:popover-open.
+     * The UA stylesheet sets: position: fixed; inset: 0; margin: auto;
+     * which centers the popover in the viewport. Floating UI overrides
+     * position/top/left as inline styles, but margin: auto still applies
+     * and shifts the element ~450px from where Floating UI intended.
+     */
+    margin: 0;
+    inset: unset;
+  }
 </style>
