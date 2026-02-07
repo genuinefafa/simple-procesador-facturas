@@ -1,4 +1,16 @@
 <script lang="ts">
+  /**
+   * EmitterCombobox - Autocomplete search for emitters using Melt UI Combobox.
+   *
+   * WARNING: This component uses manual CSS positioning (see .combobox-listbox[popover])
+   * instead of letting Floating UI handle it. This is a known workaround that loses
+   * flip/shift/autoUpdate benefits. Do NOT copy this positioning pattern for new
+   * components — use SelectDropdown from '$lib/components/ui' instead.
+   *
+   * TODO: Refactor to use SelectDropdown or equivalent. See issue #150.
+   * https://github.com/genuinefafa/simple-procesador-facturas/issues/150
+   */
+
   import { Combobox as ComboboxBuilder } from 'melt/builders';
   import { formatCuit } from '$lib/formatters';
 
@@ -227,7 +239,11 @@
     box-shadow: var(--shadow-md);
   }
 
-  /* Override Melt's popover positioning - uses anchor positioning when available */
+  /*
+   * Manual popover positioning workaround — DO NOT copy this pattern.
+   * Use SelectDropdown from '$lib/components/ui' for new dropdowns.
+   * Refactor tracked in issue #150.
+   */
   .combobox-listbox[popover] {
     position: absolute;
     inset: unset;
