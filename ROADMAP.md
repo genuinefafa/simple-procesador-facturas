@@ -107,10 +107,13 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [x] #135 - Buscador manual expected invoices
 - [x] #120 - Balancear expected invoices (PR #148)
 - [x] Fix posicionamiento dropdowns (PR #149)
+- [x] Fix layout roto en lista comprobantes + URLs compartibles
 
 ### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
 - [x] #76 - Múltiples métodos extracción
 - [x] #60 - Extracción QR ARCA
+- [ ] #151 - QR extractor no detecta QR de ARCA en imagen de Movistar
+- [ ] #152 - Limpiar fallbacks en extracción y restringir auto-procesamiento al subir
 - [ ] #54 - Simplificar algoritmo matching
 - [ ] #93 - Testing extracción docs confidenciales
 - [ ] #129 - Importar desglose impositivo ARCA
