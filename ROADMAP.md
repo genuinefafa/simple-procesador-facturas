@@ -1,6 +1,6 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2026-02-05)
+## Estado Actual (2026-02-07)
 
 | Área | Estado | Notas |
 |------|--------|-------|
@@ -45,6 +45,14 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 |-------|-------|--------|------|----------|--------|
 | 7 | #120 | Balancear expected invoices (FAC ↔ NCR) | Feature | Alto | ✅ PR #148 |
 
+### ~~Fase 3.5: Fix Dropdowns~~ ✅ Completada
+*Objetivo: Corregir posicionamiento de dropdowns Melt UI*
+
+| Orden | Issue | Título | Tipo | Esfuerzo | Estado |
+|-------|-------|--------|------|----------|--------|
+| - | - | ~~Crear SelectDropdown wrapper + refactorizar Select-based dropdowns~~ | Fix/Refactor | Medio | ✅ PR #149 |
+| - | #150 | Refactorizar EmitterCombobox para usar SelectDropdown | Tech Debt | Medio | Pendiente |
+
 ### Fase 4: Tech Debt Estratégico (M8)
 *Objetivo: Simplificar el modelo de datos*
 
@@ -54,6 +62,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | 9 | #92 | Limpiar campos legacy en tabla facturas | Refactor | Bajo | ⬆️ Alta |
 | 10 | #146 | Eliminar campo status de expected_invoices | Refactor | Bajo | Media |
 | 11 | #123 | Derivar estados desde FKs | Refactor | Medio | Media |
+| 12 | #150 | Unificar EmitterCombobox con SelectDropdown | Refactor | Medio | Media |
 
 ### Fase 5: Robustez y Calidad (M8)
 *Objetivo: Estabilidad y UX avanzada*
@@ -93,9 +102,11 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [ ] #123 - Derivar estados desde FKs
 - [ ] #36 - Auditoría cambios
 - [ ] #89 - Contratos Zod completos
+- [ ] #150 - Unificar EmitterCombobox con SelectDropdown
 - [x] #79 - Rediseño vista detalle
 - [x] #135 - Buscador manual expected invoices
 - [x] #120 - Balancear expected invoices (PR #148)
+- [x] Fix posicionamiento dropdowns (PR #149)
 
 ### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
 - [x] #76 - Múltiples métodos extracción
@@ -187,4 +198,4 @@ npm run db:studio        # GUI Drizzle
 
 ---
 
-**Última actualización**: 2026-02-05
+**Última actualización**: 2026-02-07
