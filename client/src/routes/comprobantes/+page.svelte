@@ -732,11 +732,6 @@
     grid-column: span 2;
   }
 
-  /* Ocultar emisor y quitar del grid flow (para que col-cmp-extended span 2 funcione) */
-  .hidden {
-    display: none;
-  }
-
   /* Emisor y CUIT en la misma columna */
   .col-emisor-cuit {
     display: flex;
@@ -744,6 +739,12 @@
     align-items: center;
     gap: var(--spacing-2);
     font-size: var(--font-size-sm);
+  }
+
+  /* Ocultar emisor y quitar del grid flow (para que col-cmp-extended span 2 funcione).
+     Debe ir después de .col-emisor-cuit para ganar por cascade. */
+  .hidden {
+    display: none;
   }
 
   .emitter-name {
