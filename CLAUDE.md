@@ -192,6 +192,16 @@ npm run db:migrate   # Migraciones
 npm run db:studio    # GUI Drizzle
 ```
 
+## Post-PR Checklist
+
+After creating or merging a PR, always:
+
+1. **Update [ROADMAP.md](./ROADMAP.md)**: Mark completed items, add new issues, update dates
+2. **Create issues for known tech debt** discovered during implementation
+3. **Link issues in code comments** (`TODO: See issue #NNN`) when deferring work
+
+This ensures the roadmap stays in sync and deferred work is tracked, not forgotten.
+
 ## Issues Abiertos Relevantes
 
 Ver [ROADMAP.md](./ROADMAP.md) para la lista actualizada de issues y prioridades.

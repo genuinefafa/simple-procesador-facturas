@@ -715,11 +715,6 @@
     flex-wrap: wrap;
   }
 
-  /* Columna de categoría - ancho controlado por grid */
-  .col-category {
-    overflow: hidden;
-  }
-
   /* Columna de comprobante */
   .col-cmp {
     font-family: 'Monaco', 'Menlo', monospace;

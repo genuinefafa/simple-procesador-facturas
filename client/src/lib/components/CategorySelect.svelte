@@ -15,6 +15,7 @@
    */
 
   import { Select as SelectBuilder } from 'melt/builders';
+  import { SelectDropdown } from '$lib/components/ui';
 
   type Category = {
     id: number;
@@ -99,7 +100,7 @@
       {/if}
     </button>
 
-    <div {...select.content} class="select-content">
+    <SelectDropdown contentAttrs={select.content} maxWidth="max(var(--melt-invoker-width), 250px)">
       {#each categories as cat (cat.id)}
         <div
           {...select.getOption(cat.id, cat.description)}
@@ -115,13 +116,12 @@
           {/if}
         </div>
       {/each}
-    </div>
+    </SelectDropdown>
   {/if}
 </div>
 
 <style>
   .category-select {
-    position: relative;
     display: block;
     width: 100%;
   }
@@ -217,24 +217,6 @@
   .clear-btn:hover {
     background: var(--color-primary-300);
     color: var(--color-primary-900);
-  }
-
-  /* Posicionamiento igual que InvoiceTypeSelect */
-  .select-content {
-    position: absolute;
-    margin-left: 0;
-    z-index: var(--z-dropdown);
-    min-width: var(--melt-invoker-width);
-    width: fit-content;
-    max-width: max(var(--melt-invoker-width), 250px);
-    margin-top: var(--spacing-1);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    max-height: 250px;
-    overflow-y: auto;
-    padding: var(--spacing-1);
   }
 
   .select-option {

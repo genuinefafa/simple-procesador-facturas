@@ -99,7 +99,7 @@
           e.preventDefault();
           navigate(next);
         }
-      } else if (e.key === 'Escape') {
+      } else if (e.key === 'Escape' && !e.defaultPrevented) {
         e.preventDefault();
         navigate(null);
       }

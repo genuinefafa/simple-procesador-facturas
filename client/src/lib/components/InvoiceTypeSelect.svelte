@@ -3,6 +3,7 @@
   import { getInvoiceTypeFromARCA } from '$lib/formatters';
   import { ARCA_INVOICE_TYPES } from '$lib/constants/arca-codes';
   import { Check, ChevronDown } from '$lib/components/icons';
+  import { SelectDropdown } from '$lib/components/ui';
 
   interface Props {
     value: number | null;
@@ -52,7 +53,11 @@
       <span class="arrow"><ChevronDown size={16} /></span>
     </button>
 
-    <div {...select.content} class="select-content">
+    <SelectDropdown
+      contentAttrs={select.content}
+      maxWidth="max(var(--melt-invoker-width), 400px)"
+      maxHeight="300px"
+    >
       {#each ARCA_INVOICE_TYPES as type}
         <div {...select.getOption(type.code, type.description)} class="select-option">
           <span>{type.icon} {type.description} ({type.code})</span>
@@ -61,7 +66,7 @@
           {/if}
         </div>
       {/each}
-    </div>
+    </SelectDropdown>
   {/if}
 </div>
 
@@ -70,7 +75,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-1);
-    position: relative;
   }
 
   label {
@@ -125,22 +129,6 @@
     transition: transform var(--transition-fast);
     display: flex;
     align-items: center;
-  }
-
-  .select-content {
-    position: absolute;
-    margin-left: 0;
-    z-index: var(--z-dropdown);
-    min-width: var(--melt-invoker-width);
-    width: fit-content;
-    max-width: max(var(--melt-invoker-width), 400px);
-    margin-top: var(--spacing-1);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    max-height: 300px;
-    overflow-y: auto;
   }
 
   .select-option {

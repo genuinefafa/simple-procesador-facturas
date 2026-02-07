@@ -108,6 +108,14 @@ chore: update dependencies
 - Cierra #XX
 ```
 
+### 5. Post-PR Checklist
+
+Después de crear o mergear un PR:
+
+1. **Actualizar [ROADMAP.md](./ROADMAP.md)**: Marcar items completados, agregar nuevos issues, actualizar fechas
+2. **Crear issues para deuda técnica** descubierta durante la implementación
+3. **Referenciar issues en comentarios del código** (`TODO: See issue #NNN`) cuando se difiere trabajo
+
 ---
 
 ## Convenciones de Código

@@ -25,6 +25,7 @@
   import { es } from 'date-fns/locale';
   import { Package, ClipboardList, RefreshCw, Search, ChevronDown, Check } from 'lucide-svelte';
   import { Select as SelectBuilder } from 'melt/builders';
+  import { SelectDropdown } from '$lib/components/ui';
 
   type Category = {
     id: number;
@@ -360,7 +361,11 @@
                   <ChevronDown size={14} />
                 </button>
 
-                <div {...extractionSelect.content} class="extraction-content">
+                <SelectDropdown
+                  contentAttrs={extractionSelect.content}
+                  maxWidth="max(var(--melt-invoker-width), 280px)"
+                  maxHeight="200px"
+                >
                   {#each extractions as ext (ext.id)}
                     <div
                       {...extractionSelect.getOption(ext.id, formatExtractionOption(ext))}
@@ -373,7 +378,7 @@
                       {/if}
                     </div>
                   {/each}
-                </div>
+                </SelectDropdown>
               </div>
             {/if}
           </div>
@@ -554,7 +559,11 @@
                 </button>
 
                 {#if !readonly}
-                  <div {...expectedSelect.content} class="extraction-content expected-content">
+                  <SelectDropdown
+                    contentAttrs={expectedSelect.content}
+                    maxWidth="max(var(--melt-invoker-width), 280px)"
+                    maxHeight="200px"
+                  >
                     {#each alternativeExpected.slice(0, 6) as alt (alt.id)}
                       {@const altLabel = formatInvoiceLabel(
                         alt.invoiceType,
@@ -592,7 +601,7 @@
                         <span class="option-text">Buscar más...</span>
                       </div>
                     {/if}
-                  </div>
+                  </SelectDropdown>
                 {/if}
               </div>
             {/if}
@@ -770,9 +779,8 @@
     text-transform: uppercase;
   }
 
-  /* Extraction select (Melt UI) - igual que InvoiceTypeSelect */
+  /* Extraction select (Melt UI) */
   .extraction-select-wrapper {
-    position: relative;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -824,23 +832,6 @@
     white-space: nowrap;
   }
 
-  .extraction-content {
-    position: absolute;
-    margin-left: 0;
-    z-index: var(--z-dropdown);
-    min-width: var(--melt-invoker-width);
-    width: fit-content;
-    max-width: max(var(--melt-invoker-width), 280px);
-    margin-top: var(--spacing-1);
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
-    max-height: 200px;
-    overflow-y: auto;
-    padding: var(--spacing-1);
-  }
-
   .extraction-option {
     display: flex;
     align-items: center;
@@ -870,12 +861,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  .extraction-option .option-hint {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    margin-left: var(--spacing-1);
   }
 
   .confidence-badge {
@@ -1093,18 +1078,11 @@
     }
   }
 
-  /* Expected select wrapper - same as extraction-select-wrapper */
   .expected-select-wrapper {
-    position: relative;
     width: 100%;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-1);
-  }
-
-  .expected-content {
-    right: 0;
-    left: auto;
   }
 
   .extraction-option.search-more {
