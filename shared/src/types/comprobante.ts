@@ -59,6 +59,7 @@ export type FileData = {
   originalFilename: string;
   filePath: string;
   fileHash?: string | null;
+  fileType?: string | null;
   status: "uploaded" | "processed";
   uploadDate?: string | null;
   extractedCuit?: string | null;

@@ -15,6 +15,8 @@
     open: boolean;
     /** Methods that already have extractions */
     existingMethods?: string[];
+    /** File type to determine available methods */
+    fileType?: string | null;
     /** Callback when a method is selected */
     onselect: (method: ExtractionMethod) => void;
     /** Callback when dialog is closed */
@@ -26,10 +28,14 @@
   let {
     open = $bindable(),
     existingMethods = [],
+    fileType = null,
     onselect,
     onclose,
     processing = false,
   }: Props = $props();
+
+  // PDF_TEXT only works on files with embedded text (PDFs)
+  const canUsePdfText = $derived(fileType === 'PDF_DIGITAL' || fileType === 'PDF_IMAGEN');
 
   // Normalize method names for comparison
   function hasExisting(method: ExtractionMethod): boolean {
@@ -76,7 +82,8 @@
       class="method-option"
       class:has-existing={hasExisting('pdf_text')}
       onclick={() => handleSelect('pdf_text')}
-      disabled={processing}
+      disabled={processing || !canUsePdfText}
+      title={!canUsePdfText ? 'Solo disponible para archivos PDF' : ''}
     >
       <span class="method-icon">📄</span>
       <span class="method-name">
@@ -87,7 +94,13 @@
           </span>
         {/if}
       </span>
-      <span class="method-desc">Extraer texto embebido del PDF</span>
+      <span class="method-desc">
+        {#if !canUsePdfText}
+          No disponible para imágenes
+        {:else}
+          Extraer texto embebido del PDF
+        {/if}
+      </span>
     </button>
 
     <button
