@@ -149,8 +149,8 @@ export const POST: RequestHandler = async ({ request }) => {
           console.warn(`⚠️  [UPLOAD] Error calculando hash:`, error);
         }
 
-        // Determinar tipo de archivo
-        const fileType = ext === 'pdf' ? 'PDF_DIGITAL' : 'IMAGEN'; // Simplificado, luego se puede refinar
+        // Detect real document type (PDF_DIGITAL vs PDF_IMAGEN vs IMAGEN)
+        const fileType = await processingService.detectDocumentType(filePath);
 
         // Calcular ruta relativa desde data/
         const relativePath = `input/${savedFilename}`;
@@ -168,33 +168,41 @@ export const POST: RequestHandler = async ({ request }) => {
 
         console.info(`📝 [UPLOAD] File creado en BD: ID ${createdFile.id}`);
 
-        // Intentar extracción automática usando InvoiceProcessingService
-        try {
-          console.info(`🔍 [UPLOAD] Iniciando extracción para file ${createdFile.id}...`);
-          const processingResult = await processingService.processInvoice(filePath, savedFilename);
-
-          if (processingResult.extractedData) {
-            // Guardar resultados de extracción usando upsert por método
-            const method = processingResult.method || 'OCR';
-            extractionRepo.upsertByMethod(createdFile.id, method, {
-              extractedCuit: processingResult.extractedData.cuit || null,
-              extractedDate: processingResult.extractedData.date || null,
-              extractedTotal: processingResult.extractedData.total || null,
-              extractedType: processingResult.extractedData.invoiceType || null,
-              extractedPointOfSale: processingResult.extractedData.pointOfSale || null,
-              extractedInvoiceNumber: processingResult.extractedData.invoiceNumber || null,
-              confidence: processingResult.confidence || null,
-              errors: processingResult.error || null,
-            });
-            console.info(
-              `✅ [UPLOAD] Extracción completada (conf: ${processingResult.confidence}%, método: ${method})`
+        // Auto-extract only PDF_DIGITAL (fast text extraction)
+        // Images and scanned PDFs require expensive OCR — let user trigger manually
+        if (fileType === 'PDF_DIGITAL') {
+          try {
+            console.info(`🔍 [UPLOAD] Auto-extracting PDF_DIGITAL file ${createdFile.id}...`);
+            const processingResult = await processingService.processInvoice(
+              filePath,
+              savedFilename
             );
-          } else {
-            console.warn(`⚠️  [UPLOAD] Sin datos extraídos: ${processingResult.error}`);
+
+            if (processingResult.extractedData) {
+              const method = processingResult.method || 'PDF_TEXT';
+              extractionRepo.upsertByMethod(createdFile.id, method, {
+                extractedCuit: processingResult.extractedData.cuit || null,
+                extractedDate: processingResult.extractedData.date || null,
+                extractedTotal: processingResult.extractedData.total || null,
+                extractedType: processingResult.extractedData.invoiceType || null,
+                extractedPointOfSale: processingResult.extractedData.pointOfSale || null,
+                extractedInvoiceNumber: processingResult.extractedData.invoiceNumber || null,
+                confidence: processingResult.confidence || null,
+                errors: processingResult.error || null,
+              });
+              console.info(
+                `✅ [UPLOAD] Auto-extraction completed (conf: ${processingResult.confidence}%, method: ${method})`
+              );
+            } else {
+              console.warn(`⚠️  [UPLOAD] No extracted data: ${processingResult.error}`);
+            }
+          } catch (extractionError) {
+            console.warn(`⚠️  [UPLOAD] Auto-extraction error:`, extractionError);
           }
-        } catch (extractionError) {
-          console.warn(`⚠️  [UPLOAD] Error en extracción:`, extractionError);
-          // No falla el upload si la extracción falla
+        } else {
+          console.info(
+            `📋 [UPLOAD] Skipping auto-extraction for ${fileType} file ${createdFile.id} — user can trigger manually`
+          );
         }
 
         uploadedFiles.push({
