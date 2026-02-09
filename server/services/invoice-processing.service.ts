@@ -35,8 +35,6 @@ export interface ProcessingResult {
   method?: ExtractionMethod;
   /** Método solicitado por el usuario (si fue forzado) */
   requestedMethod?: 'OCR' | 'PDF_TEXT' | 'QR';
-  /** True si se usó un método diferente al solicitado (fallback automático) */
-  usedFallback?: boolean;
   extractedData?: {
     cuit?: string;
     date?: string;
@@ -70,7 +68,7 @@ export class InvoiceProcessingService {
    * @param filePath - Ruta al archivo
    * @returns Tipo de documento detectado
    */
-  private async detectDocumentType(filePath: string): Promise<DocumentType> {
+  async detectDocumentType(filePath: string): Promise<DocumentType> {
     const ext = extname(filePath).toLowerCase();
 
     // Si es una imagen, retornar IMAGEN
@@ -176,19 +174,9 @@ export class InvoiceProcessingService {
         console.info(`   📷 Extrayendo datos de imagen con OCR...`);
         extraction = await this.ocrExtractor.extract(filePath);
       } else if (documentType === 'PDF_IMAGEN') {
-        // PDF escaneado: intentar OCR si está disponible, sino fallback a pdf-parse
-        console.info(`   📷 PDF escaneado detectado - Intentando OCR...`);
-        try {
-          extraction = await this.ocrExtractor.extract(filePath);
-          // Si OCR no extrae suficiente, intentar con pdf-parse como fallback
-          if (!extraction.success && extraction.confidence < 30) {
-            console.info(`   ⚠️  OCR insuficiente, intentando pdf-parse como fallback...`);
-            extraction = await this.pdfExtractor.extract(filePath);
-          }
-        } catch (ocrError) {
-          console.warn(`   ⚠️  OCR falló, usando pdf-parse como fallback:`, ocrError);
-          extraction = await this.pdfExtractor.extract(filePath);
-        }
+        // Scanned PDF: OCR only, no silent fallback to PDF_TEXT
+        console.info(`   📷 PDF escaneado detectado - Extrayendo con OCR...`);
+        extraction = await this.ocrExtractor.extract(filePath);
       } else {
         console.info(`   📄 Extrayendo datos del PDF...`);
         extraction = await this.pdfExtractor.extract(filePath);

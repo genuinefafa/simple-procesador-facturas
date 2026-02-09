@@ -56,6 +56,7 @@
     extractedInvoiceNumber?: number | null;
     extractionConfidence?: number | null;
     extractionMethod?: string | null;
+    fileType?: string | null;
     categoryId?: number | null;
     /** @deprecated Usar CUIT y resolver via EmitterService */
     emitterName?: string | null;
@@ -704,6 +705,7 @@
 <ReprocessDialog
   bind:open={reprocessDialogOpen}
   existingMethods={extractions.map((e) => e.method).filter((m): m is string => m != null)}
+  fileType={file?.fileType ?? null}
   onselect={handleReprocess}
   onclose={closeReprocessDialog}
   {processing}
