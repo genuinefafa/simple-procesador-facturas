@@ -1,6 +1,6 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2026-02-07)
+## Estado Actual (2026-02-09)
 
 | Área | Estado | Notas |
 |------|--------|-------|
@@ -107,13 +107,16 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [x] #135 - Buscador manual expected invoices
 - [x] #120 - Balancear expected invoices (PR #148)
 - [x] Fix posicionamiento dropdowns (PR #149)
-- [x] Fix layout roto en lista comprobantes + URLs compartibles
+- [x] Fix layout roto en lista comprobantes + URLs compartibles (PR #153)
+- [x] #151 - Fix QR extractor sliding window (PR #154)
+- [x] #152 - Cleanup fallbacks y restringir auto-extracción (PR #155)
 
 ### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
 - [x] #76 - Múltiples métodos extracción
 - [x] #60 - Extracción QR ARCA
-- [ ] #151 - QR extractor no detecta QR de ARCA en imagen de Movistar
-- [ ] #152 - Limpiar fallbacks en extracción y restringir auto-procesamiento al subir
+- [x] #151 - QR extractor no detecta QR de ARCA en imagen de Movistar (PR #154)
+- [x] #152 - Limpiar fallbacks en extracción y restringir auto-procesamiento al subir (PR #155)
+- [x] #156 - HEIC file preview broken (Content-Type hardcoded a application/pdf) (PR #156)
 - [ ] #54 - Simplificar algoritmo matching
 - [ ] #93 - Testing extracción docs confidenciales
 - [ ] #129 - Importar desglose impositivo ARCA
@@ -201,4 +204,4 @@ npm run db:studio        # GUI Drizzle
 
 ---
 
-**Última actualización**: 2026-02-07
+**Última actualización**: 2026-02-09
