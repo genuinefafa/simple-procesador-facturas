@@ -7,9 +7,9 @@ import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { InvoiceRepository } from '@server/database/repositories/invoice';
 import { FileRepository } from '@server/database/repositories/file';
-import { existsSync, createReadStream } from 'fs';
-import { stat } from 'fs/promises';
-import { join } from 'path';
+import { existsSync, readFileSync } from 'fs';
+import { join, extname } from 'path';
+import heicConvert from 'heic-convert';
 
 const PROJECT_ROOT = join(process.cwd(), '..');
 const DATA_DIR = join(PROJECT_ROOT, 'data');
@@ -85,22 +85,53 @@ export const GET: RequestHandler = async ({ params }) => {
       throw error(404, 'Archivo físico no encontrado en disco');
     }
 
-    // Obtener info del archivo
-    const fileStats = await stat(absolutePath);
+    // Read file into buffer
+    let fileBuffer = readFileSync(absolutePath);
+    const ext = extname(absolutePath).toLowerCase();
 
-    console.log(`✅ [FILE-SERVER] Sirviendo: ${file.storagePath} (${fileStats.size} bytes)`);
+    console.log(`✅ [FILE-SERVER] Sirviendo: ${file.storagePath} (${fileBuffer.length} bytes)`);
 
-    // Crear stream y servir archivo
-    const stream = createReadStream(absolutePath);
+    // Convert HEIC/HEIF to JPEG for browser compatibility
+    if (ext === '.heic' || ext === '.heif') {
+      console.log(`   🔄 Converting HEIC to JPEG...`);
+      try {
+        const outputBuffer = await heicConvert({
+          buffer: fileBuffer,
+          format: 'JPEG',
+          quality: 0.9,
+        });
+        fileBuffer = Buffer.from(outputBuffer);
+        console.log(`   ✅ HEIC conversion done (${fileBuffer.length} bytes)`);
+      } catch (convertErr) {
+        console.error(`   ❌ Error converting HEIC:`, convertErr);
+        throw error(500, 'Error converting HEIC file');
+      }
+    }
+
+    // Determine Content-Type based on file extension
+    let contentType = 'application/octet-stream';
+    if (ext === '.pdf') {
+      contentType = 'application/pdf';
+    } else if (['.jpg', '.jpeg'].includes(ext)) {
+      contentType = 'image/jpeg';
+    } else if (ext === '.png') {
+      contentType = 'image/png';
+    } else if (ext === '.tif' || ext === '.tiff') {
+      contentType = 'image/tiff';
+    } else if (ext === '.webp') {
+      contentType = 'image/webp';
+    } else if (ext === '.heic' || ext === '.heif') {
+      contentType = 'image/jpeg'; // Served as JPEG after conversion
+    }
 
     // Encodear filename para HTTP headers (RFC 5987 para UTF-8)
     const safeFilename = filename.replace(/[^\x20-\x7E]/g, '_'); // ASCII-safe fallback
     const encodedFilename = encodeURIComponent(filename);
 
-    return new Response(stream as any, {
+    return new Response(fileBuffer, {
       headers: {
-        'Content-Type': 'application/pdf',
-        'Content-Length': fileStats.size.toString(),
+        'Content-Type': contentType,
+        'Content-Length': fileBuffer.length.toString(),
         'Content-Disposition': `inline; filename="${safeFilename}"; filename*=UTF-8''${encodedFilename}`,
         'Cache-Control': 'public, max-age=3600',
       },
