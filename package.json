@@ -49,7 +49,7 @@
 		"server"
 	],
 	"dependencies": {
-		"googleapis": "^167.0.0"
+		"googleapis": "^171.0.0"
 	},
 	"devDependencies": {
 		"ts-node": "^10.9.2",
