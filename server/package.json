@@ -34,7 +34,7 @@
     "pdf-parse": "^1.1.1",
     "pdf-to-img": "^5.0.0",
     "sharp": "^0.34.5",
-    "tesseract.js": "^5.1.1",
+    "tesseract.js": "^7.0.0",
     "yaml": "^2.8.1",
     "zod": "^3.25.76"
   },
