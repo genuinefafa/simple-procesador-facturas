@@ -32,12 +32,16 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## Security Audit" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          npm audit --omit=dev >> $GITHUB_STEP_SUMMARY || true
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          npm audit --omit=dev >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          # Check separately for the exit code
+          if ! npm audit --omit=dev --audit-level=high > /dev/null 2>&1; then
+            echo "has_vulnerabilities=true" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create Issue if vulnerabilities found
-        if: failure()
+        if: steps.audit.outputs.has_vulnerabilities == 'true'
         uses: actions/github-script@v7
         with:
           script: |
