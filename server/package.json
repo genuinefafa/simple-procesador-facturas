@@ -24,7 +24,7 @@
     "reconcile-files": "tsx scripts/reconcile-files.ts"
   },
   "dependencies": {
-    "better-sqlite3": "^11.7.0",
+    "better-sqlite3": "^12.6.0",
     "date-fns": "^4.1.0",
     "drizzle-orm": "^1.0.0-beta.14-a36c63d",
     "exceljs": "^4.4.0",
