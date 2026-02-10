@@ -77,32 +77,35 @@ export class QRExtractor {
   }
 
   /**
-   * Convierte PDF a imagen (primera página)
-   * Usa scale 5.0 para mejor detección de QR codes pequeños en documentos escaneados
+   * Convierte PDF a imágenes (todas las páginas).
+   * Usa scale 5.0 para mejor detección de QR codes pequeños en documentos escaneados.
+   * Retorna un generador asíncrono que produce { pageNumber, buffer } por cada página.
    */
-  private async pdfToImage(filePath: string, scale = 5.0): Promise<Buffer | null> {
-    try {
-      console.info(`   🔄 Convirtiendo PDF a imagen (scale: ${scale})...`);
-      const pdfBuffer = readFileSync(filePath);
-      const document = await pdf(pdfBuffer, { scale });
+  private async *pdfToImages(
+    filePath: string,
+    scale = 5.0
+  ): AsyncGenerator<{ pageNumber: number; buffer: Buffer }> {
+    const pdfBuffer = readFileSync(filePath);
+    const document = await pdf(pdfBuffer, { scale });
 
-      for await (const page of document) {
-        console.info(`   📄 Página 1 convertida (${page.length} bytes)`);
-        return page;
-      }
+    console.info(`   🔄 PDF con ${document.length} página(s) (scale: ${scale})`);
 
+    let pageNumber = 0;
+    for await (const page of document) {
+      pageNumber++;
+      console.info(`   📄 Página ${pageNumber} convertida (${page.length} bytes)`);
+      yield { pageNumber, buffer: page };
+    }
+
+    if (pageNumber === 0) {
       console.warn(`   ⚠️ PDF vacío o sin páginas`);
-      return null;
-    } catch (error) {
-      console.error(`   ❌ Error convirtiendo PDF a imagen:`, error);
-      return null;
     }
   }
 
   /**
-   * Detecta y decodifica QR code de una imagen.
-   * Busca específicamente QR codes de AFIP/ARCA usando sliding window
-   * para manejar documentos con múltiples QR codes.
+   * Detecta y decodifica QR code de un archivo.
+   * Para PDFs, itera todas las páginas buscando un QR de AFIP/ARCA.
+   * Para imágenes, escanea directamente.
    */
   private async detectQR(filePath: string): Promise<QRDetectionResult> {
     if (!existsSync(filePath)) {
@@ -110,23 +113,41 @@ export class QRExtractor {
     }
 
     const ext = extname(filePath).toLowerCase();
-    let imageSource: string | Buffer = filePath;
 
-    // Convertir PDF a imagen
+    // PDFs: iterar todas las páginas buscando QR AFIP/ARCA
     if (ext === '.pdf') {
-      const pdfImage = await this.pdfToImage(filePath);
-      if (!pdfImage) {
-        return { found: false, error: 'No se pudo convertir PDF a imagen' };
+      try {
+        const pages = this.pdfToImages(filePath);
+        for await (const { pageNumber, buffer } of pages) {
+          console.info(`   🔍 Escaneando página ${pageNumber}...`);
+          const result = await this.detectQRInImage(buffer);
+          if (result.found && result.rawData && this.isAFIPUrl(result.rawData)) {
+            console.info(`   ✅ QR AFIP/ARCA encontrado en página ${pageNumber}`);
+            return result;
+          }
+        }
+        return { found: false, error: 'No se encontró QR de AFIP/ARCA en ninguna página del PDF' };
+      } catch (error) {
+        console.error(`   ❌ Error procesando páginas del PDF:`, error);
+        return { found: false, error: 'Error convirtiendo PDF a imágenes' };
       }
-      imageSource = pdfImage;
     }
 
-    // Convertir HEIC a JPEG
+    // HEIC/HEIF: convertir y escanear
     if (ext === '.heic' || ext === '.heif') {
-      imageSource = await this.convertHeicToJpeg(filePath);
+      const buffer = await this.convertHeicToJpeg(filePath);
+      return this.detectQRInImage(buffer);
     }
 
-    // Obtener pixels e info de imagen
+    // Imágenes: escanear directamente
+    return this.detectQRInImage(filePath);
+  }
+
+  /**
+   * Busca QR code de AFIP/ARCA en una imagen (buffer o path).
+   * Usa escaneo completo primero, luego ventana deslizante de abajo hacia arriba.
+   */
+  private async detectQRInImage(imageSource: string | Buffer): Promise<QRDetectionResult> {
     const metadata = await sharp(imageSource).metadata();
     const width = metadata.width || 0;
     const height = metadata.height || 0;
