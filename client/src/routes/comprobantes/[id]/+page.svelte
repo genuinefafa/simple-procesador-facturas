@@ -779,11 +779,24 @@
             }}
             onexpectedcategorychange={async (categoryId) => {
               if (!bestExpected) return;
+              const expectedId = bestExpected.id;
               const result = await comprobanteService.updateExpectedInvoiceCategory(
-                bestExpected.id,
+                expectedId,
                 categoryId
               );
               if (result.success) {
+                // Update optimista: parchear copias locales para que MatchIndicator reaccione
+                if (selectedExpectedOverride?.id === expectedId) {
+                  selectedExpectedOverride = { ...selectedExpectedOverride, categoryId };
+                }
+                if (matchesOverride) {
+                  matchesOverride = matchesOverride.map((m) =>
+                    m.id === expectedId ? { ...m, categoryId } : m
+                  );
+                }
+                manualCandidates = manualCandidates.map((c) =>
+                  c.id === expectedId ? { ...c, categoryId } : c
+                );
                 toast.success('Categoría actualizada');
                 await invalidateAll();
               } else {
