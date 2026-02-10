@@ -49,6 +49,7 @@
 		"server"
 	],
 	"dependencies": {
+		"drizzle-orm": "1.0.0-beta.15-859cf75",
 		"googleapis": "^171.0.0"
 	},
 	"devDependencies": {
