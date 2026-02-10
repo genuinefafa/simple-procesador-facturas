@@ -117,11 +117,9 @@ jobs:
 
       - name: Run npm audit (production only)
         run: npm audit --omit=dev --audit-level=high
-        continue-on-error: true
 
       - name: Run npm audit (all dependencies)
         run: npm audit --audit-level=critical
-        continue-on-error: true
 
   summary:
     name: CI Summary
@@ -148,3 +146,10 @@ jobs:
           needs.typescript.result == 'failure' ||
           needs.build.result == 'failure'
         run: exit 1
+
+      - name: Warn if non-critical jobs failed
+        if: |
+          needs.test.result == 'failure' ||
+          needs.security.result == 'failure'
+        run: |
+          echo "::warning::Non-critical jobs failed: test=${{ needs.test.result }}, security=${{ needs.security.result }}"
