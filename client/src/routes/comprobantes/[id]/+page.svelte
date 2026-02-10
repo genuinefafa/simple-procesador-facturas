@@ -48,6 +48,9 @@
   let balanceGroup = $state<BalanceGroup | null>(null);
   let loadingBalance = $state(false);
   let balanceSearchDialogOpen = $state(false);
+  // ID de la extracción seleccionada actualmente (para verificar si tiene datos)
+  let currentExtractionId = $state<number | null>(null);
+
   // Candidatos automáticos (del scoring basado en extracción)
   let autoCandidates = $state<ExpectedCandidate[]>([]);
   // Candidatos agregados manualmente desde el diálogo de búsqueda
@@ -254,6 +257,7 @@
     if (comprobante.id !== lastComprobanteId) {
       matchesOverride = null;
       selectedExpectedOverride = null;
+      currentExtractionId = null;
       // Reset estado de búsqueda manual
       selectedEmitterForSearch = null;
       availableExpected = [];
@@ -388,6 +392,24 @@
     !comprobante.final && (comprobante.file || comprobante.expected)
   );
 
+  // Verifica si la extracción seleccionada tiene algún dato útil
+  const currentExtractionHasData = $derived.by(() => {
+    const extractions = comprobante.file?.extractions;
+    if (!extractions || extractions.length === 0) return true; // Sin extracciones = no aplica
+    const extId = currentExtractionId ?? extractions[0]?.id;
+    if (!extId) return false;
+    const ext = extractions.find((e) => e.id === extId);
+    if (!ext) return true; // Fallback: asumir que tiene datos
+    return !!(
+      ext.extractedCuit ||
+      ext.extractedDate ||
+      ext.extractedTotal !== null ||
+      ext.extractedType !== null ||
+      ext.extractedPointOfSale !== null ||
+      ext.extractedInvoiceNumber !== null
+    );
+  });
+
   // El mejor match: usa override si el usuario seleccionó uno, sino expected vinculado, sino primer match
   const bestExpected = $derived.by(() => {
     // Si el usuario seleccionó uno del dropdown, mostrarlo
@@ -407,6 +429,8 @@
     }
     // Si hay expected vinculado al comprobante, usarlo
     if (comprobante.expected) return comprobante.expected;
+    // Si la extracción seleccionada no tiene datos, no mostrar matches automáticos
+    if (!currentExtractionHasData) return null;
     // Sino, usar el primer match automático
     if (localMatches && localMatches.length > 0) {
       const m = localMatches[0];
@@ -570,6 +594,7 @@
   // Re-fetch matches cuando el usuario cambia la extracción seleccionada
   async function handleExtractionChange(extractionId: number) {
     if (!comprobante.file) return;
+    currentExtractionId = extractionId;
 
     try {
       const res = await fetch(
