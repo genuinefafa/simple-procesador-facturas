@@ -33,7 +33,6 @@
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "pdf-to-img": "^5.0.0",
-    "pdfjs-dist": "^3.11.174",
     "sharp": "^0.33.5",
     "tesseract.js": "^5.1.1",
     "yaml": "^2.8.1",
