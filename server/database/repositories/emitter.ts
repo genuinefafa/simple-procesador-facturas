@@ -4,7 +4,7 @@
  */
 
 import { eq, sql } from 'drizzle-orm';
-import { db } from '../db.js';
+import { getDb } from '../db.js';
 import { emisores, type Emisor, type NewEmisor } from '../schema.js';
 import type { Emitter } from '@shared/types';
 
@@ -91,7 +91,7 @@ export class EmitterRepository implements IEmitterRepository {
   findByCUIT(cuit: string): Emitter | null {
     const cleaned = cuit.replace(/[-\s]/g, '');
 
-    const result = db.select().from(emisores).where(eq(emisores.cuit, cleaned)).limit(1).all();
+    const result = getDb().select().from(emisores).where(eq(emisores.cuit, cleaned)).limit(1).all();
 
     if (!result || result.length === 0 || !result[0]) return null;
 
@@ -134,7 +134,7 @@ export class EmitterRepository implements IEmitterRepository {
       tipoPersona: data.personType ?? null,
     };
 
-    db.insert(emisores).values(newEmisor).run();
+    getDb().insert(emisores).values(newEmisor).run();
 
     const created = this.findByCUIT(normalizedCuit);
     if (!created) {
@@ -152,7 +152,8 @@ export class EmitterRepository implements IEmitterRepository {
   updateAliases(cuit: string, aliases: string[]): void {
     const aliasesJson = aliases.length > 0 ? JSON.stringify(aliases) : null;
 
-    db.update(emisores)
+    getDb()
+      .update(emisores)
       .set({
         aliases: aliasesJson,
         updatedAt: new Date().toISOString(),
@@ -167,7 +168,8 @@ export class EmitterRepository implements IEmitterRepository {
    * @param templateId - ID del template
    */
   updatePreferredTemplate(cuit: string, templateId: number): void {
-    db.update(emisores)
+    getDb()
+      .update(emisores)
       .set({
         templatePreferidoId: templateId,
         templateAutoDetectado: true,
@@ -184,7 +186,8 @@ export class EmitterRepository implements IEmitterRepository {
    * @param legalName - Nueva razón social (opcional)
    */
   updateName(cuit: string, name: string, legalName?: string): void {
-    db.update(emisores)
+    getDb()
+      .update(emisores)
       .set({
         nombre: name,
         razonSocial: legalName ?? name,
@@ -203,14 +206,14 @@ export class EmitterRepository implements IEmitterRepository {
     let results: Emisor[];
 
     if (filters?.active !== undefined) {
-      results = db
+      results = getDb()
         .select()
         .from(emisores)
         .where(eq(emisores.activo, filters.active))
         .orderBy(emisores.nombre)
         .all();
     } else {
-      results = db.select().from(emisores).orderBy(emisores.nombre).all();
+      results = getDb().select().from(emisores).orderBy(emisores.nombre).all();
     }
 
     return results.map((row) => this.mapToEmitter(row));
@@ -227,7 +230,7 @@ export class EmitterRepository implements IEmitterRepository {
     firstInvoiceDate: string | null;
     lastInvoiceDate: string | null;
   } | null {
-    const result = db
+    const result = getDb()
       .select({
         totalInvoices: sql<number>`COUNT(*)`,
         totalAmount: sql<number>`COALESCE(SUM(total), 0)`,
@@ -292,7 +295,7 @@ export class EmitterRepository implements IEmitterRepository {
       updateData.activo = data.active;
     }
 
-    db.update(emisores).set(updateData).where(eq(emisores.cuit, cuit)).run();
+    getDb().update(emisores).set(updateData).where(eq(emisores.cuit, cuit)).run();
 
     return this.findByCUIT(cuit);
   }
@@ -303,7 +306,7 @@ export class EmitterRepository implements IEmitterRepository {
    * @returns Cantidad de facturas
    */
   countInvoices(cuit: string): number {
-    const result = db
+    const result = getDb()
       .select({
         count: sql<number>`COUNT(*)`,
       })
@@ -324,7 +327,7 @@ export class EmitterRepository implements IEmitterRepository {
     const cleaned = cuit.replace(/[-\s]/g, '');
 
     // Contar facturas finales
-    const facturasResult = db
+    const facturasResult = getDb()
       .select({ count: sql<number>`COUNT(*)` })
       .from(sql`facturas`)
       .where(sql`REPLACE(emisor_cuit, '-', '') = ${cleaned}`)
@@ -332,7 +335,7 @@ export class EmitterRepository implements IEmitterRepository {
     const facturas = facturasResult[0]?.count ?? 0;
 
     // Contar expected invoices que NO tienen factura vinculada (status != 'matched')
-    const expectedResult = db
+    const expectedResult = getDb()
       .select({ count: sql<number>`COUNT(*)` })
       .from(sql`expected_invoices`)
       .where(sql`REPLACE(cuit, '-', '') = ${cleaned} AND status != 'matched'`)
@@ -359,7 +362,7 @@ export class EmitterRepository implements IEmitterRepository {
     const cleaned = cuit.replace(/[-\s]/g, '');
 
     // Stats de facturas finales
-    const facturasStats = db
+    const facturasStats = getDb()
       .select({
         count: sql<number>`COUNT(*)`,
         total: sql<number>`COALESCE(SUM(total), 0)`,
@@ -372,7 +375,7 @@ export class EmitterRepository implements IEmitterRepository {
 
     // Stats de expected invoices (no matched)
     // Nota: expected_invoices usa issue_date, no fecha_emision
-    const expectedStats = db
+    const expectedStats = getDb()
       .select({
         count: sql<number>`COUNT(*)`,
         total: sql<number>`COALESCE(SUM(total), 0)`,
@@ -421,7 +424,7 @@ export class EmitterRepository implements IEmitterRepository {
       );
     }
 
-    db.delete(emisores).where(eq(emisores.cuit, cuit)).run();
+    getDb().delete(emisores).where(eq(emisores.cuit, cuit)).run();
     return true;
   }
 }

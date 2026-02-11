@@ -62,7 +62,7 @@ export const POST: RequestHandler = async ({ request }) => {
     console.info(`   💾 Archivo guardado: ${filePath}`);
 
     // Importar con el servicio
-    const importService = createExcelImportService();
+    const importService = await createExcelImportService();
     const result = await importService.importFromFile(filePath);
 
     console.info(`   ✅ Importación completada:`);

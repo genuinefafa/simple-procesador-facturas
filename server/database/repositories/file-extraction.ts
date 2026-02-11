@@ -4,7 +4,7 @@
  */
 
 import { eq, and, desc } from 'drizzle-orm';
-import { db } from '../db.js';
+import { getDb } from '../db.js';
 import {
   fileExtractionResults,
   type FileExtractionResult,
@@ -33,7 +33,7 @@ export class FileExtractionRepository implements IFileExtractionRepository {
    * Crea un nuevo resultado de extracción
    */
   create(data: Omit<NewFileExtractionResult, 'id' | 'extractedAt'>): FileExtractionResult {
-    const result = db
+    const result = getDb()
       .insert(fileExtractionResults)
       .values({
         ...data,
@@ -50,7 +50,7 @@ export class FileExtractionRepository implements IFileExtractionRepository {
    * Returns the most recent extraction for backward compatibility
    */
   findByFileId(fileId: number): FileExtractionResult | null {
-    const result = db
+    const result = getDb()
       .select()
       .from(fileExtractionResults)
       .where(eq(fileExtractionResults.fileId, fileId))
@@ -64,7 +64,7 @@ export class FileExtractionRepository implements IFileExtractionRepository {
    * Returns all extractions for a file, ordered by extractedAt DESC
    */
   findAllByFileId(fileId: number): FileExtractionResult[] {
-    return db
+    return getDb()
       .select()
       .from(fileExtractionResults)
       .where(eq(fileExtractionResults.fileId, fileId))
@@ -76,7 +76,7 @@ export class FileExtractionRepository implements IFileExtractionRepository {
    * Finds extraction by file ID and method
    */
   findByFileIdAndMethod(fileId: number, method: string): FileExtractionResult | null {
-    const result = db
+    const result = getDb()
       .select()
       .from(fileExtractionResults)
       .where(
@@ -100,7 +100,8 @@ export class FileExtractionRepository implements IFileExtractionRepository {
     const existing = this.findByFileIdAndMethod(fileId, method);
 
     if (existing) {
-      db.update(fileExtractionResults)
+      getDb()
+        .update(fileExtractionResults)
         .set({
           ...data,
           extractedAt: new Date().toISOString(),
@@ -125,13 +126,13 @@ export class FileExtractionRepository implements IFileExtractionRepository {
     id: number,
     data: Partial<Omit<NewFileExtractionResult, 'id' | 'fileId' | 'extractedAt'>>
   ): void {
-    db.update(fileExtractionResults).set(data).where(eq(fileExtractionResults.id, id)).run();
+    getDb().update(fileExtractionResults).set(data).where(eq(fileExtractionResults.id, id)).run();
   }
 
   /**
    * Elimina un resultado de extracción
    */
   delete(id: number): void {
-    db.delete(fileExtractionResults).where(eq(fileExtractionResults.id, id)).run();
+    getDb().delete(fileExtractionResults).where(eq(fileExtractionResults.id, id)).run();
   }
 }

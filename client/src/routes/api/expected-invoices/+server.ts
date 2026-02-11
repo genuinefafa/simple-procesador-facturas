@@ -94,7 +94,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const { action, batchId } = await request.json();
 
     if (action === 'getBatchStats' && batchId) {
-      const service = createExcelImportService();
+      const service = await createExcelImportService();
       const stats = service.getBatchStats(batchId);
 
       return json({
@@ -104,7 +104,7 @@ export const POST: RequestHandler = async ({ request }) => {
     }
 
     if (action === 'listBatches') {
-      const service = createExcelImportService();
+      const service = await createExcelImportService();
       const batches = service.listBatches();
 
       return json({

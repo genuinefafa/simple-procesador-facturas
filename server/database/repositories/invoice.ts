@@ -3,7 +3,7 @@
  */
 
 import { eq, and, count, or, like } from 'drizzle-orm';
-import { db } from '../db';
+import { getDb } from '../db';
 import { facturas, type Factura } from '../schema';
 import type { InvoiceType, Currency, ExtractionMethod } from '@shared/types';
 
@@ -175,7 +175,7 @@ export class InvoiceRepository implements IInvoiceRepository {
       expectedInvoiceId: data.expectedInvoiceId ?? null,
       categoryId: data.categoryId ?? null,
     };
-    const result = await db.insert(facturas).values(insertData).returning();
+    const result = await getDb().insert(facturas).values(insertData).returning();
 
     if (!result || result.length === 0) {
       throw new Error('Failed to create invoice');
@@ -185,12 +185,12 @@ export class InvoiceRepository implements IInvoiceRepository {
   }
 
   async findById(id: number): Promise<Invoice | null> {
-    const result = await db.select().from(facturas).where(eq(facturas.id, id)).limit(1);
+    const result = await getDb().select().from(facturas).where(eq(facturas.id, id)).limit(1);
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
   }
 
   async findByFileId(fileId: number): Promise<Invoice[]> {
-    const result = await db.select().from(facturas).where(eq(facturas.fileId, fileId));
+    const result = await getDb().select().from(facturas).where(eq(facturas.fileId, fileId));
     return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 
@@ -211,7 +211,7 @@ export class InvoiceRepository implements IInvoiceRepository {
       conditions.push(eq(facturas.tipoComprobante, type));
     }
 
-    const result = await db
+    const result = await getDb()
       .select()
       .from(facturas)
       .where(and(...conditions))
@@ -243,7 +243,7 @@ export class InvoiceRepository implements IInvoiceRepository {
       conditions.push(eq(facturas.requiereRevision, filters.requiresReview));
     }
 
-    let query = db.select().from(facturas);
+    let query = getDb().select().from(facturas);
 
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as typeof query;
@@ -265,7 +265,7 @@ export class InvoiceRepository implements IInvoiceRepository {
   }
 
   async markAsValidated(id: number): Promise<void> {
-    await db
+    await getDb()
       .update(facturas)
       .set({ validadoManualmente: true, requiereRevision: false })
       .where(eq(facturas.id, id));
@@ -300,7 +300,7 @@ export class InvoiceRepository implements IInvoiceRepository {
       conditions.push(eq(facturas.requiereRevision, filters.requiresReview));
     }
 
-    let query = db.select({ count: count() }).from(facturas);
+    let query = getDb().select({ count: count() }).from(facturas);
     if (conditions.length > 0) {
       query = query.where(and(...conditions)) as typeof query;
     }
@@ -312,13 +312,13 @@ export class InvoiceRepository implements IInvoiceRepository {
   async search(term: string, limit = 20): Promise<Invoice[]> {
     const trimmed = term.trim();
     if (!trimmed) {
-      const rows = await db.select().from(facturas).limit(limit);
+      const rows = await getDb().select().from(facturas).limit(limit);
       return rows.map((row) => this.mapDrizzleToInvoice(row));
     }
 
     const pattern = `%${trimmed}%`;
 
-    const rows = await db
+    const rows = await getDb()
       .select()
       .from(facturas)
       .where(or(like(facturas.comprobanteCompleto, pattern), like(facturas.emisorCuit, pattern)))
@@ -346,7 +346,11 @@ export class InvoiceRepository implements IInvoiceRepository {
       return this.findById(id);
     }
 
-    const result = await db.update(facturas).set(updates).where(eq(facturas.id, id)).returning();
+    const result = await getDb()
+      .update(facturas)
+      .set(updates)
+      .where(eq(facturas.id, id))
+      .returning();
 
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
   }
@@ -385,7 +389,11 @@ export class InvoiceRepository implements IInvoiceRepository {
       return this.findById(id);
     }
 
-    const result = await db.update(facturas).set(updates).where(eq(facturas.id, id)).returning();
+    const result = await getDb()
+      .update(facturas)
+      .set(updates)
+      .where(eq(facturas.id, id))
+      .returning();
 
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
   }
@@ -416,7 +424,7 @@ export class InvoiceRepository implements IInvoiceRepository {
       // Si tiene expected vinculado, revertir status a "pending"
       if (invoice.expectedInvoiceId) {
         const { expectedInvoices } = await import('../schema.js');
-        await db
+        await getDb()
           .update(expectedInvoices)
           .set({ status: 'pending' })
           .where(eq(expectedInvoices.id, invoice.expectedInvoiceId));
@@ -426,12 +434,12 @@ export class InvoiceRepository implements IInvoiceRepository {
       // Si tiene file vinculado, revertir status a "uploaded"
       if (invoice.fileId) {
         const { files } = await import('../schema.js');
-        await db.update(files).set({ status: 'uploaded' }).where(eq(files.id, invoice.fileId));
+        await getDb().update(files).set({ status: 'uploaded' }).where(eq(files.id, invoice.fileId));
         result.unlinkedFile = invoice.fileId;
       }
 
       // Finalmente, eliminar la factura
-      await db.delete(facturas).where(eq(facturas.id, id));
+      await getDb().delete(facturas).where(eq(facturas.id, id));
 
       return result;
     } catch (error) {
@@ -444,7 +452,7 @@ export class InvoiceRepository implements IInvoiceRepository {
   }
 
   async listAllProcessed(): Promise<Invoice[]> {
-    const result = await db.select().from(facturas);
+    const result = await getDb().select().from(facturas);
 
     return result.map((row) => this.mapDrizzleToInvoice(row));
   }
