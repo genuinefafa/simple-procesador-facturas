@@ -3,12 +3,14 @@
  */
 
 import type { RequestHandler } from './$types';
-import { TemplateGeneratorService } from '@server/services/template-generator.service.js';
 
 export const GET: RequestHandler = async ({ url }) => {
   console.info('\n📥 [API] GET /api/expected-invoices/template');
 
   try {
+    // Lazy-load exceljs (~25MB) — only loaded when template is requested
+    const { TemplateGeneratorService } =
+      await import('@server/services/template-generator.service.js');
     const format = url.searchParams.get('format') || 'xlsx';
     const service = new TemplateGeneratorService();
 

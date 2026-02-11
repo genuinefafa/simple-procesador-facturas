@@ -4,11 +4,7 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import {
-  getGoogleSyncService,
-  type SyncMode,
-  type SheetType,
-} from '@server/services/google/google-sync.service.js';
+import type { SyncMode, SheetType } from '@server/services/google/google-sync.service.js';
 
 export const POST: RequestHandler = async ({ request }) => {
   console.info('☁️  [GOOGLE-SYNC] Iniciando sincronización con Google...');
@@ -44,7 +40,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
     console.info(`☁️  [GOOGLE-SYNC] Sincronizando "${sheet}" en modo "${mode}"...`);
 
-    // Obtener servicio de sincronización
+    // Lazy-load googleapis (~200MB) — only loaded when this endpoint is called
+    const { getGoogleSyncService } = await import('@server/services/google/google-sync.service.js');
     const syncService = getGoogleSyncService();
 
     // Inicializar si es necesario

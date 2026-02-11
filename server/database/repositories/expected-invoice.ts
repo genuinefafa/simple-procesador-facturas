@@ -3,7 +3,7 @@
  */
 
 import { eq, inArray, and, desc, gte, lte, like, SQL, sql } from 'drizzle-orm';
-import { db } from '../db';
+import { getDb } from '../db';
 import {
   expectedInvoices,
   importBatches,
@@ -167,7 +167,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     errorRows?: number;
     notes?: string;
   }): Promise<ImportBatch> {
-    const result = await db
+    const result = await getDb()
       .insert(importBatches)
       .values({
         filename: data.filename,
@@ -187,7 +187,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
   }
 
   async findBatchById(id: number): Promise<ImportBatch | null> {
-    const result = await db.select().from(importBatches).where(eq(importBatches.id, id));
+    const result = await getDb().select().from(importBatches).where(eq(importBatches.id, id));
 
     return result.length > 0 ? this.mapDrizzleToImportBatch(result[0]) : null;
   }
@@ -213,7 +213,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       return found;
     }
 
-    const result = await db
+    const result = await getDb()
       .update(importBatches)
       .set(updates)
       .where(eq(importBatches.id, id))
@@ -228,8 +228,12 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
 
   async listBatches(limit?: number): Promise<ImportBatch[]> {
     const result = limit
-      ? await db.select().from(importBatches).orderBy(desc(importBatches.importDate)).limit(limit)
-      : await db.select().from(importBatches).orderBy(desc(importBatches.importDate));
+      ? await getDb()
+          .select()
+          .from(importBatches)
+          .orderBy(desc(importBatches.importDate))
+          .limit(limit)
+      : await getDb().select().from(importBatches).orderBy(desc(importBatches.importDate));
 
     return result.map((row) => this.mapDrizzleToImportBatch(row));
   }
@@ -299,7 +303,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
           }
         } else {
           // No existe - crear nuevo
-          const result = await db
+          const result = await getDb()
             .insert(expectedInvoices)
             .values({
               importBatchId: batchId,
@@ -333,7 +337,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
   }
 
   async findById(id: number): Promise<ExpectedInvoice | null> {
-    const result = await db.select().from(expectedInvoices).where(eq(expectedInvoices.id, id));
+    const result = await getDb().select().from(expectedInvoices).where(eq(expectedInvoices.id, id));
 
     return result.length > 0 ? this.mapDrizzleToExpectedInvoice(result[0]) : null;
   }
@@ -371,7 +375,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       conditions.push(inArray(expectedInvoices.status, criteria.status));
     }
 
-    const result = await db
+    const result = await getDb()
       .select()
       .from(expectedInvoices)
       .where(and(...(conditions as Parameters<typeof and>)))
@@ -412,7 +416,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     const whereClause =
       conditions.length > 0 ? and(...(conditions as Parameters<typeof and>)) : undefined;
 
-    let query = db
+    let query = getDb()
       .select({
         expectedInvoice: expectedInvoices,
         emisorNombre: emisores.nombre,
@@ -421,7 +425,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       .leftJoin(emisores, eq(expectedInvoices.cuit, emisores.cuit));
 
     if (whereClause) {
-      query = db
+      query = getDb()
         .select({
           expectedInvoice: expectedInvoices,
           emisorNombre: emisores.nombre,
@@ -482,7 +486,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       conditions.push(eq(expectedInvoices.invoiceType, type));
     }
 
-    const result = await db
+    const result = await getDb()
       .select()
       .from(expectedInvoices)
       .where(and(...conditions));
@@ -506,13 +510,13 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
 
     if (invoice.cae) {
       // Búsqueda por CUIT + CAE (clave única)
-      result = await db
+      result = await getDb()
         .select()
         .from(expectedInvoices)
         .where(and(eq(expectedInvoices.cuit, invoice.cuit), eq(expectedInvoices.cae, invoice.cae)));
     } else {
       // Búsqueda por CUIT + tipo + sucursal + numero
-      result = await db
+      result = await getDb()
         .select()
         .from(expectedInvoices)
         .where(
@@ -557,7 +561,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       return found;
     }
 
-    const result = await db
+    const result = await getDb()
       .update(expectedInvoices)
       .set(updates)
       .where(eq(expectedInvoices.id, id))
@@ -574,7 +578,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
    * Actualiza el estado de una expected invoice
    */
   updateStatus(id: number, status: ExpectedInvoiceStatus): void {
-    db.update(expectedInvoices).set({ status }).where(eq(expectedInvoices.id, id)).run();
+    getDb().update(expectedInvoices).set({ status }).where(eq(expectedInvoices.id, id)).run();
   }
 
   async findPartialMatches(criteria: {
@@ -608,7 +612,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     // NO filtrar por tipo, punto de venta, ni número en SQL
     // Así incluimos TODAS las facturas sin asignar de ese CUIT (o todas si no hay CUIT)
 
-    const result = await db
+    const result = await getDb()
       .select()
       .from(expectedInvoices)
       .where(and(...conditions.filter((c): c is SQL => c !== undefined)))
@@ -740,7 +744,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     let query;
 
     if (conditions.length > 0) {
-      query = await db
+      query = await getDb()
         .select({
           expectedInvoice: expectedInvoices,
           emisorNombre: emisores.nombre,
@@ -749,7 +753,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
         .leftJoin(emisores, eq(expectedInvoices.cuit, emisores.cuit))
         .where(and(...conditions));
     } else {
-      query = await db
+      query = await getDb()
         .select({
           expectedInvoice: expectedInvoices,
           emisorNombre: emisores.nombre,
@@ -789,7 +793,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
    * Actualiza la categoría de una expected invoice
    */
   async updateCategory(id: number, categoryId: number | null): Promise<ExpectedInvoice> {
-    const result = await db
+    const result = await getDb()
       .update(expectedInvoices)
       .set({ categoryId })
       .where(eq(expectedInvoices.id, id))
@@ -803,7 +807,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
   }
 
   async countByStatus(batchId?: number): Promise<Record<ExpectedInvoiceStatus, number>> {
-    const result = await db
+    const result = await getDb()
       .select({ status: expectedInvoices.status })
       .from(expectedInvoices)
       .where(batchId ? eq(expectedInvoices.importBatchId, batchId) : undefined);
@@ -847,7 +851,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     if (!principal) return [];
 
     // Obtener secundarios
-    const secundarios = await db
+    const secundarios = await getDb()
       .select()
       .from(expectedInvoices)
       .where(eq(expectedInvoices.balancedWithId, principalId));
@@ -906,7 +910,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     // Actualizar todos los miembros que no estén 'matched'
     const memberIds = group.map((m) => m.id);
     if (memberIds.length > 0) {
-      await db
+      await getDb()
         .update(expectedInvoices)
         .set({ status: newStatus })
         .where(
@@ -956,7 +960,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     }
 
     // Agregar al grupo
-    await db
+    await getDb()
       .update(expectedInvoices)
       .set({ balancedWithId: principalId })
       .where(eq(expectedInvoices.id, id));
@@ -977,7 +981,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
 
     if (invoice.balancedWithId === null) {
       // Es principal - verificar si tiene secundarios
-      const secundarios = await db
+      const secundarios = await getDb()
         .select()
         .from(expectedInvoices)
         .where(eq(expectedInvoices.balancedWithId, id));
@@ -996,7 +1000,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     const principalId = invoice.balancedWithId;
 
     // Es secundario - simplemente quitar del grupo y volver a pending
-    await db
+    await getDb()
       .update(expectedInvoices)
       .set({ balancedWithId: null, status: 'pending' })
       .where(eq(expectedInvoices.id, id));
@@ -1015,14 +1019,14 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     const memberIds = group.map((m) => m.id);
 
     // Quitar la referencia de los secundarios
-    const result = await db
+    const result = await getDb()
       .update(expectedInvoices)
       .set({ balancedWithId: null })
       .where(eq(expectedInvoices.balancedWithId, principalId));
 
     // Poner todos los miembros en pending (excepto los que tengan matched)
     if (memberIds.length > 0) {
-      await db
+      await getDb()
         .update(expectedInvoices)
         .set({ status: 'pending' })
         .where(
@@ -1051,19 +1055,19 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     const oldPrincipalId = newPrincipal.balancedWithId;
 
     // Actualizar todos los secundarios para apuntar al nuevo principal
-    await db
+    await getDb()
       .update(expectedInvoices)
       .set({ balancedWithId: newPrincipalId })
       .where(eq(expectedInvoices.balancedWithId, oldPrincipalId));
 
     // El viejo principal también debe apuntar al nuevo
-    await db
+    await getDb()
       .update(expectedInvoices)
       .set({ balancedWithId: newPrincipalId })
       .where(eq(expectedInvoices.id, oldPrincipalId));
 
     // El nuevo principal ya no apunta a nadie
-    await db
+    await getDb()
       .update(expectedInvoices)
       .set({ balancedWithId: null })
       .where(eq(expectedInvoices.id, newPrincipalId));
@@ -1080,7 +1084,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     if (invoice.balancedWithId !== null) return true;
 
     // Es principal - verificar si tiene secundarios
-    const secundarios = await db
+    const secundarios = await getDb()
       .select()
       .from(expectedInvoices)
       .where(eq(expectedInvoices.balancedWithId, id))
@@ -1095,7 +1099,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
    * @returns Set de IDs de principales
    */
   async getPrincipalIds(): Promise<Set<number>> {
-    const result = await db
+    const result = await getDb()
       .selectDistinct({ principalId: expectedInvoices.balancedWithId })
       .from(expectedInvoices)
       .where(sql`${expectedInvoices.balancedWithId} IS NOT NULL`);

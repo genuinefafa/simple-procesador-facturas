@@ -17,8 +17,9 @@ import { InvoiceCreationService } from '../services/invoice-creation.service';
 import { InvoiceFileService } from '../services/invoice-file.service';
 import { ComprobanteService } from '../services/comprobante.service';
 import { InvoiceProcessingService } from '../services/invoice-processing.service';
-import { ExcelImportService } from '../services/excel-import.service';
 import { FileExportService } from '../services/file-export.service';
+// ExcelImportService is loaded lazily in createExcelImportService()
+// to avoid pulling exceljs (~25MB) into the module graph at import time.
 
 // Extractors are loaded lazily in createInvoiceProcessingService()
 // to avoid pulling heavy dependencies (tesseract.js, sharp, pdf-to-img)
@@ -122,8 +123,10 @@ export async function createInvoiceProcessingService(): Promise<InvoiceProcessin
 
 /**
  * Factory for ExcelImportService
+ * Lazy-loads exceljs (~25MB) by deferring the import to call time.
  */
-export function createExcelImportService(): ExcelImportService {
+export async function createExcelImportService() {
+  const { ExcelImportService } = await import('../services/excel-import.service');
   return new ExcelImportService(getExpectedInvoiceRepository(), getEmitterRepository());
 }
 

@@ -11,7 +11,7 @@
  *   npm run reconcile-files -- --fix     # Aplica los cambios
  */
 
-import { db } from '../database/db.js';
+import { getDb } from '../database/db.js';
 import { facturas, files, emisores } from '../database/schema.js';
 import { eq } from 'drizzle-orm';
 import { existsSync, readdirSync, statSync, renameSync, mkdirSync, copyFileSync } from 'fs';
@@ -165,7 +165,7 @@ async function main() {
   for (const factura of facturasData) {
     if (!factura.fileId) continue;
 
-    const file = db.select().from(files).where(eq(files.id, factura.fileId)).get();
+    const file = getDb().select().from(files).where(eq(files.id, factura.fileId)).get();
     if (!file) continue;
 
     const currentPath = join(DATA_DIR, file.storagePath);
@@ -292,7 +292,7 @@ async function main() {
       // Si necesita mover a finalized/
       if (r.action === 'move_and_update') {
         // Obtener datos de la factura
-        const fact = db.select().from(facturas).where(eq(facturas.id, r.facturaId)).get();
+        const fact = getDb().select().from(facturas).where(eq(facturas.id, r.facturaId)).get();
 
         if (fact) {
           const emisorData = db
@@ -356,7 +356,7 @@ async function main() {
       }
 
       // Actualizar DB
-      db.update(files).set({ storagePath: finalPath }).where(eq(files.id, file.id)).run();
+      getDb().update(files).set({ storagePath: finalPath }).where(eq(files.id, file.id)).run();
 
       console.log(`   ✅ Actualizado: Factura ${r.facturaId} → ${finalPath}`);
     }

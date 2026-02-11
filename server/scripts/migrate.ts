@@ -3,7 +3,7 @@
  */
 
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { db } from '../database/db.js';
+import { getDb } from '../database/db.js';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -17,7 +17,7 @@ try {
   console.info(`📁 Carpeta de migraciones: ${migrationsPath}`);
 
   // Ejecutar migraciones de Drizzle v1
-  migrate(db, { migrationsFolder: migrationsPath });
+  migrate(getDb(), { migrationsFolder: migrationsPath });
 
   console.info('\n✨ Migraciones completadas exitosamente!');
 } catch (error) {

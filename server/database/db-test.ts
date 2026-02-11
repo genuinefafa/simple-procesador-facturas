@@ -9,7 +9,7 @@
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, rmSync } from 'fs';
-import { db, rawDb, closeDb } from './db.js';
+import { getDb, getRawDb, closeDb } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -34,29 +34,29 @@ export function cleanupTestDb(): void {
  */
 export function resetTestDb(): void {
   // Desactivar foreign keys temporalmente para truncar
-  rawDb.pragma('foreign_keys = OFF');
+  getRawDb().pragma('foreign_keys = OFF');
 
   // Obtener todas las tablas
-  const tables = rawDb
+  const tables = getRawDb()
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
     .all() as { name: string }[];
 
   // Truncar cada tabla
   for (const table of tables) {
-    rawDb.prepare(`DELETE FROM ${table.name}`).run();
+    getRawDb().prepare(`DELETE FROM ${table.name}`).run();
   }
 
   // Resetear autoincrement (solo si la tabla existe)
   // sqlite_sequence solo existe si se ha usado AUTOINCREMENT al menos una vez
-  const sqliteSequenceExists = rawDb
+  const sqliteSequenceExists = getRawDb()
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='sqlite_sequence'")
     .get();
   if (sqliteSequenceExists) {
-    rawDb.prepare('DELETE FROM sqlite_sequence').run();
+    getRawDb().prepare('DELETE FROM sqlite_sequence').run();
   }
 
   // Reactivar foreign keys
-  rawDb.pragma('foreign_keys = ON');
+  getRawDb().pragma('foreign_keys = ON');
 }
 
 /**
@@ -69,7 +69,7 @@ export async function runTestMigrations(): Promise<void> {
   const path = await import('path');
 
   // Verificar si ya existen las tablas principales
-  const tables = rawDb
+  const tables = getRawDb()
     .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='facturas'")
     .all() as { name: string }[];
 
@@ -85,13 +85,13 @@ export async function runTestMigrations(): Promise<void> {
   console.log(`   Migrations Path: ${migrationsPath}`);
 
   // Ejecutar migraciones de Drizzle
-  migrate(db, { migrationsFolder: migrationsPath });
+  migrate(getDb(), { migrationsFolder: migrationsPath });
 
   // Ejecutar post-migration.sql (triggers y views) si existe
   const postMigrationPath = path.join(migrationsPath, 'post-migration.sql');
   if (existsSync(postMigrationPath)) {
     const postMigrationSQL = readFileSync(postMigrationPath, 'utf-8');
-    rawDb.exec(postMigrationSQL);
+    getRawDb().exec(postMigrationSQL);
     console.log('✅ Migraciones + post-migration completadas');
   } else {
     console.log('✅ Migraciones completadas (sin post-migration.sql)');
