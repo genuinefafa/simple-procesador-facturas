@@ -23,6 +23,12 @@
   import { createFilterMatcher, type FilterNode } from '$lib/search';
   import { navigationStore } from '$lib/stores/navigation';
   import { comprobanteService } from '$lib/services/ComprobanteService';
+  import { Copy, CopyCheck } from '$lib/components/icons';
+  import {
+    generateFilenameForFile,
+    generateFilenameForSheet,
+    type CanonicalFilenameParams,
+  } from '$lib/utils/canonical-filename';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -128,6 +134,107 @@
     // No truncar - dejar que CSS maneje el overflow con text-overflow: ellipsis
     return { short: name || '', full: name || '' };
   }
+
+  // --- Copy filename dropdown ---
+  let copiedId = $state<string | null>(null);
+  let openMenuId = $state<string | null>(null);
+  let copiedTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  function resolveCategoryKey(categoryId: number | null | undefined): string | null {
+    if (categoryId == null) return null;
+    const cat = categories.find((c) => c.id === categoryId);
+    return cat?.key ?? null;
+  }
+
+  function getFilenameExtension(comp: Comprobante): string {
+    if (comp.final?.filePath) {
+      const dot = comp.final.filePath.lastIndexOf('.');
+      return dot >= 0 ? comp.final.filePath.substring(dot) : '.pdf';
+    }
+    if (comp.file?.originalFilename) {
+      const dot = comp.file.originalFilename.lastIndexOf('.');
+      return dot >= 0 ? comp.file.originalFilename.substring(dot) : '.pdf';
+    }
+    return '.pdf';
+  }
+
+  function getFilenameParams(comp: Comprobante): CanonicalFilenameParams | null {
+    if (comp.final) {
+      return {
+        issueDate: comp.final.issueDate ?? null,
+        emitterName: comp.emitterName || comp.final.emitterName || null,
+        cuit: comp.final.cuit,
+        invoiceType: comp.final.invoiceType,
+        pointOfSale: comp.final.pointOfSale ?? null,
+        invoiceNumber: comp.final.invoiceNumber ?? null,
+        categoryKey: resolveCategoryKey(comp.final.categoryId),
+        fileExtension: getFilenameExtension(comp),
+      };
+    }
+    if (comp.expected) {
+      return {
+        issueDate: comp.expected.issueDate,
+        emitterName: comp.emitterName || comp.expected.emitterName || null,
+        cuit: comp.expected.cuit,
+        invoiceType: comp.expected.invoiceType,
+        pointOfSale: comp.expected.pointOfSale,
+        invoiceNumber: comp.expected.invoiceNumber,
+        categoryKey: resolveCategoryKey(comp.expected.categoryId),
+        fileExtension: '.pdf',
+      };
+    }
+    if (comp.file) {
+      return {
+        issueDate: comp.file.extractedDate || null,
+        emitterName: comp.emitterName || null,
+        cuit: comp.file.extractedCuit || null,
+        invoiceType: comp.file.extractedType ?? null,
+        pointOfSale: comp.file.extractedPointOfSale ?? null,
+        invoiceNumber: comp.file.extractedInvoiceNumber ?? null,
+        categoryKey: resolveCategoryKey(comp.file.categoryId),
+        fileExtension: getFilenameExtension(comp),
+      };
+    }
+    return null;
+  }
+
+  function canGenerateFilename(comp: Comprobante): boolean {
+    const params = getFilenameParams(comp);
+    return params !== null && generateFilenameForFile(params) !== null;
+  }
+
+  async function copyFilename(comp: Comprobante, format: 'file' | 'sheet') {
+    const params = getFilenameParams(comp);
+    if (!params) return;
+    const filename =
+      format === 'file' ? generateFilenameForFile(params) : generateFilenameForSheet(params);
+    if (!filename) return;
+
+    try {
+      await navigator.clipboard.writeText(filename);
+      copiedId = comp.id;
+      if (copiedTimeout) clearTimeout(copiedTimeout);
+      copiedTimeout = setTimeout(() => {
+        copiedId = null;
+      }, 2000);
+      openMenuId = null;
+      toast.success(`Copiado: ${filename}`, { duration: 2000 });
+    } catch {
+      toast.error('No se pudo copiar al portapapeles');
+    }
+  }
+
+  function closeCopyMenu() {
+    openMenuId = null;
+  }
+
+  // Close copy menu on click outside
+  $effect(() => {
+    if (!openMenuId) return;
+    const handler = () => closeCopyMenu();
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  });
 
   function isVisible(c: Comprobante): boolean {
     // Todos los filtros se aplican via meta-lenguaje (AND lógico)
@@ -459,6 +566,7 @@
       <span></span>
     </div>
     {#each visibleComprobantes as comp}
+      {@const canCopy = canGenerateFilename(comp)}
       {@const hasEmitter = !!(
         getEmitterName(comp).short ||
         comp.final?.cuit ||
@@ -531,6 +639,37 @@
             : '—'}</span
         >
         <span class="col-actions">
+          <div class="copy-dropdown-wrapper">
+            <!-- svelte-ignore a11y_click_events_have_key_events -->
+            <button
+              class="copy-btn"
+              class:copied={copiedId === comp.id}
+              disabled={!canCopy}
+              title={canCopy ? 'Copiar nombre' : 'Datos insuficientes para generar nombre'}
+              onclick={(e) => {
+                e.stopPropagation();
+                openMenuId = openMenuId === comp.id ? null : comp.id;
+              }}
+            >
+              {#if copiedId === comp.id}
+                <CopyCheck size={14} />
+              {:else}
+                <Copy size={14} />
+              {/if}
+            </button>
+            {#if openMenuId === comp.id}
+              <!-- svelte-ignore a11y_click_events_have_key_events -->
+              <!-- svelte-ignore a11y_no_static_element_interactions -->
+              <div class="copy-menu" onclick={(e) => e.stopPropagation()}>
+                <button class="copy-menu-item" onclick={() => copyFilename(comp, 'file')}>
+                  Nombre archivo
+                </button>
+                <button class="copy-menu-item" onclick={() => copyFilename(comp, 'sheet')}>
+                  Nombre planilla
+                </button>
+              </div>
+            {/if}
+          </div>
           <Button size="sm" onclick={() => navigateToDetail(comp.id)}>Ver</Button>
         </span>
       </div>
@@ -663,7 +802,7 @@
   .row {
     display: grid;
     /* Comprobante | Emisor (flexible) | Fecha | Total | Categoría | Estado | Hash | Acción */
-    grid-template-columns: 180px minmax(200px, 1fr) 85px 110px 150px 90px 70px 60px;
+    grid-template-columns: 180px minmax(200px, 1fr) 85px 110px 150px 90px 70px 100px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
@@ -775,10 +914,79 @@
     color: var(--color-text-tertiary);
   }
 
-  /* Botón Ver */
+  /* Actions: Copy + Ver */
   .col-actions {
     display: flex;
     justify-content: flex-end;
+    align-items: center;
+    gap: var(--spacing-1);
+  }
+
+  .copy-dropdown-wrapper {
+    position: relative;
+  }
+
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base, 4px);
+    background: transparent;
+    color: var(--color-text-tertiary);
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .copy-btn:hover:not(:disabled) {
+    background: var(--color-surface-alt);
+    color: var(--color-text-primary);
+    border-color: var(--color-primary-300);
+  }
+
+  .copy-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
+  .copy-btn.copied {
+    color: var(--color-primary-700);
+    border-color: var(--color-primary-300);
+  }
+
+  .copy-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    z-index: 50;
+    margin-top: var(--spacing-1);
+    min-width: 160px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: var(--spacing-1);
+  }
+
+  .copy-menu-item {
+    display: block;
+    width: 100%;
+    padding: var(--spacing-1) var(--spacing-2);
+    border: none;
+    border-radius: var(--radius-base, 4px);
+    background: transparent;
+    color: var(--color-text-primary);
+    font-size: var(--font-size-sm);
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .copy-menu-item:hover {
+    background: var(--color-surface-alt);
   }
 
   .align-right {
