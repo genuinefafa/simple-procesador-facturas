@@ -41,7 +41,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     const fileRepo = getFileRepository();
     const extractionRepo = getFileExtractionRepository();
-    const processingService = createInvoiceProcessingService();
+    const processingService = await createInvoiceProcessingService();
 
     // Cargar files desde BD
     const filesPromises = fileIds.map((id) => fileRepo.findById(id));
