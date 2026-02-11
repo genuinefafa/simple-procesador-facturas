@@ -49,7 +49,7 @@ export const POST: RequestHandler = async ({ request }) => {
     const fileRepo = getFileRepository();
     const extractionRepo = getFileExtractionRepository();
     const invoiceRepo = getInvoiceRepository();
-    const processingService = createInvoiceProcessingService();
+    const processingService = await createInvoiceProcessingService();
 
     for (const file of files) {
       console.info(`📄 [UPLOAD] Procesando: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);

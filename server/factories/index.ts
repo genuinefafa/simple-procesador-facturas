@@ -20,10 +20,9 @@ import { InvoiceProcessingService } from '../services/invoice-processing.service
 import { ExcelImportService } from '../services/excel-import.service';
 import { FileExportService } from '../services/file-export.service';
 
-// Extractors
-import { PDFExtractor } from '../extractors/pdf-extractor';
-import { OCRExtractor } from '../extractors/ocr-extractor';
-import { QRExtractor } from '../extractors/qr-extractor';
+// Extractors are loaded lazily in createInvoiceProcessingService()
+// to avoid pulling heavy dependencies (tesseract.js, sharp, pdf-to-img)
+// into the module graph at import time.
 
 /**
  * Singleton instances of repositories.
@@ -103,8 +102,16 @@ export function createComprobanteService(): ComprobanteService {
 
 /**
  * Factory for InvoiceProcessingService
+ * Lazy-loads extractors to avoid pulling heavy dependencies (tesseract.js, sharp, etc.)
+ * into the module graph at import time.
  */
-export function createInvoiceProcessingService(): InvoiceProcessingService {
+export async function createInvoiceProcessingService(): Promise<InvoiceProcessingService> {
+  const [{ PDFExtractor }, { OCRExtractor }, { QRExtractor }] = await Promise.all([
+    import('../extractors/pdf-extractor'),
+    import('../extractors/ocr-extractor'),
+    import('../extractors/qr-extractor'),
+  ]);
+
   return new InvoiceProcessingService(
     new PDFExtractor(),
     new OCRExtractor(),

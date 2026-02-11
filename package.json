@@ -49,7 +49,8 @@
 		"server"
 	],
 	"dependencies": {
-		"googleapis": "^167.0.0"
+		"drizzle-orm": "1.0.0-beta.15-859cf75",
+		"googleapis": "^171.0.0"
 	},
 	"devDependencies": {
 		"ts-node": "^10.9.2",
