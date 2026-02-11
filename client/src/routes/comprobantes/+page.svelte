@@ -146,18 +146,6 @@
     return cat?.key ?? null;
   }
 
-  function getFilenameExtension(comp: Comprobante): string {
-    if (comp.final?.filePath) {
-      const dot = comp.final.filePath.lastIndexOf('.');
-      return dot >= 0 ? comp.final.filePath.substring(dot) : '.pdf';
-    }
-    if (comp.file?.originalFilename) {
-      const dot = comp.file.originalFilename.lastIndexOf('.');
-      return dot >= 0 ? comp.file.originalFilename.substring(dot) : '.pdf';
-    }
-    return '.pdf';
-  }
-
   function getFilenameParams(comp: Comprobante): CanonicalFilenameParams | null {
     if (comp.final) {
       return {
@@ -168,7 +156,6 @@
         pointOfSale: comp.final.pointOfSale ?? null,
         invoiceNumber: comp.final.invoiceNumber ?? null,
         categoryKey: resolveCategoryKey(comp.final.categoryId),
-        fileExtension: getFilenameExtension(comp),
       };
     }
     if (comp.expected) {
@@ -180,7 +167,6 @@
         pointOfSale: comp.expected.pointOfSale,
         invoiceNumber: comp.expected.invoiceNumber,
         categoryKey: resolveCategoryKey(comp.expected.categoryId),
-        fileExtension: '.pdf',
       };
     }
     if (comp.file) {
@@ -192,7 +178,6 @@
         pointOfSale: comp.file.extractedPointOfSale ?? null,
         invoiceNumber: comp.file.extractedInvoiceNumber ?? null,
         categoryKey: resolveCategoryKey(comp.file.categoryId),
-        fileExtension: getFilenameExtension(comp),
       };
     }
     return null;
