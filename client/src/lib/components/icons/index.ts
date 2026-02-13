@@ -38,6 +38,8 @@ export {
   Edit,
   RotateCw,
   RefreshCw,
+  Copy,
+  CopyCheck,
 
   // Estados de resultado
   CheckCircle,

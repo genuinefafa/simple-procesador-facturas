@@ -4,6 +4,8 @@
  * Nuevo formato:
  * - Directorio: yyyy-mm
  * - Nombre: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV NUM.ext
+ *
+ * CUIT en filenames: 11 dígitos sin guiones (formato canónico de la DB)
  */
 
 import { describe, it, expect } from 'vitest';
@@ -20,6 +22,19 @@ import {
   generateProcessedPath,
 } from '../../../utils/file-naming';
 import type { Emitter } from '../../../utils/types';
+
+/** Helper to create a test Emitter with sensible defaults */
+function makeEmitter(overrides: Partial<Emitter> & Pick<Emitter, 'cuit' | 'name'>): Emitter {
+  return {
+    displayName: overrides.name,
+    aliases: [],
+    active: true,
+    totalInvoices: 0,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
 
 describe('file-naming utils', () => {
   describe('sanitizeFilename (legacy)', () => {
@@ -61,46 +76,30 @@ describe('file-naming utils', () => {
 
   describe('getShortestName', () => {
     it('debe retornar el nombre si no hay aliases', () => {
-      const emitter: Emitter = {
-        cuit: '20-12345678-9',
-        cuitNumeric: '20123456789',
+      const emitter = makeEmitter({
+        cuit: '20123456789',
         name: 'Juan Pérez',
-        aliases: [],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       expect(getShortestName(emitter)).toBe('Juan_Perez');
     });
 
     it('debe retornar el alias más corto', () => {
-      const emitter: Emitter = {
-        cuit: '20-13046568-5',
-        cuitNumeric: '20130465685',
+      const emitter = makeEmitter({
+        cuit: '20130465685',
         name: 'OSCAR ALFREDO ANDEREGGEN',
         aliases: ['andereggen', 'oscar'],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       expect(getShortestName(emitter)).toBe('oscar');
     });
 
     it('debe retornar el nombre si es más corto que los aliases', () => {
-      const emitter: Emitter = {
-        cuit: '30-50001770-4',
-        cuitNumeric: '30500017704',
+      const emitter = makeEmitter({
+        cuit: '30500017704',
         name: 'Seguros',
         aliases: ['seguros-la-segunda', 'lasegunda'],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       expect(getShortestName(emitter)).toBe('Seguros');
     });
@@ -180,16 +179,11 @@ describe('file-naming utils', () => {
   describe('generateProcessedFilename', () => {
     it('debe generar nombre correcto con formato nuevo (con categoría)', () => {
       const issueDate = new Date(2023, 1, 14); // Mes 1 = Febrero
-      const emitter: Emitter = {
-        cuit: '20-13046568-5',
-        cuitNumeric: '20130465685',
+      const emitter = makeEmitter({
+        cuit: '20130465685',
         name: 'OSCAR ALFREDO ANDEREGGEN',
         aliases: ['andereggen', 'oscar'],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const filename = generateProcessedFilename(
         issueDate,
@@ -202,21 +196,16 @@ describe('file-naming utils', () => {
       );
 
       // Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV-NUM [cat].ext
-      expect(filename).toBe('2023-02-14 oscar 20-13046568-5 FACA 00003-00003668 [3f].pdf');
+      expect(filename).toBe('2023-02-14 oscar 20130465685 FACA 00003-00003668 [3f].pdf');
     });
 
     it('debe generar nombre sin categoría cuando no se provee', () => {
       const issueDate = new Date(2023, 1, 14);
-      const emitter: Emitter = {
-        cuit: '20-13046568-5',
-        cuitNumeric: '20130465685',
+      const emitter = makeEmitter({
+        cuit: '20130465685',
         name: 'OSCAR ALFREDO ANDEREGGEN',
         aliases: ['andereggen', 'oscar'],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const filename = generateProcessedFilename(
         issueDate,
@@ -229,21 +218,16 @@ describe('file-naming utils', () => {
       );
 
       // Formato: yyyy-mm-dd Nombre_Emisor CUIT TIPO PV-NUM [].ext
-      expect(filename).toBe('2023-02-14 oscar 20-13046568-5 FACA 00003-00003668 [].pdf');
+      expect(filename).toBe('2023-02-14 oscar 20130465685 FACA 00003-00003668 [].pdf');
     });
 
     it('debe preservar la extensión del archivo original', () => {
       const issueDate = new Date(2023, 4, 20); // Mes 4 = Mayo
-      const emitter: Emitter = {
-        cuit: '30-50001770-4',
-        cuitNumeric: '30500017704',
+      const emitter = makeEmitter({
+        cuit: '30500017704',
         name: 'Seguros La Segunda',
         aliases: ['Seguros'],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const filename = generateProcessedFilename(
         issueDate,
@@ -254,21 +238,15 @@ describe('file-naming utils', () => {
         'original.tif'
       );
 
-      expect(filename).toBe('2023-05-20 Seguros 30-50001770-4 FACB 00124-00017649 [].tif');
+      expect(filename).toBe('2023-05-20 Seguros 30500017704 FACB 00124-00017649 [].tif');
     });
 
     it('debe manejar Nota de Crédito A', () => {
       const issueDate = new Date(2024, 11, 31); // Diciembre 2024
-      const emitter: Emitter = {
-        cuit: '20-12345678-9',
-        cuitNumeric: '20123456789',
+      const emitter = makeEmitter({
+        cuit: '20123456789',
         name: 'Test Empresa',
-        aliases: [],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const filename = generateProcessedFilename(
         issueDate,
@@ -280,21 +258,15 @@ describe('file-naming utils', () => {
         'sw' // Categoría software
       );
 
-      expect(filename).toBe('2024-12-31 Test_Empresa 20-12345678-9 NCRA 99999-00000001 [sw].pdf');
+      expect(filename).toBe('2024-12-31 Test_Empresa 20123456789 NCRA 99999-00000001 [sw].pdf');
     });
 
     it('debe manejar Nota de Débito B', () => {
       const issueDate = new Date(2024, 5, 15); // Junio 2024
-      const emitter: Emitter = {
-        cuit: '30-99999999-9',
-        cuitNumeric: '30999999999',
+      const emitter = makeEmitter({
+        cuit: '30999999999',
         name: 'Proveedor',
-        aliases: [],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const filename = generateProcessedFilename(
         issueDate,
@@ -305,23 +277,17 @@ describe('file-naming utils', () => {
         'nota.pdf'
       );
 
-      expect(filename).toBe('2024-06-15 Proveedor 30-99999999-9 NDBB 00001-12345678 [].pdf');
+      expect(filename).toBe('2024-06-15 Proveedor 30999999999 NDBB 00001-12345678 [].pdf');
     });
   });
 
   describe('generateProcessedPath', () => {
     it('debe generar ruta completa con subdirectorio', () => {
       const issueDate = new Date(2024, 0, 15); // Enero 2024
-      const emitter: Emitter = {
-        cuit: '20-12345678-9',
-        cuitNumeric: '20123456789',
+      const emitter = makeEmitter({
+        cuit: '20123456789',
         name: 'Empresa',
-        aliases: [],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const fullPath = generateProcessedPath(
         '/data/processed',
@@ -336,22 +302,16 @@ describe('file-naming utils', () => {
 
       // Formato: /baseDir/yyyy-mm/yyyy-mm-dd Nombre CUIT TIPO PV-NUM [cat].ext
       expect(fullPath).toBe(
-        '/data/processed/2024-01/2024-01-15 Empresa 20-12345678-9 FACA 00001-00000100 [3f].pdf'
+        '/data/processed/2024-01/2024-01-15 Empresa 20123456789 FACA 00001-00000100 [3f].pdf'
       );
     });
 
     it('debe generar ruta con categoría vacía si no se provee', () => {
       const issueDate = new Date(2024, 0, 15);
-      const emitter: Emitter = {
-        cuit: '20-12345678-9',
-        cuitNumeric: '20123456789',
+      const emitter = makeEmitter({
+        cuit: '20123456789',
         name: 'Empresa',
-        aliases: [],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const fullPath = generateProcessedPath(
         '/data/processed',
@@ -366,7 +326,7 @@ describe('file-naming utils', () => {
 
       // Formato: /baseDir/yyyy-mm/yyyy-mm-dd Nombre CUIT TIPO PV-NUM [].ext
       expect(fullPath).toBe(
-        '/data/processed/2024-01/2024-01-15 Empresa 20-12345678-9 FACA 00001-00000100 [].pdf'
+        '/data/processed/2024-01/2024-01-15 Empresa 20123456789 FACA 00001-00000100 [].pdf'
       );
     });
   });
@@ -419,16 +379,11 @@ describe('file-naming utils', () => {
 
     it('generateProcessedFilename debe generar nombre con fecha UTC correcta', () => {
       const issueDate = new Date('2025-12-01T00:00:00Z');
-      const emitter: Emitter = {
-        cuit: '20-12345678-9',
-        cuitNumeric: '20123456789',
+      const emitter = makeEmitter({
+        cuit: '20123456789',
         name: 'Test Company SRL',
         aliases: ['TestCo'],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const filename = generateProcessedFilename(
         issueDate,
@@ -441,21 +396,15 @@ describe('file-naming utils', () => {
       );
 
       // Debe tener fecha 2025-12-01, no 2025-11-30
-      expect(filename).toBe('2025-12-01 TestCo 20-12345678-9 FACC 00001-00000133 [test].pdf');
+      expect(filename).toBe('2025-12-01 TestCo 20123456789 FACC 00001-00000133 [test].pdf');
     });
 
     it('generateProcessedPath debe crear ruta en directorio del mes correcto (UTC)', () => {
       const issueDate = new Date('2025-12-01T00:00:00Z');
-      const emitter: Emitter = {
-        cuit: '20-12345678-9',
-        cuitNumeric: '20123456789',
+      const emitter = makeEmitter({
+        cuit: '20123456789',
         name: 'Test Company',
-        aliases: [],
-        active: true,
-        totalInvoices: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      });
 
       const fullPath = generateProcessedPath(
         '/data/finalized',
@@ -471,7 +420,7 @@ describe('file-naming utils', () => {
       // Debe estar en directorio 2025-12, no 2025-11
       expect(fullPath).toContain('/2025-12/');
       expect(fullPath).toBe(
-        '/data/finalized/2025-12/2025-12-01 Test_Company 20-12345678-9 FACC 00001-00000133 [test].pdf'
+        '/data/finalized/2025-12/2025-12-01 Test_Company 20123456789 FACC 00001-00000133 [test].pdf'
       );
     });
   });
