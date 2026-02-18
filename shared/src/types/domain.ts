@@ -88,7 +88,6 @@ export interface ExtractionTemplate {
 export interface Invoice {
   id: number;
   emitterCuit: string;
-  templateUsedId?: number;
   issueDate: Date;
   invoiceType: InvoiceType;
   pointOfSale: number;
@@ -97,12 +96,7 @@ export interface Invoice {
   total: number;
   currency: Currency;
   fileId?: number; // FK a files - fuente de verdad para rutas
-  fileType: DocumentType;
-  extractionMethod: ExtractionMethod;
-  extractionConfidence?: number;
-  manuallyValidated: boolean;
-  requiresReview: boolean;
-  processedAt: Date;
+  createdAt: Date;
   categoryId?: number;
   expectedInvoiceId?: number;
 }
