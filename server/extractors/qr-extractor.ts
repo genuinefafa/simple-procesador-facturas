@@ -7,6 +7,7 @@
  * URLs soportadas:
  * - https://www.afip.gob.ar/fe/qr/?p={BASE64_JSON}
  * - https://servicioscf.afip.gob.ar/publico/comprobantes/cae.aspx?p={BASE64_JSON}
+ * - https://serviciosweb.afip.gob.ar/genericos/comprobantes/cae.aspx?p={BASE64_JSON}
  *
  * Soporta: JPG, PNG, TIFF, WEBP, HEIC, PDF
  */
@@ -26,6 +27,7 @@ import type { AFIPQRData, QRDetectionResult, AFIPUrlParseResult } from './qr-ext
 const AFIP_QR_URL_PATTERNS = [
   'https://www.afip.gob.ar/fe/qr/',
   'https://servicioscf.afip.gob.ar/publico/comprobantes/',
+  'https://serviciosweb.afip.gob.ar/genericos/comprobantes/',
   'https://www.arca.gob.ar/fe/qr/', // Nuevo formato ARCA 2024+
 ];
 
