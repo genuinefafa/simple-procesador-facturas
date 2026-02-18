@@ -1,6 +1,6 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2026-02-13)
+## Estado Actual (2026-02-18)
 
 | Área | Estado | Notas |
 |------|--------|-------|
@@ -58,9 +58,9 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 
 | Orden | Issue | Título | Tipo | Esfuerzo | Prioridad |
 |-------|-------|--------|------|----------|-----------|
-| 8 | #91 | Separar storage de OCR | Refactor | Bajo | ⬆️ Alta |
-| 9 | #92 | Limpiar campos legacy en tabla facturas | Refactor | Bajo | ⬆️ Alta |
-| 10 | #146 | Eliminar campo status de expected_invoices | Refactor | Bajo | Media |
+| 8 | ~~#91~~ | ~~Separar storage de OCR~~ | Refactor | Bajo | ⬆️ Alta |
+| 9 | ~~#92~~ | ~~Limpiar campos legacy en tabla facturas~~ | Refactor | Bajo | ⬆️ Alta |
+| 10 | ~~#146~~ | ~~Eliminar campo status de expected_invoices~~ | Refactor | Bajo | Media |
 | 11 | #123 | Derivar estados desde FKs (ex-M6) | Refactor | Medio | Media |
 | 12 | #150 | Unificar EmitterCombobox con SelectDropdown | Refactor | Medio | Media |
 
@@ -91,9 +91,9 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 
 ### M8: UX & Data Quality (Q1 2026) - Sprint Activo
 **Prioridades sugeridas:**
-1. #91 - Separar storage de OCR (Low)
-2. #92 - Limpiar campos legacy (Low)
-3. #146 - Eliminar campo status expected_invoices (Low)
+1. ~~#91 - Separar storage de OCR (Low)~~ ✅ PR #163
+2. ~~#92 - Limpiar campos legacy (Low)~~ ✅ PR #163
+3. ~~#146 - Eliminar campo status expected_invoices (Low)~~ ✅ PR #163
 4. #56 - Detector duplicados (High)
 
 **Otros:**
