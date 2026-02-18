@@ -34,7 +34,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
           cuit: base.emitterCuit,
           emitterName: base.emitterName,
           issueDate: base.issueDate,
-          processedAt: base.processedAt || null,
+          createdAt: base.createdAt || null,
           invoiceType: base.invoiceType,
           pointOfSale: base.pointOfSale,
           invoiceNumber: base.invoiceNumber,

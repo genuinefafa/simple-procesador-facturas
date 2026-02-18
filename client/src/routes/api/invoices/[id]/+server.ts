@@ -63,15 +63,11 @@ export const GET: RequestHandler = async ({ params }) => {
         currency: invoice.currency,
         originalFile: originalFile,
         storagePath: storagePath,
-        fileType: invoice.fileType,
         fileHash: fileHash,
-        extractionConfidence: invoice.extractionConfidence,
-        requiresReview: invoice.requiresReview,
-        manuallyValidated: invoice.manuallyValidated,
         categoryId: invoice.categoryId ?? null,
         expectedInvoiceId: invoice.expectedInvoiceId ?? null,
         fileId: invoice.fileId ?? null,
-        processedAt: invoice.processedAt,
+        createdAt: invoice.createdAt,
       },
       extractedValues: {
         cuit: invoice.emitterCuit,
@@ -173,20 +169,6 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
       updateData.expectedInvoiceId = updates.expectedInvoiceId;
     }
 
-    // Si se actualizó tipo, pv o número, recalcular comprobante completo
-    if (
-      updates.invoiceType ||
-      updates.pointOfSale !== undefined ||
-      updates.invoiceNumber !== undefined
-    ) {
-      const newType = updates.invoiceType || invoice.invoiceType;
-      const newPV = updates.pointOfSale !== undefined ? updates.pointOfSale : invoice.pointOfSale;
-      const newNum =
-        updates.invoiceNumber !== undefined ? updates.invoiceNumber : invoice.invoiceNumber;
-      const fullNumber = `${newType}-${String(newPV).padStart(5, '0')}-${String(newNum).padStart(8, '0')}`;
-      updateData.comprobanteCompleto = fullNumber;
-    }
-
     // Note: Zod schema already validates at least one field is provided
 
     // Actualizar en la base de datos
@@ -195,9 +177,6 @@ export const PATCH: RequestHandler = async ({ params, request }) => {
     if (!updated) {
       return json({ success: false, error: 'Error al actualizar la factura' }, { status: 500 });
     }
-
-    // Marcar como validada manualmente
-    await invoiceRepo.markAsValidated(invoiceId);
 
     // Refrescar datos
     const final = await invoiceRepo.findById(invoiceId);

@@ -34,9 +34,6 @@ export const GET: RequestHandler = async () => {
         fullInvoiceNumber: invoice.fullInvoiceNumber,
         total: invoice.total,
         fileId: invoice.fileId,
-        extractionConfidence: invoice.extractionConfidence,
-        requiresReview: invoice.requiresReview,
-        manuallyValidated: invoice.manuallyValidated,
       };
     });
 

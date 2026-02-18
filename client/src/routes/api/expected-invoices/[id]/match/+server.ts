@@ -115,11 +115,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
       pointOfSale: expected.pointOfSale,
       invoiceNumber: expected.invoiceNumber,
       total: expected.total || undefined,
-      fileId: fileId, // FK a files - fuente de verdad para rutas
-      fileType: 'PDF_DIGITAL',
-      extractionMethod: 'MANUAL', // Matching confirmado manualmente
-      extractionConfidence: 95,
-      requiresReview: false,
+      fileId: fileId,
     });
 
     console.info(`   ✅ Factura creada - ID: ${invoice.id}`);
@@ -128,8 +124,8 @@ export const POST: RequestHandler = async ({ params, request }) => {
     fileRepo.updateStatus(fileId, 'processed');
     console.info(`   🔗 Archivo marcado como procesado`);
 
-    // Marcar expected invoice como matched (el status se actualiza porque ya hay factura vinculada)
-    expectedRepo.updateStatus(parseInt(id), 'matched');
+    // Refresh status — derives 'matched' from linked factura
+    await expectedRepo.refreshStatus(parseInt(id));
     console.info(`   ✅ Factura esperada marcada como matched`);
 
     return json({

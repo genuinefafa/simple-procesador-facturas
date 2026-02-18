@@ -29,7 +29,6 @@
     issueDate: string;
     total: number | null;
     originalFile: string;
-    extractionConfidence: number | null;
   }
 
   interface ExtractedValues {
@@ -349,9 +348,6 @@
           {#if invoice.total}
             <p class="total">Total: ${invoice.total.toLocaleString('es-AR')}</p>
           {/if}
-          {#if invoice.extractionConfidence}
-            <p class="confidence">Confianza: {invoice.extractionConfidence.toFixed(0)}%</p>
-          {/if}
         </div>
 
         <div class="field-selector">
@@ -505,8 +501,7 @@
   }
 
   .date,
-  .total,
-  .confidence {
+  .total {
     margin: 0.3rem 0;
     font-size: 0.9rem;
     color: #6b7280;

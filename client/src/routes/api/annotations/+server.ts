@@ -53,9 +53,6 @@ export const POST: RequestHandler = async ({ request }) => {
       })
     );
 
-    // Marcar la factura como validada manualmente
-    invoiceRepo.markAsValidated(invoiceId);
-
     return json({
       success: true,
       message: `${savedZones.length} zonas guardadas correctamente`,

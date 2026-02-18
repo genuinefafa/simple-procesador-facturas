@@ -12,10 +12,7 @@
     invoiceType: string;
     fullInvoiceNumber: string;
     total: number | null;
-    originalFile: string;
-    extractionConfidence: number | null;
-    requiresReview: boolean;
-    manuallyValidated: boolean;
+    fileId: number | null;
   }
 
   let invoices: Invoice[] = $state([]);
@@ -87,13 +84,6 @@
       toast.error(err instanceof Error ? err.message : 'Error al exportar', { id: toastId });
     }
   }
-
-  function getConfidenceColor(confidence: number | null): string {
-    if (!confidence) return 'text-gray-400';
-    if (confidence >= 90) return 'text-green-600';
-    if (confidence >= 70) return 'text-yellow-600';
-    return 'text-red-600';
-  }
 </script>
 
 <svelte:head>
@@ -116,9 +106,9 @@
     </div>
     <div class="stat">
       <span class="stat-value">
-        {invoices.filter((inv) => (inv.extractionConfidence || 0) < 70).length}
+        {invoices.length}
       </span>
-      <span class="stat-label">Baja confianza</span>
+      <span class="stat-label">Disponibles</span>
     </div>
     <div class="stat">
       <span class="stat-value">{selectedInvoices.size}</span>
@@ -174,9 +164,7 @@
               </p>
               <p class="cuit">{invoice.emitterCuit}</p>
             </div>
-            <div class={`confidence ${getConfidenceColor(invoice.extractionConfidence)}`}>
-              {invoice.extractionConfidence?.toFixed(0) || '?'}%
-            </div>
+            <div class="confidence">&mdash;</div>
           </div>
 
           <div class="invoice-details">
@@ -194,7 +182,7 @@
             </div>
             <div class="detail">
               <span class="label">Archivo:</span>
-              <span class="value file">{invoice.originalFile.split('/').pop()}</span>
+              <span class="value file">{invoice.fileId ? `file #${invoice.fileId}` : '—'}</span>
             </div>
           </div>
 
@@ -346,19 +334,6 @@
   .confidence {
     font-size: 2rem;
     font-weight: bold;
-  }
-
-  .text-green-600 {
-    color: #16a34a;
-  }
-  .text-yellow-600 {
-    color: #ca8a04;
-  }
-  .text-red-600 {
-    color: #dc2626;
-  }
-  .text-gray-400 {
-    color: #9ca3af;
   }
 
   .invoice-details {

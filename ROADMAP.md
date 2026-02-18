@@ -1,6 +1,6 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2026-02-09)
+## Estado Actual (2026-02-13)
 
 | Área | Estado | Notas |
 |------|--------|-------|
@@ -61,7 +61,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | 8 | #91 | Separar storage de OCR | Refactor | Bajo | ⬆️ Alta |
 | 9 | #92 | Limpiar campos legacy en tabla facturas | Refactor | Bajo | ⬆️ Alta |
 | 10 | #146 | Eliminar campo status de expected_invoices | Refactor | Bajo | Media |
-| 11 | #123 | Derivar estados desde FKs | Refactor | Medio | Media |
+| 11 | #123 | Derivar estados desde FKs (ex-M6) | Refactor | Medio | Media |
 | 12 | #150 | Unificar EmitterCombobox con SelectDropdown | Refactor | Medio | Media |
 
 ### Fase 5: Robustez y Calidad (M8)
@@ -99,10 +99,11 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 **Otros:**
 - [ ] #51 - Operaciones batch
 - [ ] #119 - Tests E2E Playwright
-- [ ] #123 - Derivar estados desde FKs
+- [ ] #123 - Derivar estados desde FKs (movido de M6)
 - [ ] #36 - Auditoría cambios
 - [ ] #89 - Contratos Zod completos
 - [ ] #150 - Unificar EmitterCombobox con SelectDropdown
+- [x] #156 - Fix HEIC preview (PR #157)
 - [x] #79 - Rediseño vista detalle
 - [x] #135 - Buscador manual expected invoices
 - [x] #120 - Balancear expected invoices (PR #148)
@@ -128,12 +129,20 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [ ] #33 - Revisar UI Sincronización
 - [ ] #20 - Migrar SyncPage y AnnotatePage
 
+### M6: Code Quality ✅ Cerrado
+- 7 issues completados, 0 abiertos
+- #99 y #100 movidos a Icebox, #123 movido a M8
+
 ### Icebox
 Issues depriorizados o en espera de mejor definición:
+- #11 - Migrar EmitterRepository/ZoneAnnotationRepository a Drizzle
+- #31 - Revisar UI/UX página Entrenamiento
+- #69 - Sincronizar datos facturas al actualizar expected_invoice
+- #71 - File Integrity Checker
 - #78 - Mejorar TopBar Search (reemplazado por #136)
 - #82 - Copiar lista al portapapeles
-- #99 - Estrategia tipos fechas
-- #100 - Renombrar endpoint process → extract
+- #99 - Estrategia tipos fechas (ex-M6)
+- #100 - Renombrar endpoint process → extract (ex-M6)
 - #128 - OR en filtros con coma
 - #130 - Dashboard rediseño LayerChart
 - #140 - Migrar íconos Unicode restantes
@@ -142,7 +151,7 @@ Issues depriorizados o en espera de mejor definición:
 
 ## Issues sin asignar a milestone
 
-✅ **Todos los issues tienen milestone asignado** (actualizado 2026-02-05)
+✅ **Todos los issues tienen milestone asignado** (actualizado 2026-02-13)
 
 ---
 
@@ -204,4 +213,4 @@ npm run db:studio        # GUI Drizzle
 
 ---
 
-**Última actualización**: 2026-02-09
+**Última actualización**: 2026-02-13

@@ -815,7 +815,7 @@
               <span class="meta"
                 >Hash: <code class="hash">{formatHash(comprobante.final.fileHash)}</code></span
               >
-              <span class="meta">Creada: {formatDateTime(comprobante.final.processedAt)}</span>
+              <span class="meta">Creada: {formatDateTime(comprobante.final.createdAt)}</span>
             </div>
           {/if}
           <InvoiceCard
