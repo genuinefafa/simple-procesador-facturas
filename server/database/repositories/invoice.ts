@@ -5,7 +5,7 @@
 import { eq, and, count, or, like } from 'drizzle-orm';
 import { getDb } from '../db';
 import { facturas, type Factura } from '../schema';
-import type { InvoiceType, Currency, ExtractionMethod } from '@shared/types';
+import type { InvoiceType, Currency } from '@shared/types';
 
 /**
  * Interface for InvoiceRepository - enables dependency injection and testing
@@ -13,7 +13,6 @@ import type { InvoiceType, Currency, ExtractionMethod } from '@shared/types';
 export interface IInvoiceRepository {
   create(data: {
     emitterCuit: string;
-    templateUsedId?: number;
     issueDate: Date | string;
     invoiceType: InvoiceType;
     pointOfSale: number;
@@ -21,10 +20,6 @@ export interface IInvoiceRepository {
     total?: number;
     currency?: Currency;
     fileId: number;
-    fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
-    extractionMethod: ExtractionMethod;
-    extractionConfidence?: number;
-    requiresReview?: boolean;
     expectedInvoiceId?: number;
     categoryId?: number;
   }): Promise<Invoice>;
@@ -43,7 +38,6 @@ export interface IInvoiceRepository {
     minAmount?: number;
     maxAmount?: number;
     invoiceType?: InvoiceType;
-    requiresReview?: boolean;
     limit?: number;
     offset?: number;
   }): Promise<Invoice[]>;
@@ -54,7 +48,6 @@ export interface IInvoiceRepository {
       tipoComprobante: InvoiceType;
       puntoVenta: number;
       numeroComprobante: number;
-      comprobanteCompleto: string;
       total: number;
       fechaEmision: string;
       categoryId: number | null;
@@ -67,66 +60,43 @@ export interface IInvoiceRepository {
     | { success: true; unlinkedExpected?: number; unlinkedFile?: number }
     | { success: false; error: string }
   >;
-  /** @deprecated Use FileRepository.updatePath() instead */
-  updateProcessedFile(id: number, processedFile: string, finalizedFile?: string): void;
 }
 
 /**
  * Invoice interface - rutas de archivo se obtienen via fileId -> files table
  * Las columnas archivo_procesado y finalized_file fueron eliminadas en migración 0014
- *
- * NOTA: Varios campos están marcados @deprecated y serán eliminados en issue #92
  */
 export interface Invoice {
   id: number;
   emitterCuit: string;
-  /** @deprecated Nunca se usó. Eliminar en issue #92 */
-  templateUsedId?: number;
   issueDate: Date;
   invoiceType: InvoiceType;
   pointOfSale: number;
   invoiceNumber: number;
-  /** @deprecated Redundante, se puede reconstruir. Eliminar en issue #92 */
-  fullInvoiceNumber: string;
+  fullInvoiceNumber: string; // Computed: "type-pv-num"
   total: number;
   currency: Currency;
   fileId?: number; // FK a files - fuente de verdad para rutas
-  /** @deprecated Duplicado en files.file_type. Eliminar en issue #92 */
-  fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
-  /** @deprecated Duplicado en file_extraction_results.method. Eliminar en issue #92 */
-  extractionMethod: ExtractionMethod;
-  /** @deprecated Duplicado en file_extraction_results.confidence. Eliminar en issue #92 */
-  extractionConfidence?: number;
-  /** @deprecated Sin uso real. Eliminar en issue #92 */
-  manuallyValidated: boolean;
-  /** @deprecated Sin uso en nueva UI. Eliminar en issue #92 */
-  requiresReview: boolean;
-  /** @deprecated Renombrar a createdAt. Es fecha de creación del registro. issue #92 */
-  processedAt: Date;
+  createdAt: Date;
   expectedInvoiceId?: number;
   categoryId?: number;
 }
 
 export class InvoiceRepository implements IInvoiceRepository {
   private mapDrizzleToInvoice(row: Factura): Invoice {
+    const fullInvoiceNumber = `${row.tipoComprobante}-${String(row.puntoVenta).padStart(5, '0')}-${String(row.numeroComprobante).padStart(8, '0')}`;
     return {
       id: row.id,
       emitterCuit: row.emisorCuit,
-      templateUsedId: row.templateUsadoId || undefined,
       issueDate: new Date(row.fechaEmision),
       invoiceType: row.tipoComprobante,
       pointOfSale: row.puntoVenta,
       invoiceNumber: row.numeroComprobante,
-      fullInvoiceNumber: row.comprobanteCompleto,
+      fullInvoiceNumber,
       total: row.total || 0,
       currency: row.moneda || 'ARS',
       fileId: row.fileId || undefined,
-      fileType: row.tipoArchivo,
-      extractionMethod: row.metodoExtraccion as ExtractionMethod,
-      extractionConfidence: row.confianzaExtraccion || undefined,
-      manuallyValidated: row.validadoManualmente ?? false,
-      requiresReview: row.requiereRevision ?? false,
-      processedAt: row.procesadoEn ? new Date(row.procesadoEn) : new Date(),
+      createdAt: row.createdAt ? new Date(row.createdAt) : new Date(),
       expectedInvoiceId: row.expectedInvoiceId || undefined,
       categoryId: row.categoryId || undefined,
     };
@@ -134,18 +104,13 @@ export class InvoiceRepository implements IInvoiceRepository {
 
   async create(data: {
     emitterCuit: string;
-    templateUsedId?: number;
     issueDate: Date | string;
     invoiceType: InvoiceType;
     pointOfSale: number;
     invoiceNumber: number;
     total?: number;
     currency?: Currency;
-    fileId: number; // Requerido - FK a files
-    fileType: 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN';
-    extractionMethod: ExtractionMethod;
-    extractionConfidence?: number;
-    requiresReview?: boolean;
+    fileId: number;
     expectedInvoiceId?: number;
     categoryId?: number;
   }): Promise<Invoice> {
@@ -154,24 +119,15 @@ export class InvoiceRepository implements IInvoiceRepository {
         ? data.issueDate
         : data.issueDate.toISOString().slice(0, 10);
 
-    const fullInvoiceNumber = `${data.invoiceType}-${String(data.pointOfSale).padStart(4, '0')}-${String(data.invoiceNumber).padStart(8, '0')}`;
-
     const insertData = {
       emisorCuit: data.emitterCuit,
-      templateUsadoId: data.templateUsedId ?? null,
       fechaEmision: issueDateStr,
       tipoComprobante: data.invoiceType,
       puntoVenta: data.pointOfSale,
       numeroComprobante: data.invoiceNumber,
-      comprobanteCompleto: fullInvoiceNumber,
       total: data.total ?? null,
       moneda: data.currency || 'ARS',
       fileId: data.fileId,
-      tipoArchivo: data.fileType,
-      metodoExtraccion: data.extractionMethod as 'TEMPLATE' | 'GENERICO' | 'MANUAL',
-      confianzaExtraccion: data.extractionConfidence ?? null,
-      validadoManualmente: false,
-      requiereRevision: data.requiresReview ?? false,
       expectedInvoiceId: data.expectedInvoiceId ?? null,
       categoryId: data.categoryId ?? null,
     };
@@ -227,7 +183,6 @@ export class InvoiceRepository implements IInvoiceRepository {
     minAmount?: number;
     maxAmount?: number;
     invoiceType?: InvoiceType;
-    requiresReview?: boolean;
     limit?: number;
     offset?: number;
   }): Promise<Invoice[]> {
@@ -238,9 +193,6 @@ export class InvoiceRepository implements IInvoiceRepository {
     }
     if (filters?.invoiceType) {
       conditions.push(eq(facturas.tipoComprobante, filters.invoiceType));
-    }
-    if (filters?.requiresReview !== undefined) {
-      conditions.push(eq(facturas.requiereRevision, filters.requiresReview));
     }
 
     let query = getDb().select().from(facturas);
@@ -264,24 +216,6 @@ export class InvoiceRepository implements IInvoiceRepository {
     return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 
-  async markAsValidated(id: number): Promise<void> {
-    await getDb()
-      .update(facturas)
-      .set({ validadoManualmente: true, requiereRevision: false })
-      .where(eq(facturas.id, id));
-  }
-
-  /**
-   * @deprecated Columnas archivo_procesado y finalized_file eliminadas.
-   * Usar FileRepository.updatePath() para actualizar files.storage_path
-   */
-  updateProcessedFile(_id: number, _processedFile: string, _finalizedFile?: string): void {
-    console.warn(
-      '[DEPRECATED] InvoiceRepository.updateProcessedFile() - usar FileRepository.updatePath()'
-    );
-    // No-op: columnas eliminadas
-  }
-
   async findByEmitterAndNumber(
     emitterCuit: string,
     type: InvoiceType,
@@ -291,13 +225,10 @@ export class InvoiceRepository implements IInvoiceRepository {
     return this.findByInvoiceNumber(emitterCuit, type, pointOfSale, number);
   }
 
-  async count(filters?: { emitterCuit?: string; requiresReview?: boolean }): Promise<number> {
+  async count(filters?: { emitterCuit?: string }): Promise<number> {
     const conditions = [];
     if (filters?.emitterCuit) {
       conditions.push(eq(facturas.emisorCuit, filters.emitterCuit));
-    }
-    if (filters?.requiresReview !== undefined) {
-      conditions.push(eq(facturas.requiereRevision, filters.requiresReview));
     }
 
     let query = getDb().select({ count: count() }).from(facturas);
@@ -318,10 +249,22 @@ export class InvoiceRepository implements IInvoiceRepository {
 
     const pattern = `%${trimmed}%`;
 
+    // Search on CUIT, and on individual invoice number components
+    const numericTerm = parseInt(trimmed, 10);
+    const conditions = [like(facturas.emisorCuit, pattern)];
+
+    if (!isNaN(numericTerm)) {
+      conditions.push(eq(facturas.puntoVenta, numericTerm));
+      conditions.push(eq(facturas.numeroComprobante, numericTerm));
+      if (numericTerm <= 100) {
+        conditions.push(eq(facturas.tipoComprobante, numericTerm));
+      }
+    }
+
     const rows = await getDb()
       .select()
       .from(facturas)
-      .where(or(like(facturas.comprobanteCompleto, pattern), like(facturas.emisorCuit, pattern)))
+      .where(or(...conditions))
       .limit(limit);
 
     return rows
@@ -365,7 +308,6 @@ export class InvoiceRepository implements IInvoiceRepository {
       tipoComprobante: InvoiceType;
       puntoVenta: number;
       numeroComprobante: number;
-      comprobanteCompleto: string;
       total: number;
       fechaEmision: string;
       categoryId: number | null;
@@ -378,8 +320,6 @@ export class InvoiceRepository implements IInvoiceRepository {
     if (data.tipoComprobante !== undefined) updates.tipoComprobante = data.tipoComprobante;
     if (data.puntoVenta !== undefined) updates.puntoVenta = data.puntoVenta;
     if (data.numeroComprobante !== undefined) updates.numeroComprobante = data.numeroComprobante;
-    if (data.comprobanteCompleto !== undefined)
-      updates.comprobanteCompleto = data.comprobanteCompleto;
     if (data.total !== undefined) updates.total = data.total;
     if (data.fechaEmision !== undefined) updates.fechaEmision = data.fechaEmision;
     if (data.categoryId !== undefined) updates.categoryId = data.categoryId;
@@ -421,13 +361,8 @@ export class InvoiceRepository implements IInvoiceRepository {
         success: true,
       };
 
-      // Si tiene expected vinculado, revertir status a "pending"
+      // Si tiene expected vinculado, refresh its status after unlinking
       if (invoice.expectedInvoiceId) {
-        const { expectedInvoices } = await import('../schema.js');
-        await getDb()
-          .update(expectedInvoices)
-          .set({ status: 'pending' })
-          .where(eq(expectedInvoices.id, invoice.expectedInvoiceId));
         result.unlinkedExpected = invoice.expectedInvoiceId;
       }
 
@@ -440,6 +375,13 @@ export class InvoiceRepository implements IInvoiceRepository {
 
       // Finalmente, eliminar la factura
       await getDb().delete(facturas).where(eq(facturas.id, id));
+
+      // Refresh expected status after factura is deleted (derives 'pending' from no linked factura)
+      if (result.unlinkedExpected) {
+        const { ExpectedInvoiceRepository } = await import('./expected-invoice.js');
+        const expectedRepo = new ExpectedInvoiceRepository();
+        await expectedRepo.refreshStatus(result.unlinkedExpected);
+      }
 
       return result;
     } catch (error) {

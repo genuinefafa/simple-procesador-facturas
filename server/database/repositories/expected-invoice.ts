@@ -8,6 +8,7 @@ import {
   expectedInvoices,
   importBatches,
   emisores,
+  facturas,
   type ExpectedInvoice as DrizzelExpectedInvoice,
   type ImportBatch as DrizzelImportBatch,
 } from '../schema';
@@ -109,7 +110,7 @@ export interface IExpectedInvoiceRepository {
     limit?: number;
     offset?: number;
   }): Promise<ExpectedInvoice[]>;
-  updateStatus(id: number, status: ExpectedInvoiceStatus): void;
+  refreshStatus(id: number): Promise<ExpectedInvoiceStatus>;
   getPrincipalIds(): Promise<Set<number>>;
 }
 
@@ -575,10 +576,49 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
   }
 
   /**
-   * Actualiza el estado de una expected invoice
+   * Recalcula y actualiza el status de una expected invoice a partir de las relaciones.
+   * - matched: existe al menos una factura con expectedInvoiceId = id
+   * - balanced: pertenece a un grupo de balance cuya suma es ~$0
+   * - pending: caso default
    */
-  updateStatus(id: number, status: ExpectedInvoiceStatus): void {
-    getDb().update(expectedInvoices).set({ status }).where(eq(expectedInvoices.id, id)).run();
+  async refreshStatus(id: number): Promise<ExpectedInvoiceStatus> {
+    // 1. Check if any factura links to this expected invoice → matched
+    const linked = await getDb()
+      .select({ id: facturas.id })
+      .from(facturas)
+      .where(eq(facturas.expectedInvoiceId, id))
+      .limit(1);
+
+    if (linked.length > 0) {
+      getDb()
+        .update(expectedInvoices)
+        .set({ status: 'matched' })
+        .where(eq(expectedInvoices.id, id))
+        .run();
+      return 'matched';
+    }
+
+    // 2. Check balance group membership
+    const invoice = await this.findById(id);
+    if (invoice && (invoice.balancedWithId !== null || (await this.hasBalanceGroup(id)))) {
+      const principalId = invoice.balancedWithId ?? id;
+      const { isBalanced } = await this.calculateGroupBalance(principalId);
+      const newStatus: ExpectedInvoiceStatus = isBalanced ? 'balanced' : 'pending';
+      getDb()
+        .update(expectedInvoices)
+        .set({ status: newStatus })
+        .where(eq(expectedInvoices.id, id))
+        .run();
+      return newStatus;
+    }
+
+    // 3. Default → pending
+    getDb()
+      .update(expectedInvoices)
+      .set({ status: 'pending' })
+      .where(eq(expectedInvoices.id, id))
+      .run();
+    return 'pending';
   }
 
   async findPartialMatches(criteria: {
@@ -903,19 +943,9 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
    * No cambia el status de invoices con status = 'matched'.
    */
   async updateGroupStatus(principalId: number): Promise<void> {
-    const { isBalanced } = await this.calculateGroupBalance(principalId);
     const group = await this.getBalanceGroup(principalId);
-    const newStatus: ExpectedInvoiceStatus = isBalanced ? 'balanced' : 'pending';
-
-    // Actualizar todos los miembros que no estén 'matched'
-    const memberIds = group.map((m) => m.id);
-    if (memberIds.length > 0) {
-      await getDb()
-        .update(expectedInvoices)
-        .set({ status: newStatus })
-        .where(
-          and(inArray(expectedInvoices.id, memberIds), sql`${expectedInvoices.status} != 'matched'`)
-        );
+    for (const member of group) {
+      await this.refreshStatus(member.id);
     }
   }
 
@@ -999,13 +1029,14 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
 
     const principalId = invoice.balancedWithId;
 
-    // Es secundario - simplemente quitar del grupo y volver a pending
+    // Es secundario - quitar del grupo
     await getDb()
       .update(expectedInvoices)
-      .set({ balancedWithId: null, status: 'pending' })
+      .set({ balancedWithId: null })
       .where(eq(expectedInvoices.id, id));
 
-    // Actualizar status del grupo restante
+    // Refresh status of removed member and remaining group
+    await this.refreshStatus(id);
     await this.updateGroupStatus(principalId);
   }
 
@@ -1016,7 +1047,6 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
   async dissolveBalanceGroup(principalId: number): Promise<number> {
     // Obtener todos los miembros antes de disolver
     const group = await this.getBalanceGroup(principalId);
-    const memberIds = group.map((m) => m.id);
 
     // Quitar la referencia de los secundarios
     const result = await getDb()
@@ -1024,14 +1054,9 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       .set({ balancedWithId: null })
       .where(eq(expectedInvoices.balancedWithId, principalId));
 
-    // Poner todos los miembros en pending (excepto los que tengan matched)
-    if (memberIds.length > 0) {
-      await getDb()
-        .update(expectedInvoices)
-        .set({ status: 'pending' })
-        .where(
-          and(inArray(expectedInvoices.id, memberIds), sql`${expectedInvoices.status} != 'matched'`)
-        );
+    // Refresh status for all former members
+    for (const member of group) {
+      await this.refreshStatus(member.id);
     }
 
     return result.changes;

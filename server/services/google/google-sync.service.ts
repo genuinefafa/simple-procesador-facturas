@@ -225,28 +225,20 @@ export class GoogleSyncService {
             // Convertir fecha de Date a DD/MM/YYYY
             const fechaEmision = format(invoice.issueDate, 'dd/MM/yyyy');
 
-            // Mapear método de extracción a valores aceptados por Google
-            let metodoExtraccion: 'TEMPLATE' | 'GENERICO' | 'MANUAL' = 'GENERICO';
-            if (invoice.extractionMethod === 'TEMPLATE') {
-              metodoExtraccion = 'TEMPLATE';
-            } else if (invoice.extractionMethod === 'MANUAL') {
-              metodoExtraccion = 'MANUAL';
-            }
-
             const invoiceData: InvoiceData = {
               cuit: invoice.emitterCuit,
               fechaEmision,
-              tipoComprobante: getFriendlyType(invoice.invoiceType) || 'UNKN', // Convertir número ARCA a friendlyType para Google
+              tipoComprobante: getFriendlyType(invoice.invoiceType) || 'UNKN',
               puntoVenta: invoice.pointOfSale,
               numeroComprobante: invoice.invoiceNumber,
               total: invoice.total || 0,
               moneda: invoice.currency || 'ARS',
-              tipoArchivo: invoice.fileType || 'PDF_DIGITAL',
-              metodoExtraccion,
-              confianzaExtraccion: invoice.extractionConfidence || 0,
-              validadoManualmente: !invoice.requiresReview,
-              requiereRevision: invoice.requiresReview,
-              archivoOriginal: '', // Campo legacy - ahora las rutas están en files
+              tipoArchivo: 'PDF_DIGITAL',
+              metodoExtraccion: 'GENERICO',
+              confianzaExtraccion: 0,
+              validadoManualmente: true,
+              requiereRevision: false,
+              archivoOriginal: '',
             };
 
             // Nota: saveInvoice también intenta subir archivo a Drive
@@ -333,10 +325,6 @@ export class GoogleSyncService {
               invoiceNumber: googleInvoice.numeroComprobante,
               total: googleInvoice.total,
               fileId: placeholderFile.id,
-              fileType: googleInvoice.tipoArchivo,
-              extractionMethod: googleInvoice.metodoExtraccion,
-              extractionConfidence: googleInvoice.confianzaExtraccion,
-              requiresReview: googleInvoice.requiereRevision,
             });
 
             stats.downloaded++;
