@@ -31,7 +31,10 @@
 
   let { data }: { data: PageData } = $props();
 
-  let emitters = $state<Emitter[]>(data.emitters || []);
+  let emitters = $state<Emitter[]>([]);
+  $effect(() => {
+    emitters = data.emitters || [];
+  });
   let searchQuery = $state('');
   let filteredEmitters = $derived(
     searchQuery.length >= 2
