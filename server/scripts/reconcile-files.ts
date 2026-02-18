@@ -148,11 +148,10 @@ async function main() {
 
   const results: ReconcileResult[] = [];
 
-  const facturasData = db
+  const facturasRaw = db
     .select({
       id: facturas.id,
       fileId: facturas.fileId,
-      comprobante: facturas.comprobanteCompleto,
       emisorCuit: facturas.emisorCuit,
       fechaEmision: facturas.fechaEmision,
       tipoComprobante: facturas.tipoComprobante,
@@ -161,6 +160,11 @@ async function main() {
     })
     .from(facturas)
     .all();
+
+  const facturasData = facturasRaw.map((f) => ({
+    ...f,
+    comprobante: `${f.tipoComprobante}-${String(f.puntoVenta).padStart(5, '0')}-${String(f.numeroComprobante).padStart(8, '0')}`,
+  }));
 
   for (const factura of facturasData) {
     if (!factura.fileId) continue;

@@ -201,7 +201,7 @@ export class ComprobanteService {
         cuit: inv.emitterCuit,
         emitterName: emitterCache.get(inv.emitterCuit) || undefined,
         issueDate: normalizeToISO(inv.issueDate),
-        processedAt: inv.processedAt ? inv.processedAt.toString() : null,
+        createdAt: inv.createdAt ? inv.createdAt.toString() : null,
         invoiceType: inv.invoiceType,
         pointOfSale: inv.pointOfSale,
         invoiceNumber: inv.invoiceNumber,

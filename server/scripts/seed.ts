@@ -319,11 +319,9 @@ function seedFacturas() {
 
   const insertInvoice = db.prepare(`
     INSERT OR IGNORE INTO facturas (
-      emisor_cuit, template_usado_id, fecha_emision, tipo_comprobante,
-      punto_venta, numero_comprobante, comprobante_completo, total,
-      archivo_original, archivo_procesado, tipo_archivo,
-      metodo_extraccion, confianza_extraccion
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      emisor_cuit, fecha_emision, tipo_comprobante,
+      punto_venta, numero_comprobante, total
+    ) VALUES (?, ?, ?, ?, ?, ?)
   `);
 
   let insertadas = 0;
@@ -335,35 +333,21 @@ function seedFacturas() {
   const raw = readFileSync(facturasPath, 'utf-8');
   const facturas = JSON.parse(raw) as Array<{
     emisor_cuit: string;
-    template_usado_id: number;
     fecha_emision: string;
     tipo_comprobante: string;
     punto_venta: number;
     numero_comprobante: number;
-    comprobante_completo: string;
     total: number;
-    archivo_original: string;
-    archivo_procesado: string;
-    tipo_archivo: string;
-    metodo_extraccion: string;
-    confianza_extraccion: number;
   }>;
 
   for (const f of facturas) {
     const res = insertInvoice.run(
       f.emisor_cuit,
-      f.template_usado_id,
       f.fecha_emision,
       f.tipo_comprobante,
       f.punto_venta,
       f.numero_comprobante,
-      f.comprobante_completo,
-      f.total,
-      f.archivo_original,
-      f.archivo_procesado,
-      f.tipo_archivo,
-      f.metodo_extraccion,
-      f.confianza_extraccion
+      f.total
     );
     if (res.changes > 0) insertadas++;
   }

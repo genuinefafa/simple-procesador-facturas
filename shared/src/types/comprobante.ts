@@ -9,7 +9,7 @@ export type Final = {
   cuit: string;
   emitterName?: string | null;
   issueDate: string | null;
-  processedAt?: string | null;
+  createdAt?: string | null;
   invoiceType: number | null;
   pointOfSale: number | null;
   invoiceNumber: number | null;

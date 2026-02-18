@@ -25,8 +25,6 @@ interface FileStatus {
     fullInvoiceNumber: string | null;
     total: number | null;
     issueDate: string | null;
-    extractionConfidence: number | null;
-    requiresReview: boolean;
   };
   error?: string;
 }
@@ -88,8 +86,6 @@ export const GET: RequestHandler = async () => {
             invoice.issueDate instanceof Date
               ? invoice.issueDate.toISOString().split('T')[0]
               : invoice.issueDate,
-          extractionConfidence: invoice.extractionConfidence ?? null,
-          requiresReview: invoice.requiresReview,
         },
       });
     }
@@ -108,7 +104,6 @@ export const GET: RequestHandler = async () => {
       processed: filesList.filter((f) => f.processed).length,
       pending: filesList.filter((f) => f.exists && !f.processed).length,
       missing: filesList.filter((f) => !f.exists && f.processed).length,
-      needsReview: filesList.filter((f) => f.invoice?.requiresReview).length,
     };
 
     return json({

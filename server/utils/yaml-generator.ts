@@ -17,7 +17,7 @@ export interface InvoiceAnnotation {
   invoiceNumber: number;
   issueDate: Date;
   total?: number;
-  extractionConfidence: number;
+  extractionConfidence?: number;
 }
 
 /**
@@ -47,7 +47,7 @@ export function generateYAMLContent(annotation: InvoiceAnnotation): string {
 
   const lines: string[] = [
     '# Anotación de factura procesada automáticamente',
-    `# Confianza de extracción: ${extractionConfidence.toFixed(1)}%`,
+    `# Confianza de extracción: ${extractionConfidence?.toFixed(1) ?? 'N/A'}%`,
     '',
     'emisor:',
     `  cuit: "${emitter.cuit}"`,

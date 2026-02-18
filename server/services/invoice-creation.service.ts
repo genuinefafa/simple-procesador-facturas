@@ -5,10 +5,6 @@
  */
 
 import { FileRepository, type IFileRepository } from '../database/repositories/file';
-import {
-  FileExtractionRepository,
-  type IFileExtractionRepository,
-} from '../database/repositories/file-extraction';
 import { InvoiceRepository, type IInvoiceRepository } from '../database/repositories/invoice';
 import {
   ExpectedInvoiceRepository,
@@ -50,7 +46,6 @@ export interface InvoiceCreationResult {
 
 export class InvoiceCreationService {
   private fileRepo: IFileRepository;
-  private extractionRepo: IFileExtractionRepository;
   private invoiceRepo: IInvoiceRepository;
   private expectedRepo: IExpectedInvoiceRepository;
   private emitterRepo: IEmitterRepository;
@@ -59,7 +54,7 @@ export class InvoiceCreationService {
 
   constructor(
     fileRepo?: IFileRepository,
-    extractionRepo?: IFileExtractionRepository,
+    _extractionRepo?: unknown,
     invoiceRepo?: IInvoiceRepository,
     expectedRepo?: IExpectedInvoiceRepository,
     emitterRepo?: IEmitterRepository,
@@ -67,7 +62,6 @@ export class InvoiceCreationService {
     fileService?: InvoiceFileService
   ) {
     this.fileRepo = fileRepo ?? new FileRepository();
-    this.extractionRepo = extractionRepo ?? new FileExtractionRepository();
     this.invoiceRepo = invoiceRepo ?? new InvoiceRepository();
     this.expectedRepo = expectedRepo ?? new ExpectedInvoiceRepository();
     this.emitterRepo = emitterRepo ?? new EmitterRepository();
@@ -89,8 +83,6 @@ export class InvoiceCreationService {
     if (!file) {
       return { success: false, error: 'Archivo no encontrado' };
     }
-
-    const extraction = this.extractionRepo.findByFileId(fileId);
 
     // 2. Validar y normalizar CUIT
     if (!validateCUIT(data.cuit)) {
@@ -152,17 +144,13 @@ export class InvoiceCreationService {
       invoiceNumber: data.invoiceNumber,
       total: data.total,
       fileId: fileId,
-      fileType: file.fileType as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN',
-      extractionMethod: (extraction?.method || 'MANUAL') as 'TEMPLATE' | 'GENERICO' | 'MANUAL',
-      extractionConfidence: extraction?.confidence ?? undefined,
-      requiresReview: false,
       expectedInvoiceId: options.source === 'expected' ? options.expectedId : undefined,
       categoryId: categoryId,
     });
 
-    // 8. Vincular expected si aplica
+    // 8. Vincular expected si aplica — refreshStatus derives 'matched' from linked factura
     if (options.source === 'expected' && options.expectedId) {
-      this.expectedRepo.updateStatus(options.expectedId, 'matched');
+      await this.expectedRepo.refreshStatus(options.expectedId);
     }
 
     return {

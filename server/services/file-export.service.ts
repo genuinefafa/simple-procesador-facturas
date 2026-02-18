@@ -101,9 +101,6 @@ export class FileExportService {
       copyFileSync(originalPath, newPath);
       console.info(`   ✅ Archivo exportado: ${relativePath}`);
 
-      // Actualizar BD con la nueva ruta (relativa)
-      this.invoiceRepo.updateProcessedFile(invoice.id, relativePath);
-
       return {
         success: true,
         newPath,
