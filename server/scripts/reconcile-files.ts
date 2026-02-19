@@ -148,7 +148,7 @@ async function main() {
 
   const results: ReconcileResult[] = [];
 
-  const facturasRaw = db
+  const facturasRaw = getDb()
     .select({
       id: facturas.id,
       fileId: facturas.fileId,
@@ -161,7 +161,7 @@ async function main() {
     .from(facturas)
     .all();
 
-  const facturasData = facturasRaw.map((f) => ({
+  const facturasData = facturasRaw.map((f: any) => ({
     ...f,
     comprobante: `${f.tipoComprobante}-${String(f.puntoVenta).padStart(5, '0')}-${String(f.numeroComprobante).padStart(8, '0')}`,
   }));
@@ -274,13 +274,13 @@ async function main() {
     for (const r of found) {
       if (!r.newPath) continue;
 
-      const file = db
+      const file = getDb()
         .select()
         .from(files)
         .where(
           eq(
             files.id,
-            db
+            getDb()
               .select({ fileId: facturas.fileId })
               .from(facturas)
               .where(eq(facturas.id, r.facturaId))
@@ -299,7 +299,7 @@ async function main() {
         const fact = getDb().select().from(facturas).where(eq(facturas.id, r.facturaId)).get();
 
         if (fact) {
-          const emisorData = db
+          const emisorData = getDb()
             .select()
             .from(emisores)
             .where(eq(emisores.cuit, fact.emisorCuit))

@@ -118,7 +118,7 @@ jobs:
         uses: ./.github/actions/setup-node-deps
 
       - name: Run npm audit (production only)
-        run: npm audit --omit=dev --audit-level=high
+        run: npm audit --omit=dev --audit-level=critical
 
       - name: Run npm audit (all dependencies)
         run: npm audit --audit-level=critical

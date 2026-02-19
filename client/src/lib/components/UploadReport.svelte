@@ -33,9 +33,9 @@
 
   let { uploadedFiles, errors, onClose }: Props = $props();
 
-  const successCount = uploadedFiles.length;
-  const duplicateCount = errors.filter((e) => e.type === 'duplicate').length;
-  const errorCount = errors.length - duplicateCount;
+  const successCount = $derived(uploadedFiles.length);
+  const duplicateCount = $derived(errors.filter((e) => e.type === 'duplicate').length);
+  const errorCount = $derived(errors.length - duplicateCount);
 
   function handleComprobanteClick(type: 'file' | 'invoice', id: number) {
     const comprobanteId = type === 'file' ? `file:${id}` : `factura:${id}`;

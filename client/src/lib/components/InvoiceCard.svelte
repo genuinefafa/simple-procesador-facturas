@@ -56,7 +56,10 @@
   const isCreateMode = $derived(mode === 'create');
 
   // Estado de edición
-  let editMode = $state(mode === 'create');
+  let editMode = $state(false);
+  $effect(() => {
+    editMode = mode === 'create';
+  });
   let selectedEmitter = $state<Emitter | null>(null);
   let selectedCategoryId = $state<number | null>(null);
 

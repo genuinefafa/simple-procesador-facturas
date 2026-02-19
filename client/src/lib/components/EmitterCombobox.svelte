@@ -31,7 +31,7 @@
 
   let items = $state<Emitter[]>([]);
   let loading = $state(false);
-  let selectedEmitter = $state<Emitter | null>(value);
+  let selectedEmitter = $state<Emitter | null>(null);
 
   const combobox = new ComboboxBuilder<Emitter>();
 
