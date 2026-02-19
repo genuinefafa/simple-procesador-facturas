@@ -1,6 +1,6 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2026-02-18)
+## Estado Actual (2026-02-19, actualizado)
 
 | Área | Estado | Notas |
 |------|--------|-------|
@@ -9,7 +9,7 @@
 | **Categorías** | ✅ Completo | En invoices, expected_invoices y files |
 | **Contratos Zod** | ✅ Completo | Validación runtime en PATCH endpoints |
 | **Patrones SOLID** | ✅ Completo | ISP, DIP, Constructor Injection |
-| **Build/TypeScript** | ✅ Limpio | svelte-check pasa sin errores |
+| **Build/TypeScript** | ✅ Limpio | svelte-check pasa sin errores ni warnings (PR #166) |
 
 ---
 
@@ -111,13 +111,15 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [x] Fix layout roto en lista comprobantes + URLs compartibles (PR #153)
 - [x] #151 - Fix QR extractor sliding window (PR #154)
 - [x] #152 - Cleanup fallbacks y restringir auto-extracción (PR #155)
+- [x] #164 - Fix svelte-check warnings que rompen pre-commit hook (PR #166)
 
 ### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
 - [x] #76 - Múltiples métodos extracción
 - [x] #60 - Extracción QR ARCA
 - [x] #151 - QR extractor no detecta QR de ARCA en imagen de Movistar (PR #154)
 - [x] #152 - Limpiar fallbacks en extracción y restringir auto-procesamiento al subir (PR #155)
-- [x] #156 - HEIC file preview broken (Content-Type hardcoded a application/pdf) (PR #156)
+- [x] #156 - HEIC file preview broken (Content-Type hardcoded a application/pdf) (PR #157)
+- [x] Fix QR serviciosweb.afip.gob.ar URL pattern (PR #165)
 - [ ] #54 - Simplificar algoritmo matching
 - [ ] #93 - Testing extracción docs confidenciales
 - [ ] #129 - Importar desglose impositivo ARCA
@@ -151,7 +153,8 @@ Issues depriorizados o en espera de mejor definición:
 
 ## Issues sin asignar a milestone
 
-✅ **Todos los issues tienen milestone asignado** (actualizado 2026-02-13)
+✅ **Todos los issues tienen milestone asignado** (actualizado 2026-02-18)
+- #92 y #146 cerrados manualmente (resueltos por PR #163)
 
 ---
 
@@ -213,4 +216,4 @@ npm run db:studio        # GUI Drizzle
 
 ---
 
-**Última actualización**: 2026-02-13
+**Última actualización**: 2026-02-19
