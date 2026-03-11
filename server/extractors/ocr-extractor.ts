@@ -10,7 +10,8 @@
 import Tesseract from 'tesseract.js';
 import sharp from 'sharp';
 import { existsSync, readFileSync } from 'fs';
-import { extname } from 'path';
+import { extname, dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import type { ExtractionResult, DocumentKind } from '@shared/types';
 import { extractCUITsWithContext } from '@shared/validators/cuit';
 import { extractInvoiceTypeWithAFIP, convertLetterToARCACode } from '../utils/afip-codes';
@@ -31,9 +32,24 @@ function formatToISO(ddmmyyyy: string): string {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
+// Rutas para Tesseract.js
+// En Docker: /app/tessdata/spa.traineddata (descargado durante build)
+// En desarrollo local: si no existe, Tesseract descarga del CDN automáticamente
+const __fileDir = dirname(fileURLToPath(import.meta.url));
+const TESSDATA_PATH = join(__fileDir, '../../tessdata');
+const HAS_LOCAL_TESSDATA = existsSync(join(TESSDATA_PATH, 'spa.traineddata'));
+
+// Cuando tesseract.js se bundlea con Vite, el __dirname interno queda incorrecto.
+// Se pasa la ruta absoluta explícita para que el worker thread arranque correctamente.
+const TESSERACT_WORKER_PATH = join(
+  __fileDir,
+  '../../node_modules/tesseract.js/src/worker-script/node/index.js'
+);
+const HAS_TESSERACT_WORKER = existsSync(TESSERACT_WORKER_PATH);
+
 // Configuración de OCR
 const OCR_CONFIG = {
-  language: 'eng', // Inglés (incluido por defecto, no requiere descarga)
+  language: 'spa', // Español (facturas argentinas)
   oem: Tesseract.OEM.LSTM_ONLY, // Motor LSTM (más preciso)
   psm: Tesseract.PSM.AUTO, // Detección automática de layout
 };
@@ -224,7 +240,7 @@ export class OCRExtractor {
     console.info(`   🔠 Ejecutando Tesseract OCR (idioma: ${OCR_CONFIG.language})...`);
 
     try {
-      const result = await Tesseract.recognize(imageBuffer, OCR_CONFIG.language, {
+      const tesseractOptions: Parameters<typeof Tesseract.recognize>[2] = {
         logger: (info) => {
           if (info.status === 'recognizing text') {
             // Solo mostrar progreso cada 25%
@@ -234,7 +250,20 @@ export class OCRExtractor {
             }
           }
         },
-      });
+      };
+
+      if (HAS_LOCAL_TESSDATA) {
+        tesseractOptions.langPath = TESSDATA_PATH;
+        tesseractOptions.cachePath = TESSDATA_PATH;
+        tesseractOptions.gzip = false;
+        console.info(`   📂 Usando tessdata local: ${TESSDATA_PATH}`);
+      }
+
+      if (HAS_TESSERACT_WORKER) {
+        tesseractOptions.workerPath = TESSERACT_WORKER_PATH;
+      }
+
+      const result = await Tesseract.recognize(imageBuffer, OCR_CONFIG.language, tesseractOptions);
 
       const text = result.data.text;
       const confidence = result.data.confidence;
