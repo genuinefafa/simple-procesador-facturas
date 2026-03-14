@@ -192,6 +192,33 @@ npm run db:migrate   # Migraciones
 npm run db:studio    # GUI Drizzle
 ```
 
+## Workflow Obligatorio con Git
+
+### Flujo de trabajo
+**Siempre** seguir este orden, sin excepciones:
+
+1. `git checkout main && git pull`
+2. `git checkout -b <tipo>/<descripcion-corta>` (ej: `fix/qr-pdf-scale`, `feat/nueva-feature`)
+3. Implementar en commits incrementales (un commit por paso lógico)
+4. Push del branch: `git push -u origin <branch>`
+5. Crear PR con `gh pr create`
+6. Completar el Post-PR Checklist
+
+**Nunca** commitear directo a `main`. **Nunca** empezar a escribir código sin crear el branch primero.
+
+### Modelo de trabajo con agentes
+Este proyecto usa un esquema de dos niveles:
+
+- **Opus** (planificación): diseña el plan, define el approach, verifica el resultado final (QA)
+- **Sonnet/Haiku** (ejecución): implementa el plan
+
+Cuando Claude recibe una tarea de implementación no trivial, debe:
+1. Pensar el plan antes de tocar código
+2. Ejecutar en pasos verificables
+3. Dejar el resultado en un estado que Opus pueda revisar (branch pusheado, PR abierto)
+
+El objetivo es reducir interacción innecesaria: el usuario no debería tener que recordar el flujo ni hacer de QA manual.
+
 ## Post-PR Checklist
 
 After creating or merging a PR, always:
