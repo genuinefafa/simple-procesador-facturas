@@ -42,8 +42,19 @@ export class ComprobanteService {
   /**
    * Construye la lista completa de comprobantes consolidados.
    * Une facturas, expected invoices y archivos sin procesar en un solo DTO.
+   *
+   * When `balanceGroupOf` is provided, returns only the secundarios of that
+   * balance group as full Comprobante objects (with group total/balance info).
    */
-  async listAll(): Promise<Comprobante[]> {
+  async listAll(options?: { balanceGroupOf?: number }): Promise<{
+    comprobantes: Comprobante[];
+    groupTotal?: number;
+    groupIsBalanced?: boolean;
+  }> {
+    if (options?.balanceGroupOf != null) {
+      return this.listBalanceGroupMembers(options.balanceGroupOf);
+    }
+
     const invoices = await this.invoiceRepo.list();
     const expectedInvoices = await this.expectedRepo.listWithFiles({
       status: ['pending', 'balanced'],
@@ -138,7 +149,73 @@ export class ComprobanteService {
       return 0;
     });
 
-    return comprobantes;
+    return { comprobantes };
+  }
+
+  /**
+   * Builds Comprobante[] for the secundarios of a balance group.
+   * Used to render sub-rows as full comprobantes with editable category, status, etc.
+   */
+  private async listBalanceGroupMembers(principalId: number): Promise<{
+    comprobantes: Comprobante[];
+    groupTotal?: number;
+    groupIsBalanced?: boolean;
+  }> {
+    const group = await this.expectedRepo.getBalanceGroup(principalId);
+    if (group.length === 0) return { comprobantes: [] };
+
+    // Only secundarios (those pointing to the principal)
+    const secundarios = group.filter((inv) => inv.balancedWithId !== null);
+    if (secundarios.length === 0) return { comprobantes: [] };
+
+    // Build emitter cache for secundarios
+    const uniqueCuits = new Set(
+      secundarios.map((inv) => inv.cuit).filter((c): c is string => Boolean(c))
+    );
+    const emitterCache = new Map<string, string | null>();
+    for (const cuit of uniqueCuits) {
+      const emitter = this.emitterRepo.findByCUIT(cuit);
+      emitterCache.set(cuit, emitter?.displayName || null);
+    }
+
+    // Build Comprobante[] for each secundario
+    const comprobantes: Comprobante[] = secundarios.map((inv) => {
+      const expected: Expected = {
+        source: 'expected' as const,
+        id: inv.id,
+        cuit: inv.cuit,
+        emitterName: emitterCache.get(inv.cuit) || inv.emitterName,
+        issueDate: inv.issueDate,
+        invoiceType: inv.invoiceType,
+        pointOfSale: inv.pointOfSale,
+        invoiceNumber: inv.invoiceNumber,
+        total: inv.total,
+        status: inv.status,
+        categoryId: inv.categoryId ?? null,
+        balancedWithId: inv.balancedWithId ?? null,
+        isBalanceGroupPrincipal: false,
+      };
+
+      return {
+        id: `expected:${inv.id}`,
+        kind: 'expected' as const,
+        final: null,
+        expected,
+        file: null,
+        emitterCuit: inv.cuit,
+        emitterName: emitterCache.get(inv.cuit) || inv.emitterName,
+        effectiveDate: inv.issueDate,
+      };
+    });
+
+    // Calculate balance
+    const balance = await this.expectedRepo.calculateGroupBalance(principalId);
+
+    return {
+      comprobantes,
+      groupTotal: balance.total,
+      groupIsBalanced: balance.isBalanced,
+    };
   }
 
   private buildUploadedFiles(): FileData[] {
