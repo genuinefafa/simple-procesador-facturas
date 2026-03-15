@@ -3,6 +3,8 @@
  * Centralizes all API calls for invoice viewing/editing.
  */
 
+import type { Comprobante } from '$lib/types/comprobante';
+
 export type ExtractionMethod = 'ocr' | 'pdf_text' | 'qr';
 
 export interface ExpectedInvoiceSummary {
@@ -275,6 +277,31 @@ class ComprobanteService {
   // =============================================================================
   // Balance Group Operations
   // =============================================================================
+
+  /**
+   * Get balance group members as full Comprobante objects.
+   * Used for rendering sub-rows with editable category, status, navigation.
+   */
+  async getBalanceGroupAsComprobantes(
+    expectedId: number
+  ): Promise<ApiResult<{ members: Comprobante[]; total: number; isBalanced: boolean }>> {
+    try {
+      const response = await fetch(
+        `/api/expected-invoices/${expectedId}/balance?format=comprobantes`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          success: true,
+          data: { members: data.members, total: data.total, isBalanced: data.isBalanced },
+        };
+      }
+      const err = await response.json();
+      return { success: false, error: err.error || 'Error al obtener grupo de balance' };
+    } catch {
+      return { success: false, error: 'Error al obtener grupo de balance' };
+    }
+  }
 
   /**
    * Get the balance group for an expected invoice
