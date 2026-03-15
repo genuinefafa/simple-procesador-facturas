@@ -286,6 +286,35 @@
     return isCredit ? `-${formatCurrency(total)}` : formatCurrency(total);
   }
 
+  // --- Copy table (Slack / Gmail) ---
+  let copiedFormat = $state<'slack' | 'gmail' | null>(null);
+
+  function getTableRowData(comp: Comprobante) {
+    return {
+      date: comp.effectiveDate ? formatDateShort(comp.effectiveDate) : '—',
+      emitter: getEmitterName(comp).short || '—',
+      cuit: formatCuit(comp.final?.cuit || comp.expected?.cuit || comp.file?.extractedCuit),
+      compName: formatComprobante(comp),
+      total: formatCurrency(comp.final?.total ?? comp.expected?.total ?? comp.file?.extractedTotal),
+      category: getCategoryName(comp),
+      status: getStatusEmoji(comp),
+    };
+  }
+
+  const TABLE_COLUMNS = [
+    'Fecha',
+    'Emisor',
+    'CUIT',
+    'Comprobante',
+    'Total',
+    'Categoría',
+    'Estado',
+  ] as const;
+
+  function rowDataToArray(d: ReturnType<typeof getTableRowData>) {
+    return [d.date, d.emitter, d.cuit, d.compName, d.total, d.category, d.status];
+  }
+
   function getExpandedMemberRows(comp: Comprobante) {
     const expectedId = comp.expected?.id;
     if (expectedId == null || !expandedGroups.has(expectedId)) return [];
@@ -315,6 +344,70 @@
       status: '',
     });
     return rows;
+  }
+
+  function buildTsvTable(): string {
+    const header = TABLE_COLUMNS.join('\t');
+    const rows: string[] = [];
+    for (const comp of visibleComprobantes) {
+      rows.push(rowDataToArray(getTableRowData(comp)).join('\t'));
+      for (const sub of getExpandedMemberRows(comp)) {
+        rows.push(rowDataToArray(sub).join('\t'));
+      }
+    }
+    return [header, ...rows].join('\n');
+  }
+
+  function buildHtmlTable(): string {
+    const headerCells = TABLE_COLUMNS.map(
+      (col) =>
+        `<th style="padding:4px 8px;border:1px solid #ddd;background:#f5f5f5;text-align:left;font-size:13px">${col}</th>`
+    ).join('');
+    const htmlRows: string[] = [];
+    for (const comp of visibleComprobantes) {
+      const d = getTableRowData(comp);
+      const cells = rowDataToArray(d)
+        .map((val, i) => {
+          const align = i === 4 ? 'right' : 'left';
+          return `<td style="padding:4px 8px;border:1px solid #ddd;font-size:13px;text-align:${align}">${val}</td>`;
+        })
+        .join('');
+      htmlRows.push(`<tr>${cells}</tr>`);
+      for (const sub of getExpandedMemberRows(comp)) {
+        const subCells = rowDataToArray(sub)
+          .map((val, i) => {
+            const align = i === 4 ? 'right' : 'left';
+            return `<td style="padding:4px 8px;border:1px solid #ddd;font-size:12px;text-align:${align};background:#f0f7ff;color:#666">${val}</td>`;
+          })
+          .join('');
+        htmlRows.push(`<tr>${subCells}</tr>`);
+      }
+    }
+    return `<table style="border-collapse:collapse;font-family:sans-serif"><thead><tr>${headerCells}</tr></thead><tbody>${htmlRows.join('')}</tbody></table>`;
+  }
+
+  async function copyTableToClipboard(format: 'slack' | 'gmail') {
+    const count = visibleComprobantes.length;
+    try {
+      if (format === 'slack') {
+        await navigator.clipboard.writeText(buildTsvTable());
+      } else {
+        const html = buildHtmlTable();
+        const blob = new Blob([html], { type: 'text/html' });
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': blob,
+            'text/plain': new Blob([buildTsvTable()], { type: 'text/plain' }),
+          }),
+        ]);
+      }
+      copiedFormat = format;
+      const label = format === 'slack' ? 'Slack' : 'Gmail';
+      toast.success(`Tabla copiada para ${label} (${count} filas)`, { duration: 2000 });
+      setTimeout(() => (copiedFormat = null), 2000);
+    } catch {
+      toast.error('No se pudo copiar al portapapeles');
+    }
   }
 
   function isVisible(c: Comprobante): boolean {
@@ -626,14 +719,48 @@
   </section>
 
   <!-- RESUMEN DE FILTROS -->
-  {#if hasActiveFilters}
-    <section class="filter-summary">
-      <div class="count">
+  <section class="filter-summary">
+    <div class="count">
+      {#if hasActiveFilters}
         Mostrando {visibleComprobantes.length} de {data.comprobantes.length} comprobantes
-      </div>
-      <button class="clear-all" onclick={clearAllFilters} type="button"> Limpiar filtros </button>
-    </section>
-  {/if}
+      {:else}
+        {data.comprobantes.length} comprobantes
+      {/if}
+    </div>
+    <div class="filter-actions">
+      <button
+        class="copy-table-btn"
+        class:copied={copiedFormat === 'slack'}
+        onclick={() => copyTableToClipboard('slack')}
+        type="button"
+        title="Copiar tabla para Slack (TSV)"
+      >
+        {#if copiedFormat === 'slack'}
+          <CopyCheck size={14} />
+        {:else}
+          <Copy size={14} />
+        {/if}
+        Slack
+      </button>
+      <button
+        class="copy-table-btn"
+        class:copied={copiedFormat === 'gmail'}
+        onclick={() => copyTableToClipboard('gmail')}
+        type="button"
+        title="Copiar tabla con formato para Gmail"
+      >
+        {#if copiedFormat === 'gmail'}
+          <CopyCheck size={14} />
+        {:else}
+          <Copy size={14} />
+        {/if}
+        Gmail
+      </button>
+      {#if hasActiveFilters}
+        <button class="clear-all" onclick={clearAllFilters} type="button"> Limpiar filtros </button>
+      {/if}
+    </div>
+  </section>
 
   <section class="list">
     <div class="list-head">
@@ -1267,6 +1394,37 @@
     border-color: var(--color-error);
     color: var(--color-error);
     background: #fef2f2;
+  }
+
+  .filter-actions {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: center;
+  }
+
+  .copy-table-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-1) var(--spacing-3);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    transition: all 0.15s;
+  }
+
+  .copy-table-btn:hover {
+    border-color: var(--color-primary-300);
+    color: var(--color-primary-700);
+    background: var(--color-primary-50);
+  }
+
+  .copy-table-btn.copied {
+    border-color: var(--color-success-300);
+    color: var(--color-success-700);
   }
 
   .active-filters-section {
