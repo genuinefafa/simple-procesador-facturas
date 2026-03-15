@@ -764,9 +764,9 @@
 
   <section class="list">
     <div class="list-head">
-      <span>Comprobante / Archivo</span>
-      <span>Emisor (CUIT)</span>
       <span>Fecha</span>
+      <span>Emisor (CUIT)</span>
+      <span>Comprobante / Archivo</span>
       <span class="align-right">Total</span>
       <span>Categoría</span>
       <span>Estado</span>
@@ -786,25 +786,9 @@
       {@const isExpanded = expectedId != null && expandedGroups.has(expectedId)}
       {@const isLoading = expectedId != null && loadingGroups.has(expectedId)}
       <div class="row">
-        <!-- Columna 1: Comprobante/Archivo -->
-        <span class="col-cmp" class:col-cmp-extended={!hasEmitter}>
-          {#if isBalancePrincipal && expectedId != null}
-            <button
-              class="expand-btn"
-              onclick={() => toggleBalanceGroup(expectedId)}
-              title={isExpanded ? 'Colapsar grupo' : 'Expandir grupo de balance'}
-              type="button"
-            >
-              {#if isLoading}
-                <span class="spinner"></span>
-              {:else if isExpanded}
-                <ChevronDown size={14} />
-              {:else}
-                <ChevronRight size={14} />
-              {/if}
-            </button>
-          {/if}
-          {formatComprobante(comp)}
+        <!-- Columna 1: Fecha -->
+        <span class="col-date">
+          {comp.effectiveDate ? formatDateShort(comp.effectiveDate) : '—'}
         </span>
 
         <!-- Columna 2: Emisor (CUIT) -->
@@ -825,9 +809,25 @@
           {/if}
         </span>
 
-        <!-- Columna 3: Fecha -->
-        <span class="col-date">
-          {comp.effectiveDate ? formatDateShort(comp.effectiveDate) : '—'}
+        <!-- Columna 3: Comprobante/Archivo -->
+        <span class="col-cmp" class:col-cmp-extended={!hasEmitter}>
+          {#if isBalancePrincipal && expectedId != null}
+            <button
+              class="expand-btn"
+              onclick={() => toggleBalanceGroup(expectedId)}
+              title={isExpanded ? 'Colapsar grupo' : 'Expandir grupo de balance'}
+              type="button"
+            >
+              {#if isLoading}
+                <span class="spinner"></span>
+              {:else if isExpanded}
+                <ChevronDown size={14} />
+              {:else}
+                <ChevronRight size={14} />
+              {/if}
+            </button>
+          {/if}
+          {formatComprobante(comp)}
         </span>
         <span class="col-total align-right"
           >{formatCurrency(
@@ -909,13 +909,13 @@
           {@const memberInvoiceType =
             member.expected?.invoiceType ?? member.final?.invoiceType ?? null}
           <div class="row sub-row">
+            <span class="col-date">
+              {member.effectiveDate ? formatDateShort(member.effectiveDate) : '—'}
+            </span>
+            <span class="col-emisor-cuit"></span>
             <span class="col-cmp">
               <span class="sub-row-indent">{isLast ? '└' : '├'}</span>
               {formatComprobante(member)}
-            </span>
-            <span class="col-emisor-cuit"></span>
-            <span class="col-date">
-              {member.effectiveDate ? formatDateShort(member.effectiveDate) : '—'}
             </span>
             <span
               class="col-total align-right"
@@ -952,9 +952,9 @@
         {/each}
         {#if group}
           <div class="row sub-row sub-row-total">
-            <span class="col-cmp"></span>
-            <span class="col-emisor-cuit"></span>
             <span class="col-date"></span>
+            <span class="col-emisor-cuit"></span>
+            <span class="col-cmp"></span>
             <span class="col-total align-right">
               <span
                 class="balance-total"
@@ -1099,8 +1099,8 @@
   .list-head,
   .row {
     display: grid;
-    /* Comprobante | Emisor (flexible) | Fecha | Total | Categoría | Estado | Hash | Acción */
-    grid-template-columns: 220px minmax(200px, 1fr) 85px 110px 150px 90px 70px 100px;
+    /* Fecha | Emisor (flexible) | Comprobante | Total | Categoría | Estado | Hash | Acción */
+    grid-template-columns: 85px minmax(200px, 1fr) 220px 110px 150px 90px 70px 100px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
