@@ -112,6 +112,17 @@ export interface IExpectedInvoiceRepository {
   }): Promise<ExpectedInvoice[]>;
   refreshStatus(id: number): Promise<ExpectedInvoiceStatus>;
   getPrincipalIds(): Promise<Set<number>>;
+  getBalanceGroup(id: number): Promise<ExpectedInvoice[]>;
+  calculateGroupBalance(principalId: number): Promise<{
+    total: number;
+    members: Array<{
+      id: number;
+      total: number | null;
+      invoiceType: number | null;
+      signedTotal: number;
+    }>;
+    isBalanced: boolean;
+  }>;
 }
 
 export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {

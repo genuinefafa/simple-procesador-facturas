@@ -23,7 +23,7 @@
   import { createFilterMatcher, type FilterNode } from '$lib/search';
   import { navigationStore } from '$lib/stores/navigation';
   import { comprobanteService } from '$lib/services/ComprobanteService';
-  import { Copy, CopyCheck } from '$lib/components/icons';
+  import { Copy, CopyCheck, ChevronRight, ChevronDown } from '$lib/components/icons';
   import {
     generateFilenameForFile,
     generateFilenameForSheet,
@@ -220,6 +220,195 @@
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   });
+
+  // --- Helpers for copy and balance group ---
+  function getStatusEmoji(comp: Comprobante): string {
+    const parts: string[] = [];
+    if (comp.file || comp.final?.fileId) parts.push('📄');
+    if (comp.final) parts.push('✅');
+    if (comp.expected || comp.final?.expectedInvoiceId) parts.push('📋');
+    if (comp.expected?.isBalanceGroupPrincipal) parts.push('⚖️');
+    return parts.join('') || '—';
+  }
+
+  function getCategoryName(comp: Comprobante): string {
+    const catId = comp.final?.categoryId ?? comp.expected?.categoryId ?? comp.file?.categoryId;
+    if (catId == null) return '—';
+    const cat = categories.find((c) => c.id === catId);
+    return cat?.description ?? '—';
+  }
+
+  // --- Balance group expand/collapse ---
+  interface ExpandedGroup {
+    members: Comprobante[];
+    total: number;
+    isBalanced: boolean;
+  }
+  let expandedGroups = $state<Map<number, ExpandedGroup>>(new Map());
+  let loadingGroups = $state<Set<number>>(new Set());
+
+  async function toggleBalanceGroup(expectedId: number) {
+    if (expandedGroups.has(expectedId)) {
+      const next = new Map(expandedGroups);
+      next.delete(expectedId);
+      expandedGroups = next;
+      return;
+    }
+
+    loadingGroups = new Set([...loadingGroups, expectedId]);
+    const result = await comprobanteService.getBalanceGroupAsComprobantes(expectedId);
+    const nextLoading = new Set(loadingGroups);
+    nextLoading.delete(expectedId);
+    loadingGroups = nextLoading;
+
+    if (result.success && result.data) {
+      const next = new Map(expandedGroups);
+      next.set(expectedId, {
+        members: result.data.members,
+        total: result.data.total,
+        isBalanced: result.data.isBalanced,
+      });
+      expandedGroups = next;
+    } else {
+      toast.error(result.error || 'Error al cargar grupo de balance');
+    }
+  }
+
+  const CREDIT_NOTE_TYPES = new Set([3, 8, 13, 21, 53]);
+
+  function isCreditNote(invoiceType: number | null): boolean {
+    return invoiceType != null && CREDIT_NOTE_TYPES.has(invoiceType);
+  }
+
+  function formatSignedTotal(total: number | null | undefined, invoiceType: number | null): string {
+    if (total == null) return '—';
+    const isCredit = isCreditNote(invoiceType);
+    return isCredit ? `-${formatCurrency(total)}` : formatCurrency(total);
+  }
+
+  // --- Copy table (Slack / Gmail) ---
+  let copiedFormat = $state<'slack' | 'gmail' | null>(null);
+
+  function getTableRowData(comp: Comprobante) {
+    return {
+      date: comp.effectiveDate ? formatDateShort(comp.effectiveDate) : '—',
+      emitter: getEmitterName(comp).short || '—',
+      cuit: formatCuit(comp.final?.cuit || comp.expected?.cuit || comp.file?.extractedCuit),
+      compName: formatComprobante(comp),
+      total: formatCurrency(comp.final?.total ?? comp.expected?.total ?? comp.file?.extractedTotal),
+      category: getCategoryName(comp),
+      status: getStatusEmoji(comp),
+    };
+  }
+
+  const TABLE_COLUMNS = [
+    'Fecha',
+    'Emisor',
+    'CUIT',
+    'Comprobante',
+    'Total',
+    'Categoría',
+    'Estado',
+  ] as const;
+
+  function rowDataToArray(d: ReturnType<typeof getTableRowData>) {
+    return [d.date, d.emitter, d.cuit, d.compName, d.total, d.category, d.status];
+  }
+
+  function getExpandedMemberRows(comp: Comprobante) {
+    const expectedId = comp.expected?.id;
+    if (expectedId == null || !expandedGroups.has(expectedId)) return [];
+    const group = expandedGroups.get(expectedId)!;
+    const rows = group.members.map((member) => {
+      const invoiceType = member.expected?.invoiceType ?? member.final?.invoiceType ?? null;
+      const total =
+        member.expected?.total ?? member.final?.total ?? member.file?.extractedTotal ?? null;
+      return {
+        date: member.effectiveDate ? formatDateShort(member.effectiveDate) : '—',
+        emitter: '',
+        cuit: '',
+        compName: `└ ${formatComprobante(member)}`,
+        total: formatSignedTotal(total, invoiceType),
+        category: getCategoryName(member),
+        status: getStatusEmoji(member),
+      };
+    });
+    // Add total row
+    rows.push({
+      date: '',
+      emitter: '',
+      cuit: '',
+      compName: '',
+      total: `= ${formatCurrency(Math.abs(group.total))}`,
+      category: '',
+      status: '',
+    });
+    return rows;
+  }
+
+  function buildTsvTable(): string {
+    const header = TABLE_COLUMNS.join('\t');
+    const rows: string[] = [];
+    for (const comp of visibleComprobantes) {
+      rows.push(rowDataToArray(getTableRowData(comp)).join('\t'));
+      for (const sub of getExpandedMemberRows(comp)) {
+        rows.push(rowDataToArray(sub).join('\t'));
+      }
+    }
+    return [header, ...rows].join('\n');
+  }
+
+  function buildHtmlTable(): string {
+    const headerCells = TABLE_COLUMNS.map(
+      (col) =>
+        `<th style="padding:4px 8px;border:1px solid #ddd;background:#f5f5f5;text-align:left;font-size:13px">${col}</th>`
+    ).join('');
+    const htmlRows: string[] = [];
+    for (const comp of visibleComprobantes) {
+      const d = getTableRowData(comp);
+      const cells = rowDataToArray(d)
+        .map((val, i) => {
+          const align = i === 4 ? 'right' : 'left';
+          return `<td style="padding:4px 8px;border:1px solid #ddd;font-size:13px;text-align:${align}">${val}</td>`;
+        })
+        .join('');
+      htmlRows.push(`<tr>${cells}</tr>`);
+      for (const sub of getExpandedMemberRows(comp)) {
+        const subCells = rowDataToArray(sub)
+          .map((val, i) => {
+            const align = i === 4 ? 'right' : 'left';
+            return `<td style="padding:4px 8px;border:1px solid #ddd;font-size:12px;text-align:${align};background:#f0f7ff;color:#666">${val}</td>`;
+          })
+          .join('');
+        htmlRows.push(`<tr>${subCells}</tr>`);
+      }
+    }
+    return `<table style="border-collapse:collapse;font-family:sans-serif"><thead><tr>${headerCells}</tr></thead><tbody>${htmlRows.join('')}</tbody></table>`;
+  }
+
+  async function copyTableToClipboard(format: 'slack' | 'gmail') {
+    const count = visibleComprobantes.length;
+    try {
+      if (format === 'slack') {
+        await navigator.clipboard.writeText(buildTsvTable());
+      } else {
+        const html = buildHtmlTable();
+        const blob = new Blob([html], { type: 'text/html' });
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': blob,
+            'text/plain': new Blob([buildTsvTable()], { type: 'text/plain' }),
+          }),
+        ]);
+      }
+      copiedFormat = format;
+      const label = format === 'slack' ? 'Slack' : 'Gmail';
+      toast.success(`Tabla copiada para ${label} (${count} filas)`, { duration: 2000 });
+      setTimeout(() => (copiedFormat = null), 2000);
+    } catch {
+      toast.error('No se pudo copiar al portapapeles');
+    }
+  }
 
   function isVisible(c: Comprobante): boolean {
     // Todos los filtros se aplican via meta-lenguaje (AND lógico)
@@ -530,20 +719,54 @@
   </section>
 
   <!-- RESUMEN DE FILTROS -->
-  {#if hasActiveFilters}
-    <section class="filter-summary">
-      <div class="count">
+  <section class="filter-summary">
+    <div class="count">
+      {#if hasActiveFilters}
         Mostrando {visibleComprobantes.length} de {data.comprobantes.length} comprobantes
-      </div>
-      <button class="clear-all" onclick={clearAllFilters} type="button"> Limpiar filtros </button>
-    </section>
-  {/if}
+      {:else}
+        {data.comprobantes.length} comprobantes
+      {/if}
+    </div>
+    <div class="filter-actions">
+      <button
+        class="copy-table-btn"
+        class:copied={copiedFormat === 'slack'}
+        onclick={() => copyTableToClipboard('slack')}
+        type="button"
+        title="Copiar tabla para Slack (TSV)"
+      >
+        {#if copiedFormat === 'slack'}
+          <CopyCheck size={14} />
+        {:else}
+          <Copy size={14} />
+        {/if}
+        Slack
+      </button>
+      <button
+        class="copy-table-btn"
+        class:copied={copiedFormat === 'gmail'}
+        onclick={() => copyTableToClipboard('gmail')}
+        type="button"
+        title="Copiar tabla con formato para Gmail"
+      >
+        {#if copiedFormat === 'gmail'}
+          <CopyCheck size={14} />
+        {:else}
+          <Copy size={14} />
+        {/if}
+        Gmail
+      </button>
+      {#if hasActiveFilters}
+        <button class="clear-all" onclick={clearAllFilters} type="button"> Limpiar filtros </button>
+      {/if}
+    </div>
+  </section>
 
   <section class="list">
     <div class="list-head">
-      <span>Comprobante / Archivo</span>
-      <span>Emisor (CUIT)</span>
       <span>Fecha</span>
+      <span>Emisor (CUIT)</span>
+      <span>Comprobante / Archivo</span>
       <span class="align-right">Total</span>
       <span>Categoría</span>
       <span>Estado</span>
@@ -558,10 +781,14 @@
         comp.expected?.cuit ||
         comp.file?.extractedCuit
       )}
+      {@const isBalancePrincipal = comp.expected?.isBalanceGroupPrincipal ?? false}
+      {@const expectedId = comp.expected?.id}
+      {@const isExpanded = expectedId != null && expandedGroups.has(expectedId)}
+      {@const isLoading = expectedId != null && loadingGroups.has(expectedId)}
       <div class="row">
-        <!-- Columna 1: Comprobante/Archivo -->
-        <span class="col-cmp" class:col-cmp-extended={!hasEmitter}>
-          {formatComprobante(comp)}
+        <!-- Columna 1: Fecha -->
+        <span class="col-date">
+          {comp.effectiveDate ? formatDateShort(comp.effectiveDate) : '—'}
         </span>
 
         <!-- Columna 2: Emisor (CUIT) -->
@@ -582,9 +809,25 @@
           {/if}
         </span>
 
-        <!-- Columna 3: Fecha -->
-        <span class="col-date">
-          {comp.effectiveDate ? formatDateShort(comp.effectiveDate) : '—'}
+        <!-- Columna 3: Comprobante/Archivo -->
+        <span class="col-cmp" class:col-cmp-extended={!hasEmitter}>
+          {#if isBalancePrincipal && expectedId != null}
+            <button
+              class="expand-btn"
+              onclick={() => toggleBalanceGroup(expectedId)}
+              title={isExpanded ? 'Colapsar grupo' : 'Expandir grupo de balance'}
+              type="button"
+            >
+              {#if isLoading}
+                <span class="spinner"></span>
+              {:else if isExpanded}
+                <ChevronDown size={14} />
+              {:else}
+                <ChevronRight size={14} />
+              {/if}
+            </button>
+          {/if}
+          {formatComprobante(comp)}
         </span>
         <span class="col-total align-right"
           >{formatCurrency(
@@ -658,6 +901,76 @@
           <Button size="sm" onclick={() => navigateToDetail(comp.id)}>Ver</Button>
         </span>
       </div>
+      {#if isExpanded && expectedId != null}
+        {@const group = expandedGroups.get(expectedId)}
+        {@const members = group?.members ?? []}
+        {#each members as member, idx}
+          {@const isLast = idx === members.length - 1}
+          {@const memberInvoiceType =
+            member.expected?.invoiceType ?? member.final?.invoiceType ?? null}
+          <div class="row sub-row">
+            <span class="col-date">
+              {member.effectiveDate ? formatDateShort(member.effectiveDate) : '—'}
+            </span>
+            <span class="col-emisor-cuit"></span>
+            <span class="col-cmp">
+              <span class="sub-row-indent">{isLast ? '└' : '├'}</span>
+              {formatComprobante(member)}
+            </span>
+            <span
+              class="col-total align-right"
+              class:total-credit={isCreditNote(memberInvoiceType)}
+            >
+              {formatSignedTotal(
+                member.expected?.total ??
+                  member.final?.total ??
+                  member.file?.extractedTotal ??
+                  null,
+                memberInvoiceType
+              )}
+            </span>
+            <span class="col-category">
+              {#if member.expected}
+                <CategorySelect
+                  {categories}
+                  value={member.expected.categoryId ?? null}
+                  onchange={(id: number | null) =>
+                    member.expected && updateExpectedCategory(member.expected.id, id)}
+                />
+              {:else}
+                —
+              {/if}
+            </span>
+            <span class="col-type-status">
+              <CompletenessIndicator comprobante={member} />
+            </span>
+            <span class="col-hash">—</span>
+            <span class="col-actions">
+              <Button size="sm" onclick={() => navigateToDetail(member.id)}>Ver</Button>
+            </span>
+          </div>
+        {/each}
+        {#if group}
+          <div class="row sub-row sub-row-total">
+            <span class="col-date"></span>
+            <span class="col-emisor-cuit"></span>
+            <span class="col-cmp"></span>
+            <span class="col-total align-right">
+              <span
+                class="balance-total"
+                class:balanced={group.isBalanced}
+                class:unbalanced={!group.isBalanced}
+              >
+                = {formatCurrency(Math.abs(group.total))}
+              </span>
+            </span>
+            <span class="col-category"></span>
+            <span class="col-type-status"></span>
+            <span class="col-hash"></span>
+            <span class="col-actions"></span>
+          </div>
+        {/if}
+      {/if}
     {/each}
   </section>
 </div>
@@ -786,8 +1099,8 @@
   .list-head,
   .row {
     display: grid;
-    /* Comprobante | Emisor (flexible) | Fecha | Total | Categoría | Estado | Hash | Acción */
-    grid-template-columns: 180px minmax(200px, 1fr) 85px 110px 150px 90px 70px 100px;
+    /* Fecha | Emisor (flexible) | Comprobante | Total | Categoría | Estado | Hash | Acción */
+    grid-template-columns: 85px minmax(200px, 1fr) 220px 110px 150px 90px 70px 100px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
@@ -809,6 +1122,74 @@
   }
   .row:hover {
     background: var(--color-surface-alt);
+  }
+
+  .row.sub-row {
+    background: var(--color-primary-50);
+    border-top: 1px solid var(--color-primary-100);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+  }
+  .row.sub-row:last-of-type {
+    border-bottom: 1px solid var(--color-primary-100);
+  }
+
+  .sub-row-indent {
+    color: var(--color-primary-300);
+    margin-right: var(--spacing-1);
+    font-family: monospace;
+  }
+
+  .total-credit {
+    color: var(--color-error);
+  }
+
+  .balance-total {
+    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-sm);
+  }
+  .balance-total.balanced {
+    color: var(--color-success-600);
+  }
+  .balance-total.unbalanced {
+    color: var(--color-warning-600);
+  }
+
+  .sub-row-total {
+    border-top: 2px solid var(--color-primary-200);
+  }
+
+  .expand-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    padding: 0;
+    margin-right: var(--spacing-1);
+    cursor: pointer;
+    color: var(--color-primary-600);
+    border-radius: var(--radius-sm);
+    width: 18px;
+    height: 18px;
+  }
+  .expand-btn:hover {
+    background: var(--color-primary-100);
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--color-primary-200);
+    border-top-color: var(--color-primary-600);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   .tag {
@@ -1013,6 +1394,37 @@
     border-color: var(--color-error);
     color: var(--color-error);
     background: #fef2f2;
+  }
+
+  .filter-actions {
+    display: flex;
+    gap: var(--spacing-2);
+    align-items: center;
+  }
+
+  .copy-table-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-1) var(--spacing-3);
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    transition: all 0.15s;
+  }
+
+  .copy-table-btn:hover {
+    border-color: var(--color-primary-300);
+    color: var(--color-primary-700);
+    background: var(--color-primary-50);
+  }
+
+  .copy-table-btn.copied {
+    border-color: var(--color-success-300);
+    color: var(--color-success-700);
   }
 
   .active-filters-section {

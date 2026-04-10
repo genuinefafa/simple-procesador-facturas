@@ -10,6 +10,7 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { ExpectedInvoiceRepository } from '@server/database/repositories/expected-invoice';
+import { createComprobanteService } from '@server/factories';
 import {
   BalanceGroupAddSchema,
   BalanceGroupSetPrincipalSchema,
@@ -60,7 +61,7 @@ async function buildBalanceGroupResponse(
  * Get the balance group for this expected invoice.
  * Returns the group if it exists, or null if the invoice has no group.
  */
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, url }) => {
   const id = parseInt(params.id, 10);
   if (isNaN(id)) {
     return json({ error: 'ID inválido' }, { status: 400 });
@@ -79,6 +80,18 @@ export const GET: RequestHandler = async ({ params }) => {
     const hasGroup = await repo.hasBalanceGroup(principalId);
     if (!hasGroup) {
       return json({ group: null });
+    }
+
+    // Return full Comprobante objects when requested
+    const format = url.searchParams.get('format');
+    if (format === 'comprobantes') {
+      const service = createComprobanteService();
+      const result = await service.listAll({ balanceGroupOf: principalId });
+      return json({
+        members: result.comprobantes,
+        total: result.groupTotal,
+        isBalanced: result.groupIsBalanced,
+      });
     }
 
     const response = await buildBalanceGroupResponse(principalId);

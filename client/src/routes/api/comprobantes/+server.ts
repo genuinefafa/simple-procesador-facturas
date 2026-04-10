@@ -3,6 +3,6 @@ import { createComprobanteService } from '@server/factories';
 
 export async function GET() {
   const service = createComprobanteService();
-  const comprobantes = await service.listAll();
+  const { comprobantes } = await service.listAll();
   return json({ count: comprobantes.length, comprobantes });
 }
