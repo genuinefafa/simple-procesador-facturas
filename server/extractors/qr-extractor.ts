@@ -139,23 +139,35 @@ export class QRExtractor {
 
     const ext = extname(filePath).toLowerCase();
 
-    // PDFs: iterar todas las páginas buscando QR AFIP/ARCA
+    // PDFs: iterar todas las páginas buscando QR AFIP/ARCA.
+    // Se prueban múltiples scales porque jsQR falla cuando el QR es demasiado grande
+    // (scale alto → módulos muy grandes → jsQR no decodifica). Scale 3 es el punto dulce
+    // para QR de alta densidad (ARCA con JSON largo); scale 5 sigue siendo útil para
+    // documentos escaneados donde el QR puede ser pequeño.
     if (ext === '.pdf') {
-      try {
-        const pages = this.pdfToImages(filePath);
-        for await (const { pageNumber, buffer } of pages) {
-          console.info(`   🔍 Escaneando página ${pageNumber}...`);
-          const result = await this.detectQRInImage(buffer);
-          if (result.found && result.rawData && this.isAFIPUrl(result.rawData)) {
-            console.info(`   ✅ QR AFIP/ARCA encontrado en página ${pageNumber}`);
-            return result;
+      // jsQR falla cuando el QR tiene módulos demasiado grandes (scale alto + QR denso).
+      // Scale 3 es el punto óptimo para QR de alta densidad (ARCA con JSON largo).
+      // Scale 5 como fallback para documentos escaneados con QR pequeño.
+      const scales = [3.0, 5.0, 2.0];
+      for (const scale of scales) {
+        try {
+          console.info(`   🔄 Intentando con scale ${scale}...`);
+          const pages = this.pdfToImages(filePath, scale);
+          for await (const { pageNumber, buffer } of pages) {
+            console.info(`   🔍 Escaneando página ${pageNumber} (scale ${scale})...`);
+            const result = await this.detectQRInImage(buffer);
+            if (result.found && result.rawData && this.isAFIPUrl(result.rawData)) {
+              console.info(
+                `   ✅ QR AFIP/ARCA encontrado en página ${pageNumber} (scale ${scale})`
+              );
+              return result;
+            }
           }
+        } catch (error) {
+          console.error(`   ❌ Error procesando páginas del PDF (scale ${scale}):`, error);
         }
-        return { found: false, error: 'No se encontró QR de AFIP/ARCA en ninguna página del PDF' };
-      } catch (error) {
-        console.error(`   ❌ Error procesando páginas del PDF:`, error);
-        return { found: false, error: 'Error convirtiendo PDF a imágenes' };
       }
+      return { found: false, error: 'No se encontró QR de AFIP/ARCA en ninguna página del PDF' };
     }
 
     // HEIC/HEIF: convertir y escanear
