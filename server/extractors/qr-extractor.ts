@@ -51,6 +51,29 @@ function formatCuit(cuit: number): string {
   return `${cuitStr.slice(0, 2)}-${cuitStr.slice(2, 10)}-${cuitStr.slice(10)}`;
 }
 
+/**
+ * Parsea el JSON del QR de AFIP, tolerando valores vacíos mal formados.
+ *
+ * ARCA a veces emite JSON inválido con valores faltantes, por ejemplo cuando
+ * el receptor es consumidor final y no hay DNI:
+ *   {"tipoDocRec":99,"nroDocRec":,"tipoCodAut":"E"}
+ *
+ * En ese caso sustituimos los valores vacíos por `null` antes de reintentar
+ * el parseo. El reemplazo sólo aplica después de una clave (patrón `":`)
+ * seguido inmediatamente por `,`, `}` o `]`, que es un estado imposible en
+ * JSON válido — no rompe QRs bien formados.
+ *
+ * Exportado para testing.
+ */
+export function parseAFIPJson(jsonStr: string): AFIPQRData {
+  try {
+    return JSON.parse(jsonStr) as AFIPQRData;
+  } catch {
+    const sanitized = jsonStr.replace(/"\s*:\s*(?=[,}\]])/g, '":null');
+    return JSON.parse(sanitized) as AFIPQRData;
+  }
+}
+
 export class QRExtractor {
   /**
    * Verifica si un archivo es una imagen soportada
@@ -309,7 +332,7 @@ export class QRExtractor {
     try {
       // Decodificar Base64
       const jsonStr = Buffer.from(base64Data, 'base64').toString('utf-8');
-      const data = JSON.parse(jsonStr) as AFIPQRData;
+      const data = parseAFIPJson(jsonStr);
 
       // Validar campos mínimos requeridos (CUIT es el único obligatorio)
       // NOTA: Algunos QR de AFIP tienen "fecha": false en lugar de fecha real
