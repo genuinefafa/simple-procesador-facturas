@@ -120,6 +120,8 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [x] #152 - Limpiar fallbacks en extracción y restringir auto-procesamiento al subir (PR #155)
 - [x] #156 - HEIC file preview broken (Content-Type hardcoded a application/pdf) (PR #157)
 - [x] Fix QR serviciosweb.afip.gob.ar URL pattern (PR #165)
+- [x] Fix QR JSON malformado de ARCA (consumidor final sin DNI) + debug toolkit (PR #172)
+- [ ] #173 - QR extraction: estrategia para tickets térmicos degradados (paste manual + expand PDF_TEXT + eval zxing-wasm)
 - [ ] #54 - Simplificar algoritmo matching
 - [ ] #93 - Testing extracción docs confidenciales
 - [ ] #129 - Importar desglose impositivo ARCA
