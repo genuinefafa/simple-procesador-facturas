@@ -210,8 +210,9 @@ export class ComprobanteService {
       emitterCache.set(cuit, emitter?.displayName || null);
     }
 
-    // Build Comprobante[] for each secundario
-    const comprobantes: Comprobante[] = secundarios.map((inv) => {
+    // Build Comprobante[] for each secundario, enriched with linked final/file when matched
+    const comprobantes: Comprobante[] = [];
+    for (const inv of secundarios) {
       const expected: Expected = {
         source: 'expected' as const,
         id: inv.id,
@@ -228,17 +229,38 @@ export class ComprobanteService {
         isBalanceGroupPrincipal: false,
       };
 
-      return {
+      // If this secundario has a matched final, surface its factura/file IDs so the
+      // tree row shows the proper status icons (📄 factura:N) instead of looking empty.
+      const linkedInvoices = await this.invoiceRepo.findByExpectedInvoiceId(inv.id);
+      const linkedFinal = linkedInvoices[0] ?? null;
+      const final: Final | null = linkedFinal
+        ? {
+            source: 'final',
+            id: linkedFinal.id,
+            cuit: linkedFinal.emitterCuit,
+            emitterName: emitterCache.get(linkedFinal.emitterCuit) || null,
+            issueDate: normalizeToISO(linkedFinal.issueDate),
+            invoiceType: linkedFinal.invoiceType,
+            pointOfSale: linkedFinal.pointOfSale,
+            invoiceNumber: linkedFinal.invoiceNumber,
+            total: linkedFinal.total,
+            fileId: linkedFinal.fileId ?? null,
+            expectedInvoiceId: linkedFinal.expectedInvoiceId ?? null,
+            categoryId: linkedFinal.categoryId ?? null,
+          }
+        : null;
+
+      comprobantes.push({
         id: `expected:${inv.id}`,
         kind: 'expected' as const,
-        final: null,
+        final,
         expected,
         file: null,
         emitterCuit: inv.cuit,
         emitterName: emitterCache.get(inv.cuit) || inv.emitterName,
         effectiveDate: inv.issueDate,
-      };
-    });
+      });
+    }
 
     // Calculate balance
     const balance = await this.expectedRepo.calculateGroupBalance(principalId);

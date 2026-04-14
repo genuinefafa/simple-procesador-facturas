@@ -25,6 +25,7 @@ export interface IInvoiceRepository {
   }): Promise<Invoice>;
   findById(id: number): Promise<Invoice | null>;
   findByFileId(fileId: number): Promise<Invoice[]>;
+  findByExpectedInvoiceId(expectedInvoiceId: number): Promise<Invoice[]>;
   findByInvoiceNumber(
     emitterCuit: string,
     type: InvoiceType,
