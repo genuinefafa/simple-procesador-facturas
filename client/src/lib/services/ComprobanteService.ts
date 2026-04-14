@@ -80,8 +80,11 @@ class ComprobanteService {
    */
   async fetchPendingExpected(cuit: string): Promise<ApiResult<ExpectedInvoiceSummary[]>> {
     try {
+      // Incluimos también 'balanced': un expected que integra un balance group
+      // sigue siendo candidato válido para vincular contra un file/factura nuevos
+      // (es "no-matched"). Excluimos solo 'matched', que ya está ligado a otra factura.
       const response = await fetch(
-        `/api/expected-invoices?status=pending&cuit=${encodeURIComponent(cuit)}`
+        `/api/expected-invoices?status=pending,balanced&cuit=${encodeURIComponent(cuit)}`
       );
       if (response.ok) {
         const data = await response.json();
