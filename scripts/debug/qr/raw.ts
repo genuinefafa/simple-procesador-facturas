@@ -6,7 +6,7 @@
  *   npm run debug:qr:raw -- <ruta-archivo>
  *   npx tsx scripts/debug/qr/raw.ts <ruta-archivo>
  */
-import jsQR from "jsqr";
+import { readBarcodes } from "zxing-wasm/reader";
 import sharp from "sharp";
 import { readFileSync } from "fs";
 import { pdf } from "pdf-to-img";
@@ -37,30 +37,48 @@ async function main() {
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  const qr = jsQR(new Uint8ClampedArray(data), info.width, info.height);
-  if (!qr) {
+  const imageData: ImageData = {
+    data: new Uint8ClampedArray(data),
+    width: info.width,
+    height: info.height,
+    colorSpace: "srgb",
+  };
+
+  const results = await readBarcodes(imageData, {
+    formats: ["QRCode"],
+    tryHarder: true,
+    maxNumberOfSymbols: 10,
+  });
+
+  if (results.length === 0) {
     console.error("QR no detectado");
     process.exit(1);
   }
 
-  console.log("URL:", qr.data);
-  try {
-    const url = new URL(qr.data);
-    const p = url.searchParams.get("p");
-    if (p) {
-      const jsonStr = Buffer.from(p, "base64").toString("utf-8");
-      console.log("\nJSON crudo:");
-      console.log(jsonStr);
-      try {
-        const parsed = JSON.parse(jsonStr);
-        console.log("\nJSON parseado OK:");
-        console.log(parsed);
-      } catch (e) {
-        console.log("\nJSON.parse falló:", (e as Error).message);
+  console.log(`${results.length} QR(s) encontrado(s):\n`);
+
+  for (const [i, qr] of results.entries()) {
+    console.log(`--- QR #${i + 1} ---`);
+    console.log("URL:", qr.text);
+    try {
+      const url = new URL(qr.text);
+      const p = url.searchParams.get("p");
+      if (p) {
+        const jsonStr = Buffer.from(p, "base64").toString("utf-8");
+        console.log("\nJSON crudo:");
+        console.log(jsonStr);
+        try {
+          const parsed = JSON.parse(jsonStr);
+          console.log("\nJSON parseado OK:");
+          console.log(parsed);
+        } catch (e) {
+          console.log("\nJSON.parse falló:", (e as Error).message);
+        }
       }
+    } catch (e) {
+      console.log("No es URL:", (e as Error).message);
     }
-  } catch (e) {
-    console.error("No es URL válida:", (e as Error).message);
+    console.log();
   }
 }
 

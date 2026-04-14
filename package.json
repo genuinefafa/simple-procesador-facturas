@@ -18,6 +18,7 @@
 		"debug:qr:scales": "tsx scripts/debug/qr/scales.ts",
 		"debug:qr:preprocess": "tsx scripts/debug/qr/preprocess.ts",
 		"debug:qr:crop-arca": "tsx scripts/debug/qr/crop-arca.ts",
+		"debug:qr:benchmark": "tsx scripts/debug/qr/benchmark.ts",
 		"lint": "npm run lint --workspaces --if-present",
 		"format": "npm run format --workspaces --if-present",
 		"format:check": "npm run format:check --workspaces --if-present",

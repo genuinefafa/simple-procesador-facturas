@@ -10,9 +10,13 @@
  * - https://serviciosweb.afip.gob.ar/genericos/comprobantes/cae.aspx?p={BASE64_JSON}
  *
  * Soporta: JPG, PNG, TIFF, WEBP, HEIC, PDF
+ *
+ * Usa zxing-wasm (port WASM de ZXing, el decoder de Google/Android) que maneja
+ * binarización adaptativa local, finder patterns parcialmente degradados,
+ * y Reed-Solomon completo — ideal para tickets térmicos escaneados.
  */
 
-import jsQR from 'jsqr';
+import { readBarcodes } from 'zxing-wasm/reader';
 import sharp from 'sharp';
 import { existsSync, readFileSync } from 'fs';
 import { extname } from 'path';
@@ -42,6 +46,11 @@ const SUPPORTED_IMAGE_EXTENSIONS = [
   '.heic',
   '.heif',
 ];
+
+// Scale para renderizar PDFs. ZXing no necesita multi-scale (a diferencia de jsQR)
+// porque su binarización adaptativa local maneja diferentes tamaños de módulos.
+// 3.0 es un buen balance entre resolución y performance.
+const PDF_RENDER_SCALE = 3.0;
 
 /**
  * Formatea CUIT de número a string con guiones (XX-XXXXXXXX-X)
@@ -102,32 +111,6 @@ export class QRExtractor {
   }
 
   /**
-   * Convierte PDF a imágenes (todas las páginas).
-   * Usa scale 5.0 para mejor detección de QR codes pequeños en documentos escaneados.
-   * Retorna un generador asíncrono que produce { pageNumber, buffer } por cada página.
-   */
-  private async *pdfToImages(
-    filePath: string,
-    scale = 5.0
-  ): AsyncGenerator<{ pageNumber: number; buffer: Buffer }> {
-    const pdfBuffer = readFileSync(filePath);
-    const document = await pdf(pdfBuffer, { scale });
-
-    console.info(`   🔄 PDF con ${document.length} página(s) (scale: ${scale})`);
-
-    let pageNumber = 0;
-    for await (const page of document) {
-      pageNumber++;
-      console.info(`   📄 Página ${pageNumber} convertida (${page.length} bytes)`);
-      yield { pageNumber, buffer: page };
-    }
-
-    if (pageNumber === 0) {
-      console.warn(`   ⚠️ PDF vacío o sin páginas`);
-    }
-  }
-
-  /**
    * Detecta y decodifica QR code de un archivo.
    * Para PDFs, itera todas las páginas buscando un QR de AFIP/ARCA.
    * Para imágenes, escanea directamente.
@@ -139,35 +122,35 @@ export class QRExtractor {
 
     const ext = extname(filePath).toLowerCase();
 
-    // PDFs: iterar todas las páginas buscando QR AFIP/ARCA.
-    // Se prueban múltiples scales porque jsQR falla cuando el QR es demasiado grande
-    // (scale alto → módulos muy grandes → jsQR no decodifica). Scale 3 es el punto dulce
-    // para QR de alta densidad (ARCA con JSON largo); scale 5 sigue siendo útil para
-    // documentos escaneados donde el QR puede ser pequeño.
+    // PDFs: renderizar cada página y escanear
     if (ext === '.pdf') {
-      // jsQR falla cuando el QR tiene módulos demasiado grandes (scale alto + QR denso).
-      // Scale 3 es el punto óptimo para QR de alta densidad (ARCA con JSON largo).
-      // Scale 5 como fallback para documentos escaneados con QR pequeño.
-      const scales = [3.0, 5.0, 2.0];
-      for (const scale of scales) {
-        try {
-          console.info(`   🔄 Intentando con scale ${scale}...`);
-          const pages = this.pdfToImages(filePath, scale);
-          for await (const { pageNumber, buffer } of pages) {
-            console.info(`   🔍 Escaneando página ${pageNumber} (scale ${scale})...`);
-            const result = await this.detectQRInImage(buffer);
-            if (result.found && result.rawData && this.isAFIPUrl(result.rawData)) {
-              console.info(
-                `   ✅ QR AFIP/ARCA encontrado en página ${pageNumber} (scale ${scale})`
-              );
-              return result;
-            }
+      try {
+        const pdfBuffer = readFileSync(filePath);
+        const document = await pdf(pdfBuffer, { scale: PDF_RENDER_SCALE });
+
+        console.info(`   🔄 PDF con ${document.length} página(s) (scale: ${PDF_RENDER_SCALE})`);
+
+        let pageNumber = 0;
+        for await (const page of document) {
+          pageNumber++;
+          console.info(`   📄 Página ${pageNumber} convertida (${page.length} bytes)`);
+          console.info(`   🔍 Escaneando página ${pageNumber}...`);
+
+          const result = await this.detectQRInImage(page);
+          if (result.found && result.rawData && this.isAFIPUrl(result.rawData)) {
+            console.info(`   ✅ QR AFIP/ARCA encontrado en página ${pageNumber}`);
+            return result;
           }
-        } catch (error) {
-          console.error(`   ❌ Error procesando páginas del PDF (scale ${scale}):`, error);
         }
+
+        return {
+          found: false,
+          error: 'No se encontró QR de AFIP/ARCA en ninguna página del PDF',
+        };
+      } catch (error) {
+        console.error(`   ❌ Error procesando páginas del PDF:`, error);
+        return { found: false, error: 'Error convirtiendo PDF a imágenes' };
       }
-      return { found: false, error: 'No se encontró QR de AFIP/ARCA en ninguna página del PDF' };
     }
 
     // HEIC/HEIF: convertir y escanear
@@ -177,141 +160,62 @@ export class QRExtractor {
     }
 
     // Imágenes: escanear directamente
-    return this.detectQRInImage(filePath);
+    return this.detectQRInImage(readFileSync(filePath));
   }
 
   /**
-   * Busca QR code de AFIP/ARCA en una imagen (buffer o path).
-   * Usa escaneo completo primero, luego ventana deslizante de abajo hacia arriba.
+   * Busca QR codes de AFIP/ARCA en una imagen usando zxing-wasm.
+   *
+   * ZXing maneja internamente binarización adaptativa y múltiples estrategias
+   * de detección (PURE, HARDER, HYBRID), así que no necesitamos sliding window
+   * ni preprocesamiento manual.
    */
-  private async detectQRInImage(imageSource: string | Buffer): Promise<QRDetectionResult> {
-    const metadata = await sharp(imageSource).metadata();
-    const width = metadata.width || 0;
-    const height = metadata.height || 0;
-
-    console.info(`   🔍 Buscando código QR AFIP/ARCA (${width}x${height})...`);
-
-    // Primero intentar detección directa en imagen completa
-    const fullImageResult = await this.detectQRInRegion(imageSource, 0, 0, width, height);
-    if (
-      fullImageResult.found &&
-      fullImageResult.rawData &&
-      this.isAFIPUrl(fullImageResult.rawData)
-    ) {
-      console.info(`   ✅ QR AFIP/ARCA detectado directamente`);
-      return fullImageResult;
-    }
-
-    // Si hay QR pero no es de AFIP, o no se encontró QR,
-    // usar sliding window para buscar múltiples QR codes.
-    // Multiple window sizes handle QR codes of different physical sizes
-    // (e.g. ARCA QR on receipts can be >400px at high render scales).
-    console.info(`   🔄 Usando sliding window para buscar QR AFIP/ARCA...`);
-
-    const windowConfigs = [
-      { size: 800, step: 400 },
-      { size: 600, step: 300 },
-      { size: 400, step: 200 },
-    ];
-    const foundQRs = new Map<string, { x: number; y: number }>();
-
-    for (const { size: windowSize, step } of windowConfigs) {
-      if (windowSize > width || windowSize > height) continue;
-
-      const yPositions = this.slidingPositions(height, windowSize, step);
-      const xPositions = this.slidingPositions(width, windowSize, step);
-
-      for (const y of yPositions) {
-        for (const x of xPositions) {
-          try {
-            const regionResult = await this.detectQRInRegion(
-              imageSource,
-              x,
-              y,
-              windowSize,
-              windowSize
-            );
-            if (regionResult.found && regionResult.rawData && !foundQRs.has(regionResult.rawData)) {
-              foundQRs.set(regionResult.rawData, { x, y });
-
-              // Si encontramos un QR de AFIP/ARCA, retornarlo inmediatamente
-              if (this.isAFIPUrl(regionResult.rawData)) {
-                console.info(
-                  `   ✅ QR AFIP/ARCA encontrado en región [${x},${y}] (ventana ${windowSize}px)`
-                );
-                return regionResult;
-              }
-            }
-          } catch {
-            // Ignorar errores en regiones individuales
-          }
-        }
-      }
-    }
-
-    // No se encontró QR de AFIP/ARCA
-    if (foundQRs.size > 0) {
-      const otherUrls = Array.from(foundQRs.keys()).slice(0, 2);
-      console.info(`   ⚠️ Se encontraron ${foundQRs.size} QR(s), pero ninguno de AFIP/ARCA`);
-      return {
-        found: false,
-        error: `Se encontraron ${foundQRs.size} código(s) QR pero ninguno de AFIP/ARCA. URLs: ${otherUrls.map((u) => u.substring(0, 40)).join(', ')}...`,
-      };
-    }
-
-    return { found: false, error: 'No se encontró código QR en la imagen' };
-  }
-
-  /**
-   * Generates sliding window positions from the edge inward (bottom-to-top).
-   * ARCA QR codes are almost always at the bottom of invoices, so scanning
-   * in reverse finds them faster. Always includes both edges.
-   */
-  private slidingPositions(length: number, windowSize: number, step: number): number[] {
-    const positions: number[] = [];
-    const maxPos = length - windowSize;
-    for (let pos = 0; pos <= maxPos; pos += step) {
-      positions.push(pos);
-    }
-    // Always include the edge position if the last step didn't land on it
-    const last = positions[positions.length - 1];
-    if (last === undefined || last < maxPos) {
-      positions.push(maxPos);
-    }
-    // Reverse: scan from bottom/right edge first
-    positions.reverse();
-    return positions;
-  }
-
-  /**
-   * Detecta QR code en una región específica de la imagen
-   */
-  private async detectQRInRegion(
-    imageSource: string | Buffer,
-    x: number,
-    y: number,
-    regionWidth: number,
-    regionHeight: number
-  ): Promise<QRDetectionResult> {
+  private async detectQRInImage(imageSource: Buffer): Promise<QRDetectionResult> {
     try {
       const { data, info } = await sharp(imageSource)
-        .extract({ left: x, top: y, width: regionWidth, height: regionHeight })
         .ensureAlpha()
         .raw()
         .toBuffer({ resolveWithObject: true });
 
-      const pixels = new Uint8ClampedArray(data);
+      console.info(`   🔍 Buscando código QR AFIP/ARCA (${info.width}x${info.height})...`);
 
-      const qrCode = jsQR(pixels, info.width, info.height, {
-        inversionAttempts: 'attemptBoth',
+      const imageData: ImageData = {
+        data: new Uint8ClampedArray(data),
+        width: info.width,
+        height: info.height,
+        colorSpace: 'srgb',
+      };
+
+      const results = await readBarcodes(imageData, {
+        formats: ['QRCode'],
+        tryHarder: true,
+        maxNumberOfSymbols: 5,
       });
 
-      if (qrCode) {
-        return { found: true, rawData: qrCode.data };
+      // Buscar el QR de AFIP/ARCA entre todos los detectados
+      for (const result of results) {
+        if (result.text && this.isAFIPUrl(result.text)) {
+          console.info(`   ✅ QR AFIP/ARCA detectado`);
+          return { found: true, rawData: result.text };
+        }
       }
 
-      return { found: false };
-    } catch {
+      // Reportar QRs no-AFIP encontrados (útil para diagnóstico)
+      if (results.length > 0) {
+        const otherUrls = results
+          .filter((r) => r.text)
+          .map((r) => r.text.substring(0, 40))
+          .slice(0, 2);
+        console.info(`   ⚠️ Se encontraron ${results.length} QR(s), pero ninguno de AFIP/ARCA`);
+        return {
+          found: false,
+          error: `Se encontraron ${results.length} código(s) QR pero ninguno de AFIP/ARCA. URLs: ${otherUrls.join(', ')}...`,
+        };
+      }
+
+      return { found: false, error: 'No se encontró código QR en la imagen' };
+    } catch (error) {
+      console.error(`   ❌ Error detectando QR:`, error);
       return { found: false };
     }
   }
