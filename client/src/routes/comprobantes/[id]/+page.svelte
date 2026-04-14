@@ -269,9 +269,11 @@
     }
   });
 
-  // Load balance group for expected invoices without files
+  // Load balance group whenever the comprobante exposes a linked expected
+  // (expected-sin-archivo, o factura final vinculada a una expected). El grupo
+  // opera sobre el expected subyacente, así que en ambos casos mostramos el panel.
   $effect(() => {
-    if (comprobante.kind === 'expected' && comprobante.expected && !comprobante.file) {
+    if (comprobante.expected) {
       loadBalanceGroup(comprobante.expected.id);
     }
   });
@@ -873,6 +875,21 @@
             </div>
           {/if}
         </section>
+
+        {#if comprobante.expected}
+          <section class="section balance-section">
+            <BalanceGroupPanel
+              expectedId={comprobante.expected.id}
+              group={balanceGroup}
+              loading={loadingBalance}
+              onadd={openBalanceSearchDialog}
+              onremove={handleRemoveFromBalance}
+              onsetprincipal={handleSetBalancePrincipal}
+              ondissolve={handleDissolveBalanceGroup}
+              onmemberclick={(memberId) => goto(`/comprobantes/expected:${memberId}`)}
+            />
+          </section>
+        {/if}
 
         <!-- Sin factura + editMode: InvoiceCard en modo create -->
       {:else if !isExpectedWithoutFile && invoiceForm.editMode}
