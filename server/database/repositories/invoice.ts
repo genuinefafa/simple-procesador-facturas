@@ -150,6 +150,14 @@ export class InvoiceRepository implements IInvoiceRepository {
     return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 
+  async findByExpectedInvoiceId(expectedInvoiceId: number): Promise<Invoice[]> {
+    const result = await getDb()
+      .select()
+      .from(facturas)
+      .where(eq(facturas.expectedInvoiceId, expectedInvoiceId));
+    return result.map((row) => this.mapDrizzleToInvoice(row));
+  }
+
   async findByInvoiceNumber(
     emitterCuit: string,
     type: InvoiceType,

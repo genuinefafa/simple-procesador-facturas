@@ -56,8 +56,12 @@ export class ComprobanteService {
     }
 
     const invoices = await this.invoiceRepo.list();
+    // Incluimos 'matched' para que los expecteds vinculados a una factura final
+    // aporten su info de balance group al comprobante (isBalanceGroupPrincipal,
+    // balancedWithId). Sin esto, una factura final que participa de un grupo no
+    // muestra el árbol ni el icono en el listado.
     const expectedInvoices = await this.expectedRepo.listWithFiles({
-      status: ['pending', 'balanced'],
+      status: ['pending', 'balanced', 'matched'],
     });
     // Get IDs of principals (those that have secundarios pointing to them)
     const principalIds = await this.expectedRepo.getPrincipalIds();
@@ -69,7 +73,15 @@ export class ComprobanteService {
     const comprobantesMap = new Map<string, Comprobante>();
 
     // 1) Facturas finales
-    const finals = this.buildFinals(invoices, emitterCache);
+    // Excluimos del top-level las finales cuya expected vinculada es un secundario
+    // de un balance group: el tree del principal ya muestra esa fila (evita duplicados).
+    const expectedByIdForFilter = new Map(expectedInvoices.map((e) => [e.id, e]));
+    const finalsAll = this.buildFinals(invoices, emitterCache);
+    const finals = finalsAll.filter((f) => {
+      if (f.expectedInvoiceId == null) return true;
+      const raw = expectedByIdForFilter.get(f.expectedInvoiceId);
+      return !raw || raw.balancedWithId == null;
+    });
     for (const f of finals) {
       const comprobanteId = `factura:${f.id}`;
       comprobantesMap.set(comprobanteId, {
@@ -84,7 +96,34 @@ export class ComprobanteService {
       });
     }
 
-    // 2) Expected invoices no vinculadas a factura
+    // 2a) Attach expected info to each final that has expectedInvoiceId.
+    // Necesario para que el listado muestre isBalanceGroupPrincipal / balancedWithId
+    // sobre la factura final (antes solo se pintaba cuando el expected no tenía factura).
+    for (const final of finals) {
+      if (final.expectedInvoiceId == null) continue;
+      const raw = expectedByIdForFilter.get(final.expectedInvoiceId);
+      if (!raw) continue;
+      const comprobanteId = `factura:${final.id}`;
+      const comp = comprobantesMap.get(comprobanteId);
+      if (!comp) continue;
+      comp.expected = {
+        source: 'expected',
+        id: raw.id,
+        cuit: raw.cuit,
+        emitterName: emitterCache.get(raw.cuit) || raw.emitterName,
+        issueDate: raw.issueDate,
+        invoiceType: raw.invoiceType,
+        pointOfSale: raw.pointOfSale,
+        invoiceNumber: raw.invoiceNumber,
+        total: raw.total,
+        status: raw.status,
+        categoryId: raw.categoryId ?? null,
+        balancedWithId: raw.balancedWithId ?? null,
+        isBalanceGroupPrincipal: principalIds.has(raw.id),
+      };
+    }
+
+    // 2b) Expected invoices no vinculadas a factura
     const expectedIdsLinkedToInvoice = new Set(
       finals.map((f) => f.expectedInvoiceId).filter((id): id is number => id != null)
     );
@@ -97,24 +136,17 @@ export class ComprobanteService {
     );
 
     for (const e of expecteds) {
-      const facturaLinked = finals.find((f) => f.expectedInvoiceId === e.id);
-      if (facturaLinked) {
-        const comprobanteId = `factura:${facturaLinked.id}`;
-        const comp = comprobantesMap.get(comprobanteId)!;
-        comp.expected = e;
-      } else {
-        const comprobanteId = `expected:${e.id}`;
-        comprobantesMap.set(comprobanteId, {
-          id: comprobanteId,
-          kind: 'expected',
-          final: null,
-          expected: e,
-          file: null,
-          emitterCuit: e.cuit,
-          emitterName: e.emitterName,
-          effectiveDate: e.issueDate,
-        });
-      }
+      const comprobanteId = `expected:${e.id}`;
+      comprobantesMap.set(comprobanteId, {
+        id: comprobanteId,
+        kind: 'expected',
+        final: null,
+        expected: e,
+        file: null,
+        emitterCuit: e.cuit,
+        emitterName: e.emitterName,
+        effectiveDate: e.issueDate,
+      });
     }
 
     // 3) Archivos subidos no vinculados a factura
