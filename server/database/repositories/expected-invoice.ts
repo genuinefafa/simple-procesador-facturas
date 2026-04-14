@@ -490,7 +490,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       eq(expectedInvoices.cuit, cuitDigits),
       eq(expectedInvoices.pointOfSale, pointOfSale),
       eq(expectedInvoices.invoiceNumber, invoiceNumber),
-      eq(expectedInvoices.status, 'pending'),
+      inArray(expectedInvoices.status, ['pending', 'balanced']),
     ];
 
     // Solo agregar condición de tipo si no es null
@@ -647,7 +647,9 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     >
   > {
     // Prefiltrar inteligentemente para no perder candidatos por el límite
-    const conditions: (SQL | undefined)[] = [eq(expectedInvoices.status, 'pending')];
+    const conditions: (SQL | undefined)[] = [
+      inArray(expectedInvoices.status, ['pending', 'balanced']),
+    ];
 
     // Aplicar SOLO prefilter de CUIT si disponible (más laxo)
     // Normalize to digits-only for comparison (handles both formats in DB)
