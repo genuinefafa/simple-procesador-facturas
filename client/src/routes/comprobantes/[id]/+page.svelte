@@ -295,9 +295,27 @@
       const cuit = comprobante.expected.cuit;
       const name = comprobante.expected.emitterName || comprobante.emitterName || cuit;
       selectedEmitterForSearch = { cuit, name };
-      searchExpectedByEmitter({ cuit, name });
+      searchForBalanceByEmitter({ cuit, name });
     }
     balanceSearchDialogOpen = true;
+  }
+
+  async function searchForBalanceByEmitter(emitter: { cuit: string; name: string } | null) {
+    selectedEmitterForSearch = emitter;
+
+    if (!emitter?.cuit) {
+      availableExpected = [];
+      return;
+    }
+
+    loadingExpected = true;
+    const result = await comprobanteService.fetchExpectedForBalance(emitter.cuit);
+    if (result.success) {
+      availableExpected = result.data || [];
+    } else {
+      toast.error(result.error || 'Error al cargar facturas del emisor');
+    }
+    loadingExpected = false;
   }
 
   async function handleAddToBalance(expectedId: number) {
@@ -1114,7 +1132,7 @@
       onselect={(emitter) => {
         if (emitter) {
           selectedEmitterForSearch = { cuit: emitter.cuit, name: emitter.name };
-          searchExpectedByEmitter({ cuit: emitter.cuit, name: emitter.name });
+          searchForBalanceByEmitter({ cuit: emitter.cuit, name: emitter.name });
         } else {
           selectedEmitterForSearch = null;
           availableExpected = [];
@@ -1125,11 +1143,11 @@
     {#if selectedEmitterForSearch}
       <div class="balance-search-results">
         {#if loadingExpected}
-          <p class="loading-text">Buscando facturas pendientes...</p>
+          <p class="loading-text">Buscando facturas del emisor...</p>
         {:else if availableExpected.length === 0}
-          <p class="empty-text">No hay facturas pendientes de este emisor.</p>
+          <p class="empty-text">No hay facturas de este emisor.</p>
         {:else}
-          <p class="result-count">{availableExpected.length} factura(s) pendiente(s)</p>
+          <p class="result-count">{availableExpected.length} factura(s) del emisor</p>
           <div class="balance-candidate-list">
             {#each availableExpected as exp (exp.id)}
               {@const isCurrentExpected = exp.id === comprobante.expected?.id}
@@ -1159,7 +1177,7 @@
         {/if}
       </div>
     {:else}
-      <p class="hint-text">Seleccioná un emisor para ver sus facturas pendientes.</p>
+      <p class="hint-text">Seleccioná un emisor para ver sus facturas.</p>
     {/if}
 
     <div class="dialog-actions">
