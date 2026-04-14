@@ -115,6 +115,24 @@ export const load: PageLoad = async ({ fetch, params }) => {
         };
       }
     } else if (idType === 'expected') {
+      // Si este expected ya tiene factura final vinculada, redirigir al detalle
+      // de la factura (coherente con el redirect file → factura). Así el usuario
+      // no ve una pantalla "sin archivo" cuando el comprobante ya existe.
+      try {
+        const invRes = await fetch(`/api/invoices?expectedInvoiceId=${id}`);
+        if (invRes.ok) {
+          const invData = await invRes.json();
+          const linked = (invData.invoices || [])[0];
+          if (linked?.id) {
+            throw redirect(302, `/comprobantes/factura:${linked.id}`);
+          }
+        }
+      } catch (err) {
+        if (err && typeof err === 'object' && 'status' in err && (err as any).status === 302) {
+          throw err;
+        }
+      }
+
       const res = await fetch(`/api/expected-invoices`);
       if (res.ok) {
         const data = await res.json();
@@ -132,6 +150,7 @@ export const load: PageLoad = async ({ fetch, params }) => {
             total: exp.total,
             status: exp.status,
             categoryId: exp.categoryId ?? null,
+            balancedWithId: exp.balancedWithId ?? null,
           };
           comprobante = {
             id: `expected:${expected.id}`,

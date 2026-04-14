@@ -17,6 +17,16 @@ export const GET: RequestHandler = async ({ url }) => {
       }
     }
 
+    // Filtro opcional por expectedInvoiceId (para redirect expected → factura)
+    const expectedIdParam = url.searchParams.get('expectedInvoiceId');
+    if (expectedIdParam) {
+      const expectedInvoiceId = parseInt(expectedIdParam, 10);
+      if (!isNaN(expectedInvoiceId)) {
+        const invoices = await repo.findByExpectedInvoiceId(expectedInvoiceId);
+        return json({ success: true, invoices });
+      }
+    }
+
     const invoices = await repo.list();
 
     return json({ success: true, invoices });

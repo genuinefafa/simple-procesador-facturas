@@ -56,8 +56,12 @@ export class ComprobanteService {
     }
 
     const invoices = await this.invoiceRepo.list();
+    // Incluimos 'matched' para que los expecteds vinculados a una factura final
+    // aporten su info de balance group al comprobante (isBalanceGroupPrincipal,
+    // balancedWithId). Sin esto, una factura final que participa de un grupo no
+    // muestra el árbol ni el icono en el listado.
     const expectedInvoices = await this.expectedRepo.listWithFiles({
-      status: ['pending', 'balanced'],
+      status: ['pending', 'balanced', 'matched'],
     });
     // Get IDs of principals (those that have secundarios pointing to them)
     const principalIds = await this.expectedRepo.getPrincipalIds();
@@ -69,7 +73,15 @@ export class ComprobanteService {
     const comprobantesMap = new Map<string, Comprobante>();
 
     // 1) Facturas finales
-    const finals = this.buildFinals(invoices, emitterCache);
+    // Excluimos del top-level las finales cuya expected vinculada es un secundario
+    // de un balance group: el tree del principal ya muestra esa fila (evita duplicados).
+    const expectedByIdForFilter = new Map(expectedInvoices.map((e) => [e.id, e]));
+    const finalsAll = this.buildFinals(invoices, emitterCache);
+    const finals = finalsAll.filter((f) => {
+      if (f.expectedInvoiceId == null) return true;
+      const raw = expectedByIdForFilter.get(f.expectedInvoiceId);
+      return !raw || raw.balancedWithId == null;
+    });
     for (const f of finals) {
       const comprobanteId = `factura:${f.id}`;
       comprobantesMap.set(comprobanteId, {
@@ -84,7 +96,34 @@ export class ComprobanteService {
       });
     }
 
-    // 2) Expected invoices no vinculadas a factura
+    // 2a) Attach expected info to each final that has expectedInvoiceId.
+    // Necesario para que el listado muestre isBalanceGroupPrincipal / balancedWithId
+    // sobre la factura final (antes solo se pintaba cuando el expected no tenía factura).
+    for (const final of finals) {
+      if (final.expectedInvoiceId == null) continue;
+      const raw = expectedByIdForFilter.get(final.expectedInvoiceId);
+      if (!raw) continue;
+      const comprobanteId = `factura:${final.id}`;
+      const comp = comprobantesMap.get(comprobanteId);
+      if (!comp) continue;
+      comp.expected = {
+        source: 'expected',
+        id: raw.id,
+        cuit: raw.cuit,
+        emitterName: emitterCache.get(raw.cuit) || raw.emitterName,
+        issueDate: raw.issueDate,
+        invoiceType: raw.invoiceType,
+        pointOfSale: raw.pointOfSale,
+        invoiceNumber: raw.invoiceNumber,
+        total: raw.total,
+        status: raw.status,
+        categoryId: raw.categoryId ?? null,
+        balancedWithId: raw.balancedWithId ?? null,
+        isBalanceGroupPrincipal: principalIds.has(raw.id),
+      };
+    }
+
+    // 2b) Expected invoices no vinculadas a factura
     const expectedIdsLinkedToInvoice = new Set(
       finals.map((f) => f.expectedInvoiceId).filter((id): id is number => id != null)
     );
@@ -97,24 +136,17 @@ export class ComprobanteService {
     );
 
     for (const e of expecteds) {
-      const facturaLinked = finals.find((f) => f.expectedInvoiceId === e.id);
-      if (facturaLinked) {
-        const comprobanteId = `factura:${facturaLinked.id}`;
-        const comp = comprobantesMap.get(comprobanteId)!;
-        comp.expected = e;
-      } else {
-        const comprobanteId = `expected:${e.id}`;
-        comprobantesMap.set(comprobanteId, {
-          id: comprobanteId,
-          kind: 'expected',
-          final: null,
-          expected: e,
-          file: null,
-          emitterCuit: e.cuit,
-          emitterName: e.emitterName,
-          effectiveDate: e.issueDate,
-        });
-      }
+      const comprobanteId = `expected:${e.id}`;
+      comprobantesMap.set(comprobanteId, {
+        id: comprobanteId,
+        kind: 'expected',
+        final: null,
+        expected: e,
+        file: null,
+        emitterCuit: e.cuit,
+        emitterName: e.emitterName,
+        effectiveDate: e.issueDate,
+      });
     }
 
     // 3) Archivos subidos no vinculados a factura
@@ -178,8 +210,9 @@ export class ComprobanteService {
       emitterCache.set(cuit, emitter?.displayName || null);
     }
 
-    // Build Comprobante[] for each secundario
-    const comprobantes: Comprobante[] = secundarios.map((inv) => {
+    // Build Comprobante[] for each secundario, enriched with linked final/file when matched
+    const comprobantes: Comprobante[] = [];
+    for (const inv of secundarios) {
       const expected: Expected = {
         source: 'expected' as const,
         id: inv.id,
@@ -196,17 +229,38 @@ export class ComprobanteService {
         isBalanceGroupPrincipal: false,
       };
 
-      return {
+      // If this secundario has a matched final, surface its factura/file IDs so the
+      // tree row shows the proper status icons (📄 factura:N) instead of looking empty.
+      const linkedInvoices = await this.invoiceRepo.findByExpectedInvoiceId(inv.id);
+      const linkedFinal = linkedInvoices[0] ?? null;
+      const final: Final | null = linkedFinal
+        ? {
+            source: 'final',
+            id: linkedFinal.id,
+            cuit: linkedFinal.emitterCuit,
+            emitterName: emitterCache.get(linkedFinal.emitterCuit) || null,
+            issueDate: normalizeToISO(linkedFinal.issueDate),
+            invoiceType: linkedFinal.invoiceType,
+            pointOfSale: linkedFinal.pointOfSale,
+            invoiceNumber: linkedFinal.invoiceNumber,
+            total: linkedFinal.total,
+            fileId: linkedFinal.fileId ?? null,
+            expectedInvoiceId: linkedFinal.expectedInvoiceId ?? null,
+            categoryId: linkedFinal.categoryId ?? null,
+          }
+        : null;
+
+      comprobantes.push({
         id: `expected:${inv.id}`,
         kind: 'expected' as const,
-        final: null,
+        final,
         expected,
         file: null,
         emitterCuit: inv.cuit,
         emitterName: emitterCache.get(inv.cuit) || inv.emitterName,
         effectiveDate: inv.issueDate,
-      };
-    });
+      });
+    }
 
     // Calculate balance
     const balance = await this.expectedRepo.calculateGroupBalance(principalId);

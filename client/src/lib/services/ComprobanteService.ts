@@ -80,8 +80,11 @@ class ComprobanteService {
    */
   async fetchPendingExpected(cuit: string): Promise<ApiResult<ExpectedInvoiceSummary[]>> {
     try {
+      // Incluimos también 'balanced': un expected que integra un balance group
+      // sigue siendo candidato válido para vincular contra un file/factura nuevos
+      // (es "no-matched"). Excluimos solo 'matched', que ya está ligado a otra factura.
       const response = await fetch(
-        `/api/expected-invoices?status=pending&cuit=${encodeURIComponent(cuit)}`
+        `/api/expected-invoices?status=pending,balanced&cuit=${encodeURIComponent(cuit)}`
       );
       if (response.ok) {
         const data = await response.json();
@@ -90,6 +93,29 @@ class ComprobanteService {
       return { success: false, error: 'Error al cargar facturas esperadas' };
     } catch (err) {
       console.error('Error fetching expected invoices:', err);
+      return { success: false, error: 'Error al cargar facturas esperadas' };
+    }
+  }
+
+  /**
+   * Fetch expected invoices de un emisor para armar balance groups.
+   * A diferencia de `fetchPendingExpected` (que busca candidatos para vincular
+   * a una factura nueva), acá incluimos también `matched` y `balanced`: un
+   * grupo de balance compensa dos comprobantes existentes (p.ej. FAC vs NCR
+   * que ya tienen factura final cargada), no vincula comprobante a expected.
+   */
+  async fetchExpectedForBalance(cuit: string): Promise<ApiResult<ExpectedInvoiceSummary[]>> {
+    try {
+      const response = await fetch(
+        `/api/expected-invoices?status=pending,matched,balanced&cuit=${encodeURIComponent(cuit)}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        return { success: true, data: data.invoices || [] };
+      }
+      return { success: false, error: 'Error al cargar facturas esperadas' };
+    } catch (err) {
+      console.error('Error fetching expected invoices for balance:', err);
       return { success: false, error: 'Error al cargar facturas esperadas' };
     }
   }

@@ -179,11 +179,11 @@ export class QRExtractor {
 
       console.info(`   🔍 Buscando código QR AFIP/ARCA (${info.width}x${info.height})...`);
 
-      const imageData: ImageData = {
+      const imageData = {
         data: new Uint8ClampedArray(data),
         width: info.width,
         height: info.height,
-        colorSpace: 'srgb',
+        colorSpace: 'srgb' as const,
       };
 
       const results = await readBarcodes(imageData, {

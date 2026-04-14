@@ -22,31 +22,53 @@
   let { comprobante }: Props = $props();
 
   // Lógica encapsulada: determinar qué piezas tiene
-  const hasFile = $derived(!!comprobante.file || !!comprobante.final?.fileId);
-  const hasFinal = $derived(!!comprobante.final);
-  const hasExpected = $derived(!!comprobante.expected || !!comprobante.final?.expectedInvoiceId);
+  const fileId = $derived(comprobante.file?.id ?? comprobante.final?.fileId ?? null);
+  const finalId = $derived(comprobante.final?.id ?? null);
+  const expectedId = $derived(
+    comprobante.expected?.id ?? comprobante.final?.expectedInvoiceId ?? null
+  );
+  const hasFile = $derived(fileId != null);
+  const hasFinal = $derived(finalId != null);
+  const hasExpected = $derived(expectedId != null);
   // Balance: solo mostrar Scale para el principal del grupo
   const isBalancePrincipal = $derived(comprobante.expected?.isBalanceGroupPrincipal ?? false);
+  const balancePrincipalId = $derived(
+    isBalancePrincipal ? (comprobante.expected?.id ?? null) : null
+  );
 </script>
 
 <div class="indicators">
-  <span class="indicator file" class:empty={!hasFile} title={hasFile ? 'Tiene archivo (PDF)' : ''}>
+  <span
+    class="indicator file"
+    class:empty={!hasFile}
+    data-tooltip={hasFile ? `file:${fileId}` : undefined}
+    aria-label={hasFile ? `Archivo file:${fileId}` : undefined}
+  >
     {#if hasFile}<FileText size={14} />{/if}
   </span>
-  <span class="indicator final" class:empty={!hasFinal} title={hasFinal ? 'Factura creada' : ''}>
+  <span
+    class="indicator final"
+    class:empty={!hasFinal}
+    data-tooltip={hasFinal ? `factura:${finalId}` : undefined}
+    aria-label={hasFinal ? `Factura factura:${finalId}` : undefined}
+  >
     {#if hasFinal}<Check size={14} />{/if}
   </span>
   <span
     class="indicator expected"
     class:empty={!hasExpected}
-    title={hasExpected ? 'Vinculada con AFIP' : ''}
+    data-tooltip={hasExpected ? `expected:${expectedId}` : undefined}
+    aria-label={hasExpected ? `AFIP expected:${expectedId}` : undefined}
   >
     {#if hasExpected}<ClipboardList size={14} />{/if}
   </span>
   <span
     class="indicator balanced"
     class:empty={!isBalancePrincipal}
-    title={isBalancePrincipal ? 'Principal de grupo de balance' : ''}
+    data-tooltip={isBalancePrincipal ? `⚖ expected:${balancePrincipalId}` : undefined}
+    aria-label={isBalancePrincipal
+      ? `Principal de grupo expected:${balancePrincipalId}`
+      : undefined}
   >
     {#if isBalancePrincipal}<Scale size={14} />{/if}
   </span>
@@ -60,15 +82,37 @@
   }
 
   .indicator {
+    position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     width: 1.25em;
     text-align: center;
+    cursor: help;
   }
 
   .indicator.empty {
     visibility: hidden;
+  }
+
+  /* CSS tooltip: aparece inmediatamente al hover, mejor que title nativo */
+  .indicator[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--color-neutral-900, #1a1a1a);
+    color: var(--color-neutral-0, #fff);
+    font-size: 11px;
+    font-weight: var(--font-weight-medium, 500);
+    line-height: 1.4;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
   }
 
   .indicator.file {

@@ -25,6 +25,7 @@ export interface IInvoiceRepository {
   }): Promise<Invoice>;
   findById(id: number): Promise<Invoice | null>;
   findByFileId(fileId: number): Promise<Invoice[]>;
+  findByExpectedInvoiceId(expectedInvoiceId: number): Promise<Invoice[]>;
   findByInvoiceNumber(
     emitterCuit: string,
     type: InvoiceType,
@@ -147,6 +148,14 @@ export class InvoiceRepository implements IInvoiceRepository {
 
   async findByFileId(fileId: number): Promise<Invoice[]> {
     const result = await getDb().select().from(facturas).where(eq(facturas.fileId, fileId));
+    return result.map((row) => this.mapDrizzleToInvoice(row));
+  }
+
+  async findByExpectedInvoiceId(expectedInvoiceId: number): Promise<Invoice[]> {
+    const result = await getDb()
+      .select()
+      .from(facturas)
+      .where(eq(facturas.expectedInvoiceId, expectedInvoiceId));
     return result.map((row) => this.mapDrizzleToInvoice(row));
   }
 
