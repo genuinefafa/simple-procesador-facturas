@@ -12,6 +12,7 @@
   import CategorySelect from './CategorySelect.svelte';
   import Button from './ui/Button.svelte';
   import ReprocessDialog, { type ExtractionMethod } from './ReprocessDialog.svelte';
+  import QrPasteDialog from './QrPasteDialog.svelte';
   import {
     formatCurrency,
     formatDateShort,
@@ -96,6 +97,9 @@
     oncreatefromexpected?: () => void;
     /** Callback para reprocesar con método específico */
     onreprocess?: (method: ExtractionMethod) => void;
+    /** Callback para enviar una URL de QR pegada manualmente. Debe resolver cuando termina
+     * el procesamiento (éxito o error). Si rechaza, el mensaje se muestra dentro del dialog. */
+    onqrpaste?: (qrUrl: string) => Promise<void>;
     /** Callback para buscar expected manualmente (abre diálogo completo) */
     onsearchexpected?: () => void;
     /** Callback cuando el usuario selecciona un expected alternativo */
@@ -122,6 +126,7 @@
     oncreatefromfile,
     oncreatefromexpected,
     onreprocess,
+    onqrpaste,
     onsearchexpected,
     onexpectedchange,
     onextractionchange,
@@ -294,6 +299,11 @@
   // Estado del diálogo de reprocesamiento
   let reprocessDialogOpen = $state(false);
 
+  // Estado del diálogo de paste URL QR
+  let qrPasteDialogOpen = $state(false);
+  let qrPasteError = $state<string | null>(null);
+  let qrPasteProcessing = $state(false);
+
   // Truncar nombre largo
   const truncateName = (name: string | null | undefined, maxLen: number = 20) => {
     if (!name) return '—';
@@ -328,6 +338,30 @@
 
   function closeReprocessDialog() {
     reprocessDialogOpen = false;
+  }
+
+  function openQrPasteDialog() {
+    qrPasteError = null;
+    qrPasteDialogOpen = true;
+  }
+
+  function closeQrPasteDialog() {
+    qrPasteDialogOpen = false;
+    qrPasteError = null;
+  }
+
+  async function handleQrPasteSubmit(qrUrl: string) {
+    if (!onqrpaste) return;
+    qrPasteError = null;
+    qrPasteProcessing = true;
+    try {
+      await onqrpaste(qrUrl);
+      qrPasteDialogOpen = false;
+    } catch (err) {
+      qrPasteError = err instanceof Error ? err.message : 'Error al procesar la URL';
+    } finally {
+      qrPasteProcessing = false;
+    }
   }
 </script>
 
@@ -707,8 +741,23 @@
   existingMethods={extractions.map((e) => e.method).filter((m): m is string => m != null)}
   fileType={file?.fileType ?? null}
   onselect={handleReprocess}
+  onpasteurl={onqrpaste
+    ? () => {
+        reprocessDialogOpen = false;
+        openQrPasteDialog();
+      }
+    : undefined}
   onclose={closeReprocessDialog}
   {processing}
+/>
+
+<!-- Diálogo de paste URL QR manual (fallback para QRs degradados) -->
+<QrPasteDialog
+  bind:open={qrPasteDialogOpen}
+  onsubmit={handleQrPasteSubmit}
+  onclose={closeQrPasteDialog}
+  processing={qrPasteProcessing}
+  errorMessage={qrPasteError}
 />
 
 <style>

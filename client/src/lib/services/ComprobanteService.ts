@@ -177,6 +177,33 @@ class ComprobanteService {
   }
 
   /**
+   * Submit a manually-pasted AFIP/ARCA QR URL as a fallback when zxing can't
+   * decode the embedded QR. Persists a QR extraction with confidence 100%.
+   */
+  async pasteQrUrl(fileId: number, qrUrl: string): Promise<ProcessResult> {
+    try {
+      const response = await fetch(`/api/invoices/qr-paste/${fileId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qrUrl }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        return {
+          success: true,
+          extraction: { confidence: data.extraction?.confidence || 0 },
+        };
+      }
+      return { success: false, error: data.error || 'Error al procesar URL' };
+    } catch (err) {
+      console.error('Error pasting QR URL:', err);
+      return { success: false, error: 'Error al procesar URL' };
+    }
+  }
+
+  /**
    * Process a file with specified extraction method
    */
   async processFile(fileId: number, method: ExtractionMethod = 'ocr'): Promise<ProcessResult> {
