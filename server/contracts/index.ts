@@ -25,6 +25,7 @@ export {
   BalanceGroupSetPrincipalSchema,
   BalanceGroupMemberSchema,
   BalanceGroupResponseSchema,
+  QrPasteSchema,
 } from './schemas.js';
 
 export type {
@@ -34,6 +35,7 @@ export type {
   BalanceGroupSetPrincipalInput,
   BalanceGroupMember,
   BalanceGroupResponse,
+  QrPasteInput,
 } from './schemas.js';
 
 // Utilities
