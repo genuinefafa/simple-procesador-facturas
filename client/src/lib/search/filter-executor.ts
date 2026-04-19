@@ -244,8 +244,8 @@ function matchesEstado(c: Comprobante, value: string): boolean {
       // Facturas finalizadas o archivos procesados
       return !!c.final || c.file?.status === 'processed';
     case 'esperadas':
-      // Expected invoices sin factura final
-      return !!c.expected && !c.final;
+      // Expected invoices sin factura final, y que no estén compensadas en balance group
+      return !!c.expected && !c.final && c.expected.status !== 'balanced';
     default:
       return false;
   }

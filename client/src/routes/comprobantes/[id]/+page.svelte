@@ -966,7 +966,14 @@
 
         <!-- Sin factura + sin editMode: solo SourceComparison con botones -->
       {:else if !isExpectedWithoutFile}
-        <!-- El SourceComparison ya se muestra arriba, no necesitamos más acá -->
+        <!-- El SourceComparison ya se muestra arriba; acá solo mostramos la acción de borrado del archivo pendiente -->
+        {#if comprobante.file}
+          <section class="section file-actions-section">
+            <Button size="sm" variant="danger" onclick={() => deleteHandler.open(comprobante)}>
+              Eliminar archivo pendiente
+            </Button>
+          </section>
+        {/if}
 
         <!-- Expected sin archivo: Balance Group (arriba) + mensaje informativo (abajo) -->
       {:else}
