@@ -6,7 +6,7 @@
    */
 
   import Dialog from './ui/Dialog.svelte';
-  import { Check } from 'lucide-svelte';
+  import { Check, QrCode } from 'lucide-svelte';
 
   export type ExtractionMethod = 'ocr' | 'pdf_text' | 'qr';
 
@@ -19,6 +19,10 @@
     fileType?: string | null;
     /** Callback when a method is selected */
     onselect: (method: ExtractionMethod) => void;
+    /** Callback cuando el usuario elige pegar una URL QR manualmente (fallback
+     * para QRs degradados que zxing no puede decodificar). Si no se provee,
+     * la opción no se muestra. */
+    onpasteurl?: () => void;
     /** Callback when dialog is closed */
     onclose: () => void;
     /** Whether processing is in progress */
@@ -30,6 +34,7 @@
     existingMethods = [],
     fileType = null,
     onselect,
+    onpasteurl,
     onclose,
     processing = false,
   }: Props = $props();
@@ -121,6 +126,14 @@
       </span>
       <span class="method-desc">Leer código QR de AFIP/ARCA</span>
     </button>
+
+    {#if onpasteurl}
+      <button type="button" class="method-option" onclick={onpasteurl} disabled={processing}>
+        <span class="method-icon"><QrCode size={20} /></span>
+        <span class="method-name">QR (URL manual)</span>
+        <span class="method-desc">Pegar URL si escaneaste el QR con otra app (iOS/Android)</span>
+      </button>
+    {/if}
   </div>
 
   {#if existingMethods.length > 0}

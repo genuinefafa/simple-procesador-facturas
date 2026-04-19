@@ -28,12 +28,16 @@ import convert from 'heic-convert';
 import type { AFIPQRData, QRDetectionResult, AFIPUrlParseResult } from './qr-extractor.types';
 
 // URLs válidas de AFIP/ARCA QR (todos los formatos oficiales)
-const AFIP_QR_URL_PATTERNS = [
+export const AFIP_QR_URL_PATTERNS = [
   'https://www.afip.gob.ar/fe/qr/',
   'https://servicioscf.afip.gob.ar/publico/comprobantes/',
   'https://serviciosweb.afip.gob.ar/genericos/comprobantes/',
   'https://www.arca.gob.ar/fe/qr/', // Nuevo formato ARCA 2024+
 ];
+
+export function isAFIPQrUrl(url: string): boolean {
+  return AFIP_QR_URL_PATTERNS.some((pattern) => url.startsWith(pattern));
+}
 
 // Extensiones de imagen soportadas
 const SUPPORTED_IMAGE_EXTENSIONS = [
@@ -81,6 +85,95 @@ export function parseAFIPJson(jsonStr: string): AFIPQRData {
     const sanitized = jsonStr.replace(/"\s*:\s*(?=[,}\]])/g, '":null');
     return JSON.parse(sanitized) as AFIPQRData;
   }
+}
+
+/**
+ * Parsea URL de AFIP/ARCA y extrae los datos estructurados del QR.
+ * Exportado para que el fallback de paste manual (issue #173) pueda reusar
+ * la misma lógica sin levantar un QRExtractor completo.
+ */
+export function parseAFIPUrl(url: string): AFIPUrlParseResult {
+  if (!isAFIPQrUrl(url)) {
+    return { valid: false, error: `URL no es de AFIP: ${url.substring(0, 50)}...` };
+  }
+
+  let urlObj: URL;
+  try {
+    urlObj = new URL(url);
+  } catch {
+    return { valid: false, error: 'URL malformada' };
+  }
+  const base64Data = urlObj.searchParams.get('p');
+
+  if (!base64Data) {
+    return { valid: false, error: 'URL de AFIP sin parámetro p' };
+  }
+
+  try {
+    const jsonStr = Buffer.from(base64Data, 'base64').toString('utf-8');
+    const data = parseAFIPJson(jsonStr);
+
+    if (!data.ver || !data.cuit) {
+      return { valid: false, error: 'JSON de AFIP con campos faltantes (ver/cuit)' };
+    }
+
+    if (typeof data.fecha !== 'string' || !data.fecha) {
+      console.warn(`   ⚠️ QR AFIP sin fecha válida (fecha=${String(data.fecha)})`);
+    }
+
+    console.info(
+      `   📋 Datos AFIP: CUIT=${data.cuit}, Fecha=${data.fecha || 'N/A'}, Tipo=${data.tipoCmp}`
+    );
+    return { valid: true, data };
+  } catch (error) {
+    return {
+      valid: false,
+      error: `Error parseando JSON: ${error instanceof Error ? error.message : 'desconocido'}`,
+    };
+  }
+}
+
+/**
+ * Construye un ExtractionResult desde una URL AFIP/ARCA ya conocida.
+ * Usado por el fallback de paste manual cuando el usuario copia la URL desde
+ * un scanner externo (ej. iOS Vision, que decodifica QRs más degradados que zxing).
+ */
+export function extractFromAFIPUrl(url: string): ExtractionResult {
+  const parseResult = parseAFIPUrl(url);
+
+  if (!parseResult.valid || !parseResult.data) {
+    return {
+      success: false,
+      confidence: 0,
+      data: {},
+      errors: [parseResult.error || 'URL de QR no válida'],
+      method: 'QR',
+    };
+  }
+
+  const afipData = parseResult.data;
+  const hasValidDate = typeof afipData.fecha === 'string' && afipData.fecha.length > 0;
+  const hasAllRequired =
+    afipData.cuit &&
+    hasValidDate &&
+    afipData.tipoCmp &&
+    afipData.ptoVta !== undefined &&
+    afipData.nroCmp !== undefined;
+  const confidence = hasAllRequired ? 100 : hasValidDate ? 90 : 80;
+
+  return {
+    success: true,
+    confidence,
+    data: {
+      cuit: formatCuit(afipData.cuit),
+      date: hasValidDate ? (afipData.fecha as string) : undefined,
+      total: afipData.importe,
+      invoiceType: afipData.tipoCmp,
+      pointOfSale: afipData.ptoVta,
+      invoiceNumber: afipData.nroCmp,
+    },
+    method: 'QR',
+  };
 }
 
 export class QRExtractor {
@@ -224,53 +317,7 @@ export class QRExtractor {
    * Verifica si una URL es de AFIP (cualquiera de los formatos válidos)
    */
   private isAFIPUrl(url: string): boolean {
-    return AFIP_QR_URL_PATTERNS.some((pattern) => url.startsWith(pattern));
-  }
-
-  /**
-   * Parsea URL de AFIP y extrae datos JSON
-   * Soporta ambos formatos de URL oficiales de AFIP
-   */
-  private parseAFIPUrl(url: string): AFIPUrlParseResult {
-    // Verificar que es URL de AFIP
-    if (!this.isAFIPUrl(url)) {
-      return { valid: false, error: `URL no es de AFIP: ${url.substring(0, 50)}...` };
-    }
-
-    // Extraer parámetro p
-    const urlObj = new URL(url);
-    const base64Data = urlObj.searchParams.get('p');
-
-    if (!base64Data) {
-      return { valid: false, error: 'URL de AFIP sin parámetro p' };
-    }
-
-    try {
-      // Decodificar Base64
-      const jsonStr = Buffer.from(base64Data, 'base64').toString('utf-8');
-      const data = parseAFIPJson(jsonStr);
-
-      // Validar campos mínimos requeridos (CUIT es el único obligatorio)
-      // NOTA: Algunos QR de AFIP tienen "fecha": false en lugar de fecha real
-      if (!data.ver || !data.cuit) {
-        return { valid: false, error: 'JSON de AFIP con campos faltantes (ver/cuit)' };
-      }
-
-      // Advertencia si falta fecha (pero no es error fatal)
-      if (typeof data.fecha !== 'string' || !data.fecha) {
-        console.warn(`   ⚠️ QR AFIP sin fecha válida (fecha=${String(data.fecha)})`);
-      }
-
-      console.info(
-        `   📋 Datos AFIP: CUIT=${data.cuit}, Fecha=${data.fecha || 'N/A'}, Tipo=${data.tipoCmp}`
-      );
-      return { valid: true, data };
-    } catch (error) {
-      return {
-        valid: false,
-        error: `Error parseando JSON: ${error instanceof Error ? error.message : 'desconocido'}`,
-      };
-    }
+    return isAFIPQrUrl(url);
   }
 
   /**
@@ -294,52 +341,14 @@ export class QRExtractor {
         };
       }
 
-      // 2. Parsear URL AFIP
-      const parseResult = this.parseAFIPUrl(qrResult.rawData);
-
-      if (!parseResult.valid || !parseResult.data) {
-        console.warn(`   ⚠️ ${parseResult.error}`);
-        return {
-          success: false,
-          confidence: 30,
-          data: {},
-          errors: [parseResult.error || 'URL de QR no válida'],
-          method: 'QR',
-        };
+      // 2. Parsear URL AFIP + mapear a ExtractionResult
+      const result = extractFromAFIPUrl(qrResult.rawData);
+      if (!result.success) {
+        result.confidence = 30;
+      } else {
+        console.info(`   ✅ Extracción QR exitosa (confianza: ${result.confidence}%)`);
       }
-
-      // 3. Mapear datos AFIP a ExtractionResult
-      const afipData = parseResult.data;
-
-      // Calcular confianza basada en campos presentes
-      // Fecha válida solo si es string (no false o undefined)
-      const hasValidDate = typeof afipData.fecha === 'string' && afipData.fecha.length > 0;
-      const hasAllRequired =
-        afipData.cuit &&
-        hasValidDate &&
-        afipData.tipoCmp &&
-        afipData.ptoVta !== undefined &&
-        afipData.nroCmp !== undefined;
-
-      // Menor confianza si falta fecha
-      const confidence = hasAllRequired ? 100 : hasValidDate ? 90 : 80;
-
-      console.info(`   ✅ Extracción QR exitosa (confianza: ${confidence}%)`);
-
-      return {
-        success: true,
-        confidence,
-        data: {
-          cuit: formatCuit(afipData.cuit),
-          // Solo incluir fecha si es válida (string), no si es false
-          date: hasValidDate ? (afipData.fecha as string) : undefined,
-          total: afipData.importe,
-          invoiceType: afipData.tipoCmp,
-          pointOfSale: afipData.ptoVta,
-          invoiceNumber: afipData.nroCmp,
-        },
-        method: 'QR',
-      };
+      return result;
     } catch (error) {
       console.error(`   ❌ Error en extracción QR:`, error);
       return {

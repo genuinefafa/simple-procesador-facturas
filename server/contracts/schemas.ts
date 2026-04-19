@@ -199,3 +199,13 @@ export const BalanceGroupResponseSchema = z.object({
 });
 
 export type BalanceGroupResponse = z.infer<typeof BalanceGroupResponseSchema>;
+
+// =============================================================================
+// QR Paste (fallback manual cuando el scanner automático falla)
+// =============================================================================
+
+export const QrPasteSchema = z.object({
+  qrUrl: z.string().trim().min(1, 'URL requerida').max(2048, 'URL demasiado larga'),
+});
+
+export type QrPasteInput = z.infer<typeof QrPasteSchema>;

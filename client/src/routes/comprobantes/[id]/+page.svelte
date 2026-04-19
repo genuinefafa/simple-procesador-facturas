@@ -588,6 +588,22 @@
     linkExpectedDialogOpen = false;
   }
 
+  async function handleQrPaste(qrUrl: string): Promise<void> {
+    if (!comprobante.file) throw new Error('Sin archivo');
+    const toastId = toast.loading('Procesando URL del QR...');
+    const result = await comprobanteService.pasteQrUrl(comprobante.file.id, qrUrl);
+    if (result.success) {
+      toast.success(`QR procesado: ${result.extraction?.confidence || 0}% confianza`, {
+        id: toastId,
+      });
+      await invalidateAll();
+      sourceComparisonRef?.selectMostRecent();
+    } else {
+      toast.error(result.error || 'Error', { id: toastId });
+      throw new Error(result.error || 'Error al procesar URL');
+    }
+  }
+
   async function processPending(method?: ExtractionMethod) {
     if (!comprobante.file) return;
 
@@ -773,6 +789,7 @@
               invoiceForm.populateFromExpected(bestExpected, emitterName);
             }}
             onreprocess={processPending}
+            onqrpaste={handleQrPaste}
             onsearchexpected={openLinkExpectedDialog}
             onexpectedchange={(expectedId) => {
               // Seleccionar un expected alternativo - mostrarlo en la comparación
