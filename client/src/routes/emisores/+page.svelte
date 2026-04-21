@@ -4,9 +4,8 @@
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
   import { goto } from '$app/navigation';
-  import { page } from '$app/state';
-  import { formatDateShort, formatCurrency, formatCuit } from '$lib/formatters';
-  import { Plus, Eye, FileText, Trash2, X } from '$lib/components/icons';
+  import { formatCuit } from '$lib/formatters';
+  import { Plus, Eye, FileText } from '$lib/components/icons';
 
   type Emitter = {
     cuit: string;
@@ -17,16 +16,6 @@
     personType?: 'FISICA' | 'JURIDICA';
     active?: boolean;
     totalInvoices?: number;
-  };
-
-  type EmitterStats = {
-    totalInvoices: number;
-    totalFacturas?: number;
-    totalExpected?: number;
-    totalFiles?: number;
-    totalAmount: number;
-    firstInvoiceDate: string | null;
-    lastInvoiceDate: string | null;
   };
 
   let { data }: { data: PageData } = $props();
@@ -51,32 +40,8 @@
       : emitters
   );
 
-  // URL es la fuente de verdad para el drawer
-  let selectedCuit = $derived(page.url.searchParams.get('selected'));
-  let selectedEmitter = $derived(emitters.find((e) => e.cuit === selectedCuit) || null);
-  let selectedStats = $state<EmitterStats | null>(null);
-  let editMode = $state(false);
-  let deleteDialogOpen = $state(false);
   let createDialogOpen = $state(false);
   let saving = $state(false);
-  let loadingStats = $state(false);
-
-  // Cargar stats cuando cambia selectedCuit (derivado de URL)
-  $effect(() => {
-    if (selectedCuit) {
-      loadEmitterStats(selectedCuit);
-    } else {
-      selectedStats = null;
-    }
-  });
-
-  // Form state para edición
-  let editForm = $state({
-    name: '',
-    legalName: '',
-    aliases: '',
-    personType: 'JURIDICA' as 'FISICA' | 'JURIDICA',
-  });
 
   // Form state para creación
   let createForm = $state({
@@ -86,118 +51,6 @@
     aliases: '',
     personType: 'JURIDICA' as 'FISICA' | 'JURIDICA',
   });
-
-  async function loadEmitterStats(cuit: string) {
-    loadingStats = true;
-    try {
-      const res = await fetch(`/api/emisores/${encodeURIComponent(cuit)}`);
-      const json = await res.json();
-      selectedStats = json.stats || null;
-    } catch (e) {
-      console.error('Error loading emitter stats:', e);
-      selectedStats = null;
-    } finally {
-      loadingStats = false;
-    }
-  }
-
-  function openDrawer(emitter: Emitter) {
-    editMode = false;
-    goto(`?selected=${emitter.cuit}`);
-  }
-
-  function closeDrawer() {
-    editMode = false;
-    goto('/emisores');
-  }
-
-  function startEdit() {
-    if (!selectedEmitter) return;
-    editForm = {
-      name: selectedEmitter.name,
-      legalName: selectedEmitter.legalName || '',
-      aliases: selectedEmitter.aliases?.join(', ') || '',
-      personType: selectedEmitter.personType || 'JURIDICA',
-    };
-    editMode = true;
-  }
-
-  function cancelEdit() {
-    editMode = false;
-  }
-
-  async function saveEdit() {
-    if (!selectedEmitter) return;
-
-    if (!editForm.name.trim()) {
-      toast.error('El nombre es requerido');
-      return;
-    }
-
-    saving = true;
-    try {
-      const res = await fetch(`/api/emisores/${encodeURIComponent(selectedEmitter.cuit)}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: editForm.name.trim(),
-          legalName: editForm.legalName.trim() || null,
-          aliases: editForm.aliases
-            .split(',')
-            .map((a) => a.trim())
-            .filter(Boolean),
-          personType: editForm.personType,
-        }),
-      });
-
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error || 'Error al guardar');
-      }
-
-      toast.success('Emisor actualizado');
-      editMode = false;
-      await refreshEmitters();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Error al guardar');
-    } finally {
-      saving = false;
-    }
-  }
-
-  function openDeleteDialog() {
-    deleteDialogOpen = true;
-  }
-
-  async function confirmDelete() {
-    if (!selectedEmitter) return;
-
-    deleteDialogOpen = false;
-    const toastId = toast.loading('Eliminando emisor...');
-
-    try {
-      const res = await fetch(`/api/emisores/${encodeURIComponent(selectedEmitter.cuit)}`, {
-        method: 'DELETE',
-      });
-
-      const json = await res.json();
-
-      if (!res.ok) {
-        if (res.status === 409) {
-          toast.error(`No se puede eliminar: ${json.reason}`, { id: toastId });
-        } else {
-          toast.error(json.error || 'Error al eliminar', { id: toastId });
-        }
-        return;
-      }
-
-      toast.success('Emisor eliminado', { id: toastId });
-      closeDrawer();
-      await refreshEmitters();
-    } catch (e) {
-      toast.error('Error al eliminar emisor', { id: toastId });
-    }
-  }
 
   async function refreshEmitters() {
     const res = await fetch('/api/emisores?limit=200');
@@ -265,14 +118,6 @@
     if (!aliases || aliases.length === 0) return '';
     return aliases.join(', ');
   }
-
-  // Computed: si tiene comprobantes no se puede borrar
-  let canDelete = $derived(!loadingStats && (selectedStats?.totalInvoices ?? 0) === 0);
-  let deleteTooltip = $derived(
-    (selectedStats?.totalInvoices ?? 0) > 0
-      ? `No se puede eliminar: tiene ${selectedStats?.totalInvoices} comprobante(s)`
-      : 'Eliminar emisor'
-  );
 </script>
 
 <svelte:head>
@@ -322,9 +167,8 @@
             </tr>
           {:else}
             {#each filteredEmitters as emitter (emitter.cuit)}
-              {@const isSelected = selectedCuit === emitter.cuit}
               {@const comprobantes = emitter.totalInvoices ?? 0}
-              <tr class:selected={isSelected}>
+              <tr>
                 <td class="col-name">
                   <span class="name-primary">{emitter.name}</span>
                   {#if emitter.legalName && emitter.legalName !== emitter.name}
@@ -341,14 +185,13 @@
                 <td class="col-cuit">{formatCuit(emitter.cuit)}</td>
                 <td class="col-actions">
                   <div class="row-toolbar">
-                    <button
+                    <a
+                      href="/emisores/{encodeURIComponent(emitter.cuit)}"
                       class="toolbar-btn"
                       title="Ver detalle"
-                      onclick={() => openDrawer(emitter)}
-                      class:active={isSelected}
                     >
                       <Eye size={16} />
-                    </button>
+                    </a>
                     {#if comprobantes > 0}
                       <a
                         href="/comprobantes?q=emisor:{emitter.cuit}"
@@ -368,167 +211,7 @@
       </table>
     </div>
   </div>
-
-  <!-- Drawer lateral -->
-  {#if selectedEmitter}
-    <aside class="drawer">
-      <header class="drawer-header">
-        <div class="drawer-title-section">
-          <h2>{selectedEmitter.displayName || selectedEmitter.name}</h2>
-          <p class="drawer-subtitle">{formatCuit(selectedEmitter.cuit)}</p>
-        </div>
-        <button class="drawer-close" onclick={closeDrawer} aria-label="Cerrar"
-          ><X size={18} /></button
-        >
-      </header>
-
-      <div class="drawer-body">
-        {#if editMode}
-          <!-- Modo edición -->
-          <div class="edit-form">
-            <div class="form-group">
-              <label for="edit-name">Nombre *</label>
-              <input id="edit-name" type="text" bind:value={editForm.name} />
-            </div>
-            <div class="form-group">
-              <label for="edit-legalName">Razón Social</label>
-              <input id="edit-legalName" type="text" bind:value={editForm.legalName} />
-            </div>
-            <div class="form-group">
-              <label for="edit-aliases">Aliases (separados por coma)</label>
-              <input
-                id="edit-aliases"
-                type="text"
-                bind:value={editForm.aliases}
-                placeholder="alias1, alias2"
-              />
-            </div>
-            <div class="form-group">
-              <span class="form-label">Tipo de persona</span>
-              <div class="radio-group">
-                <label class="radio-label">
-                  <input type="radio" bind:group={editForm.personType} value="JURIDICA" />
-                  Jurídica
-                </label>
-                <label class="radio-label">
-                  <input type="radio" bind:group={editForm.personType} value="FISICA" />
-                  Física
-                </label>
-              </div>
-            </div>
-          </div>
-        {:else}
-          <!-- Modo vista -->
-          <section class="detail-section">
-            <h3>Información</h3>
-            <dl class="detail-list">
-              <dt>Nombre</dt>
-              <dd>{selectedEmitter.name}</dd>
-
-              {#if selectedEmitter.legalName && selectedEmitter.legalName !== selectedEmitter.name}
-                <dt>Razón Social</dt>
-                <dd>{selectedEmitter.legalName}</dd>
-              {/if}
-
-              {#if selectedEmitter.aliases && selectedEmitter.aliases.length > 0}
-                <dt>Aliases</dt>
-                <dd>{selectedEmitter.aliases.join(', ')}</dd>
-              {/if}
-
-              <dt>Tipo</dt>
-              <dd>
-                {selectedEmitter.personType === 'FISICA' ? 'Persona Física' : 'Persona Jurídica'}
-              </dd>
-            </dl>
-          </section>
-
-          <section class="detail-section">
-            <h3>Estadísticas</h3>
-            {#if loadingStats}
-              <p class="loading">Cargando...</p>
-            {:else if selectedStats}
-              <dl class="detail-list">
-                <dt>Comprobantes</dt>
-                <dd>
-                  {#if selectedStats.totalInvoices > 0}
-                    <a href="/comprobantes?q=emisor:{selectedEmitter.cuit}" class="link">
-                      {selectedStats.totalInvoices} comprobante{selectedStats.totalInvoices !== 1
-                        ? 's'
-                        : ''}
-                    </a>
-                    {#if selectedStats.totalFacturas !== undefined}
-                      <span class="stats-breakdown">
-                        ({selectedStats.totalFacturas} factura{selectedStats.totalFacturas !== 1
-                          ? 's'
-                          : ''},
-                        {selectedStats.totalExpected ?? 0} expected,
-                        {selectedStats.totalFiles ?? 0} archivo{(selectedStats.totalFiles ?? 0) !==
-                        1
-                          ? 's'
-                          : ''})
-                      </span>
-                    {/if}
-                  {:else}
-                    <span class="muted">0</span>
-                  {/if}
-                </dd>
-
-                <dt>Total facturado</dt>
-                <dd>{formatCurrency(selectedStats.totalAmount)}</dd>
-
-                {#if selectedStats.firstInvoiceDate}
-                  <dt>Primera factura</dt>
-                  <dd>{formatDateShort(selectedStats.firstInvoiceDate)}</dd>
-                {/if}
-
-                {#if selectedStats.lastInvoiceDate}
-                  <dt>Última factura</dt>
-                  <dd>{formatDateShort(selectedStats.lastInvoiceDate)}</dd>
-                {/if}
-              </dl>
-            {:else}
-              <p class="muted">Sin estadísticas</p>
-            {/if}
-          </section>
-        {/if}
-      </div>
-
-      <footer class="drawer-actions">
-        {#if editMode}
-          <Button variant="secondary" onclick={cancelEdit} disabled={saving}>Cancelar</Button>
-          <Button onclick={saveEdit} disabled={saving}>
-            {saving ? 'Guardando...' : 'Guardar'}
-          </Button>
-        {:else}
-          <button
-            class="action-btn delete-btn"
-            onclick={openDeleteDialog}
-            disabled={!canDelete}
-            title={deleteTooltip}
-          >
-            <Trash2 size={16} /> Eliminar
-          </button>
-          <Button onclick={startEdit}>Editar</Button>
-        {/if}
-      </footer>
-    </aside>
-  {/if}
 </div>
-
-<!-- Dialog de confirmación de eliminación -->
-<Dialog
-  bind:open={deleteDialogOpen}
-  title="Eliminar Emisor"
-  description="Esta acción no se puede deshacer"
->
-  {#if selectedEmitter}
-    <p>¿Estás seguro de que querés eliminar a <strong>{selectedEmitter.name}</strong>?</p>
-    <div class="dialog-actions">
-      <Button variant="secondary" onclick={() => (deleteDialogOpen = false)}>Cancelar</Button>
-      <Button variant="danger" onclick={confirmDelete}>Eliminar</Button>
-    </div>
-  {/if}
-</Dialog>
 
 <!-- Dialog de creación -->
 <Dialog bind:open={createDialogOpen} title="Nuevo Emisor">
@@ -694,10 +377,6 @@
     border-bottom: none;
   }
 
-  .emitters-table tr.selected {
-    background: var(--color-primary-50);
-  }
-
   .col-name {
     min-width: 200px;
   }
@@ -764,11 +443,6 @@
     background: var(--color-neutral-100);
   }
 
-  .toolbar-btn.active {
-    background: var(--color-primary-100);
-    border-color: var(--color-primary-300);
-  }
-
   .comprobantes-btn {
     font-size: var(--font-size-xs);
     color: var(--color-primary-600);
@@ -787,172 +461,7 @@
     font-style: italic;
   }
 
-  /* Drawer lateral */
-  .drawer {
-    width: 360px;
-    display: flex;
-    flex-direction: column;
-    background: var(--color-surface);
-    border-left: 1px solid var(--color-border);
-    animation: slideIn 0.2s ease-out;
-  }
-
-  @keyframes slideIn {
-    from {
-      transform: translateX(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
-
-  .drawer-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    padding: var(--spacing-4);
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface-alt);
-  }
-
-  .drawer-title-section {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .drawer-title-section h2 {
-    margin: 0;
-    font-size: var(--font-size-lg);
-    font-weight: var(--font-weight-semibold);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .drawer-subtitle {
-    margin: var(--spacing-1) 0 0;
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
-    font-family: monospace;
-  }
-
-  .drawer-close {
-    background: transparent;
-    border: none;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    padding: var(--spacing-2);
-    font-size: var(--font-size-lg);
-    line-height: 1;
-    border-radius: var(--radius-sm);
-  }
-
-  .drawer-close:hover {
-    background: var(--color-neutral-100);
-    color: var(--color-text-primary);
-  }
-
-  .drawer-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: var(--spacing-4);
-  }
-
-  .drawer-actions {
-    padding: var(--spacing-4);
-    border-top: 1px solid var(--color-border);
-    background: var(--color-surface-alt);
-    display: flex;
-    gap: var(--spacing-3);
-    justify-content: flex-end;
-  }
-
-  .action-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-1);
-    padding: var(--spacing-2) var(--spacing-3);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    background: var(--color-surface);
-    font-size: var(--font-size-sm);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-  }
-
-  .action-btn:hover:not(:disabled) {
-    background: var(--color-neutral-50);
-  }
-
-  .action-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  .delete-btn:hover:not(:disabled) {
-    background: var(--color-danger-50);
-    border-color: var(--color-danger-200);
-    color: var(--color-danger-700);
-  }
-
-  /* Secciones de detalle */
-  .detail-section {
-    margin-bottom: var(--spacing-5);
-  }
-
-  .detail-section h3 {
-    margin: 0 0 var(--spacing-3);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .detail-list {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: var(--spacing-2) var(--spacing-3);
-    margin: 0;
-  }
-
-  .detail-list dt {
-    font-weight: var(--font-weight-medium);
-    color: var(--color-text-secondary);
-    font-size: var(--font-size-sm);
-  }
-
-  .detail-list dd {
-    margin: 0;
-    font-size: var(--font-size-sm);
-  }
-
-  .stats-breakdown {
-    display: block;
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    margin-top: 2px;
-  }
-
-  .link {
-    color: var(--color-primary-600);
-    text-decoration: none;
-  }
-
-  .link:hover {
-    text-decoration: underline;
-  }
-
-  .loading,
-  .muted {
-    color: var(--color-text-tertiary);
-    font-style: italic;
-    font-size: var(--font-size-sm);
-  }
-
-  /* Formulario de edición */
+  /* Formulario de creación */
   .edit-form {
     display: flex;
     flex-direction: column;
@@ -1011,25 +520,11 @@
       height: calc(100vh - 120px); /* más espacio para topbar en mobile */
       margin: calc(-1 * var(--spacing-4));
     }
-
-    .drawer {
-      position: fixed;
-      top: 70px;
-      right: 0;
-      height: calc(100vh - 70px);
-      z-index: 100;
-      box-shadow: var(--shadow-xl);
-    }
   }
 
   @media (max-width: 768px) {
     .emisores-page {
       flex-direction: column;
-    }
-
-    .drawer {
-      width: 100%;
-      max-width: 100%;
     }
   }
 </style>
