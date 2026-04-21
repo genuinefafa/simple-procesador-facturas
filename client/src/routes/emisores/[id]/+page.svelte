@@ -185,13 +185,15 @@
         toast.error(json.error || 'Error al renombrar');
         return;
       }
-      const { renamed = 0, failed = 0, skipped = 0 } = json;
-      if (renamed > 0) {
+      const renamed: unknown[] = json.renamed ?? [];
+      const failed: { reason?: string }[] = json.failed ?? [];
+      const skipped: unknown[] = json.skipped ?? [];
+      if (renamed.length > 0) {
         toast.success('Archivo renombrado correctamente');
-      } else if (skipped > 0) {
+      } else if (skipped.length > 0) {
         toast.info('El archivo ya tenía el nombre correcto');
-      } else if (failed > 0) {
-        toast.error('No se pudo renombrar el archivo');
+      } else if (failed.length > 0) {
+        toast.error(failed[0]?.reason || 'No se pudo renombrar el archivo');
       }
       await loadArchivos(emitter.cuit);
     } catch {
