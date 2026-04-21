@@ -132,7 +132,7 @@
     }
 
     toast.success('Emisor actualizado');
-    await loadEmitter(emitter.cuit);
+    await Promise.all([loadEmitter(emitter.cuit), loadArchivos(emitter.cuit)]);
   }
 
   function openDeleteDialog() {
