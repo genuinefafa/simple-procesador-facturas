@@ -26,6 +26,7 @@ export {
   BalanceGroupMemberSchema,
   BalanceGroupResponseSchema,
   QrPasteSchema,
+  EmitterFilesRenameSchema,
 } from './schemas.js';
 
 export type {
@@ -36,6 +37,7 @@ export type {
   BalanceGroupMember,
   BalanceGroupResponse,
   QrPasteInput,
+  EmitterFilesRenameInput,
 } from './schemas.js';
 
 // Utilities

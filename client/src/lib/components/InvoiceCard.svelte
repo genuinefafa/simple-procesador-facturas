@@ -13,6 +13,7 @@
   import CategoryPills from './CategoryPills.svelte';
   import EmitterCombobox from './EmitterCombobox.svelte';
   import InvoiceTypeSelect from './InvoiceTypeSelect.svelte';
+  import { ExternalLink } from '$lib/components/icons';
   import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
   import type { Emitter, Category, InvoiceData, InvoiceSaveData } from './InvoiceCard.types';
 
@@ -204,22 +205,45 @@
     <div class="field stacked">
       <span class="field-label">Emisor</span>
       {#if editMode}
-        <div class="emitter-field">
-          <EmitterCombobox
-            value={selectedEmitter}
-            onselect={(emitter) => {
-              selectedEmitter = emitter;
-              formData.cuit = emitter?.cuit || '';
-            }}
-          />
+        <div class="emitter-edit-row">
+          <div class="emitter-field">
+            <EmitterCombobox
+              value={selectedEmitter}
+              onselect={(emitter) => {
+                selectedEmitter = emitter;
+                formData.cuit = emitter?.cuit || '';
+              }}
+            />
+          </div>
+          {#if selectedEmitter?.cuit}
+            <a
+              href="/emisores/{encodeURIComponent(selectedEmitter.cuit)}"
+              class="emitter-link-btn"
+              title="Ver emisor"
+              tabindex="-1"
+            >
+              <ExternalLink size={14} />
+            </a>
+          {/if}
         </div>
       {:else}
-        <button type="button" class="field-value clickable" onclick={enterEditMode}>
-          <span class="emitter-name">{invoice.emitterName || '—'}</span>
+        <div class="emitter-view-row">
+          <button type="button" class="field-value clickable" onclick={enterEditMode}>
+            <span class="emitter-name">{invoice.emitterName || '—'}</span>
+            {#if invoice.cuit}
+              <span class="emitter-cuit">{formatCuit(invoice.cuit)}</span>
+            {/if}
+          </button>
           {#if invoice.cuit}
-            <span class="emitter-cuit">{formatCuit(invoice.cuit)}</span>
+            <a
+              href="/emisores/{encodeURIComponent(invoice.cuit)}"
+              class="emitter-link-btn"
+              title="Ver emisor"
+            >
+              <ExternalLink size={14} />
+            </a>
           {/if}
-        </button>
+        </div>
       {/if}
     </div>
 
@@ -437,8 +461,35 @@
     font-family: var(--font-mono);
   }
 
+  .emitter-edit-row,
+  .emitter-view-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+  }
+
   .emitter-field {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .emitter-link-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-1);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-tertiary);
+    text-decoration: none;
+    transition:
+      color var(--transition-fast),
+      background var(--transition-fast);
+    flex-shrink: 0;
+  }
+
+  .emitter-link-btn:hover {
+    color: var(--color-primary-600);
+    background: var(--color-primary-50);
   }
 
   .field-input {

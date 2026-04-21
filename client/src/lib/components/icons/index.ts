@@ -40,6 +40,7 @@ export {
   RefreshCw,
   Copy,
   CopyCheck,
+  ExternalLink,
 
   // Estados de resultado
   CheckCircle,
