@@ -209,3 +209,19 @@ export const QrPasteSchema = z.object({
 });
 
 export type QrPasteInput = z.infer<typeof QrPasteSchema>;
+
+// =============================================================================
+// Emitter Files Rename
+// =============================================================================
+
+/**
+ * Schema for POST /api/emisores/:id/archivos/rename
+ * Triggers a batch rename to canonical paths for the given invoice IDs.
+ */
+export const EmitterFilesRenameSchema = z.object({
+  invoiceIds: z
+    .array(z.number().int().positive({ message: 'ID de factura inválido' }))
+    .min(1, 'Se requiere al menos un ID de factura'),
+});
+
+export type EmitterFilesRenameInput = z.infer<typeof EmitterFilesRenameSchema>;
