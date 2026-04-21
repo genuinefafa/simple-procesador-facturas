@@ -112,6 +112,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [x] #151 - Fix QR extractor sliding window (PR #154)
 - [x] #152 - Cleanup fallbacks y restringir auto-extracción (PR #155)
 - [x] #164 - Fix svelte-check warnings que rompen pre-commit hook (PR #166)
+- [x] Página de detalle de emisor + rename de archivos al nombre canónico desde ahí + link al emisor desde comprobante (PR pendiente)
 
 ### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
 - [x] #76 - Múltiples métodos extracción
@@ -218,4 +219,4 @@ npm run db:studio        # GUI Drizzle
 
 ---
 
-**Última actualización**: 2026-02-19
+**Última actualización**: 2026-04-21
