@@ -1,7 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import '$lib/components/ui/tokens.css';
-  import { Home, ClipboardList, Users, FileEdit, Menu, Cloud, User } from '$lib/components/icons';
+  import { Home, ClipboardList, Users, Menu, User } from '$lib/components/icons';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type NavItem = {
@@ -13,15 +13,15 @@
   let { children } = $props();
 
   const navItems: NavItem[] = [
-    { href: '/dashboard', label: 'Dashboard', icon: Home },
+    { href: '/', label: 'Dashboard', icon: Home },
     { href: '/comprobantes', label: 'Comprobantes', icon: ClipboardList },
     { href: '/emisores', label: 'Emisores', icon: Users },
-    { href: '/entrenamiento', label: 'Entrenamiento', icon: FileEdit },
   ];
 
   let railExpanded = $state(false);
 
   function isActive(href: string): boolean {
+    if (href === '/') return $page.url.pathname === '/';
     return $page.url.pathname.startsWith(href);
   }
 </script>
@@ -42,14 +42,13 @@
       >
         <Menu size={20} />
       </button>
-      <a href="/dashboard" class="logo app-logo" aria-label="Ir al dashboard">
+      <a href="/" class="logo app-logo" aria-label="Ir al dashboard">
         <img src="/favicon.svg" alt="Logo" class="logo-icon" />
         <span>Simple procesador de facturas</span>
       </a>
     </div>
 
     <div class="topbar-right">
-      <a href="/google-sync" class="topbar-icon" title="Sync Google"><Cloud size={20} /></a>
       <div class="user-avatar"><User size={20} /></div>
     </div>
   </header>
@@ -171,16 +170,6 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-3);
-  }
-
-  .topbar-icon {
-    font-size: var(--font-size-lg);
-    text-decoration: none;
-    transition: opacity var(--transition-fast);
-  }
-
-  .topbar-icon:hover {
-    opacity: 0.75;
   }
 
   .user-avatar {

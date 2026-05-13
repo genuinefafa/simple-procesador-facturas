@@ -7,7 +7,6 @@ import type { RequestHandler } from './$types';
 import { InvoiceRepository } from '@server/database/repositories/invoice.js';
 import { EmitterRepository } from '@server/database/repositories/emitter.js';
 import { FileRepository } from '@server/database/repositories/file.js';
-import { ZoneAnnotationRepository } from '@server/database/repositories/zone-annotation.js';
 import { CategoryRepository } from '@server/database/repositories/category.js';
 import { InvoiceFileService } from '@server/services/invoice-file.service.js';
 import { InvoicePatchSchema, formatZodError } from '@server/contracts';
@@ -23,7 +22,6 @@ export const GET: RequestHandler = async ({ params }) => {
     const invoiceRepo = new InvoiceRepository();
     const emitterRepo = new EmitterRepository();
     const fileRepo = new FileRepository();
-    const zoneRepo = new ZoneAnnotationRepository();
 
     const invoice = await invoiceRepo.findById(invoiceId);
 
@@ -45,7 +43,6 @@ export const GET: RequestHandler = async ({ params }) => {
     }
 
     const emitter = await emitterRepo.findByCUIT(invoice.emitterCuit);
-    const zones = await zoneRepo.findByInvoiceId(invoiceId);
 
     return json({
       success: true,
@@ -77,15 +74,6 @@ export const GET: RequestHandler = async ({ params }) => {
         numero: invoice.invoiceNumber?.toString(),
         total: invoice.total?.toString(),
       },
-      zones: zones.map((zone) => ({
-        id: zone.id,
-        field: zone.field,
-        x: zone.x,
-        y: zone.y,
-        width: zone.width,
-        height: zone.height,
-        extractedValue: zone.extractedValue,
-      })),
     });
   } catch (error) {
     console.error('Error fetching invoice:', error);
