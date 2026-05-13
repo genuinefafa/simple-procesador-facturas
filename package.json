@@ -12,7 +12,6 @@
 		"preview": "npm run preview -w client",
 		"test": "npm run test -w server",
 		"test:coverage": "npm run test:coverage -w server",
-		"test:google": "tsx scripts/test-google-config.ts",
 		"debug:qr": "tsx scripts/debug/qr/extract.ts",
 		"debug:qr:raw": "tsx scripts/debug/qr/raw.ts",
 		"debug:qr:scales": "tsx scripts/debug/qr/scales.ts",
@@ -55,8 +54,7 @@
 		"server"
 	],
 	"dependencies": {
-		"drizzle-orm": "1.0.0-beta.15-859cf75",
-		"googleapis": "^171.0.0"
+		"drizzle-orm": "1.0.0-beta.15-859cf75"
 	},
 	"devDependencies": {
 		"ts-node": "^10.9.2",

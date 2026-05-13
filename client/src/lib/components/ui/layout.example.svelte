@@ -9,15 +9,12 @@
   let { children } = $props();
 
   const navItems = [
-    { href: '/importar', label: 'Importar', icon: '📥' },
-    { href: '/procesar', label: 'Procesar', icon: '⚙️' },
-    { href: '/entrenamiento', label: 'Entrenamiento', icon: '📝' },
-    { href: '/facturas', label: 'Facturas', icon: '📋' },
+    { href: '/comprobantes', label: 'Comprobantes', icon: '📋' },
+    { href: '/emisores', label: 'Emisores', icon: '👥' },
   ];
 
   const sidebarMenu = [
     { label: 'Configuración', icon: '⚙️', onSelect: () => (settingsOpen = true) },
-    { label: 'Sincronización', icon: '☁️', href: '/google-sync' },
     { type: 'separator' } as const,
     { label: 'Ayuda', icon: '❓' },
   ];
