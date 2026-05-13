@@ -113,6 +113,9 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [x] #152 - Cleanup fallbacks y restringir auto-extracción (PR #155)
 - [x] #164 - Fix svelte-check warnings que rompen pre-commit hook (PR #166)
 - [x] Página de detalle de emisor + rename de archivos al nombre canónico desde ahí + link al emisor desde comprobante (PR #178)
+- [x] Eliminar rutas sin uso (`/annotate`, `/entrenamiento`, `/google-sync`, `/legacy/*`) + integración Google completa (PR #181, cierra parte C de #180)
+- [ ] #182 - Drop tabla huérfana `facturas_zonas_anotadas` (chore, secuela de #181)
+- [ ] #180 - Deploy out-of-the-box (partes A `__dirname` en db.ts, B `libheif-js` ESM, D `DEPLOY.md`)
 
 ### M9: Mejoras de Reconocimiento (Q1-Q2 2026)
 - [x] #76 - Múltiples métodos extracción
@@ -132,7 +135,6 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 - [ ] #122 - Integración ARCA descarga automática
 - [ ] #87 - Sincronización OneDrive
 - [ ] #33 - Revisar UI Sincronización
-- [ ] #20 - Migrar SyncPage y AnnotatePage
 
 ### M6: Code Quality ✅ Cerrado
 - 7 issues completados, 0 abiertos
@@ -140,8 +142,6 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 
 ### Icebox
 Issues depriorizados o en espera de mejor definición:
-- #11 - Migrar EmitterRepository/ZoneAnnotationRepository a Drizzle
-- #31 - Revisar UI/UX página Entrenamiento
 - #69 - Sincronizar datos facturas al actualizar expected_invoice
 - #71 - File Integrity Checker
 - #78 - Mejorar TopBar Search (reemplazado por #136)
