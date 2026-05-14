@@ -320,42 +320,6 @@ const facturasCorrecciones_ = sqliteTable(
 export { facturasCorrecciones_ as facturasCorrecciones };
 
 // =============================================================================
-// ZONAS ANOTADAS
-// =============================================================================
-
-const facturasZonasAnotadas_ = sqliteTable(
-  'facturas_zonas_anotadas',
-  {
-    id: integer('id').primaryKey({ autoIncrement: true }),
-    facturaId: integer('factura_id')
-      .notNull()
-      .references(() => facturas_.id, { onDelete: 'cascade' }),
-    campo: text('campo').notNull(),
-
-    // Coordenadas de la zona
-    x: integer('x').notNull(),
-    y: integer('y').notNull(),
-    width: integer('width').notNull(),
-    height: integer('height').notNull(),
-
-    // Valor extraído
-    valorExtraido: text('valor_extraido'),
-
-    // Metadata
-    anotadoEn: text('anotado_en').default(sql`CURRENT_TIMESTAMP`),
-    anotadoPor: text('anotado_por').default('usuario'),
-    usadoParaTemplate: integer('usado_para_template', { mode: 'boolean' }).default(false),
-  },
-  (table) => ({
-    facturaIdx: index('idx_zonas_factura').on(table.facturaId),
-    campoIdx: index('idx_zonas_campo').on(table.campo),
-    templateIdx: index('idx_zonas_template').on(table.usadoParaTemplate),
-  })
-);
-
-export { facturasZonasAnotadas_ as facturasZonasAnotadas };
-
-// =============================================================================
 // TIPOS TYPESCRIPT
 // =============================================================================
 
@@ -373,9 +337,6 @@ export type NewEmisorTemplateHistorial = typeof emisorTemplatesHistorial_.$infer
 
 export type FacturaCorreccion = typeof facturasCorrecciones_.$inferSelect;
 export type NewFacturaCorreccion = typeof facturasCorrecciones_.$inferInsert;
-
-export type FacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferSelect;
-export type NewFacturaZonaAnotada = typeof facturasZonasAnotadas_.$inferInsert;
 
 // NOTA: PendingFile types fueron eliminados - usar File types
 
