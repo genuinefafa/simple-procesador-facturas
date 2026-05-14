@@ -21,14 +21,18 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "rm -f ../data/database.sqlite && tsx scripts/migrate.ts",
-    "reconcile-files": "tsx scripts/reconcile-files.ts"
+    "reconcile-files": "tsx scripts/reconcile-files.ts",
+    "dev:hono": "tsx watch http/server.ts"
   },
   "dependencies": {
+    "@hono/node-server": "^2.0.2",
+    "@hono/zod-validator": "^0.8.0",
     "better-sqlite3": "^12.6.0",
     "date-fns": "^4.1.0",
     "drizzle-orm": "1.0.0-beta.15-859cf75",
     "exceljs": "^4.4.0",
     "heic-convert": "^2.1.0",
+    "hono": "^4.12.18",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
     "pdf-to-img": "^5.0.0",
