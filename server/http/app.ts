@@ -10,6 +10,9 @@
 
 import { Hono } from 'hono';
 
+import { invoicesRouter } from './routes/invoices.js';
+import { filesRouter } from './routes/files.js';
+
 export const app = new Hono();
 
 app.get('/api/_hono/health', (c) =>
@@ -19,5 +22,8 @@ app.get('/api/_hono/health', (c) =>
     version: '0.0.0',
   })
 );
+
+app.route('/api/invoices', invoicesRouter);
+app.route('/api/files', filesRouter);
 
 export type App = typeof app;
