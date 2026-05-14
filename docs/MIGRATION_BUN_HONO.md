@@ -246,8 +246,35 @@ Crear `DEPLOY.md` al final de la migración, ya con instrucciones Bun + Hono.
 
 ## Estado
 
-- [x] Plan documentado
-- [ ] Validación con usuario (paso 2 requiere aprobar deps)
-- [ ] Implementación
+- [x] Plan documentado (commit `f93bbcd`)
+- [x] Deps Hono instaladas (commit `59d7a84`) — `hono@4.12.18`, `@hono/node-server@2.0.2`, `@hono/zod-validator@0.8.0`
+- [x] Bootstrap Hono paralelo (commit `9c8a914`) — health `GET /api/_hono/health` validado en `localhost:3001`
+- [x] PR #182 cerrado (PR #184 mergeado) — base limpia
+- [ ] Port API routes a Hono (commits 4-5, las 31 rutas)
+- [ ] Fix #180 A — paths runtime con `import.meta.dirname` (commit 6)
+- [ ] Drop libheif, migrar HEIC a sharp (commit 7) — **aprobado**
+- [ ] Switch deploy a Hono, drop adapter-node (commit 8)
+- [ ] Spike router cliente (sv-router vs tinro) + swap (commit 9)
+- [ ] Reemplazar `$app/*` imports (commit 10)
+- [ ] Drop deps SvelteKit (commit 11)
+- [ ] Actualizar DEPLOY.md + CLAUDE.md (commit 12)
 
-Próximo: leer este plan, ajustar lo que falte, y empezar por commit 2 una vez aprobadas las deps.
+### Cómo verificar el bootstrap (estado actual del branch)
+
+```bash
+npm run dev:hono           # Hono en :3001 (default, override con HONO_PORT)
+curl localhost:3001/api/_hono/health
+# {"status":"ok","backend":"hono","version":"0.0.0"}
+```
+
+`npm run dev` (Kit) sigue corriendo en su puerto sin interferencia.
+
+### Próximo paso para retomar
+
+1. Verificar el bootstrap con `npm run dev:hono` + curl al health.
+2. Commit 4 — port batch 1 de API routes (sugerencia: `invoices` + `files`, las más usadas). Patrón:
+   - Crear `server/http/routes/invoices.ts` espejando `client/src/routes/api/invoices/+server.ts`.
+   - Montar con `app.route('/api/invoices', invoicesRouter)` en `server/http/app.ts`.
+   - Verificar respuesta en `localhost:3001/api/invoices` vs `localhost:5174/api/invoices` (Kit).
+   - Mantener ambos handlers vivos hasta que se hayan portado todos los recursos.
+3. NO borrar los handlers Kit todavía — el corte definitivo es el commit 8 (deploy switch).
