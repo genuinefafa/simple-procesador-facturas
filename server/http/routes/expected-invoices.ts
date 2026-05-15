@@ -63,7 +63,8 @@ async function buildBalanceGroupResponse(
   };
 }
 
-const UPLOAD_DIR = path.join(process.cwd(), 'data', 'excel-imports');
+const PROJECT_ROOT = path.join(import.meta.dirname, '..', '..', '..');
+const UPLOAD_DIR = path.join(PROJECT_ROOT, 'data', 'excel-imports');
 
 export const expectedInvoicesRouter = new Hono();
 

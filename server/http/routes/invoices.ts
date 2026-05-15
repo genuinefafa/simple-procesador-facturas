@@ -36,9 +36,10 @@ import type {
 } from '../../services/invoice-creation.service';
 import type { Invoice } from '@shared/types';
 
-const DATA_DIR = join(process.cwd(), '..', 'data');
-const OUTPUT_DIR = join(process.cwd(), '..', 'data', 'finalized');
-const UPLOAD_DIR = join(process.cwd(), '..', 'data', 'input');
+const PROJECT_ROOT = join(import.meta.dirname, '..', '..', '..');
+const DATA_DIR = join(PROJECT_ROOT, 'data');
+const OUTPUT_DIR = join(DATA_DIR, 'finalized');
+const UPLOAD_DIR = join(DATA_DIR, 'input');
 
 export const invoicesRouter = new Hono();
 
@@ -493,7 +494,7 @@ invoicesRouter.post('/process', async (c) => {
 
       const absolutePath = file.storagePath.startsWith('/')
         ? file.storagePath
-        : join(process.cwd(), '..', 'data', file.storagePath);
+        : join(DATA_DIR, file.storagePath);
 
       const result = await processingService.processInvoice(absolutePath, file.originalFilename, {
         forceMethod: forcedMethod,

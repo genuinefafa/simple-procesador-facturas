@@ -23,7 +23,7 @@ const heicConvert = heicConvertUntyped as (opts: {
   quality?: number;
 }) => Promise<ArrayBuffer>;
 
-const PROJECT_ROOT = join(process.cwd(), '..');
+const PROJECT_ROOT = join(import.meta.dirname, '..', '..', '..');
 const DATA_DIR = join(PROJECT_ROOT, 'data');
 
 function resolveAbsolutePath(storagePath: string): string {

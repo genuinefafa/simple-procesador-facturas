@@ -25,7 +25,9 @@ import { FileExtractionRepository } from '../../database/repositories/file-extra
 import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice';
 import { normalizeCUIT, validateCUIT } from '@shared/validators/cuit';
 
-const INPUT_DIR = join(process.cwd(), '..', 'data', 'input');
+const PROJECT_ROOT = join(import.meta.dirname, '..', '..', '..');
+const DATA_DIR = join(PROJECT_ROOT, 'data');
+const INPUT_DIR = join(DATA_DIR, 'input');
 
 interface FileStatus {
   fileName: string;
@@ -545,7 +547,7 @@ filesRouter.get('/*', async (c) => {
       throw new HTTPException(400, { message: 'Invalid file path' });
     }
 
-    const projectRoot = path.resolve(process.cwd(), '..');
+    const projectRoot = PROJECT_ROOT;
     let absolutePath: string;
 
     if (path.isAbsolute(filePath)) {
