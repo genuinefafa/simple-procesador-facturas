@@ -2,7 +2,7 @@
  * Script para ejecutar migraciones de Drizzle v1
  */
 
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { getDb } from '../database/db.js';
 import { join } from 'path';
 

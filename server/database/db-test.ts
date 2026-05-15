@@ -30,7 +30,7 @@ export function cleanupTestDb(): void {
  */
 export function resetTestDb(): void {
   // Desactivar foreign keys temporalmente para truncar
-  getRawDb().pragma('foreign_keys = OFF');
+  getRawDb().exec('PRAGMA foreign_keys = OFF');
 
   // Obtener todas las tablas
   const tables = getRawDb()
@@ -52,7 +52,7 @@ export function resetTestDb(): void {
   }
 
   // Reactivar foreign keys
-  getRawDb().pragma('foreign_keys = ON');
+  getRawDb().exec('PRAGMA foreign_keys = ON');
 }
 
 /**
@@ -60,7 +60,7 @@ export function resetTestDb(): void {
  * Solo corre si la DB está vacía o no tiene las tablas necesarias
  */
 export async function runTestMigrations(): Promise<void> {
-  const { migrate } = await import('drizzle-orm/better-sqlite3/migrator');
+  const { migrate } = await import('drizzle-orm/bun-sqlite/migrator');
   const { readFileSync } = await import('fs');
   const path = await import('path');
 

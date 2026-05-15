@@ -4,7 +4,7 @@
  * Opciones: categories | templates | emisores | facturas | all (default)
  */
 
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import { join } from 'path';
 import { existsSync, readFileSync, copyFileSync } from 'fs';
 
