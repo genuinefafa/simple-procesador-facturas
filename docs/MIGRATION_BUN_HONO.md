@@ -274,8 +274,52 @@ curl localhost:3001/api/_hono/health
 
 `npm run dev` (Kit) sigue corriendo en su puerto sin interferencia.
 
-### Próximo paso para retomar
+### Handoff 2026-05-14 — arranque del commit 8
 
-1. **Decisión runtime servidor** (antes del commit 8): Node + better-sqlite3 (status quo) vs Bun + `drizzle-orm/bun-sqlite`. Ver "Riesgos y unknowns" sección DB.
-2. Commit 8 — switch deploy de adapter-node a Hono. Actualizar `Dockerfile`, `package.json` start scripts, `fly.toml` si aplica. Mantener Kit en `client/` solo para router/UI hasta commit 9.
-3. NO borrar handlers Kit todavía — corte definitivo es commit 8 (deploy switch).
+**Estado:** commits 1-6 mergeados al branch. Commit 7 descartado (heic-convert se queda). Branch `feat/migrate-bun-hono` está pusheado al HEAD `9db8451`.
+
+**Decisiones tomadas en sesión 2026-05-14:**
+- **Runtime servidor en deploy: Bun**. Implica migrar driver Drizzle a `drizzle-orm/bun-sqlite` (usa `bun:sqlite` nativo). API Drizzle casi idéntica.
+- **UI: SvelteKit → adapter-static (SPA)**. `+layout.ts` ya declara `ssr = false`, así que SPA fallback es transición limpia. Hono sirve `client/build/` con `serveStatic` + fallback `index.html`. Pages Svelte siguen Kit hasta commit 9 (router swap).
+
+**Commit 8 — descompuesto en sub-commits sugeridos:**
+
+1. **`feat(server): migrar driver Drizzle a bun-sqlite`**
+   - `server/database/db.ts`: `import { drizzle } from 'drizzle-orm/bun-sqlite'` + `import { Database } from 'bun:sqlite'`. Eliminar `better-sqlite3` import en runtime path.
+   - **PROBLEMA:** Vitest corre bajo Node, NO bajo Bun. `bun:sqlite` no existe en Node. Solución: usar **import condicional** o dejar `better-sqlite3` solo para tests. Sugerencia: crear `db.bun.ts` (driver Bun) y `db.node.ts` (driver Node/test) con re-export desde `db.ts` según `typeof Bun !== 'undefined'`. O migrar vitest a `bun test` (más cambios — evaluar).
+   - `migrate.ts` y `db-test.ts` usan `getDb()` → siguen funcionando.
+   - Verificar: `bun run http/server.ts` + curl endpoints DB → 200.
+
+2. **`feat(client): adapter-static + SPA fallback`**
+   - `client/svelte.config.js`: `import adapter from '@sveltejs/adapter-static'` + config `{ fallback: 'index.html', strict: false }`.
+   - Build: `npm run build` debe outputs `client/build/{client,prerendered}/` con `index.html`. Confirmar que `+page.ts` con `ssr=false` no rompe build.
+   - Smoke: `npx http-server client/build -p 5174` y verificar que pages cargan en browser (CSR puro).
+
+3. **`feat(server): Hono serveStatic + SPA fallback`**
+   - En `server/http/app.ts`: agregar `import { serveStatic } from '@hono/node-server/serve-static'` (o el equivalente Bun). Mount en `/`: `app.use('*', serveStatic({ root: 'client/build/client' }))`. Fallback a `index.html` para rutas que no matchean.
+   - Orden de middlewares: API routes ANTES de serveStatic. Sino el catch-all SPA se come `/api/*`.
+   - Smoke local con Bun.
+
+4. **`chore: Dockerfile a Bun`**
+   - Base: `FROM oven/bun:1-alpine` (o `oven/bun:1` debian — Bun nativo, no necesita python/make/g++ para better-sqlite3 porque ya no se usa en runtime).
+   - `bun install --frozen-lockfile --production` reemplaza `npm ci`. Verificar que `bun.lockb` se genera y commitea, o seguir con `package-lock.json` (Bun lo lee).
+   - CMD: `["bun", "server/http/server.ts"]` (o build con `bun build`, opcional).
+   - Mantener `DB_PATH=/app/data/database.sqlite` env var.
+   - Healthcheck: cambiar a `bun -e "..."` o `curl localhost:3000/api/_hono/health`.
+
+5. **`chore: CI release workflow a Bun`**
+   - `.github/workflows/release.yml`: reemplazar `setup-node-deps` action por setup Bun. `oven-sh/setup-bun@v1`.
+   - Build step: `bun run build` (asume scripts root ya son Bun-compat, ver commit `6903068`).
+   - Verificar que el Docker build dentro del workflow usa el nuevo Dockerfile (no necesita cambios — Docker build es self-contained).
+
+6. **`chore(server): drop better-sqlite3 + sveltekit-node deps`** (si commit 1 sub-handoff dejó better-sqlite3 solo para tests, evaluar si lo dropeamos en commit 11 cuando se eliminen deps Kit). Si test runner ya migró a `bun test`, drop ahora.
+
+**Bloqueantes / unknowns para arrancar:**
+- `bun test` vs `vitest`: ¿migramos test runner ahora o mantenemos vitest bajo Node (con better-sqlite3 vivo solo para tests)? **Sugerencia**: mantener vitest bajo Node para commit 8, drop better-sqlite3 en commit posterior cuando se elimine Kit completamente.
+- `adapter-static` strict mode: si alguna page Kit usa dynamic params sin prerender + `ssr=false`, strict tira error. Usar `strict: false` para empezar.
+- `serveStatic` SPA fallback: confirmar que la sintaxis Hono soporta fallback HTML — sino, agregar handler explícito `app.get('*', c => c.html(readFileSync('client/build/client/index.html')))`.
+
+**Cómo arrancar el próximo contexto:**
+1. Leer este archivo (`docs/MIGRATION_BUN_HONO.md`) y la sección "Decisión 2026-05-13" en `~/Develop/homelab/claude-context/personal/procesador-facturas.md` si necesita más motivación.
+2. Branch `feat/migrate-bun-hono` ya pusheado. `git pull origin feat/migrate-bun-hono` por las dudas.
+3. Arrancar por sub-commit 1 (bun-sqlite). Confirmar approach del import condicional con el usuario antes de tocar tests.
