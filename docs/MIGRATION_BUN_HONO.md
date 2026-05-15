@@ -203,7 +203,9 @@ Bun corre TS nativo, no hay bundle SSR. `db.ts` puede usar `import.meta.dirname`
 ### B — libheif inlining
 Hono no bundlea código servidor (Bun lo carga directo). `libheif-bundle.js` no se inlinea en ningún chunk SSR porque no existe chunk SSR.
 
-**Decisión adicional:** evaluar reemplazar `heic-convert`/`heic-decode`/`libheif-js` por `sharp` (ya en `external`, soporta HEIC vía libvips). Reduce superficie de deps. Pendiente confirmar con usuario antes de hacerlo.
+**Decisión 2026-05-14**: NO migrar a sharp. Sharp prebuilt 0.34.5 NO decodifica HEIC sin libde265/libheif sistema (`heif: Error while loading plugin: Support for this compression format has not been built in`). Solo AVIF anda out-of-box. Migrar requeriría agregar libheif + libde265 al Dockerfile y aumentar superficie de deploy.
+
+Smoke con `heic-convert` bajo tsx (sin bundle) **funciona**: archivo HEIC Coto 117KB → JPEG 297KB válido (`scripts/debug/heic-smoke.ts`). El bug B se resuelve solo al eliminar el bundle SSR de Kit. Decisión: mantener `heic-convert` / `libheif-js`. Commit 7 del plan original **se descarta**.
 
 ### C — googleapis OOM
 Ya resuelto por PR #181. No aplica acá.
@@ -223,7 +225,7 @@ Crear `DEPLOY.md` al final de la migración, ya con instrucciones Bun + Hono.
 4. **`feat(server): port API routes a Hono (batch 1: invoices/files)`** — espejar handlers, mantener Kit en paralelo.
 5. **`feat(server): port API routes a Hono (batch 2: emisores/categorías/expected)`** — completar las 31.
 6. **`feat(server): fix #180 A — paths runtime con import.meta.dirname`** — DB/connection/seed.
-7. **`feat(server): drop libheif, migrar HEIC a sharp`** — fix #180 B. Aprobado: drop `heic-convert`, `heic-decode`, `libheif-js`.
+7. ~~**`feat(server): drop libheif, migrar HEIC a sharp`**~~ — **DESCARTADO 2026-05-14**. Sharp prebuilt no decodifica HEIC sin codec sistema; `heic-convert` (libheif-js) anda OK sin bundle. Ver sección "Resolución issue #180 → B".
 8. **`chore: switch deploy a Hono, drop adapter-node`** — actualizar Dockerfile + scripts.
 9. **`feat(client): swap router Kit → router liviano`** — convertir 6 pages, eliminar `+page.ts`. **Spike previo:** probar `sv-router` y `tinro` con 1 page cada uno, decidir antes del swap masivo.
 10. **`refactor(client): replace $app/* imports`** — los 13 archivos.
@@ -254,8 +256,8 @@ Crear `DEPLOY.md` al final de la migración, ya con instrucciones Bun + Hono.
 - [x] Port API routes batch 1 (commit `def2b5a`) — `/api/invoices/*` (10 rutas) + `/api/files/*` (5 rutas)
 - [x] Port API routes batch 2 (commit `8f4c95f`) — 17 rutas restantes en `server/http/routes/{categories,comprobantes,emisores,expected-invoices,invoices-known}.ts`. Total 32 endpoints en Hono (15 + 17)
 - [x] Fix scripts root para Bun (commit `6903068`) — reemplazado `npm run X -w workspace` por `cd workspace && npm run X` (Bun rebote infinito con flag `-w`). Smoke OK con `bun run dev`, `bun run lint`, `bun run format:check`. npm sigue funcionando.
-- [x] Fix #180 A — paths runtime con `import.meta.dirname` (commit 6) — `db.ts`, `connection.ts`, `db-test.ts`, `migrate.ts`, `seed.ts`. Drop `fileURLToPath` boilerplate. `DB_PATH` env var override agregado en `db.ts`/`connection.ts`/`seed.ts` (test mode ignora env). Validado bajo tsx (Node) y Bun: `import.meta.dirname` resuelve correcto; tests 163/163 pass.
-- [ ] Drop libheif, migrar HEIC a sharp (commit 7) — **aprobado**
+- [x] Fix #180 A — paths runtime con `import.meta.dirname` (commit `2e73d86`) — `db.ts`, `connection.ts`, `db-test.ts`, `migrate.ts`, `seed.ts`. Drop `fileURLToPath` boilerplate. `DB_PATH` env var override agregado en `db.ts`/`connection.ts`/`seed.ts` (test mode ignora env). Validado bajo tsx (Node) y Bun: `import.meta.dirname` resuelve correcto; tests 163/163 pass.
+- [x] ~~Drop libheif, migrar HEIC a sharp (commit 7)~~ — **DESCARTADO 2026-05-14**. Sharp prebuilt sin codec HEVC. `heic-convert` anda sin bundle. Smoke en `scripts/debug/heic-smoke.ts`.
 - [ ] Switch deploy a Hono, drop adapter-node (commit 8)
 - [ ] Spike router cliente (sv-router vs tinro) + swap (commit 9)
 - [ ] Reemplazar `$app/*` imports (commit 10)
@@ -274,6 +276,6 @@ curl localhost:3001/api/_hono/health
 
 ### Próximo paso para retomar
 
-1. Commit 7 — drop libheif, migrar HEIC a sharp. Aprobado: eliminar `heic-convert`, `heic-decode`, `libheif-js`. Buscar usos en `server/extractors/` y reemplazar por `sharp` (ya en `external`).
-2. **Antes del commit 8** (deploy switch): decidir driver SQLite — `drizzle-orm/bun-sqlite` (vía `bun:sqlite`) o quedarse en Node + better-sqlite3. Ver "Riesgos y unknowns" sección DB.
-3. NO borrar los handlers Kit todavía — el corte definitivo es el commit 8 (deploy switch).
+1. **Decisión runtime servidor** (antes del commit 8): Node + better-sqlite3 (status quo) vs Bun + `drizzle-orm/bun-sqlite`. Ver "Riesgos y unknowns" sección DB.
+2. Commit 8 — switch deploy de adapter-node a Hono. Actualizar `Dockerfile`, `package.json` start scripts, `fly.toml` si aplica. Mantener Kit en `client/` solo para router/UI hasta commit 9.
+3. NO borrar handlers Kit todavía — corte definitivo es commit 8 (deploy switch).
