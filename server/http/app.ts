@@ -1,14 +1,17 @@
 /**
  * Hono app for the Bun + Hono migration.
  *
- * Lives in parallel to the SvelteKit API routes during the migration.
- * Routes from client/src/routes/api/ get ported here incrementally,
- * one resource at a time, until Kit can be dropped.
+ * Serves the SvelteKit SPA bundle (`client/build/`) as static assets
+ * with an index.html fallback for client-side routing. API routes are
+ * registered before the static middleware so they take precedence.
  *
  * See docs/MIGRATION_BUN_HONO.md for the full migration plan.
  */
 
 import { Hono } from 'hono';
+import { serveStatic } from 'hono/bun';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 import { invoicesRouter } from './routes/invoices.js';
 import { filesRouter } from './routes/files.js';
@@ -35,5 +38,28 @@ app.route('/api/comprobantes', comprobantesRouter);
 app.route('/api/emisores', emisoresRouter);
 app.route('/api/expected-invoices', expectedInvoicesRouter);
 app.route('/api/invoices-known', invoicesKnownRouter);
+
+const BUILD_DIR = join(import.meta.dirname, '..', '..', 'client', 'build');
+
+app.use('*', serveStatic({ root: BUILD_DIR }));
+
+// SPA fallback: any non-/api/* path that didn't match a static file
+// returns index.html so the SvelteKit client router can take over.
+// Read lazily so the server can boot before `client/build/` exists
+// (useful in dev where the client is served by Vite on another port).
+let _indexHtml: string | null = null;
+function getIndexHtml(): string {
+  if (_indexHtml === null) {
+    _indexHtml = readFileSync(join(BUILD_DIR, 'index.html'), 'utf-8');
+  }
+  return _indexHtml;
+}
+
+app.notFound((c) => {
+  if (c.req.path.startsWith('/api/')) {
+    return c.json({ error: 'Not Found' }, 404);
+  }
+  return c.html(getIndexHtml());
+});
 
 export type App = typeof app;
