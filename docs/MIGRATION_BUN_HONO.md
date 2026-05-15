@@ -251,7 +251,8 @@ Crear `DEPLOY.md` al final de la migración, ya con instrucciones Bun + Hono.
 - [x] Bootstrap Hono paralelo (commit `9c8a914`) — health `GET /api/_hono/health` validado en `localhost:3001`
 - [x] PR #182 cerrado (PR #184 mergeado) — base limpia
 - [x] Port API routes batch 1 (commit `def2b5a`) — `/api/invoices/*` (10 rutas) + `/api/files/*` (5 rutas)
-- [x] Port API routes batch 2 (commit pendiente) — 17 rutas restantes en `server/http/routes/{categories,comprobantes,emisores,expected-invoices,invoices-known}.ts`. Total 32 endpoints en Hono (15 + 17)
+- [x] Port API routes batch 2 (commit `8f4c95f`) — 17 rutas restantes en `server/http/routes/{categories,comprobantes,emisores,expected-invoices,invoices-known}.ts`. Total 32 endpoints en Hono (15 + 17)
+- [x] Fix scripts root para Bun (commit pendiente) — reemplazado `npm run X -w workspace` por `cd workspace && npm run X` (Bun rebote infinito con flag `-w`). Smoke OK con `bun run dev`, `bun run lint`, `bun run format:check`. npm sigue funcionando.
 - [ ] Fix #180 A — paths runtime con `import.meta.dirname` (commit 6)
 - [ ] Drop libheif, migrar HEIC a sharp (commit 7) — **aprobado**
 - [ ] Switch deploy a Hono, drop adapter-node (commit 8)
