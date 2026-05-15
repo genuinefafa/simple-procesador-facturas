@@ -250,8 +250,8 @@ Crear `DEPLOY.md` al final de la migración, ya con instrucciones Bun + Hono.
 - [x] Deps Hono instaladas (commit `59d7a84`) — `hono@4.12.18`, `@hono/node-server@2.0.2`, `@hono/zod-validator@0.8.0`
 - [x] Bootstrap Hono paralelo (commit `9c8a914`) — health `GET /api/_hono/health` validado en `localhost:3001`
 - [x] PR #182 cerrado (PR #184 mergeado) — base limpia
-- [x] Port API routes batch 1 (commit pendiente) — `/api/invoices/*` (10 rutas) + `/api/files/*` (5 rutas) en `server/http/routes/{invoices,files}.ts`, smoke test OK
-- [ ] Port API routes batch 2 — restantes 16 rutas (emisores, categorías, expected-invoices, invoices-known)
+- [x] Port API routes batch 1 (commit `def2b5a`) — `/api/invoices/*` (10 rutas) + `/api/files/*` (5 rutas)
+- [x] Port API routes batch 2 (commit pendiente) — 17 rutas restantes en `server/http/routes/{categories,comprobantes,emisores,expected-invoices,invoices-known}.ts`. Total 32 endpoints en Hono (15 + 17)
 - [ ] Fix #180 A — paths runtime con `import.meta.dirname` (commit 6)
 - [ ] Drop libheif, migrar HEIC a sharp (commit 7) — **aprobado**
 - [ ] Switch deploy a Hono, drop adapter-node (commit 8)
@@ -272,11 +272,6 @@ curl localhost:3001/api/_hono/health
 
 ### Próximo paso para retomar
 
-1. Verificar bootstrap + batch 1 con `npm run dev:hono` y curls a `/api/invoices`, `/api/files`, etc.
-2. Commit 5 — port batch 2 de API routes. Restantes 16 endpoints agrupados por recurso:
-   - `/api/categories` (1)
-   - `/api/emisores`, `/api/emisores/[id]`, `/api/emisores/[id]/archivos`, `/api/emisores/[id]/archivos/rename` (4)
-   - `/api/expected-invoices` y subrutas (7)
-   - `/api/invoices-known` y subrutas (2)
-   - `/api/comprobantes`, `/api/comprobantes/[id]/file` (2)
+1. Verificar Hono con `npm run dev:hono` y curls — las 32 rutas deben responder en `:3001`.
+2. Commit 6 — fix #180 A (paths runtime con `import.meta.dirname` en `server/database/{db,connection,db-test}.ts` + `scripts/seed.ts`).
 3. NO borrar los handlers Kit todavía — el corte definitivo es el commit 8 (deploy switch).
