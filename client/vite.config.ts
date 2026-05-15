@@ -42,6 +42,7 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         external: [
           'better-sqlite3',
+          'bun:sqlite',
           'drizzle-orm',
           'pdf-parse',
           'sharp',
@@ -58,6 +59,7 @@ export default defineConfig(({ mode }) => {
     ssr: {
       external: [
         'better-sqlite3',
+        'bun:sqlite',
         'drizzle-orm',
         'pdf-parse',
         'sharp',
