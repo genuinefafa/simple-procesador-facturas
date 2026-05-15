@@ -5,14 +5,11 @@
  */
 
 import Database from 'better-sqlite3';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { existsSync, readFileSync, copyFileSync } from 'fs';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const DB_PATH = join(__dirname, '..', '..', 'data', 'database.sqlite');
+const defaultDbPath = join(import.meta.dirname, '..', '..', 'data', 'database.sqlite');
+const DB_PATH = process.env.DB_PATH ?? defaultDbPath;
 
 if (!existsSync(DB_PATH)) {
   console.error('❌ La base de datos no existe. Ejecutá primero: npm run db:init');
@@ -163,7 +160,7 @@ const db = new Database(DB_PATH);
 // ===========================
 
 function ensureSeedFiles() {
-  const seedDir = join(__dirname, 'seed-data');
+  const seedDir = join(import.meta.dirname, 'seed-data');
   const tables = ['categories', 'templates', 'emisores', 'facturas'];
 
   for (const table of tables) {
@@ -203,7 +200,7 @@ function seedCategories() {
     );
   `);
 
-  const categoriesPath = join(__dirname, 'seed-data', 'categories.json');
+  const categoriesPath = join(import.meta.dirname, 'seed-data', 'categories.json');
   if (!existsSync(categoriesPath)) {
     console.info('ℹ️  Saltear: seed-data/categories.json no encontrado');
     return;
@@ -240,7 +237,7 @@ function seedTemplates() {
     ) VALUES (?, ?, ?, ?, ?, ?)
   `);
   let insertadas = 0;
-  const templatesPath = join(__dirname, 'seed-data', 'templates.json');
+  const templatesPath = join(import.meta.dirname, 'seed-data', 'templates.json');
   if (!existsSync(templatesPath)) {
     console.info('ℹ️  Saltear: seed-data/templates.json no encontrado');
     return;
@@ -282,7 +279,7 @@ function seedEmisores() {
   `);
 
   let insertados = 0;
-  const emisoresPath = join(__dirname, 'seed-data', 'emisores.json');
+  const emisoresPath = join(import.meta.dirname, 'seed-data', 'emisores.json');
   if (!existsSync(emisoresPath)) {
     console.info('ℹ️  Saltear: seed-data/emisores.json no encontrado');
     return;
@@ -325,7 +322,7 @@ function seedFacturas() {
   `);
 
   let insertadas = 0;
-  const facturasPath = join(__dirname, 'seed-data', 'facturas.json');
+  const facturasPath = join(import.meta.dirname, 'seed-data', 'facturas.json');
   if (!existsSync(facturasPath)) {
     console.info('ℹ️  Saltear: seed-data/facturas.json no encontrado');
     return;

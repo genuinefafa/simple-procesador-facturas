@@ -4,14 +4,11 @@
 
 import Database from 'better-sqlite3';
 import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Path a la base de datos (relativo al proyecto)
-const DB_PATH = join(__dirname, '../../data/database.sqlite');
+const isTestMode = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+const defaultDbPath = join(import.meta.dirname, '../../data/database.sqlite');
+const DB_PATH = !isTestMode && process.env.DB_PATH ? process.env.DB_PATH : defaultDbPath;
 
 let db: Database.Database | null = null;
 
@@ -45,7 +42,7 @@ export function closeDatabase(): void {
  */
 export function initializeSchema(): void {
   const db = getDatabase();
-  const schemaPath = join(__dirname, 'schema.sql');
+  const schemaPath = join(import.meta.dirname, 'schema.sql');
   const schema = readFileSync(schemaPath, 'utf-8');
   db.exec(schema);
 }

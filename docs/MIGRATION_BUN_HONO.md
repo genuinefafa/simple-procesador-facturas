@@ -232,6 +232,7 @@ Crear `DEPLOY.md` al final de la migración, ya con instrucciones Bun + Hono.
 
 ## Riesgos y unknowns
 
+- **`better-sqlite3` incompatible con Bun** (descubierto 2026-05-14 al smoke-testear Hono bajo Bun): `bun run http/server.ts` levanta el server OK, health responde, pero cualquier endpoint que toque la DB explota con `ERR_DLOPEN_FAILED: 'better-sqlite3' is not yet supported in Bun` (ver oven-sh/bun#4290). Bajo Node (tsx) sigue funcionando. **Decisión pendiente**: migrar driver a `drizzle-orm/bun-sqlite` (usa `bun:sqlite` nativo) cuando se haga el switch de runtime, o mantener Node como runtime servidor y usar Bun solo para package manager + dev tooling. El driver Drizzle existe (`drizzle-orm/bun-sqlite`), API casi idéntica a better-sqlite3. **Bloqueante para commit 8 (deploy switch a Bun)**, no para commits 6-7.
 - **Router cliente**: ninguna opción es 1:1 con Kit. `sv-router` parece más cercano (filesystem routes) pero menos maduro. `tinro` es minimalista pero declarativo. **Decisión deferida**: spike con ambos en el paso 9 (1 page por opción) y elegir ahí.
 - **SSR**: hoy `+layout.ts` declara `ssr = false`. La SPA pura post-migración sigue ese modelo. **Sin SSR, sin SEO** — el proyecto es interno, OK.
 - **Static file serving** (`/api/files/[...path]`, `/api/comprobantes/[id]/file`): Hono sirve binarios con `c.body(stream)`. Confirmar que el rendimiento es comparable.
@@ -252,8 +253,8 @@ Crear `DEPLOY.md` al final de la migración, ya con instrucciones Bun + Hono.
 - [x] PR #182 cerrado (PR #184 mergeado) — base limpia
 - [x] Port API routes batch 1 (commit `def2b5a`) — `/api/invoices/*` (10 rutas) + `/api/files/*` (5 rutas)
 - [x] Port API routes batch 2 (commit `8f4c95f`) — 17 rutas restantes en `server/http/routes/{categories,comprobantes,emisores,expected-invoices,invoices-known}.ts`. Total 32 endpoints en Hono (15 + 17)
-- [x] Fix scripts root para Bun (commit pendiente) — reemplazado `npm run X -w workspace` por `cd workspace && npm run X` (Bun rebote infinito con flag `-w`). Smoke OK con `bun run dev`, `bun run lint`, `bun run format:check`. npm sigue funcionando.
-- [ ] Fix #180 A — paths runtime con `import.meta.dirname` (commit 6)
+- [x] Fix scripts root para Bun (commit `6903068`) — reemplazado `npm run X -w workspace` por `cd workspace && npm run X` (Bun rebote infinito con flag `-w`). Smoke OK con `bun run dev`, `bun run lint`, `bun run format:check`. npm sigue funcionando.
+- [x] Fix #180 A — paths runtime con `import.meta.dirname` (commit 6) — `db.ts`, `connection.ts`, `db-test.ts`, `migrate.ts`, `seed.ts`. Drop `fileURLToPath` boilerplate. `DB_PATH` env var override agregado en `db.ts`/`connection.ts`/`seed.ts` (test mode ignora env). Validado bajo tsx (Node) y Bun: `import.meta.dirname` resuelve correcto; tests 163/163 pass.
 - [ ] Drop libheif, migrar HEIC a sharp (commit 7) — **aprobado**
 - [ ] Switch deploy a Hono, drop adapter-node (commit 8)
 - [ ] Spike router cliente (sv-router vs tinro) + swap (commit 9)
@@ -273,6 +274,6 @@ curl localhost:3001/api/_hono/health
 
 ### Próximo paso para retomar
 
-1. Verificar Hono con `npm run dev:hono` y curls — las 32 rutas deben responder en `:3001`.
-2. Commit 6 — fix #180 A (paths runtime con `import.meta.dirname` en `server/database/{db,connection,db-test}.ts` + `scripts/seed.ts`).
+1. Commit 7 — drop libheif, migrar HEIC a sharp. Aprobado: eliminar `heic-convert`, `heic-decode`, `libheif-js`. Buscar usos en `server/extractors/` y reemplazar por `sharp` (ya en `external`).
+2. **Antes del commit 8** (deploy switch): decidir driver SQLite — `drizzle-orm/bun-sqlite` (vía `bun:sqlite`) o quedarse en Node + better-sqlite3. Ver "Riesgos y unknowns" sección DB.
 3. NO borrar los handlers Kit todavía — el corte definitivo es el commit 8 (deploy switch).

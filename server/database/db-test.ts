@@ -6,16 +6,12 @@
  * funciones helper para migrar/resetear/limpiar la DB de test.
  */
 
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 import { existsSync, rmSync } from 'fs';
 import { getDb, getRawDb, closeDb } from './db.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Ruta a la base de datos de TEST
-const TEST_DB_PATH = join(__dirname, '..', '..', 'data', 'database.test.sqlite');
+// Ruta a la base de datos de TEST (siempre relativa al fuente; no acepta DB_PATH env)
+const TEST_DB_PATH = join(import.meta.dirname, '..', '..', 'data', 'database.test.sqlite');
 
 /**
  * Cerrar y eliminar base de datos de test
@@ -78,7 +74,7 @@ export async function runTestMigrations(): Promise<void> {
     return;
   }
 
-  const migrationsPath = path.join(__dirname, 'migrations');
+  const migrationsPath = path.join(import.meta.dirname, 'migrations');
 
   console.log('🔧 Ejecutando migraciones en DB de test...');
   console.log(`   DB Path: ${TEST_DB_PATH}`);
