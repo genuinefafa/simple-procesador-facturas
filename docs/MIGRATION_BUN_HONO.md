@@ -323,3 +323,33 @@ curl localhost:3001/api/_hono/health
 1. Leer este archivo (`docs/MIGRATION_BUN_HONO.md`) y la sección "Decisión 2026-05-13" en `~/Develop/homelab/claude-context/personal/procesador-facturas.md` si necesita más motivación.
 2. Branch `feat/migrate-bun-hono` ya pusheado. `git pull origin feat/migrate-bun-hono` por las dudas.
 3. Arrancar por sub-commit 1 (bun-sqlite). Confirmar approach del import condicional con el usuario antes de tocar tests.
+
+### Handoff 2026-05-15 — arranque del sub-commit 4 (Dockerfile)
+
+**Estado:** sub-commits 1, 2 y 3 del commit 8 mergeados al branch + un fix de paths runtime. Branch `feat/migrate-bun-hono` pusheado en `6af79c3`.
+
+**Lo hecho en sesión 2026-05-15:**
+
+- `259dfcf feat(server): migrar Drizzle driver a bun-sqlite` — `drizzle-orm/bun-sqlite` + `bun:sqlite` en todo el runtime (`db.ts`, `connection.ts`, `migrate.ts`, `seed.ts`, `normalize-cuits.ts`). `.pragma()` → `.exec('PRAGMA ...')`. `dissolveBalanceGroup` usa `.returning().length` (bun-sqlite update retorna `void`, no `RunResult`). `@types/bun` agregado a `server/devDependencies` + `tsconfig.types: ['bun', 'node']`. `bun.lock` commiteado.
+- `f594e33 feat(client): adapter-static + SPA fallback` — `adapter-node` → `adapter-static` con `fallback: 'index.html'` y `strict: false`. Output a `client/build/`. Scripts `dev`/`build`/`preview` del client ahora invocan `bun --bun vite ...` (sin `--bun` Vite arranca bajo Node y explota con `bun:sqlite` `ERR_UNSUPPORTED_ESM_URL_SCHEME`). `bun:sqlite` agregado a `rollupOptions.external` y `ssr.external` en `vite.config.ts`.
+- `53fb86b feat(server): Hono serveStatic + SPA fallback` — `hono/bun/serveStatic` montado en `*` después de las rutas `/api/*`. `BUILD_DIR` desde `import.meta.dirname`. `notFound` handler: `/api/*` → 404 JSON, resto → `index.html` (SPA fallback con lazy read).
+- `6af79c3 fix(server): anchor runtime paths to import.meta.dirname` — bug encontrado al probar el SPA: `process.cwd()` ya no es `client/` ahora que Hono arranca desde la raíz del repo, así que `join(cwd, '..', 'data')` apuntaba al directorio padre. Fix en `comprobantes.ts`, `files.ts`, `invoices.ts`, `expected-invoices.ts`, `invoice-file.service.ts`, `config-loader.ts`. Smoke browser: `/`, `/comprobantes`, `/emisores` cargan sin errores; PDFs servidos vía `/api/comprobantes/file:NNN/file`.
+
+**Decisiones de la sesión:**
+- **Sin import condicional**: usar `bun:sqlite` directo. Tests vitest siguen rotos bajo Node hasta sub-commit posterior (decidido: que coexistan).
+- **Lockfile canónico = `bun.lock`**. `package-lock.json` se dropea en el sub-commit 4 (Dockerfile) junto a `bun install --frozen-lockfile`. Memoria: `project_bun_lockfile.md`.
+
+**Sub-commits restantes:**
+4. **`chore: Dockerfile a Bun`** — `FROM oven/bun:1` (o `-alpine`), `bun install --frozen-lockfile --production`, drop `package-lock.json`, `CMD ["bun", "server/http/server.ts"]`. Mantener `DB_PATH=/app/data/database.sqlite`. Healthcheck con `curl` o `bun -e`. Verificar que el build del client se haga en una etapa previa (multi-stage) y se copie `client/build/` al runner.
+5. **`chore: CI release workflow a Bun`** — `oven-sh/setup-bun@v1` en `.github/workflows/release.yml`. `bun run build`.
+6. **`chore(server): drop better-sqlite3 + sveltekit-node deps`** — cuando el test runner pase a `bun test` o cuando se evalúe que vitest pueda correr bajo Bun (`bun --bun vitest`). `db-test.ts` rompe en runtime bajo Node, fix acá.
+
+**Bloqueantes / unknowns:**
+- Dockerfile actual probablemente es multi-stage (Node base + Kit build). Hay que revisar `Dockerfile` antes de tocar para entender el flow actual.
+- ¿El healthcheck del deploy actual usa qué? Revisar `docker-compose*.yml` y `fly.toml` si aplica.
+- Para sub-commit 6: `db-test.ts` necesita estrategia — o reescribir con bun:sqlite API directa, o quedar bloqueado al test runner.
+
+**Cómo arrancar el próximo contexto:**
+1. Leer este archivo y la sección "Handoff 2026-05-15" arriba.
+2. `git pull origin feat/migrate-bun-hono` (HEAD: `6af79c3`).
+3. Inspeccionar `Dockerfile` y `docker-compose*.yml` antes de tocar nada del sub-commit 4. Confirmar con el usuario si el deploy es Fly.io, self-hosted (Raspberry Pi LibreELEC?), o ambos.
