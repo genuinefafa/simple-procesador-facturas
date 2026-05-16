@@ -13,8 +13,10 @@ if [ -n "$STAGED_FILES" ]; then
   echo "📝 Formateando archivos TypeScript y Svelte:"
   echo "$STAGED_FILES" | sed 's/^/  - /'
 
-  # Formatear archivos en staging
-  echo "$STAGED_FILES" | xargs npx prettier --write
+  # Formatear archivos en staging.
+  # Usa el binary del workspace server directamente porque bajo Bun el root
+  # node_modules/.bin no tiene los bins hoisteados de workspaces.
+  echo "$STAGED_FILES" | xargs ./server/node_modules/.bin/prettier --write
 
   # Re-agregar archivos formateados al staging
   echo "$STAGED_FILES" | xargs git add
