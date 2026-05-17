@@ -353,3 +353,53 @@ curl localhost:3001/api/_hono/health
 1. Leer este archivo y la sección "Handoff 2026-05-15" arriba.
 2. `git pull origin feat/migrate-bun-hono` (HEAD: `6af79c3`).
 3. Inspeccionar `Dockerfile` y `docker-compose*.yml` antes de tocar nada del sub-commit 4. Confirmar con el usuario si el deploy es Fly.io, self-hosted (Raspberry Pi LibreELEC?), o ambos.
+
+### Handoff 2026-05-17 — fin sub-commits 4 y 5, pendiente sub-commit 6
+
+**Estado:** sub-commits 4 y 5 mergeados al branch + cleanup colateral de rutas obsoletas. Branch `feat/migrate-bun-hono` pusheado en `9b14243`. PR draft #185 abierta para gatillar CI.
+
+**Lo hecho en sesión 2026-05-17:**
+
+- `b8a241a chore: Dockerfile + docker-compose a Bun` (sub-commit 4)
+  - Dockerfile: `node:22.21.0-alpine` → `oven/bun:1-alpine`. Drop python3/make/g++, dumb-init, healthcheck. `npm ci --workspace=server --omit=dev` → `bun install --filter='./server' --production --frozen-lockfile`. Copia `client/package.json` además del root (Bun valida todos los workspaces del lockfile, no se puede filtrar sin tener los manifests). User `bun` (uid 1000, ya en imagen). `CMD ["bun", "server/http/server.ts"]`.
+  - docker-compose.yml: simplificado a referencia mínima — drop healthcheck, `deploy.resources`, networks explícitas, comentarios de nginx. Decisión del usuario: cada deploy se arma el suyo; el repo queda como ejemplo.
+  - Drop `package-lock.json` del repo. `bun.lock` queda como lockfile canónico.
+  - Cambios atados:
+    - `server/package.json`: `better-sqlite3` movido a `devDependencies` (sigue en runtime para `db-test.ts` bajo vitest, no para el server prod). Sin esto, el postinstall de better-sqlite3 (node-gyp) corre en `bun install` aunque no se use, porque Bun lo trustea por defecto.
+    - `client/package.json`: removido `better-sqlite3` (artifact viejo, cero usos en `client/src/`).
+    - `server/http/server.ts`: `HONO_PORT` (default 3001) → `PORT` (default 3000). Alinea con env vars estándar; ya no hay coexistencia con Kit prod.
+    - `.githooks/pre-commit`: línea 17 `npx prettier --write` → `./server/node_modules/.bin/prettier --write` (Bun no hoist workspace bins al root `node_modules/.bin`).
+- `8f7d1d8 chore(client): drop obsolete API routes` (sub-commit A — cleanup pre-CI)
+  - 32 archivos `client/src/routes/api/**/+server.ts` borrados. adapter-static no compilaba esos endpoints (los ignora), pero `svelte-check` los typecheckaba y rompía porque importaban `@server/database/db.ts` (que usa `bun:sqlite`, tipo no presente en tsconfig del client).
+- `9b14243 chore(ci): workflows + scripts root a Bun` (sub-commit 5)
+  - Composite `.github/actions/setup-node-deps/` → `setup-bun-deps/`. `actions/setup-node@v4` + `npm ci` → `oven-sh/setup-bun@v2` + `bun install --frozen-lockfile`.
+  - `ci.yml`, `release.yml`, `dependencies.yml`: refs al composite renombrado + `npm run X` → `bun run X`. Release: `npm run build` → `cd client && bun run build` (skipea check del root porque el job typescript de CI ya lo cubre).
+  - `dependencies.yml`: `npm outdated` → `bun outdated`.
+  - Drop `security` job de `ci.yml` y step de audit de `dependencies.yml`. Comments con razón: `npm audit` requería package-lock; `bun pm scan` requiere scanner externo en bunfig.toml (sin scanner oficial Bun aún). Pendiente: elegir scanner o esperar drop-in.
+  - `package.json` (root): `npm run X` interno → `bun run X`. `engines.node`/`npm` → `engines.bun: >=1.3.0`. Script `check` ajustado para correr `tsc` desde `server/node_modules/.bin/` (Bun no hoist).
+  - Lint cleanup colateral: typescript-eslint subió 8.56 → 8.59 al regenerar bun.lock. `no-unnecessary-type-assertion` se hizo más estricto. Auto-fix en 6 archivos (`comprobantes.ts`, `expected-invoices.ts`, `files.ts`, `invoices.ts`, `file-scanner.ts`, `excel-import.service.ts`); 1 `eslint-disable-next-line` en `invoices-known.ts` (sin el cast del `.catch()` el body pierde el narrow y los argumentos numéricos rompen el type check).
+
+**Decisiones de la sesión:**
+
+- **Repo = referencia mínima para deploy.** docker-compose.yml y Dockerfile son ejemplos; cada deploy se arma el suyo. Pendiente: ejemplo concreto en README (Pi LibreELEC u otro).
+- **Healthcheck dropeado.** Pendiente cuando Bun proponga patrón oficial.
+- **Security audit dropeado.** Pendiente: scanner Bun cuando exista o se elija uno.
+- **Multi-arch sigue.** `release.yml` ya buildeaba `linux/amd64,linux/arm64` antes de la migración; no se tocó.
+- **CI no se gatillaba** en push de feature branches (workflow tiene `pull_request: [main, master]`). PR draft #185 abierta para validar workflows nuevos en GH Actions reales.
+
+**Sub-commits restantes:**
+
+6. **`chore(server): drop better-sqlite3 + sveltekit-node deps`** — sigue pendiente. Bloquea: decidir test runner (`bun test` nativo, `bun --bun vitest`, o mantener vitest+Node con tests rotos). `db-test.ts` necesita estrategia. Lo más probable: `bun --bun vitest` ya que es drop-in compatible; ver si vitest carga sin issues bajo Bun runtime.
+
+**Bloqueantes / unknowns:**
+
+- ¿CI nuevo pasa quality + typescript + build en GH Actions? Job test puede fallar bajo Bun (vitest + bun:sqlite); ver resultado del run de PR #185 antes de decidir scope del sub-commit 6.
+- Smoke E2E real con DB migrada y volumen montado (el smoke local de sub-commit 4 fue 500 esperado por DB vacía).
+- README: agregar sección "Deploy" con ejemplo concreto (el comment del docker-compose.yml dice "ver README.md").
+
+**Cómo arrancar el próximo contexto:**
+
+1. Leer este archivo y la sección "Handoff 2026-05-17" arriba.
+2. `git pull origin feat/migrate-bun-hono` (HEAD: `9b14243`).
+3. `gh pr checks 185` para ver el estado del CI. Si falla algo del workflow nuevo (no de tests vitest), arreglar antes de seguir.
+4. Sub-commit 6: confirmar con el usuario qué test runner se elige; si es `bun --bun vitest`, probar localmente que arranque antes de tocar el package.json del server.
