@@ -15,14 +15,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node and Dependencies
-        uses: ./.github/actions/setup-node-deps
+      - name: Setup Bun and Dependencies
+        uses: ./.github/actions/setup-bun-deps
 
       - name: Run Prettier
-        run: npm run format:check
+        run: bun run format:check
 
       - name: Run ESLint
-        run: npm run lint
+        run: bun run lint
 
   typescript:
     name: TypeScript Validation
@@ -32,11 +32,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node and Dependencies
-        uses: ./.github/actions/setup-node-deps
+      - name: Setup Bun and Dependencies
+        uses: ./.github/actions/setup-bun-deps
 
       - name: Check TypeScript (shared + server + client)
-        run: npm run check
+        run: bun run check
 
   build:
     name: Build Frontend
@@ -47,11 +47,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node and Dependencies
-        uses: ./.github/actions/setup-node-deps
+      - name: Setup Bun and Dependencies
+        uses: ./.github/actions/setup-bun-deps
 
       - name: Build frontend
-        run: npm run build
+        run: cd client && bun run build
         env:
           NODE_OPTIONS: '--max-old-space-size=6144'
 
@@ -71,21 +71,21 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node and Dependencies
-        uses: ./.github/actions/setup-node-deps
+      - name: Setup Bun and Dependencies
+        uses: ./.github/actions/setup-bun-deps
 
       - name: Run server tests
-        run: cd server && npm run test -- --run
+        run: cd server && bun run test -- --run
 
       - name: Run client tests
-        run: cd client && npm run test:run
+        run: cd client && bun run test:run
 
       - name: Run server tests with coverage
-        run: cd server && npm run test:coverage || echo "Server coverage not configured"
+        run: cd server && bun run test:coverage || echo "Server coverage not configured"
         continue-on-error: true
 
       - name: Run client tests with coverage
-        run: cd client && npm run test:coverage || echo "Client coverage not configured"
+        run: cd client && bun run test:coverage || echo "Client coverage not configured"
         continue-on-error: true
 
       - name: Upload server coverage artifacts
@@ -106,27 +106,17 @@ jobs:
           retention-days: 30
         continue-on-error: true
 
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node and Dependencies
-        uses: ./.github/actions/setup-node-deps
-
-      - name: Run npm audit (production only)
-        run: npm audit --omit=dev --audit-level=critical
-
-      - name: Run npm audit (all dependencies)
-        run: npm audit --audit-level=critical
+  # security:
+  #   Job dropeado durante migración a Bun.
+  #   `npm audit` requería package-lock.json (eliminado).
+  #   `bun pm scan` requiere configurar un scanner externo en bunfig.toml
+  #   (no hay scanner oficial de Bun aún). Re-habilitar cuando exista
+  #   alternativa drop-in o se elija un scanner (ej: socket.dev).
 
   summary:
     name: CI Summary
     runs-on: ubuntu-latest
-    needs: [quality, typescript, build, test, security]
+    needs: [quality, typescript, build, test]
     if: always()
 
     steps:
@@ -140,7 +130,6 @@ jobs:
           echo "| TypeScript Validation | ${{ needs.typescript.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Build Frontend | ${{ needs.build.result }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Tests & Coverage | ${{ needs.test.result }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security Audit | ${{ needs.security.result }} |" >> $GITHUB_STEP_SUMMARY
 
       - name: Fail if critical jobs failed
         if: |
@@ -151,7 +140,6 @@ jobs:
 
       - name: Warn if non-critical jobs failed
         if: |
-          needs.test.result == 'failure' ||
-          needs.security.result == 'failure'
+          needs.test.result == 'failure'
         run: |
-          echo "::warning::Non-critical jobs failed: test=${{ needs.test.result }}, security=${{ needs.security.result }}"
+          echo "::warning::Non-critical job failed: test=${{ needs.test.result }}"

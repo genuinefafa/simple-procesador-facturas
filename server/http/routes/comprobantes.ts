@@ -114,7 +114,7 @@ comprobantesRouter.get('/:id/file', async (c) => {
           format: 'JPEG',
           quality: 0.9,
         });
-        fileBuffer = Buffer.from(outputBuffer) as Buffer;
+        fileBuffer = Buffer.from(outputBuffer);
         console.log(`   ✅ HEIC conversion done (${fileBuffer.length} bytes)`);
       } catch (convertErr) {
         console.error(`   ❌ Error converting HEIC:`, convertErr);

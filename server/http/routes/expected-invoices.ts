@@ -28,7 +28,6 @@ import {
   type BalanceGroupResponse,
 } from '../../contracts';
 import { getPersonType } from '@shared/validators/cuit';
-import type { InvoiceType } from '@shared/types';
 
 const balanceRepo = new ExpectedInvoiceRepository();
 
@@ -689,7 +688,7 @@ expectedInvoicesRouter.post('/:id/match', async (c) => {
 
     const existing = await invoiceRepo.findByEmitterAndNumber(
       expected.cuit,
-      expected.invoiceType as InvoiceType,
+      expected.invoiceType,
       expected.pointOfSale,
       expected.invoiceNumber
     );
@@ -702,7 +701,7 @@ expectedInvoicesRouter.post('/:id/match', async (c) => {
     const invoice = await invoiceRepo.create({
       emitterCuit: expected.cuit,
       issueDate: expected.issueDate,
-      invoiceType: expected.invoiceType as InvoiceType,
+      invoiceType: expected.invoiceType,
       pointOfSale: expected.pointOfSale,
       invoiceNumber: expected.invoiceNumber,
       total: expected.total || undefined,

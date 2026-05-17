@@ -77,8 +77,11 @@ invoicesKnownRouter.get('/', async (c) => {
 });
 
 invoicesKnownRouter.post('/category', async (c) => {
+  // El cast del catch guía la inferencia: sin él, body queda `T | {}` y los
+  // argumentos numéricos pierden el narrow en findById.
   const body = await c.req
     .json<{ expectedId?: number; categoryId?: number }>()
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     .catch(() => ({}) as { expectedId?: number; categoryId?: number });
   const { expectedId, categoryId } = body;
   if (!expectedId || !categoryId) {

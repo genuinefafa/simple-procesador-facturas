@@ -296,7 +296,7 @@ invoicesRouter.post('/upload', async (c) => {
 
         const createdFile = fileRepo.create({
           originalFilename: savedFilename,
-          fileType: fileType as 'PDF_DIGITAL' | 'PDF_IMAGEN' | 'IMAGEN' | 'HEIC',
+          fileType: fileType,
           fileSize: file.size,
           fileHash: fileHash!,
           storagePath: relativePath,
@@ -362,7 +362,7 @@ invoicesRouter.post('/upload', async (c) => {
 
         errors.push({
           name: file.name,
-          error: (errorData.message as string) || errorMessage,
+          error: errorData.message || errorMessage,
           ...errorData,
         });
       }

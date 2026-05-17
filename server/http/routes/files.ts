@@ -622,7 +622,7 @@ filesRouter.get('/*', async (c) => {
           format: 'JPEG',
           quality: 0.9,
         });
-        fileBuffer = Buffer.from(outputBuffer) as Buffer;
+        fileBuffer = Buffer.from(outputBuffer);
         console.info(`   ✅ Conversión exitosa (${fileBuffer.length} bytes)`);
       } catch (convertErr) {
         console.error(`   ❌ Error convirtiendo HEIC:`, convertErr);

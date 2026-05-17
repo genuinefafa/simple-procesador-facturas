@@ -15,47 +15,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node and Dependencies
-        uses: ./.github/actions/setup-node-deps
+      - name: Setup Bun and Dependencies
+        uses: ./.github/actions/setup-bun-deps
 
       - name: Check for outdated packages
-        id: outdated
         run: |
-          echo "## Outdated Dependencies" >> outdated.md
-          echo "" >> outdated.md
-          npm outdated >> outdated.md || true
-          cat outdated.md >> $GITHUB_STEP_SUMMARY
-
-      - name: Run security audit
-        id: audit
-        run: |
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "## Security Audit" >> $GITHUB_STEP_SUMMARY
+          echo "## Outdated Dependencies" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          npm audit --omit=dev >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          bun outdated >> $GITHUB_STEP_SUMMARY 2>&1 || true
           echo '```' >> $GITHUB_STEP_SUMMARY
-          # Check separately for the exit code
-          if ! npm audit --omit=dev --audit-level=high > /dev/null 2>&1; then
-            echo "has_vulnerabilities=true" >> $GITHUB_OUTPUT
-          fi
 
-      - name: Create Issue if vulnerabilities found
-        if: steps.audit.outputs.has_vulnerabilities == 'true'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const title = '🔒 Security: Vulnerabilities detectadas en dependencias';
-            const body = `Se han encontrado vulnerabilidades en las dependencias del proyecto.
-
-            Por favor, revisá el [workflow run](${context.payload.repository.html_url}/actions/runs/${context.runId}) para más detalles.
-
-            Ejecutá \`npm audit\` localmente para ver el reporte completo y \`npm audit fix\` para intentar solucionarlas automáticamente.`;
-
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: title,
-              body: body,
-              labels: ['security', 'dependencies']
-            });
+      # Security audit dropeado durante migración a Bun.
+      # `bun pm scan` requiere configurar un scanner externo en bunfig.toml
+      # (sin scanner oficial de Bun aún). Re-habilitar cuando exista alternativa
+      # drop-in a `npm audit` o se elija un scanner (ej: socket.dev).
