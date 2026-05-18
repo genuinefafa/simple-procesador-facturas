@@ -1,5 +1,6 @@
 import type { FilterNode } from './query-parser';
 import type { Comprobante } from '$lib/types/comprobante';
+import { getFriendlyType } from '$lib/formatters';
 
 type Category = {
   id: number;
@@ -319,30 +320,4 @@ function isSameDay(d1: Date, d2: Date): boolean {
     d1.getMonth() === d2.getMonth() &&
     d1.getDate() === d2.getDate()
   );
-}
-
-/**
- * Convierte código ARCA numérico a tipo amigable
- * (Replicado del formatter, idealmente debería importarse)
- */
-function getFriendlyType(arcaCode: number | null): string {
-  if (arcaCode === null) return '';
-
-  // Mapa de códigos ARCA a tipos legibles
-  const typeMap: Record<number, string> = {
-    1: 'FACA', // Factura A
-    2: 'NDA', // Nota de débito A
-    3: 'NCA', // Nota de crédito A
-    6: 'FACB', // Factura B
-    7: 'NDB', // Nota de débito B
-    8: 'NCB', // Nota de crédito B
-    11: 'FACC', // Factura C
-    12: 'NDC', // Nota de débito C
-    13: 'NCC', // Nota de crédito C
-    51: 'FACM', // Factura M
-    52: 'NDM', // Nota de débito M
-    53: 'NCM', // Nota de crédito M
-  };
-
-  return typeMap[arcaCode] || `Tipo ${arcaCode}`;
 }

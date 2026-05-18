@@ -29,6 +29,7 @@
     generateFilenameForSheet,
     type CanonicalFilenameParams,
   } from '$lib/utils/canonical-filename';
+  import { copyText, copyRich } from '$lib/utils/clipboard';
 
   let { data } = $props();
   let categories = $derived(data.categories || []);
@@ -196,7 +197,7 @@
     if (!filename) return;
 
     try {
-      await navigator.clipboard.writeText(filename);
+      await copyText(filename);
       copiedId = comp.id;
       if (copiedTimeout) clearTimeout(copiedTimeout);
       copiedTimeout = setTimeout(() => {
@@ -390,16 +391,9 @@
     const count = visibleComprobantes.length;
     try {
       if (format === 'slack') {
-        await navigator.clipboard.writeText(buildTsvTable());
+        await copyText(buildTsvTable());
       } else {
-        const html = buildHtmlTable();
-        const blob = new Blob([html], { type: 'text/html' });
-        await navigator.clipboard.write([
-          new ClipboardItem({
-            'text/html': blob,
-            'text/plain': new Blob([buildTsvTable()], { type: 'text/plain' }),
-          }),
-        ]);
+        await copyRich({ html: buildHtmlTable(), text: buildTsvTable() });
       }
       copiedFormat = format;
       const label = format === 'slack' ? 'Slack' : 'Gmail';

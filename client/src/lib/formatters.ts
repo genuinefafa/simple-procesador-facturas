@@ -188,6 +188,28 @@ const ARCA_CODE_MAP: Record<
   12: { friendlyType: 'NDBC', icon: '➡️', description: 'Nota de Débito C', sign: 1 },
   20: { friendlyType: 'NDBE', icon: '➡️', description: 'Nota de Débito E', sign: 1 },
   52: { friendlyType: 'NDBM', icon: '➡️', description: 'Nota de Débito M', sign: 1 },
+  // Cuenta de Venta y Líquido producto (+)
+  80: {
+    friendlyType: 'CVLA',
+    icon: '🧾',
+    description: 'Cuenta de Venta y Líquido producto A',
+    sign: 1,
+  },
+  // Tiques Factura (+)
+  81: { friendlyType: 'TFCA', icon: '🧾', description: 'Tique Factura A', sign: 1 },
+  82: { friendlyType: 'TFCB', icon: '🧾', description: 'Tique Factura B', sign: 1 },
+  83: { friendlyType: 'TICK', icon: '🧾', description: 'Tique', sign: 1 },
+  109: { friendlyType: 'TKTC', icon: '🧾', description: 'Tique C', sign: 1 },
+  111: { friendlyType: 'TFCC', icon: '🧾', description: 'Tique Factura C', sign: 1 },
+  118: { friendlyType: 'TFCM', icon: '🧾', description: 'Tique Factura M', sign: 1 },
+  // Tiques Nota de Crédito (-)
+  110: { friendlyType: 'TNCC', icon: '↩️', description: 'Tique Nota de Crédito C', sign: -1 },
+  113: { friendlyType: 'TNCA', icon: '↩️', description: 'Tique Nota de Crédito A', sign: -1 },
+  114: { friendlyType: 'TNCB', icon: '↩️', description: 'Tique Nota de Crédito B', sign: -1 },
+  // Tiques Nota de Débito (+)
+  115: { friendlyType: 'TNDA', icon: '➡️', description: 'Tique Nota de Débito A', sign: 1 },
+  116: { friendlyType: 'TNDB', icon: '➡️', description: 'Tique Nota de Débito B', sign: 1 },
+  117: { friendlyType: 'TNDC', icon: '➡️', description: 'Tique Nota de Débito C', sign: 1 },
 };
 
 /**
