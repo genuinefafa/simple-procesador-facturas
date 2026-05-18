@@ -13,7 +13,7 @@
  * Uso: npx tsx server/scripts/normalize-cuits.ts [--dry-run]
  */
 
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';

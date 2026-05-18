@@ -8,38 +8,34 @@
  * evitar abrir la DB durante el build SSR de Vite.
  */
 
-import { drizzle } from 'drizzle-orm/better-sqlite3';
-import Database from 'better-sqlite3';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { drizzle } from 'drizzle-orm/bun-sqlite';
+import { Database } from 'bun:sqlite';
+import { join } from 'path';
 import { existsSync, mkdirSync } from 'fs';
 import * as schema from './schema.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Determinar qué DB usar según NODE_ENV
 const isTestMode = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
 const dbFilename = isTestMode ? 'database.test.sqlite' : 'database.sqlite';
-const DB_PATH = join(__dirname, '..', '..', 'data', dbFilename);
+const defaultDbPath = join(import.meta.dirname, '..', '..', 'data', dbFilename);
+const DB_PATH = !isTestMode && process.env.DB_PATH ? process.env.DB_PATH : defaultDbPath;
 
 // Lazy-initialized singletons
-let _sqlite: Database.Database | null = null;
+let _sqlite: Database | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
 
 /**
  * Get the raw SQLite connection (lazy-initialized).
  */
-export function getRawDb(): Database.Database {
+export function getRawDb(): Database {
   if (!_sqlite) {
     // Crear directorio data/ si no existe
-    const dataDir = join(__dirname, '..', '..', 'data');
+    const dataDir = join(import.meta.dirname, '..', '..', 'data');
     if (!existsSync(dataDir)) {
       mkdirSync(dataDir, { recursive: true });
     }
 
     _sqlite = new Database(DB_PATH);
-    _sqlite.pragma('foreign_keys = ON');
+    _sqlite.exec('PRAGMA foreign_keys = ON');
   }
   return _sqlite;
 }

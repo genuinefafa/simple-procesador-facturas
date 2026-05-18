@@ -2,18 +2,14 @@
  * Script para ejecutar migraciones de Drizzle v1
  */
 
-import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+import { migrate } from 'drizzle-orm/bun-sqlite/migrator';
 import { getDb } from '../database/db.js';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import { join } from 'path';
 
 console.info('🚀 Ejecutando migraciones...\n');
 
 try {
-  const migrationsPath = join(__dirname, '..', 'database', 'migrations');
+  const migrationsPath = join(import.meta.dirname, '..', 'database', 'migrations');
   console.info(`📁 Carpeta de migraciones: ${migrationsPath}`);
 
   // Ejecutar migraciones de Drizzle v1

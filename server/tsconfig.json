@@ -5,6 +5,7 @@
     "lib": ["ES2022"],
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "types": ["bun", "node"],
 
     /* Emit */
     "outDir": "./dist",

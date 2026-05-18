@@ -1062,17 +1062,18 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     const group = await this.getBalanceGroup(principalId);
 
     // Quitar la referencia de los secundarios
-    const result = await getDb()
+    const updated = await getDb()
       .update(expectedInvoices)
       .set({ balancedWithId: null })
-      .where(eq(expectedInvoices.balancedWithId, principalId));
+      .where(eq(expectedInvoices.balancedWithId, principalId))
+      .returning({ id: expectedInvoices.id });
 
     // Refresh status for all former members
     for (const member of group) {
       await this.refreshStatus(member.id);
     }
 
-    return result.changes;
+    return updated.length;
   }
 
   /**

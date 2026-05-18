@@ -108,7 +108,7 @@ export class FileScanner {
 
     return {
       total: files.length,
-      byType: byType as Record<DocumentType, number>,
+      byType: byType,
       totalSize,
     };
   }

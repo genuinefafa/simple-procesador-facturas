@@ -21,7 +21,7 @@ import { CategoryRepository, type ICategoryRepository } from '../database/reposi
 import { generateProcessedFilename, generateSubdirectory } from '../utils/file-naming.js';
 import type { Emitter, InvoiceType } from '@shared/types';
 
-const PROJECT_ROOT = join(process.cwd(), '..');
+const PROJECT_ROOT = join(import.meta.dirname, '..', '..');
 const DATA_DIR = join(PROJECT_ROOT, 'data');
 const FINALIZED_DIR = join(DATA_DIR, 'finalized');
 

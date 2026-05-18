@@ -31,7 +31,7 @@ function getCellStringValue(value: ExcelJS.CellValue): string {
   }
   // Handle formula results
   if (typeof value === 'object' && 'result' in value) {
-    return getCellStringValue(value.result as ExcelJS.CellValue);
+    return getCellStringValue(value.result);
   }
   // Handle hyperlinks
   if (typeof value === 'object' && 'text' in value) {

@@ -13,8 +13,20 @@ if [ -n "$STAGED_FILES" ]; then
   echo "📝 Formateando archivos TypeScript y Svelte:"
   echo "$STAGED_FILES" | sed 's/^/  - /'
 
-  # Formatear archivos en staging
-  echo "$STAGED_FILES" | xargs npx prettier --write
+  # Routear cada archivo al prettier del workspace correspondiente.
+  # Bajo Bun el root node_modules/.bin no tiene los bins hoisteados de workspaces,
+  # y client/.prettierrc requiere prettier-plugin-svelte que solo vive en client/.
+  # Importante: hay que `cd` al workspace para que prettier resuelva sus plugins,
+  # caso contrario el resolver sube al root y no encuentra prettier-plugin-svelte.
+  CLIENT_FILES=$(echo "$STAGED_FILES" | grep '^client/' | sed 's|^client/||' || true)
+  OTHER_FILES=$(echo "$STAGED_FILES" | grep -v '^client/' || true)
+
+  if [ -n "$CLIENT_FILES" ]; then
+    (cd client && echo "$CLIENT_FILES" | xargs ./node_modules/.bin/prettier --write)
+  fi
+  if [ -n "$OTHER_FILES" ]; then
+    echo "$OTHER_FILES" | xargs ./server/node_modules/.bin/prettier --write
+  fi
 
   # Re-agregar archivos formateados al staging
   echo "$STAGED_FILES" | xargs git add

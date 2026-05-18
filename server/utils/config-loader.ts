@@ -68,8 +68,9 @@ export interface Config {
  * Carga la configuración desde config.json o config.json.example
  */
 export function loadConfig(): Config {
-  const configPath = path.join(process.cwd(), '../server', 'config.json');
-  const examplePath = path.join(process.cwd(), '../server', 'config.json.example');
+  const serverDir = path.join(import.meta.dirname, '..');
+  const configPath = path.join(serverDir, 'config.json');
+  const examplePath = path.join(serverDir, 'config.json.example');
 
   let configFile = configPath;
 

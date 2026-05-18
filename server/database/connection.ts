@@ -2,30 +2,27 @@
  * Manejo de conexión a la base de datos SQLite
  */
 
-import Database from 'better-sqlite3';
+import { Database } from 'bun:sqlite';
 import { readFileSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { join } from 'path';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+const isTestMode = process.env.NODE_ENV === 'test' || process.env.VITEST === 'true';
+const defaultDbPath = join(import.meta.dirname, '../../data/database.sqlite');
+const DB_PATH = !isTestMode && process.env.DB_PATH ? process.env.DB_PATH : defaultDbPath;
 
-// Path a la base de datos (relativo al proyecto)
-const DB_PATH = join(__dirname, '../../data/database.sqlite');
-
-let db: Database.Database | null = null;
+let db: Database | null = null;
 
 /**
  * Obtiene la conexión a la base de datos (singleton)
  * @returns Instancia de la base de datos
  */
-export function getDatabase(): Database.Database {
+export function getDatabase(): Database {
   if (!db) {
     db = new Database(DB_PATH);
     // Habilitar foreign keys
-    db.pragma('foreign_keys = ON');
+    db.exec('PRAGMA foreign_keys = ON');
     // Optimizaciones para performance
-    db.pragma('journal_mode = WAL');
+    db.exec('PRAGMA journal_mode = WAL');
   }
   return db;
 }
@@ -45,7 +42,7 @@ export function closeDatabase(): void {
  */
 export function initializeSchema(): void {
   const db = getDatabase();
-  const schemaPath = join(__dirname, 'schema.sql');
+  const schemaPath = join(import.meta.dirname, 'schema.sql');
   const schema = readFileSync(schemaPath, 'utf-8');
   db.exec(schema);
 }
