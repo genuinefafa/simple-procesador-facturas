@@ -391,15 +391,28 @@ curl localhost:3001/api/_hono/health
 
 6. **`chore(server): drop better-sqlite3 + sveltekit-node deps`** — sigue pendiente. Bloquea: decidir test runner (`bun test` nativo, `bun --bun vitest`, o mantener vitest+Node con tests rotos). `db-test.ts` necesita estrategia. Lo más probable: `bun --bun vitest` ya que es drop-in compatible; ver si vitest carga sin issues bajo Bun runtime.
 
+**Verificado en sesión 2026-05-18 (extensión de la del 17):**
+
+- **CI run de PR #185:** Code Quality, TypeScript Validation, Build Frontend, CI Summary → **pass**. Tests & Coverage → **fail** (esperado): `Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'bun:'` — vitest corre bajo Node (workflow usa `bun run test` que invoca `vitest` directo, sin `--bun`). Fix va en sub-commit 6.
+- **Smoke E2E con DB real:** `docker run -v $(pwd)/data:/app/data -e DB_PATH=/app/data/database.sqlite procesador-facturas:bun-test`. `/api/_hono/health` → 200; `/api/comprobantes?limit=2` → 200 con `{"count":475, "comprobantes":[…]}`. Listing real OK con bun:sqlite + drizzle/bun-sqlite. *Nota:* primer intento dio 404 transitorio — sleep 4s post-start no siempre alcanza, sleep 6s sí. No es bug.
+- **PR #185 sigue draft.** Pendiente: cerrar sub-commit 6 + README ejemplo + ready → squash merge (decisión del usuario en sesión 2026-05-18).
+
 **Bloqueantes / unknowns:**
 
-- ¿CI nuevo pasa quality + typescript + build en GH Actions? Job test puede fallar bajo Bun (vitest + bun:sqlite); ver resultado del run de PR #185 antes de decidir scope del sub-commit 6.
-- Smoke E2E real con DB migrada y volumen montado (el smoke local de sub-commit 4 fue 500 esperado por DB vacía).
-- README: agregar sección "Deploy" con ejemplo concreto (el comment del docker-compose.yml dice "ver README.md").
+- Sub-commit 6: probar `bun --bun vitest` localmente antes de tocar package.json del server. Si vitest carga bien bajo Bun runtime, cambiar `server/package.json` script `test` a `bun --bun vitest`. Mantener vitest como devDep mientras tanto. Después de eso, drop `better-sqlite3` de devDeps + reescribir `db-test.ts` con `bun:sqlite` API directa.
+- README: agregar sección "Deploy" con ejemplo concreto. El comment del docker-compose.yml dice "ver README.md".
 
 **Cómo arrancar el próximo contexto:**
 
-1. Leer este archivo y la sección "Handoff 2026-05-17" arriba.
-2. `git pull origin feat/migrate-bun-hono` (HEAD: `9b14243`).
-3. `gh pr checks 185` para ver el estado del CI. Si falla algo del workflow nuevo (no de tests vitest), arreglar antes de seguir.
-4. Sub-commit 6: confirmar con el usuario qué test runner se elige; si es `bun --bun vitest`, probar localmente que arranque antes de tocar el package.json del server.
+1. Leer este archivo y la sección "Handoff 2026-05-17" arriba (incluye el bloque "Verificado en sesión 2026-05-18").
+2. `git pull origin feat/migrate-bun-hono` (HEAD: post-handoff push).
+3. `gh pr checks 185` para ver estado actual del CI (debería estar igual: tests fail, resto pass).
+4. Sub-commit 6 — pasos sugeridos:
+   - `cd server && bun --bun vitest --run` localmente. Si arranca sin error de loader, está. Si rompe, evaluar `bun test` nativo (sintaxis distinta — requiere migrar tests) o mantener vitest+Node y excluir tests que tocan `bun:sqlite`.
+   - Si `bun --bun vitest` anda: cambiar `server/package.json` script `test` a `bun --bun vitest`. Actualizar `.github/workflows/ci.yml` para que el job test use el comando equivalente (el alias `bun run test` debería heredarlo).
+   - Reescribir `server/database/db-test.ts` con `import { Database } from 'bun:sqlite'` directo.
+   - Drop `better-sqlite3` de `server/devDependencies`. Drop `@types/better-sqlite3` también.
+   - Drop `@sveltejs/adapter-node` de `client/devDependencies` (ya no se usa).
+   - `bun install`, correr tests local, push, ver CI.
+5. README — agregar sección "Deploy" con ejemplo concreto (probablemente Pi LibreELEC + recordatorio de los exports git para SSH al Pi).
+6. PR draft → ready → squash merge. Mensaje del squash consolida los ~10 sub-commits en un solo "feat: migrate to Bun runtime + Hono server".
