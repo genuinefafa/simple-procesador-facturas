@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml/badge.svg)](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-61%20passing-brightgreen)](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D22.21.0-brightgreen.svg)](https://nodejs.org/)
+[![Bun Version](https://img.shields.io/badge/bun-%3E%3D1.3.0-brightgreen.svg)](https://bun.sh/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 
@@ -29,32 +29,68 @@ Aplicación fullstack que permite gestionar comprobantes fiscales de manera efic
 
 ### Desarrollo Local
 
+Requiere [Bun](https://bun.sh/) ≥ 1.3.0.
+
 ```bash
 # 1. Clonar el repositorio
 git clone https://github.com/genuinefafa/simple-procesador-facturas.git
 cd simple-procesador-facturas
 
 # 2. Instalar dependencias
-npm install
+bun install
 
 # 3. Inicializar base de datos
-npm run db:migrate
+bun run db:migrate
 
 # 4. Levantar servidor de desarrollo
-npm run dev
+bun run dev
 
 # 5. Abrir navegador
-# http://localhost:5173
+# http://localhost:5174   (puerto configurado en .env, default 5174)
 ```
 
-### Con Docker
+> **Nota:** el puerto del dev server se controla con `VITE_PORT` en `.env` (default 5174). En producción Hono sirve el bundle estático + API en el mismo puerto (default 3000).
+
+---
+
+## 🚢 Deploy
+
+La imagen Docker corre un servidor Hono sobre Bun que sirve el bundle estático de SvelteKit y proxea `/api/*` a rutas in-process. La base SQLite vive en un volumen montado.
+
+### Docker (estándar)
 
 ```bash
-# Build y run
-docker compose up -d
+# Build y levantar
+docker compose up -d --build
 
-# Acceder en http://localhost:5173
+# Logs
+docker compose logs -f
+
+# Acceder
+# http://localhost:3000   (override con APP_PORT en .env)
 ```
+
+`docker-compose.yml` monta `procesador-data` (volumen named) en `/app/data` para persistir la DB SQLite y archivos subidos. Variables relevantes:
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `APP_PORT` | `3000` | Puerto host expuesto |
+| `DB_PATH` | `/app/data/database.sqlite` | Ruta absoluta a la DB dentro del contenedor |
+| `NODE_ENV` | `production` | — |
+
+### Raspberry Pi (LibreELEC)
+
+LibreELEC no trae git/docker-compose nativos. El stack vive en `/storage/docker/compose.d/procesador-facturas/` y se opera vía SSH (`root@192.168.17.205`). Git corre dentro de Docker, así que los comandos remotos requieren exports especiales:
+
+```bash
+# En el Pi (via SSH):
+export PATH=/storage/bin:$PATH DOCKER_TTY=false DOCKER_INTERACTIVE=false
+cd /storage/docker/compose.d/procesador-facturas
+git pull
+/storage/bin/docker-compose up -d --build
+```
+
+Sin esos exports, `git` tira `the input device is not a TTY`. El binario de compose es `/storage/bin/docker-compose` (no `docker compose`).
 
 ---
 
@@ -118,10 +154,12 @@ simple-procesador-facturas/
 - **Notifications**: svelte-sonner
 
 ### Backend
-- **Runtime**: Node.js 22.x
-- **Database**: SQLite + Drizzle ORM
+- **Runtime**: Bun ≥ 1.3
+- **HTTP Server**: Hono (sirve bundle estático + API in-process)
+- **Database**: SQLite (`bun:sqlite`) + Drizzle ORM
 - **PDF Processing**: pdf-parse
 - **OCR**: Tesseract.js
+- **QR**: zxing-wasm
 - **Image Processing**: sharp, heic-convert
 
 ---
@@ -171,35 +209,35 @@ simple-procesador-facturas/
 ### Desarrollo
 
 ```bash
-npm run dev              # Servidor de desarrollo (http://localhost:5173)
-npm run build            # Build de producción
-npm run preview          # Preview del build
+bun run dev              # Servidor de desarrollo (http://localhost:5174)
+bun run build            # Build de producción
+bun run preview          # Preview del build
 ```
 
 ### Base de Datos
 
 ```bash
-npm run db:migrate       # Aplicar migraciones
-npm run db:push          # Push schema sin migración
-npm run db:studio        # Abrir Drizzle Studio (GUI)
-npm run db:generate      # Generar nueva migración
-npm run db:reset         # ⚠️ Resetear BD (borra todo)
+bun run db:migrate       # Aplicar migraciones
+bun run db:push          # Push schema sin migración
+bun run db:studio        # Abrir Drizzle Studio (GUI)
+bun run db:generate      # Generar nueva migración
+bun run db:reset         # ⚠️ Resetear BD (borra todo)
 ```
 
 ### Testing y Calidad
 
 ```bash
-npm run check            # Type checking
-npm run format           # Formatear código (Prettier)
-npm run test:extraction  # Tests de extracción de archivos
+bun run check            # Type checking
+bun run format           # Formatear código (Prettier)
+bun run test             # Tests del server (vitest bajo Bun runtime)
 ```
 
 ### Docker
 
 ```bash
-docker compose up -d     # Levantar contenedor
-docker compose down      # Detener contenedor
-docker compose logs -f   # Ver logs
+docker compose up -d --build  # Build + levantar contenedor
+docker compose down           # Detener contenedor
+docker compose logs -f        # Ver logs
 ```
 
 ---
