@@ -1,5 +1,5 @@
 # Ejemplo de referencia. Adaptar a cada deploy.
-# Ver README.md para casos concretos (Raspberry Pi, etc.)
+# Ver README.md sección "Deploy" para variables relevantes.
 
 services:
   app:

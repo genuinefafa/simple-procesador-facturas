@@ -57,8 +57,6 @@ bun run dev
 
 La imagen Docker corre un servidor Hono sobre Bun que sirve el bundle estático de SvelteKit y proxea `/api/*` a rutas in-process. La base SQLite vive en un volumen montado.
 
-### Docker (estándar)
-
 ```bash
 # Build y levantar
 docker compose up -d --build
@@ -78,19 +76,7 @@ docker compose logs -f
 | `DB_PATH` | `/app/data/database.sqlite` | Ruta absoluta a la DB dentro del contenedor |
 | `NODE_ENV` | `production` | — |
 
-### Raspberry Pi (LibreELEC)
-
-LibreELEC no trae git/docker-compose nativos. El stack vive en `/storage/docker/compose.d/procesador-facturas/` y se opera vía SSH (`root@192.168.17.205`). Git corre dentro de Docker, así que los comandos remotos requieren exports especiales:
-
-```bash
-# En el Pi (via SSH):
-export PATH=/storage/bin:$PATH DOCKER_TTY=false DOCKER_INTERACTIVE=false
-cd /storage/docker/compose.d/procesador-facturas
-git pull
-/storage/bin/docker-compose up -d --build
-```
-
-Sin esos exports, `git` tira `the input device is not a TTY`. El binario de compose es `/storage/bin/docker-compose` (no `docker compose`).
+La imagen es multi-arch (arm64/amd64), por lo que corre en cualquier host con Docker.
 
 ---
 
