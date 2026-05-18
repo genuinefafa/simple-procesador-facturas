@@ -108,8 +108,9 @@ server/config.json
 .local-invoice-categories.json
 categorias.json
 
-# Claude Code settings
+# Claude Code settings + runtime artifacts
 .claude/settings.local.json
+.claude/scheduled_tasks.lock
 
 # Archivos de prueba generados
 test-output/
