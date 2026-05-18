@@ -41,7 +41,6 @@ export default defineConfig(({ mode }) => {
     build: {
       rollupOptions: {
         external: [
-          'better-sqlite3',
           'bun:sqlite',
           'drizzle-orm',
           'pdf-parse',
@@ -51,14 +50,12 @@ export default defineConfig(({ mode }) => {
           'pdf-to-img',
           'pdf-lib',
           'heic-convert',
-          'jsqr',
           'yaml',
         ],
       },
     },
     ssr: {
       external: [
-        'better-sqlite3',
         'bun:sqlite',
         'drizzle-orm',
         'pdf-parse',
@@ -68,7 +65,6 @@ export default defineConfig(({ mode }) => {
         'pdf-to-img',
         'pdf-lib',
         'heic-convert',
-        'jsqr',
         'yaml',
       ],
     },
