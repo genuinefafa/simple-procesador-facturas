@@ -41,6 +41,12 @@ import {
 import { getInvoiceLetter } from '../../utils/afip-codes';
 import { extractFromAFIPUrl } from '../../extractors/qr-extractor';
 import { calculateFileHash } from '../../utils/file-hash';
+import {
+  describeLinkConflicts,
+  isUniqueViolation,
+  UNIQUE_VIOLATION_MESSAGE,
+} from '../../services/invoice-link-guard';
+import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice';
 import type {
   InvoiceCreationData,
   InvoiceCreationOptions,
@@ -665,11 +671,17 @@ invoicesRouter.post('/from-file/:fileId', async (c) => {
     const result = await service.createFromFile(fileId, data, options);
 
     if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400);
+      return c.json(
+        { success: false, error: result.error },
+        result.errorCode === 'conflict' ? 409 : 400
+      );
     }
 
     return c.json({ success: true, invoice: result.invoice });
   } catch (error) {
+    if (isUniqueViolation(error)) {
+      return c.json({ success: false, error: UNIQUE_VIOLATION_MESSAGE }, 409);
+    }
     console.error('❌ [FROM-FILE] Error:', error);
     return c.json(
       {
@@ -864,7 +876,7 @@ invoicesRouter.patch('/:id', async (c) => {
           400
         );
       }
-      updateData.cuitEmisor = emitter.cuit;
+      updateData.emisorCuit = emitter.cuit;
     }
 
     if (updates.invoiceType) {
@@ -895,10 +907,56 @@ invoicesRouter.patch('/:id', async (c) => {
       updateData.expectedInvoiceId = updates.expectedInvoiceId;
     }
 
+    // Link integrity (#203): validate only what this PATCH changes
+    const previousExpectedId = invoice.expectedInvoiceId ?? null;
+    const expectedChanged =
+      updates.expectedInvoiceId !== undefined && updates.expectedInvoiceId !== previousExpectedId;
+    const numberChanged =
+      updates.emitterCuit !== undefined ||
+      updates.invoiceType !== undefined ||
+      updates.pointOfSale !== undefined ||
+      updates.invoiceNumber !== undefined;
+
+    if (expectedChanged && updates.expectedInvoiceId != null) {
+      const expected = await new ExpectedInvoiceRepository().findById(updates.expectedInvoiceId);
+      if (!expected) {
+        return c.json({ success: false, error: 'Factura esperada no encontrada' }, 404);
+      }
+    }
+
+    if (expectedChanged || numberChanged) {
+      const { byNumber, byExpected } = await invoiceRepo.findLinkConflicts(
+        {
+          emitterCuit: (updateData.emisorCuit as string | undefined) ?? invoice.emitterCuit,
+          invoiceType: updates.invoiceType ?? invoice.invoiceType,
+          pointOfSale: updates.pointOfSale ?? invoice.pointOfSale,
+          invoiceNumber: updates.invoiceNumber ?? invoice.invoiceNumber,
+          expectedInvoiceId: expectedChanged ? updates.expectedInvoiceId : null,
+        },
+        invoiceId
+      );
+      const conflict = describeLinkConflicts({
+        byNumber: numberChanged ? byNumber : undefined,
+        byExpected,
+      });
+      if (conflict) {
+        return c.json({ success: false, error: conflict }, 409);
+      }
+    }
+
     const updated = await invoiceRepo.update(invoiceId, updateData);
 
     if (!updated) {
       return c.json({ success: false, error: 'Error al actualizar la factura' }, 500);
+    }
+
+    // Expected status is derived from the link: refresh the new one and the released one
+    if (expectedChanged) {
+      const expectedRepo = new ExpectedInvoiceRepository();
+      if (previousExpectedId !== null) await expectedRepo.refreshStatus(previousExpectedId);
+      if (updates.expectedInvoiceId != null) {
+        await expectedRepo.refreshStatus(updates.expectedInvoiceId);
+      }
     }
 
     const final = await invoiceRepo.findById(invoiceId);
@@ -951,6 +1009,9 @@ invoicesRouter.patch('/:id', async (c) => {
       invoice: final,
     });
   } catch (error) {
+    if (isUniqueViolation(error)) {
+      return c.json({ success: false, error: UNIQUE_VIOLATION_MESSAGE }, 409);
+    }
     console.error('Error updating invoice:', error);
     return c.json(
       {

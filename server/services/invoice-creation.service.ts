@@ -13,6 +13,7 @@ import {
 import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter';
 import { CategoryRepository, type ICategoryRepository } from '../database/repositories/category';
 import { InvoiceFileService } from './invoice-file.service';
+import { checkLinkConflicts } from './invoice-link-guard';
 import { validateCUIT, normalizeCUIT, formatCUIT } from '@shared/validators/cuit';
 
 export interface InvoiceCreationData {
@@ -42,6 +43,8 @@ export interface InvoiceCreationResult {
     filePath: string;
   };
   error?: string;
+  /** 'conflict' when a link invariant would break (#203); the route answers 409 */
+  errorCode?: 'conflict';
 }
 
 export class InvoiceCreationService {
@@ -101,6 +104,21 @@ export class InvoiceCreationService {
       };
     }
 
+    // 3b. Link integrity (#203): check before copying to finalized/, which could
+    // overwrite the copy of an existing invoice with the same canonical name
+    const expectedInvoiceId = options.source === 'expected' ? options.expectedId : undefined;
+    const conflict = await checkLinkConflicts(this.invoiceRepo, {
+      emitterCuit: emitter.cuit,
+      invoiceType: data.invoiceType,
+      pointOfSale: data.pointOfSale,
+      invoiceNumber: data.invoiceNumber,
+      expectedInvoiceId,
+      fileId,
+    });
+    if (conflict) {
+      return { success: false, error: conflict, errorCode: 'conflict' };
+    }
+
     // 4. Resolver categoría
     let categoryId: number | undefined = undefined;
     let categoryKey: string | undefined = undefined;
@@ -144,13 +162,13 @@ export class InvoiceCreationService {
       invoiceNumber: data.invoiceNumber,
       total: data.total,
       fileId: fileId,
-      expectedInvoiceId: options.source === 'expected' ? options.expectedId : undefined,
+      expectedInvoiceId,
       categoryId: categoryId,
     });
 
     // 8. Vincular expected si aplica — refreshStatus derives 'matched' from linked factura
-    if (options.source === 'expected' && options.expectedId) {
-      await this.expectedRepo.refreshStatus(options.expectedId);
+    if (expectedInvoiceId) {
+      await this.expectedRepo.refreshStatus(expectedInvoiceId);
     }
 
     return {

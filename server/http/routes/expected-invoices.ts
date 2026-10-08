@@ -28,6 +28,11 @@ import {
   type BalanceGroupResponse,
 } from '../../contracts';
 import { getPersonType } from '@shared/validators/cuit';
+import {
+  checkLinkConflicts,
+  isUniqueViolation,
+  UNIQUE_VIOLATION_MESSAGE,
+} from '../../services/invoice-link-guard';
 
 const balanceRepo = new ExpectedInvoiceRepository();
 
@@ -686,26 +691,30 @@ expectedInvoicesRouter.post('/:id/match', async (c) => {
 
     const invoiceRepo = new InvoiceRepository();
 
-    const existing = await invoiceRepo.findByEmitterAndNumber(
-      expected.cuit,
-      expected.invoiceType,
-      expected.pointOfSale,
-      expected.invoiceNumber
-    );
+    // Link integrity (#203): number, expected and file must all be free
+    const conflict = await checkLinkConflicts(invoiceRepo, {
+      emitterCuit: emitter.cuit,
+      invoiceType: expected.invoiceType,
+      pointOfSale: expected.pointOfSale,
+      invoiceNumber: expected.invoiceNumber,
+      expectedInvoiceId: expected.id,
+      fileId,
+    });
 
-    if (existing) {
-      console.warn(`   ⚠️  La factura ya existe en BD`);
-      return c.json({ success: false, error: 'Esta factura ya fue procesada anteriormente' }, 409);
+    if (conflict) {
+      console.warn(`   ⚠️  ${conflict}`);
+      return c.json({ success: false, error: conflict }, 409);
     }
 
     const invoice = await invoiceRepo.create({
-      emitterCuit: expected.cuit,
+      emitterCuit: emitter.cuit,
       issueDate: expected.issueDate,
       invoiceType: expected.invoiceType,
       pointOfSale: expected.pointOfSale,
       invoiceNumber: expected.invoiceNumber,
       total: expected.total || undefined,
       fileId: fileId,
+      expectedInvoiceId: expected.id,
     });
 
     console.info(`   ✅ Factura creada - ID: ${invoice.id}`);
@@ -722,6 +731,9 @@ expectedInvoicesRouter.post('/:id/match', async (c) => {
       message: 'Factura creada exitosamente desde Excel AFIP',
     });
   } catch (error) {
+    if (isUniqueViolation(error)) {
+      return c.json({ success: false, error: UNIQUE_VIOLATION_MESSAGE }, 409);
+    }
     console.error('   ❌ Error al confirmar match:', error);
     return c.json(
       {
