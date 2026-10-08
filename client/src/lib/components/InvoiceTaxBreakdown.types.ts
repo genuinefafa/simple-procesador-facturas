@@ -9,14 +9,18 @@ export type TaxLineConcept =
   | 'EXEMPT'
   | 'VAT'
   | 'VAT_PERCEPTION'
+  | 'IIBB_PERCEPTION'
   | 'OTHER_TAXES';
 
 export interface TaxLineInput {
   concept: TaxLineConcept;
-  /** VAT rate in %, only for NET_TAXED and VAT */
+  /**
+   * NET_TAXED/VAT: VAT rate in % (fixed list). Perceptions/other taxes: optional
+   * free rate in %. NET_UNTAXED/EXEMPT: null.
+   */
   rate: number | null;
   amount: number;
-  /** Free text, only for VAT_PERCEPTION / OTHER_TAXES */
+  /** Free text, only for perceptions / OTHER_TAXES (IIBB: jurisdiction) */
   label: string | null;
 }
 
@@ -44,6 +48,7 @@ export const CONCEPT_OPTIONS: ReadonlyArray<{ value: TaxLineConcept; label: stri
   { value: 'EXEMPT', label: 'Exento' },
   { value: 'VAT', label: 'IVA' },
   { value: 'VAT_PERCEPTION', label: 'Percepción IVA' },
+  { value: 'IIBB_PERCEPTION', label: 'Percepción IIBB' },
   { value: 'OTHER_TAXES', label: 'Otros tributos' },
 ];
 
@@ -52,4 +57,14 @@ export const RATES_BY_CONCEPT: Partial<Record<TaxLineConcept, readonly number[]>
   VAT: [2.5, 5, 10.5, 21, 27],
 };
 
-export const LABEL_CONCEPTS: readonly TaxLineConcept[] = ['VAT_PERCEPTION', 'OTHER_TAXES'];
+/** Concepts with an optional free rate (%) and the percentage calculator. */
+export const FREE_RATE_CONCEPTS: readonly TaxLineConcept[] = [
+  'VAT_PERCEPTION',
+  'IIBB_PERCEPTION',
+  'OTHER_TAXES',
+];
+
+export const LABEL_CONCEPTS: readonly TaxLineConcept[] = FREE_RATE_CONCEPTS;
+
+/** Concepts that may appear several times in a breakdown. */
+export const REPEATABLE_CONCEPTS: readonly TaxLineConcept[] = FREE_RATE_CONCEPTS;

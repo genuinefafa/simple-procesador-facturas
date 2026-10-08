@@ -63,6 +63,7 @@ export {
 
   // Balance
   Scale,
+  Calculator,
   Link2,
   Unlink2,
   Star,

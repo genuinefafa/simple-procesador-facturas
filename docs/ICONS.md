@@ -135,6 +135,7 @@ import { ICON_SIZES } from '$lib/components/icons';
 | ☰ | `Menu` | Menú hamburguesa |
 | ☁️ | `Cloud` | Nube, sincronización |
 | 📦 | `Package` | Paquete, exportar |
+| 🧮 | `Calculator` | Calcular monto (desglose impositivo) |
 | 📭 | `Inbox` | Bandeja vacía |
 
 ## Agregar Nuevos Iconos
