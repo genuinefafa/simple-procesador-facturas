@@ -27,7 +27,9 @@
   let { data, stats, periodLabel }: Props = $props();
 
   const intFormatter = new Intl.NumberFormat('es-AR');
-  const hasData = $derived(stats.coverage.withBreakdown > 0 && stats.byMonth.length > 0);
+  // The chart counts any letter with a breakdown; the VAT credit only A/M
+  const hasData = $derived(stats.byMonth.length > 0);
+  const hasCredit = $derived(stats.coverage.withBreakdown > 0);
   const coverageText = $derived(
     `${intFormatter.format(stats.coverage.withBreakdown)} de ${intFormatter.format(stats.coverage.total)} facturas A/M con desglose`
   );
@@ -53,7 +55,7 @@
 
 <div class="tax">
   <div class="summary">
-    {#if hasData}
+    {#if hasCredit}
       <div class="kpi">
         <div class="kpi-label">IVA crédito fiscal del período</div>
         <div class="kpi-value">{formatCurrency(stats.vatCredit)}</div>
