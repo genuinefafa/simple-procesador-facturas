@@ -46,3 +46,20 @@ export { formatZodError } from './utils.js';
 // Stats (dashboard)
 export { StatsQuerySchema, periodSchema, periodToRange } from './stats.js';
 export type { StatsQueryInput, PeriodRange } from './stats.js';
+
+// Invoice tax breakdown (#190)
+export {
+  TaxLineSchema,
+  makeTaxLinesBodySchema,
+  checkTaxLinesSum,
+  TAX_LINES_SUM_TOLERANCE,
+  TAX_LINE_CONCEPTS,
+  TAX_LINE_RATES,
+} from './invoice-tax-lines.js';
+export type {
+  TaxLine,
+  TaxLineInput,
+  TaxLineConcept,
+  TaxLinesBody,
+  TaxLinesSumCheck,
+} from './invoice-tax-lines.js';
