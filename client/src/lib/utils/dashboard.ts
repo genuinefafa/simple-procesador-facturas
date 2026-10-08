@@ -3,7 +3,12 @@
  * building, category color assignment and percentages.
  */
 
-import type { CategoryStat, LetterStat, MonthCategoryStat } from '$lib/services/StatsService.types';
+import type {
+  CategoryStat,
+  LetterStat,
+  MonthCategoryStat,
+  TaxBreakdownMonth,
+} from '$lib/services/StatsService.types';
 
 // ============================================================================
 // Periods
@@ -362,6 +367,35 @@ export function buildMonthlyData(
     row[key] = (Number(row[key]) || 0) + m.total;
   }
   return { series, rows };
+}
+
+/** Fixed series of the tax breakdown chart, in stack order */
+export const TAX_BREAKDOWN_SERIES: MonthlySeries[] = [
+  { key: 'net', label: 'Neto', color: 'var(--color-chart-1)', categoryKey: undefined },
+  { key: 'vat', label: 'IVA', color: 'var(--color-chart-2)', categoryKey: undefined },
+  { key: 'other', label: 'Otros', color: OTHER_COLOR, categoryKey: undefined },
+];
+
+/**
+ * Wide rows (one per month of the period, zero-filled) for the tax breakdown
+ * chart: net / VAT (with VAT perception) / other (IIBB perception and other
+ * taxes). Months without loaded breakdowns show 0, never an estimate.
+ */
+export function buildTaxBreakdownData(
+  byMonth: TaxBreakdownMonth[],
+  periodMonths: string[]
+): MonthlyChartData {
+  const months = [...new Set([...periodMonths, ...byMonth.map((m) => m.month)])].sort();
+  const rows: MonthlyRow[] = months.map((month) => ({ month, net: 0, vat: 0, other: 0 }));
+  const index = new Map(rows.map((r) => [r.month, r]));
+  for (const m of byMonth) {
+    const row = index.get(m.month);
+    if (!row) continue;
+    row.net = Number(row.net) + m.net;
+    row.vat = Number(row.vat) + m.vat;
+    row.other = Number(row.other) + m.other;
+  }
+  return { series: TAX_BREAKDOWN_SERIES, rows };
 }
 
 /** Wide row with running totals; `date` is the first day of the month (time x axis) */

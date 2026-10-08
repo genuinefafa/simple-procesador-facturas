@@ -18,6 +18,7 @@
     buildLetterSlices,
     buildCumulativeData,
     buildMonthlyData,
+    buildTaxBreakdownData,
     categoryQuery,
     comprobantesUrl,
     letterQuery,
@@ -41,6 +42,7 @@
   import StatsKpis from './StatsKpis.svelte';
   import CategoryBarChart from './CategoryBarChart.svelte';
   import MonthlyStackedChart from './MonthlyStackedChart.svelte';
+  import TaxBreakdownChart from './TaxBreakdownChart.svelte';
   import CumulativeAreaChart from './CumulativeAreaChart.svelte';
   import LetterDonutChart from './LetterDonutChart.svelte';
 
@@ -96,6 +98,11 @@
   const monthly = $derived(
     summary
       ? buildMonthlyData(summary.byMonth, categoryRows, monthsOfPeriod(summary.period.key))
+      : null
+  );
+  const taxBreakdown = $derived(
+    summary
+      ? buildTaxBreakdownData(summary.taxBreakdown.byMonth, monthsOfPeriod(summary.period.key))
       : null
   );
   // Running total; needs at least two months to show growth
@@ -167,6 +174,17 @@
                   open(monthCategoryQuery(series.categoryKey, month));
                 }
               }}
+            />
+          </div>
+        {/if}
+
+        {#if taxBreakdown && summary}
+          <div class="panel">
+            <h3>Neto, IVA y otros por mes</h3>
+            <TaxBreakdownChart
+              data={taxBreakdown}
+              stats={summary.taxBreakdown}
+              periodLabel={periodLabel(summary.period.key)}
             />
           </div>
         {/if}
