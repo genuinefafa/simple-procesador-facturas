@@ -87,7 +87,7 @@ fi
 
 echo ""
 echo "🔬 Validando TypeScript (server)..."
-if ! (cd server && npx tsc --noEmit); then
+if ! (cd server && ./node_modules/.bin/tsc --noEmit); then
   echo ""
   echo "❌ Errores de TypeScript en server/"
   echo "   Usá 'git commit --no-verify' para saltear esta validación (no recomendado)"
