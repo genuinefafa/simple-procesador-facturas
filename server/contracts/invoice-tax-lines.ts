@@ -13,19 +13,38 @@ export const TAX_LINE_CONCEPTS = [
   'EXEMPT',
   'VAT',
   'VAT_PERCEPTION',
+  'IIBB_PERCEPTION',
   'OTHER_TAXES',
 ] as const;
 
 export type TaxLineConcept = (typeof TAX_LINE_CONCEPTS)[number];
 
-/** Allowed rates (%) per concept. Concepts not listed take no rate. */
+/** Fixed list of allowed rates (%) per concept (mandatory for these). */
 export const TAX_LINE_RATES: Partial<Record<TaxLineConcept, readonly number[]>> = {
   NET_TAXED: [0, 2.5, 5, 10.5, 21, 27],
   VAT: [2.5, 5, 10.5, 21, 27],
 };
 
-/** Concepts that accept a free-form label. */
-export const TAX_LINE_LABEL_CONCEPTS: readonly TaxLineConcept[] = ['VAT_PERCEPTION', 'OTHER_TAXES'];
+/** Concepts with an optional free rate (%): > 0, <= 100, up to 4 decimals. */
+export const TAX_LINE_FREE_RATE_CONCEPTS: readonly TaxLineConcept[] = [
+  'VAT_PERCEPTION',
+  'IIBB_PERCEPTION',
+  'OTHER_TAXES',
+];
+
+/** Concepts that accept a free-form label (IIBB: jurisdiction). */
+export const TAX_LINE_LABEL_CONCEPTS: readonly TaxLineConcept[] = [
+  'VAT_PERCEPTION',
+  'IIBB_PERCEPTION',
+  'OTHER_TAXES',
+];
+
+/** Concepts that may repeat (no uniqueness check). */
+export const TAX_LINE_REPEATABLE_CONCEPTS: readonly TaxLineConcept[] = [
+  'VAT_PERCEPTION',
+  'IIBB_PERCEPTION',
+  'OTHER_TAXES',
+];
 
 /** Max difference (in currency units) between the lines sum and the invoice total. */
 export const TAX_LINES_SUM_TOLERANCE = 0.05;
@@ -63,6 +82,23 @@ export const TaxLineSchema = z
           path: ['rate'],
           message: `Alícuota no permitida (${allowedRates.join(', ')})`,
         });
+      }
+    } else if (TAX_LINE_FREE_RATE_CONCEPTS.includes(line.concept)) {
+      if (line.rate !== null && line.rate !== undefined) {
+        const decimals = Math.abs(line.rate * 1e4 - Math.round(line.rate * 1e4)) < 1e-6;
+        if (line.rate <= 0 || line.rate > 100) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['rate'],
+            message: 'La alícuota debe ser mayor a 0 y hasta 100',
+          });
+        } else if (!decimals) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['rate'],
+            message: 'La alícuota admite hasta 4 decimales',
+          });
+        }
       }
     } else if (line.rate !== null && line.rate !== undefined) {
       ctx.addIssue({
@@ -114,7 +150,7 @@ export function checkTaxLinesSum(
 function checkDuplicates(lines: TaxLine[], ctx: z.RefinementCtx): void {
   const seen = new Set<string>();
   lines.forEach((line, i) => {
-    if (line.concept === 'VAT_PERCEPTION' || line.concept === 'OTHER_TAXES') return;
+    if (TAX_LINE_REPEATABLE_CONCEPTS.includes(line.concept)) return;
     const key = `${line.concept}:${line.rate ?? ''}`;
     if (seen.has(key)) {
       ctx.addIssue({

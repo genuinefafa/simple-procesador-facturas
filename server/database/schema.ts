@@ -350,6 +350,7 @@ export const TAX_LINE_CONCEPTS = [
   'EXEMPT',
   'VAT',
   'VAT_PERCEPTION',
+  'IIBB_PERCEPTION',
   'OTHER_TAXES',
 ] as const;
 
@@ -361,10 +362,10 @@ const invoiceTaxLines_ = sqliteTable(
       .notNull()
       .references(() => facturas_.id, { onDelete: 'cascade' }),
     concept: text('concept', { enum: TAX_LINE_CONCEPTS }).notNull(),
-    // VAT rate in %, only for NET_TAXED and VAT
+    // NET_TAXED/VAT: VAT rate in %. Perceptions/other taxes: optional free rate in %
     rate: real('rate'),
     amount: real('amount').notNull(),
-    // Free-form description (VAT_PERCEPTION / OTHER_TAXES)
+    // Free-form description (perceptions / OTHER_TAXES); jurisdiction for IIBB
     label: text('label'),
     createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
   },

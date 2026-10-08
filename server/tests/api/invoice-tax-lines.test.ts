@@ -152,6 +152,45 @@ describe('/api/invoices/:id/tax-lines', () => {
     expect((await ok.json()).lines[2].label).toBe('Perc. IVA');
   });
 
+  it('PUT validates optional free rates on perceptions and other taxes', async () => {
+    const id = insertInvoice({ total: 100 });
+    const perc = (concept: string, rate?: number | null, label?: string): object => ({
+      concept,
+      amount: 100,
+      ...(rate !== undefined ? { rate } : {}),
+      ...(label !== undefined ? { label } : {}),
+    });
+    // rate is optional
+    expect((await put(id, { lines: [perc('VAT_PERCEPTION')] })).status).toBe(200);
+    // free rate accepted, with up to 4 decimals
+    const ok = await put(id, { lines: [perc('IIBB_PERCEPTION', 3.5, 'BA')] });
+    expect(ok.status).toBe(200);
+    const saved = await ok.json();
+    expect(saved.lines[0]).toMatchObject({ concept: 'IIBB_PERCEPTION', rate: 3.5, label: 'BA' });
+    expect((await put(id, { lines: [perc('OTHER_TAXES', 1.2345)] })).status).toBe(200);
+    expect((await put(id, { lines: [perc('VAT_PERCEPTION', 100)] })).status).toBe(200);
+    // out of range or too many decimals
+    expect((await put(id, { lines: [perc('VAT_PERCEPTION', 0)] })).status).toBe(400);
+    expect((await put(id, { lines: [perc('VAT_PERCEPTION', -1)] })).status).toBe(400);
+    expect((await put(id, { lines: [perc('IIBB_PERCEPTION', 100.5)] })).status).toBe(400);
+    expect((await put(id, { lines: [perc('OTHER_TAXES', 1.23456)] })).status).toBe(400);
+    // concepts without rate still reject it
+    expect((await put(id, { lines: [perc('NET_UNTAXED', 3)] })).status).toBe(400);
+    expect((await put(id, { lines: [perc('EXEMPT', 3)] })).status).toBe(400);
+  });
+
+  it('PUT allows repeated IIBB perceptions with different jurisdictions', async () => {
+    const id = insertInvoice({ total: 200 });
+    const res = await put(id, {
+      lines: [
+        { concept: 'IIBB_PERCEPTION', rate: 4, amount: 100, label: 'BA' },
+        { concept: 'IIBB_PERCEPTION', rate: 3, amount: 100, label: 'CABA' },
+      ],
+    });
+    expect(res.status).toBe(200);
+    expect((await res.json()).lines).toHaveLength(2);
+  });
+
   it('PUT rejects non-positive amounts', async () => {
     const id = insertInvoice({ total: 121 });
     expect((await put(id, { lines: [net(0)] })).status).toBe(400);
