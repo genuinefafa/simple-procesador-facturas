@@ -135,6 +135,46 @@ export function isValidARCACode(code: number | null | undefined): boolean {
 }
 
 /**
+ * Letter used for financial reporting. 'other' covers export invoices (E)
+ * and any code missing from afip-types.json.
+ */
+export type InvoiceLetter = 'A' | 'B' | 'C' | 'M' | 'other';
+
+const REPORTING_LETTERS: ReadonlySet<string> = new Set(['A', 'B', 'C', 'M']);
+
+/**
+ * Gets the reporting letter for an ARCA code.
+ *
+ * NOTE: the gold view (v_comprobantes_oro) mirrors this mapping in SQL.
+ * tests/api/gold-view.test.ts checks both stay in sync for every code.
+ *
+ * @example
+ * getInvoiceLetter(63) // "A" (Liquidación A)
+ * getInvoiceLetter(19) // "other" (Factura E)
+ */
+export function getInvoiceLetter(code: number | null | undefined): InvoiceLetter {
+  if (code === null || code === undefined) return 'other';
+  const letter = getDocumentTypeFromARCACode(code)?.invoiceType;
+  return letter && REPORTING_LETTERS.has(letter) ? (letter as InvoiceLetter) : 'other';
+}
+
+/**
+ * Sign coefficient for totals: credit notes subtract (-1), everything else
+ * adds (+1). Unknown codes add.
+ */
+export function getInvoiceSign(code: number | null | undefined): 1 | -1 {
+  if (code === null || code === undefined) return 1;
+  return getDocumentTypeFromARCACode(code)?.documentKind === 'NCR' ? -1 : 1;
+}
+
+/**
+ * Whether VAT on this letter is recoverable as tax credit (IVA discriminado).
+ */
+export function isVatRecoverable(letter: InvoiceLetter): boolean {
+  return letter === 'A' || letter === 'M';
+}
+
+/**
  * Extrae el código ARCA y tipo de documento del texto de una factura
  * Busca patrones comunes donde aparece el código numérico
  *

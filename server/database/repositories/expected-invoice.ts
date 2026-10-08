@@ -4,6 +4,7 @@
 
 import { eq, inArray, and, desc, gte, lte, like, SQL, sql } from 'drizzle-orm';
 import { getDb } from '../db';
+import { getInvoiceSign } from '../../utils/afip-codes';
 import {
   expectedInvoices,
   importBatches,
@@ -14,37 +15,6 @@ import {
 } from '../schema';
 
 export type ExpectedInvoiceStatus = 'pending' | 'matched' | 'balanced';
-
-/**
- * Coeficiente de signo por tipo de comprobante ARCA.
- * Notas de crédito restan (-1), facturas y notas de débito suman (+1).
- * Fuente: https://www.afip.gob.ar/inversiones-bienes-uso/documentos/tabla-comprobantes-bienes-de-uso.pdf
- */
-const ARCA_SIGN_MAP: Record<number, -1 | 1> = {
-  // Facturas (+)
-  1: 1,
-  6: 1,
-  11: 1,
-  19: 1,
-  51: 1,
-  // Notas de Crédito (-)
-  3: -1,
-  8: -1,
-  13: -1,
-  21: -1,
-  53: -1,
-  // Notas de Débito (+)
-  2: 1,
-  7: 1,
-  12: 1,
-  20: 1,
-  52: 1,
-};
-
-function getInvoiceSign(invoiceType: number | null): 1 | -1 {
-  if (invoiceType === null) return 1;
-  return ARCA_SIGN_MAP[invoiceType] ?? 1;
-}
 
 export interface ExpectedInvoice {
   id: number;
