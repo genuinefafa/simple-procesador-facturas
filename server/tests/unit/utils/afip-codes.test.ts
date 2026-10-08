@@ -8,6 +8,9 @@ import {
   extractARCACodeFromText,
   extractInvoiceTypeWithARCA,
   AFIP_TYPES,
+  getInvoiceLetter,
+  getInvoiceSign,
+  isVatRecoverable,
 } from '../../../utils/afip-codes';
 
 describe('AFIP Codes', () => {
@@ -251,5 +254,37 @@ describe('AFIP Codes', () => {
       expect(result?.method).toBe('ARCA_CODE');
       expect(result?.code).toBe(11);
     });
+  });
+});
+
+describe('Reporting helpers', () => {
+  it('maps codes to letters, including liquidaciones and tiques', () => {
+    expect(getInvoiceLetter(1)).toBe('A');
+    expect(getInvoiceLetter(63)).toBe('A');
+    expect(getInvoiceLetter(81)).toBe('A');
+    expect(getInvoiceLetter(82)).toBe('B');
+    expect(getInvoiceLetter(111)).toBe('C');
+    expect(getInvoiceLetter(118)).toBe('M');
+    expect(getInvoiceLetter(19)).toBe('other');
+    expect(getInvoiceLetter(9999)).toBe('other');
+    expect(getInvoiceLetter(null)).toBe('other');
+  });
+
+  it('signs credit notes negative, including FCE MiPyMEs', () => {
+    for (const code of [3, 8, 13, 21, 53, 203, 208, 213]) {
+      expect(getInvoiceSign(code)).toBe(-1);
+    }
+    for (const code of [1, 2, 6, 11, 51, 201, 9999]) {
+      expect(getInvoiceSign(code)).toBe(1);
+    }
+    expect(getInvoiceSign(null)).toBe(1);
+  });
+
+  it('marks A and M as VAT recoverable', () => {
+    expect(isVatRecoverable('A')).toBe(true);
+    expect(isVatRecoverable('M')).toBe(true);
+    expect(isVatRecoverable('B')).toBe(false);
+    expect(isVatRecoverable('C')).toBe(false);
+    expect(isVatRecoverable('other')).toBe(false);
   });
 });

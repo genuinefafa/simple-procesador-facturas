@@ -163,25 +163,65 @@
     "code": 60,
     "invoiceType": "A",
     "documentKind": "FAC",
-    "friendlyType": "TQFA",
-    "description": "Tique Factura A",
-    "descriptionLong": "Tique Factura A"
+    "friendlyType": "CVLA",
+    "description": "Cuenta de Venta y Líquido Producto A",
+    "descriptionLong": "Cuenta de Venta y Líquido Producto A"
+  },
+  "61": {
+    "code": 61,
+    "invoiceType": "B",
+    "documentKind": "FAC",
+    "friendlyType": "CVLB",
+    "description": "Cuenta de Venta y Líquido Producto B",
+    "descriptionLong": "Cuenta de Venta y Líquido Producto B"
   },
   "63": {
     "code": 63,
+    "invoiceType": "A",
+    "documentKind": "FAC",
+    "friendlyType": "LIQA",
+    "description": "Liquidación A",
+    "descriptionLong": "Liquidación A"
+  },
+  "64": {
+    "code": 64,
     "invoiceType": "B",
     "documentKind": "FAC",
-    "friendlyType": "TQFB",
-    "description": "Tique Factura B",
-    "descriptionLong": "Tique Factura B"
+    "friendlyType": "LIQB",
+    "description": "Liquidación B",
+    "descriptionLong": "Liquidación B"
   },
   "81": {
     "code": 81,
+    "invoiceType": "A",
+    "documentKind": "FAC",
+    "friendlyType": "TFCA",
+    "description": "Tique Factura A",
+    "descriptionLong": "Tique Factura A"
+  },
+  "82": {
+    "code": 82,
+    "invoiceType": "B",
+    "documentKind": "FAC",
+    "friendlyType": "TFCB",
+    "description": "Tique Factura B",
+    "descriptionLong": "Tique Factura B"
+  },
+  "111": {
+    "code": 111,
     "invoiceType": "C",
     "documentKind": "FAC",
-    "friendlyType": "TQFC",
+    "friendlyType": "TFCC",
     "description": "Tique Factura C",
     "descriptionLong": "Tique Factura C"
+  },
+  "118": {
+    "code": 118,
+    "invoiceType": "M",
+    "documentKind": "FAC",
+    "friendlyType": "TFCM",
+    "description": "Tique Factura M",
+    "descriptionLong": "Tique Factura M"
   },
   "201": {
     "code": 201,
