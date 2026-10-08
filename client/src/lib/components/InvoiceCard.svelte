@@ -406,17 +406,17 @@
   }
 
   .card-content {
-    padding: var(--spacing-4);
+    padding: var(--spacing-3);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-3);
+    gap: var(--spacing-2);
   }
 
   /* Stacked field: label arriba, valor abajo */
   .field.stacked {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-1);
+    gap: 0;
   }
 
   .field-label {
@@ -428,10 +428,10 @@
   }
 
   .field-value {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm);
     background: none;
     border: none;
-    padding: var(--spacing-2);
+    padding: var(--spacing-1) var(--spacing-2);
     border-radius: var(--radius-md);
     text-align: left;
     cursor: pointer;
@@ -451,7 +451,7 @@
 
   /* Emisor: nombre arriba, CUIT abajo */
   .emitter-name {
-    font-size: var(--font-size-base);
+    font-size: var(--font-size-sm);
     color: var(--color-text-primary);
   }
 
@@ -526,7 +526,6 @@
   .category-section {
     padding-top: var(--spacing-2);
     border-top: 1px solid var(--color-border);
-    margin-top: var(--spacing-1);
   }
 
   .card-footer {
