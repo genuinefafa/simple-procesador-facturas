@@ -89,6 +89,12 @@
 </div>
 
 <style>
+  /* Always reserve the scrollbar space so the layout does not shift when a
+     page (or a period change) toggles between scrolling and not scrolling */
+  :global(html) {
+    scrollbar-gutter: stable;
+  }
+
   :global(body) {
     margin: 0;
     padding: 0;
