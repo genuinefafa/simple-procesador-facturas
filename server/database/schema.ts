@@ -168,6 +168,26 @@ const expectedInvoices_ = sqliteTable(
     caeExpiration: text('cae_expiration'),
     currency: text('currency').default('ARS'),
 
+    // Desglose informado por ARCA (capa bronce, #129). Todas nullable: los Excel
+    // viejos / formato simple no las traen.
+    netTaxed0: real('net_taxed_0'),
+    netTaxed2_5: real('net_taxed_2_5'),
+    netTaxed5: real('net_taxed_5'),
+    netTaxed10_5: real('net_taxed_10_5'),
+    netTaxed21: real('net_taxed_21'),
+    netTaxed27: real('net_taxed_27'),
+    vat2_5: real('vat_2_5'),
+    vat5: real('vat_5'),
+    vat10_5: real('vat_10_5'),
+    vat21: real('vat_21'),
+    vat27: real('vat_27'),
+    netTaxedTotal: real('net_taxed_total'),
+    netUntaxed: real('net_untaxed'),
+    exempt: real('exempt'),
+    otherTaxes: real('other_taxes'),
+    vatTotal: real('vat_total'),
+    exchangeRate: real('exchange_rate'),
+
     // Estado: pending (sin factura vinculada), matched (con factura vinculada), balanced (en grupo balanceado)
     status: text('status', {
       enum: ['pending', 'matched', 'balanced'],
