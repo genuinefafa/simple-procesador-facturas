@@ -125,6 +125,12 @@ export class ReconciliationRepository {
     return rows.map(mapRow);
   }
 
+  /** Every invoice, in a single query (no period filter). */
+  listAllTaxBreakdownCandidates(): TaxBreakdownCandidate[] {
+    const rows = getRawDb().prepare(`${BASE_SQL} ORDER BY f.id`).all() as Row[];
+    return rows.map(mapRow);
+  }
+
   findTaxBreakdownCandidate(invoiceId: number): TaxBreakdownCandidate | null {
     const row = getRawDb().prepare(`${BASE_SQL} WHERE f.id = ?`).get(invoiceId) as Row | null;
     return row ? mapRow(row) : null;
