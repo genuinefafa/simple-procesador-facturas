@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import Button from '$lib/components/ui/Button.svelte';
   import Input from '$lib/components/ui/Input.svelte';
+  import StatsSection from '$lib/components/dashboard/StatsSection.svelte';
   import type { PageData } from './$types';
 
   type SearchResult = {
@@ -127,6 +128,8 @@
   </div>
 </section>
 
+<StatsSection />
+
 <section class="search-panel">
   <div class="panel-header">
     <div>
@@ -135,7 +138,7 @@
       <p class="hint">Por CUIT, número de comprobante o nombre de archivo (LIKE simple).</p>
     </div>
     <div class="actions-inline">
-      <Button variant="secondary" onclick={() => goto('/facturas')}>Ver todas</Button>
+      <Button variant="secondary" onclick={() => goto('/comprobantes')}>Ver todas</Button>
     </div>
   </div>
 
