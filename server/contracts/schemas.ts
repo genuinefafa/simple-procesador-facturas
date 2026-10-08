@@ -3,7 +3,7 @@
  * These are server-only contracts for HTTP endpoints.
  */
 
-import { z } from 'zod';
+import * as z from 'zod';
 
 // =============================================================================
 // Domain Schemas (reusable validation rules)
