@@ -564,4 +564,75 @@ describe('Filter Executor', () => {
       expect(matcher(comprobante, filter)).toBe(true);
     });
   });
+
+  describe('Categoria matching by key', () => {
+    const keyed = createFilterMatcher([
+      { id: 1, key: 'servicios', description: 'Servicios profesionales' },
+      { id: 2, key: 'servicios_it', description: 'Servicios' },
+    ]);
+    const withCategory = (categoryId: number | null) =>
+      createTestComprobante({
+        final: {
+          source: 'final',
+          id: 1,
+          cuit: '30-12345678-9',
+          issueDate: '2024-01-15',
+          invoiceType: 6,
+          pointOfSale: 1,
+          invoiceNumber: 123,
+          total: 1000,
+          categoryId,
+        },
+      });
+    const filter: FilterNode = { type: 'categoria', value: 'servicios', negate: false };
+
+    it('should prefer the exact key over description substring', () => {
+      expect(keyed(withCategory(1), filter)).toBe(true);
+      expect(keyed(withCategory(2), filter)).toBe(false);
+    });
+
+    it('should match key case-insensitively', () => {
+      expect(keyed(withCategory(2), { ...filter, value: 'SERVICIOS_IT' })).toBe(true);
+    });
+  });
+
+  describe('Letra matching', () => {
+    const withType = (invoiceType: number) =>
+      createTestComprobante({
+        final: {
+          source: 'final',
+          id: 1,
+          cuit: '30-12345678-9',
+          issueDate: '2024-01-15',
+          invoiceType,
+          pointOfSale: 1,
+          invoiceNumber: 123,
+          total: 1000,
+          categoryId: null,
+        },
+      });
+    const letra = (value: 'A' | 'B' | 'C' | 'M' | 'other', negate = false): FilterNode => ({
+      type: 'letra',
+      value,
+      negate,
+    });
+
+    it('should match the letter of the final invoice', () => {
+      expect(matcher(withType(1), letra('A'))).toBe(true);
+      expect(matcher(withType(6), letra('B'))).toBe(true);
+      expect(matcher(withType(6), letra('A'))).toBe(false);
+    });
+
+    it('should map letters outside A/B/C/M to other', () => {
+      expect(matcher(withType(19), letra('other'))).toBe(true);
+    });
+
+    it('should not match comprobantes without final', () => {
+      expect(matcher(createTestComprobante(), letra('A'))).toBe(false);
+    });
+
+    it('should support negation', () => {
+      expect(matcher(withType(6), letra('A', true))).toBe(true);
+    });
+  });
 });
