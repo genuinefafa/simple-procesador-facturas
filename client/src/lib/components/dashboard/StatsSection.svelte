@@ -16,11 +16,14 @@
     assignCategoryColors,
     buildCategoryRows,
     buildLetterSlices,
+    buildCumulativeData,
     buildMonthlyData,
     categoryQuery,
     comprobantesUrl,
     letterQuery,
     monthCategoryQuery,
+    cumulativeCategoryQuery,
+    currentMonth,
     monthsOfPeriod,
     pendingExpectedQuery,
     pendingFilesQuery,
@@ -38,6 +41,7 @@
   import StatsKpis from './StatsKpis.svelte';
   import CategoryBarChart from './CategoryBarChart.svelte';
   import MonthlyStackedChart from './MonthlyStackedChart.svelte';
+  import CumulativeAreaChart from './CumulativeAreaChart.svelte';
   import LetterDonutChart from './LetterDonutChart.svelte';
 
   interface Props {
@@ -94,6 +98,12 @@
       ? buildMonthlyData(summary.byMonth, categoryRows, monthsOfPeriod(summary.period.key))
       : null
   );
+  // Running total; needs at least two months to show growth
+  const cumulative = $derived.by(() => {
+    if (!monthly) return null;
+    const data = buildCumulativeData(monthly, currentMonth());
+    return data.rows.length > 1 ? data : null;
+  });
   const letterSlices = $derived(summary ? buildLetterSlices(summary.byLetter) : []);
   const isEmpty = $derived(!!summary && summary.totals.count === 0);
 
@@ -155,6 +165,21 @@
                 // The folded "Otras" series has no query that represents it
                 if (series.categoryKey !== undefined) {
                   open(monthCategoryQuery(series.categoryKey, month));
+                }
+              }}
+            />
+          </div>
+        {/if}
+
+        {#if cumulative}
+          <div class="panel">
+            <h3>Acumulado por categoría</h3>
+            <CumulativeAreaChart
+              data={cumulative}
+              onselect={(month, series) => {
+                // The folded "Otras" series has no query that represents it
+                if (series.categoryKey !== undefined) {
+                  open(cumulativeCategoryQuery(series.categoryKey, period, month));
                 }
               }}
             />

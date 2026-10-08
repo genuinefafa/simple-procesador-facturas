@@ -4,11 +4,14 @@ import {
   assignCategoryColors,
   buildCategoryRows,
   buildLetterSlices,
+  buildCumulativeData,
   buildMonthlyData,
   buildPeriodKey,
   categoryColor,
   categoryQuery,
   changePeriodKind,
+  cumulativeCategoryQuery,
+  currentMonth,
   comprobantesUrl,
   formatPercent,
   letterAggregates,
@@ -109,6 +112,7 @@ describe('deep link queries', () => {
       letterQuery('other', '2026'),
       pendingExpectedQuery('2026-Q1'),
       pendingFilesQuery(),
+      cumulativeCategoryQuery('servicios', '2026-Q2', '2026-05'),
     ];
     for (const q of queries) {
       const { errors, filters } = parseSearchQuery(q);
@@ -232,5 +236,51 @@ describe('chart data', () => {
     const agg = letterAggregates(slices);
     expect(agg.vat).toEqual({ total: 400, percent: (400 / 600) * 100 });
     expect(agg.noCredit.total).toBe(200);
+  });
+});
+
+describe('buildCumulativeData', () => {
+  const monthly = {
+    series: [
+      { key: 'c1', label: 'X', color: 'var(--color-chart-1)', categoryKey: 'x' },
+      { key: 'sin', label: 'Sin categoría', color: 'var(--color-chart-other)', categoryKey: null },
+    ],
+    rows: [
+      { month: '2026-01', c1: 100, sin: 0 },
+      { month: '2026-02', c1: 0, sin: 50 },
+      { month: '2026-03', c1: -30, sin: 10 },
+      { month: '2026-04', c1: 0, sin: 0 },
+    ],
+  };
+
+  it('accumulates each series month by month, credit notes included', () => {
+    const { rows } = buildCumulativeData(monthly);
+    expect(rows.map((r) => [r.month, r.c1, r.sin])).toEqual([
+      ['2026-01', 100, 0],
+      ['2026-02', 100, 50],
+      ['2026-03', 70, 60],
+      ['2026-04', 70, 60],
+    ]);
+    expect(rows[0].date).toEqual(new Date(2026, 0, 1));
+  });
+
+  it('drops months after untilMonth', () => {
+    const { rows } = buildCumulativeData(monthly, '2026-02');
+    expect(rows.map((r) => r.month)).toEqual(['2026-01', '2026-02']);
+  });
+});
+
+describe('cumulativeCategoryQuery', () => {
+  it('spans from the start of the period to the end of the month', () => {
+    expect(cumulativeCategoryQuery('x', '2026', '2026-02')).toBe(
+      'categoria:x fecha:2026-01-01..2026-02-28'
+    );
+    expect(cumulativeCategoryQuery(null, '2026-Q3', '2026-09')).toBe(
+      'categoria:sin fecha:2026-07-01..2026-09-30'
+    );
+  });
+
+  it('formats the current month', () => {
+    expect(currentMonth(new Date(2026, 9, 8))).toBe('2026-10');
   });
 });

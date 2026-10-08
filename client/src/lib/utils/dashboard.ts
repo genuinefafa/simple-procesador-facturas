@@ -364,6 +364,62 @@ export function buildMonthlyData(
   return { series, rows };
 }
 
+/** Wide row with running totals; `date` is the first day of the month (time x axis) */
+export type CumulativeRow = { month: string; date: Date } & Record<string, number | string | Date>;
+
+export interface CumulativeChartData {
+  series: MonthlySeries[];
+  rows: CumulativeRow[];
+}
+
+/**
+ * Running total per series, month by month, from the monthly wide rows.
+ * Months after `untilMonth` (YYYY-MM, usually the current month) are dropped
+ * so the chart does not end in a flat plateau of months that have not
+ * happened yet.
+ */
+export function buildCumulativeData(
+  monthly: MonthlyChartData,
+  untilMonth?: string
+): CumulativeChartData {
+  const running = new Map(monthly.series.map((s) => [s.key, 0]));
+  const rows = monthly.rows
+    .filter((r) => untilMonth === undefined || r.month <= untilMonth)
+    .map((r) => {
+      const row: CumulativeRow = {
+        month: r.month,
+        date: new Date(Number(r.month.slice(0, 4)), Number(r.month.slice(5, 7)) - 1, 1),
+      };
+      for (const s of monthly.series) {
+        const total = (running.get(s.key) ?? 0) + (Number(r[s.key]) || 0);
+        running.set(s.key, total);
+        row[s.key] = total;
+      }
+      return row;
+    });
+  return { series: monthly.series, rows };
+}
+
+/** Current month as YYYY-MM */
+export function currentMonth(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * Deep link for a point of the cumulative chart: the category from the start
+ * of the period up to the end of that month.
+ */
+export function cumulativeCategoryQuery(
+  categoryKey: string | null,
+  period: string,
+  month: string
+): string {
+  const from = `${monthsOfPeriod(period)[0]}-01`;
+  const [y, m] = month.split('-').map(Number);
+  const lastDay = new Date(y, m, 0).getDate();
+  return `${categoryFilter(categoryKey)} fecha:${from}..${month}-${String(lastDay).padStart(2, '0')}`;
+}
+
 export interface LetterSlice {
   letter: LetterStat['letter'];
   label: string;
