@@ -59,7 +59,7 @@ describe('GET /api/comprobantes taxReconciliation', () => {
     const res = await app.request('/api/comprobantes');
     expect(res.status).toBe(200);
     const body = (await res.json()) as Any;
-    const byId = (id: number) => body.comprobantes.find((c: Any) => c.id === `factura:${id}`);
+    const byId = (id: number): Any => body.comprobantes.find((c: Any) => c.id === `factura:${id}`);
 
     expect(byId(completable).taxReconciliation).toEqual({
       status: 'completable',

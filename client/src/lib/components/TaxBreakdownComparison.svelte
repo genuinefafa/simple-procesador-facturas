@@ -7,11 +7,11 @@
   import { toast } from 'svelte-sonner';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
+  import TaxBreakdownCompareTable from '$lib/components/TaxBreakdownCompareTable.svelte';
   import { X } from '$lib/components/icons';
-  import { formatCurrency, formatDateShort } from '$lib/formatters';
+  import { formatDateShort } from '$lib/formatters';
   import { reconciliationService } from '$lib/services/ReconciliationService';
   import {
-    bucketLabel,
     REASON_LABELS,
     STATUS_LABELS,
     type TaxReconciliationItem,
@@ -100,11 +100,6 @@
   async function removeAcceptance() {
     await run(() => reconciliationService.removeAcceptance(invoiceId), 'Aceptación quitada', false);
   }
-
-  function signed(value: number): string {
-    if (value === 0) return formatCurrency(0);
-    return `${value > 0 ? '+' : '−'}${formatCurrency(Math.abs(value))}`;
-  }
 </script>
 
 <section class="comparison" aria-label="Comparación con ARCA">
@@ -132,46 +127,10 @@
       <p class="notice" role="status">ARCA cambió desde que se aceptó la diferencia.</p>
     {/if}
 
-    {#if item.buckets.length > 0}
-      <table>
-        <thead>
-          <tr>
-            <th>Concepto</th>
-            <th class="num">Factura</th>
-            <th class="num">ARCA</th>
-            <th class="num">Diferencia</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each item.buckets as bucket (bucket.key)}
-            <tr class:mismatch={!bucket.matches}>
-              <td>{bucketLabel(bucket.concept, bucket.rate)}</td>
-              <td class="num">{formatCurrency(bucket.invoice)}</td>
-              <td class="num">{formatCurrency(bucket.arca)}</td>
-              <td class="num">{bucket.matches ? '—' : signed(bucket.diff)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {:else if item.arcaLines && item.arcaLines.length > 0}
+    {#if item.buckets.length === 0 && item.arcaLines && item.arcaLines.length > 0}
       <p class="muted">La factura no tiene desglose cargado. ARCA informa:</p>
-      <table>
-        <thead>
-          <tr>
-            <th>Concepto</th>
-            <th class="num">ARCA</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each item.arcaLines as line, i (i)}
-            <tr>
-              <td>{bucketLabel(line.concept, line.rate)}</td>
-              <td class="num">{formatCurrency(line.amount)}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
     {/if}
+    <TaxBreakdownCompareTable {item} />
 
     {#if item.ack && item.reason === 'accepted'}
       <div class="ack">
@@ -313,39 +272,6 @@
     background: color-mix(in srgb, var(--color-warning) 12%, var(--color-surface));
     font-size: var(--font-size-sm);
     color: var(--color-text-primary);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-size-sm);
-  }
-
-  th {
-    text-align: left;
-    padding: var(--spacing-1) var(--spacing-2);
-    font-size: var(--font-size-xs);
-    font-weight: var(--font-weight-semibold);
-    color: var(--color-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  td {
-    padding: var(--spacing-1) var(--spacing-2);
-    border-bottom: 1px solid var(--color-border);
-    color: var(--color-text-primary);
-  }
-
-  .num {
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  tr.mismatch td {
-    background: color-mix(in srgb, var(--color-warning) 14%, var(--color-surface));
-    font-weight: var(--font-weight-medium);
   }
 
   .ack {
