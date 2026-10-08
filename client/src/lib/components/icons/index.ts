@@ -64,6 +64,8 @@ export {
   // Balance
   Scale,
   Calculator,
+  ArrowUp,
+  CornerDownRight,
   Link2,
   Unlink2,
   Star,

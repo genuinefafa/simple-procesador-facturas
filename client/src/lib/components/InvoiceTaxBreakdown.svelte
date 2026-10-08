@@ -8,7 +8,17 @@
   import { toast } from 'svelte-sonner';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { AlertTriangle, Calculator, Plus, Trash2, Edit, Save, X } from '$lib/components/icons';
+  import {
+    AlertTriangle,
+    ArrowUp,
+    Calculator,
+    CornerDownRight,
+    Plus,
+    Trash2,
+    Edit,
+    Save,
+    X,
+  } from '$lib/components/icons';
   import { formatCurrency } from '$lib/formatters';
   import { invoiceTaxLinesService } from '$lib/services/InvoiceTaxLinesService';
   import TaxLineSelect from './TaxLineSelect.svelte';
@@ -217,7 +227,7 @@
             value: `net:${n.rate}`,
             label: `Neto IVA ${formatRate(Number(n.rate))}%`,
           })),
-          { value: 'total', label: 'Neto gravado total' },
+          { value: 'total', label: 'Neto total' },
         ]
   );
 
@@ -473,19 +483,6 @@
                   ariaLabel="Alícuota"
                   onchange={(v) => (row.rate = v)}
                 />
-                {#if row.concept === 'VAT'}
-                  {@const hint = vatCalcHint(row)}
-                  <button
-                    type="button"
-                    class="icon-btn calc"
-                    aria-label={hint ?? 'Calcular IVA desde el neto de la misma alícuota'}
-                    data-tip={hint ?? 'Calcular IVA desde el neto'}
-                    disabled={hint !== null}
-                    onclick={() => calcVat(row)}
-                  >
-                    <Calculator size={14} />
-                  </button>
-                {/if}
               {:else if row.concept && LABEL_CONCEPTS.includes(row.concept)}
                 <input
                   type="text"
@@ -517,18 +514,45 @@
             >
               <X size={14} />
             </button>
-            {#if isFreeRate(row.concept)}
+            {#if row.concept === 'VAT'}
+              {@const hint = vatCalcHint(row)}
+              <div class="subrow">
+                <div class="sub-lead">
+                  <CornerDownRight size={14} />
+                  <span>{row.rate ? `${formatRate(Number(row.rate))}%` : '—'} sobre</span>
+                </div>
+                <span class="sub-base">
+                  {row.rate
+                    ? `Neto IVA ${formatRate(Number(row.rate))}%`
+                    : 'Neto de la misma alícuota'}
+                </span>
+                <button
+                  type="button"
+                  class="calc-btn"
+                  aria-label={hint ?? 'Calcular el IVA desde el neto y completar el monto'}
+                  data-tip={hint ?? 'Calcular y completar el monto'}
+                  disabled={hint !== null}
+                  onclick={() => calcVat(row)}
+                >
+                  <ArrowUp size={12} />
+                  <Calculator size={14} />
+                </button>
+              </div>
+            {:else if isFreeRate(row.concept)}
               {@const hint = percCalcHint(row)}
               <div class="subrow">
-                <input
-                  type="text"
-                  inputmode="decimal"
-                  class="field pct-input"
-                  placeholder="%"
-                  aria-label="Porcentaje"
-                  bind:value={row.rate}
-                />
-                <span class="subrow-text">% sobre</span>
+                <div class="sub-lead">
+                  <CornerDownRight size={14} />
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    class="field pct-input"
+                    placeholder="%"
+                    aria-label="Porcentaje"
+                    bind:value={row.rate}
+                  />
+                  <span>% sobre</span>
+                </div>
                 <div class="base-select">
                   <TaxLineSelect
                     value={effectiveBase(row)}
@@ -540,12 +564,13 @@
                 </div>
                 <button
                   type="button"
-                  class="icon-btn calc"
-                  aria-label={hint ?? 'Calcular monto como porcentaje de la base'}
-                  data-tip={hint ?? 'Calcular monto'}
+                  class="calc-btn"
+                  aria-label={hint ?? 'Calcular el porcentaje de la base y completar el monto'}
+                  data-tip={hint ?? 'Calcular y completar el monto'}
                   disabled={hint !== null}
                   onclick={() => calcPerc(row)}
                 >
+                  <ArrowUp size={12} />
                   <Calculator size={14} />
                 </button>
               </div>
@@ -762,7 +787,7 @@
   .rows {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-2);
+    gap: var(--spacing-1);
   }
 
   .row {
@@ -770,6 +795,13 @@
     grid-template-columns: minmax(140px, 1.25fr) minmax(120px, 1.15fr) minmax(90px, 0.9fr) auto;
     gap: var(--spacing-2);
     align-items: center;
+    padding: var(--spacing-2);
+    border-radius: var(--radius-base);
+  }
+
+  /* Striped groups: a line and its sub-row read as one block */
+  .row:nth-child(odd) {
+    background: var(--color-neutral-100);
   }
 
   .row-error {
@@ -816,10 +848,9 @@
 
   .subrow {
     grid-column: 1 / -1;
-    display: flex;
+    display: grid;
+    grid-template-columns: subgrid;
     align-items: center;
-    gap: var(--spacing-2);
-    padding-left: var(--spacing-3);
     font-size: var(--font-size-xs);
     color: var(--color-text-tertiary);
   }
@@ -829,19 +860,49 @@
     padding: var(--spacing-1) var(--spacing-2);
   }
 
+  .sub-lead {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    padding-left: var(--spacing-3);
+    white-space: nowrap;
+  }
+
+  .sub-base {
+    padding-left: var(--spacing-2);
+  }
+
   .pct-input {
-    width: 64px;
+    width: 56px;
     text-align: right;
   }
 
   .base-select {
-    flex: 1;
     min-width: 0;
     font-size: var(--font-size-xs);
   }
 
-  .icon-btn.calc:hover:not(:disabled) {
+  .calc-btn {
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: var(--spacing-1) var(--spacing-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .calc-btn:hover:not(:disabled) {
     color: var(--color-primary-500);
+    border-color: var(--color-primary-500);
+  }
+
+  .calc-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .icon-btn:disabled {
@@ -850,11 +911,11 @@
   }
 
   /* CSS tooltip (preferred over native title) */
-  .icon-btn[data-tip] {
+  [data-tip] {
     position: relative;
   }
 
-  .icon-btn[data-tip]:hover::after {
+  [data-tip]:hover::after {
     content: attr(data-tip);
     position: absolute;
     right: 0;
