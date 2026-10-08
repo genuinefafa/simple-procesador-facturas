@@ -1011,7 +1011,10 @@ invoicesRouter.delete('/:id', async (c) => {
 // Tax breakdown (#190)
 // ---------------------------------------------------------------------------
 
-async function buildTaxLinesResponse(ctx: InvoiceTaxContext, repo: InvoiceTaxLinesRepository) {
+async function buildTaxLinesResponse(
+  ctx: InvoiceTaxContext,
+  repo: InvoiceTaxLinesRepository
+): Promise<Record<string, unknown>> {
   const rows = await repo.findByInvoiceId(ctx.id);
   const lines = rows.map((r) => ({
     id: r.id,
@@ -1067,7 +1070,7 @@ invoicesRouter.put('/:id/tax-lines', async (c) => {
       return c.json({ success: false, error: 'Factura no encontrada' }, 404);
     }
 
-    const body = await c.req.json().catch(() => null);
+    const body: unknown = await c.req.json().catch(() => null);
     const result = makeTaxLinesBodySchema(ctx.total).safeParse(body);
     if (!result.success) {
       return c.json(formatZodError(result.error), 400);

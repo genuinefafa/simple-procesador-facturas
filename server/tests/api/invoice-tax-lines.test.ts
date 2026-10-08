@@ -29,16 +29,16 @@ function insertInvoice(opts: { type?: number; total: number | null }): number {
   );
 }
 
-const put = (id: number, body: unknown) =>
+const put = (id: number, body: unknown): Promise<Response> =>
   app.request(`/api/invoices/${id}/tax-lines`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
-const get = (id: number) => app.request(`/api/invoices/${id}/tax-lines`);
+const get = (id: number): Promise<Response> => app.request(`/api/invoices/${id}/tax-lines`);
 
-const net = (amount: number, rate = 21) => ({ concept: 'NET_TAXED', rate, amount });
-const vat = (amount: number, rate = 21) => ({ concept: 'VAT', rate, amount });
+const net = (amount: number, rate = 21): object => ({ concept: 'NET_TAXED', rate, amount });
+const vat = (amount: number, rate = 21): object => ({ concept: 'VAT', rate, amount });
 
 describe('checkTaxLinesSum', () => {
   it('computes sum/diff and applies the tolerance', () => {
