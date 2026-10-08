@@ -10,6 +10,7 @@ export type ReconciliationReason =
   | 'no_expected'
   | 'arca_no_breakdown'
   | 'arca_sum_mismatch'
+  | 'arca_available'
   | 'matches_arca'
   | 'no_arca_reference'
   | 'accepted'
@@ -86,6 +87,7 @@ export const REASON_LABELS: Record<ReconciliationReason, string> = {
   no_expected: 'Sin vincular a ARCA',
   arca_no_breakdown: 'ARCA no informa desglose',
   arca_sum_mismatch: 'El desglose de ARCA no suma el total',
+  arca_available: 'ARCA informa un desglose que cuadra con el total',
   matches_arca: 'Igual a ARCA',
   no_arca_reference: 'Sin datos de ARCA para comparar',
   accepted: 'Diferencia aceptada',
