@@ -665,4 +665,32 @@ describe('Filter Executor', () => {
       expect(matcher(withType(6), letra('A', true))).toBe(true);
     });
   });
+
+  describe('Desglose matching', () => {
+    const withStatus = (status: 'completable' | 'manual' | 'ok' | 'divergent') =>
+      createTestComprobante({
+        taxReconciliation: {
+          status,
+          reason: status === 'divergent' ? 'differs' : 'matches_arca',
+        },
+      });
+    const desglose = (
+      value: 'completable' | 'manual' | 'ok' | 'divergente',
+      negate = false
+    ): FilterNode => ({ type: 'desglose', value, negate });
+
+    it('should match the reconciliation status', () => {
+      expect(matcher(withStatus('completable'), desglose('completable'))).toBe(true);
+      expect(matcher(withStatus('divergent'), desglose('divergente'))).toBe(true);
+      expect(matcher(withStatus('ok'), desglose('divergente'))).toBe(false);
+    });
+
+    it('should not match comprobantes without reconciliation state', () => {
+      expect(matcher(createTestComprobante(), desglose('ok'))).toBe(false);
+    });
+
+    it('should support negation', () => {
+      expect(matcher(withStatus('manual'), desglose('ok', true))).toBe(true);
+    });
+  });
 });

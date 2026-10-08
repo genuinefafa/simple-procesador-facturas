@@ -385,6 +385,42 @@ describe('Query Parser', () => {
     });
   });
 
+  describe('Desglose filters', () => {
+    it('should parse desglose values and aliases', () => {
+      expect(parseSearchQuery('desglose:completable').filters[0]).toEqual({
+        type: 'desglose',
+        value: 'completable',
+        negate: false,
+      });
+      expect(parseSearchQuery('desglose:completables').filters[0]).toMatchObject({
+        value: 'completable',
+      });
+      expect(parseSearchQuery('desglose:divergentes').filters[0]).toMatchObject({
+        value: 'divergente',
+      });
+      expect(parseSearchQuery('desglose:Diferente').filters[0]).toMatchObject({
+        value: 'divergente',
+      });
+    });
+
+    it('should support negation', () => {
+      expect(parseSearchQuery('!desglose:ok').filters[0]).toEqual({
+        type: 'desglose',
+        value: 'ok',
+        negate: true,
+      });
+    });
+
+    it('should error on invalid value', () => {
+      expect(parseSearchQuery('desglose:foo').errors.length).toBeGreaterThan(0);
+    });
+
+    it('should roundtrip through serializeFilters', () => {
+      const q = 'desglose:completable !desglose:manual desglose:divergente';
+      expect(serializeFilters(parseSearchQuery(q).filters)).toBe(q);
+    });
+  });
+
   describe('Dashboard deep-link date forms', () => {
     it('should parse year, month and quarter-range forms', () => {
       for (const q of ['fecha:2026', 'fecha:2026-09', 'fecha:2026-07-01..2026-09-30']) {
