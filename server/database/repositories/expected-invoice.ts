@@ -85,6 +85,7 @@ export interface IExpectedInvoiceRepository {
     limit?: number;
     offset?: number;
   }): Promise<ExpectedInvoice[]>;
+  computeStatus(id: number): Promise<ExpectedInvoiceStatus>;
   refreshStatus(id: number): Promise<ExpectedInvoiceStatus>;
   getPrincipalIds(): Promise<Set<number>>;
   getBalanceGroup(id: number): Promise<ExpectedInvoice[]>;
@@ -609,12 +610,12 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
   }
 
   /**
-   * Recalcula y actualiza el status de una expected invoice a partir de las relaciones.
+   * Deriva el status de una expected invoice a partir de las relaciones, sin escribir.
    * - matched: existe al menos una factura con expectedInvoiceId = id
    * - balanced: pertenece a un grupo de balance cuya suma es ~$0
    * - pending: caso default
    */
-  async refreshStatus(id: number): Promise<ExpectedInvoiceStatus> {
+  async computeStatus(id: number): Promise<ExpectedInvoiceStatus> {
     // 1. Check if any factura links to this expected invoice → matched
     const linked = await getDb()
       .select({ id: facturas.id })
@@ -622,36 +623,25 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       .where(eq(facturas.expectedInvoiceId, id))
       .limit(1);
 
-    if (linked.length > 0) {
-      getDb()
-        .update(expectedInvoices)
-        .set({ status: 'matched' })
-        .where(eq(expectedInvoices.id, id))
-        .run();
-      return 'matched';
-    }
+    if (linked.length > 0) return 'matched';
 
     // 2. Check balance group membership
     const invoice = await this.findById(id);
     if (invoice && (invoice.balancedWithId !== null || (await this.hasBalanceGroup(id)))) {
       const principalId = invoice.balancedWithId ?? id;
       const { isBalanced } = await this.calculateGroupBalance(principalId);
-      const newStatus: ExpectedInvoiceStatus = isBalanced ? 'balanced' : 'pending';
-      getDb()
-        .update(expectedInvoices)
-        .set({ status: newStatus })
-        .where(eq(expectedInvoices.id, id))
-        .run();
-      return newStatus;
+      return isBalanced ? 'balanced' : 'pending';
     }
 
     // 3. Default → pending
-    getDb()
-      .update(expectedInvoices)
-      .set({ status: 'pending' })
-      .where(eq(expectedInvoices.id, id))
-      .run();
     return 'pending';
+  }
+
+  /** Recalcula el status (ver computeStatus) y lo guarda */
+  async refreshStatus(id: number): Promise<ExpectedInvoiceStatus> {
+    const status = await this.computeStatus(id);
+    getDb().update(expectedInvoices).set({ status }).where(eq(expectedInvoices.id, id)).run();
+    return status;
   }
 
   async findPartialMatches(criteria: {

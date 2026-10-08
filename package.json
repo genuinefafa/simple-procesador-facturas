@@ -24,6 +24,7 @@
 		"format:check": "( cd client && bun run format:check ) && ( cd server && bun run format:check )",
 		"ci:check": "./scripts/ci-check.sh",
 		"db:migrate": "cd server && bun run db:migrate",
+		"db:refresh-status": "cd server && bun run db:refresh-status",
 		"db:seed": "cd server && bun run db:seed",
 		"db:studio": "cd server && bun run db:studio",
 		"backfill-hashes": "tsx server/scripts/backfill-hashes.ts",
