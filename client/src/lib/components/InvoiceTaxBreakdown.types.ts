@@ -38,6 +38,11 @@ export interface TaxLinesResponse {
   diff: number | null;
   /** null = no breakdown loaded */
   sumMatches: boolean | null;
+  /**
+   * Breakdown informed by ARCA (linked expected invoice) when the invoice has
+   * no lines of its own; null otherwise. Perceptions come in OTHER_TAXES.
+   */
+  arcaSuggestion: TaxLineInput[] | null;
 }
 
 export const TAX_SUM_TOLERANCE = 0.05;

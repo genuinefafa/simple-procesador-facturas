@@ -13,6 +13,7 @@
     ArrowUp,
     Calculator,
     CornerDownRight,
+    Info,
     Plus,
     Trash2,
     Edit,
@@ -42,9 +43,11 @@
     /** Invoice letter (A, B, C, M...). Falls back to the one returned by the API. */
     letter?: string | null;
     /**
-     * Reserved for ARCA prefill (#129): if provided and the invoice has no
-     * breakdown, the form starts with these lines so the user can validate
-     * them. They are never saved automatically.
+     * Suggested lines to review when the invoice has no breakdown. Takes
+     * precedence over the ARCA suggestion returned by the API
+     * (`data.arcaSuggestion`, from the linked expected invoice). The form only
+     * starts with them on an explicit click and they are never saved
+     * automatically.
      */
     prefill?: TaxLineInput[];
   }
@@ -68,6 +71,8 @@
   let saving = $state(false);
   let saveError = $state<string | null>(null);
   let rows = $state<Row[]>([]);
+  // True while the editor was opened with the suggested lines (shows the banner)
+  let prefilled = $state(false);
   let removeDialogOpen = $state(false);
   // Shortcut preset: "<vat rate>|<VAT perception rate>" (perception 0 = none)
   let shortcutPreset = $state('21|0');
@@ -91,6 +96,10 @@
   const shortcutVatRate = $derived(Number(shortcutPreset.split('|')[0]));
   const shortcutPercRate = $derived(Number(shortcutPreset.split('|')[1]));
   let nextKey = 1;
+
+  const suggestion = $derived<TaxLineInput[] | null>(
+    prefill && prefill.length > 0 ? prefill : (data?.arcaSuggestion ?? null)
+  );
 
   const effectiveLetter = $derived(letter ?? data?.letter ?? null);
   const showShortcut = $derived(effectiveLetter === 'A' || effectiveLetter === 'M');
@@ -164,12 +173,17 @@
     // Reload when navigating to another invoice
     void invoiceId;
     editing = false;
+    prefilled = false;
     void load();
   });
 
-  function startEdit(): void {
+  /** `useSuggestion` is true only for the explicit "Revisar y cargar" action. */
+  function startEdit(useSuggestion = false): void {
     saveError = null;
-    const source: TaxLineInput[] = data && data.lines.length > 0 ? data.lines : (prefill ?? []);
+    const hasOwnLines = !!data && data.lines.length > 0;
+    const suggested = !hasOwnLines && useSuggestion ? suggestion : null;
+    const source: TaxLineInput[] = hasOwnLines ? data!.lines : (suggested ?? []);
+    prefilled = suggested !== null;
     rows = source.map(toRow);
     if (rows.length === 0) addRow();
     editing = true;
@@ -177,6 +191,7 @@
 
   function cancelEdit(): void {
     editing = false;
+    prefilled = false;
     saveError = null;
   }
 
@@ -421,6 +436,7 @@
     if (result.success && result.data) {
       data = result.data;
       editing = false;
+      prefilled = false;
       toast.success('Desglose guardado');
     } else {
       saveError = result.error ?? 'No se pudo guardar el desglose.';
@@ -435,6 +451,7 @@
     if (result.success && result.data) {
       data = result.data;
       editing = false;
+      prefilled = false;
       toast.success('Desglose quitado');
     } else {
       toast.error(result.error ?? 'No se pudo quitar el desglose');
@@ -449,7 +466,7 @@
     <h3>Desglose impositivo</h3>
     {#if !editing && !loading && viewLines.length > 0}
       <div class="head-actions">
-        <Button size="sm" variant="secondary" onclick={startEdit}>
+        <Button size="sm" variant="secondary" onclick={() => startEdit()}>
           <Edit size={14} /> Editar
         </Button>
         <Button size="sm" variant="ghost" onclick={() => (removeDialogOpen = true)}>
@@ -465,6 +482,15 @@
     <p class="error-text" role="alert">{loadError}</p>
   {:else if editing}
     <div class="form">
+      {#if prefilled}
+        <div class="notice" role="status">
+          <Info size={14} />
+          <span>
+            Precargado desde ARCA: revisá los importes antes de guardar. Las percepciones vienen
+            agrupadas en Otros tributos; podés reclasificarlas.
+          </span>
+        </div>
+      {/if}
       {#if showShortcut}
         <div class="shortcut">
           <span class="shortcut-label">Atajo Neto + Coef</span>
@@ -653,8 +679,17 @@
   {:else if viewLines.length === 0}
     <div class="empty">
       <p class="muted">Sin desglose cargado</p>
-      <Button size="sm" variant="secondary" onclick={startEdit}>Cargar desglose</Button>
+      <Button size="sm" variant="secondary" onclick={() => startEdit()}>Cargar desglose</Button>
     </div>
+    {#if suggestion}
+      <div class="notice" role="status">
+        <Info size={14} />
+        <span>ARCA informa un desglose para este comprobante.</span>
+        <Button size="sm" variant="secondary" onclick={() => startEdit(true)}>
+          Revisar y cargar
+        </Button>
+      </div>
+    {/if}
   {:else}
     <table class="lines">
       <tbody>
@@ -748,6 +783,19 @@
   .error-text {
     margin: 0;
     color: var(--color-error);
+    font-size: var(--font-size-sm);
+  }
+
+  .notice {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+    padding: var(--spacing-2) var(--spacing-3);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-neutral-50);
+    color: var(--color-text-secondary);
     font-size: var(--font-size-sm);
   }
 

@@ -17,15 +17,28 @@ import {
 const CUIT = '30-12345678-9';
 let nextNumber = 1;
 
-function insertInvoice(opts: { type?: number; total: number | null }): number {
+function insertInvoice(opts: { type?: number; total: number | null; expectedId?: number }): number {
   return Number(
     getRawDb()
       .prepare(
         `INSERT INTO facturas
-           (emisor_cuit, fecha_emision, tipo_comprobante, punto_venta, numero_comprobante, total)
-         VALUES (?, '2026-03-10', ?, 1, ?, ?)`
+           (emisor_cuit, fecha_emision, tipo_comprobante, punto_venta, numero_comprobante, total, expected_invoice_id)
+         VALUES (?, '2026-03-10', ?, 1, ?, ?, ?)`
       )
-      .run(CUIT, opts.type ?? 1, nextNumber++, opts.total).lastInsertRowid
+      .run(CUIT, opts.type ?? 1, nextNumber++, opts.total, opts.expectedId ?? null).lastInsertRowid
+  );
+}
+
+function insertExpected(cols: Record<string, number | null> = {}): number {
+  const names = Object.keys(cols);
+  return Number(
+    getRawDb()
+      .prepare(
+        `INSERT INTO expected_invoices
+           (cuit, issue_date, invoice_type, point_of_sale, invoice_number, total${names.map((n) => `, ${n}`).join('')})
+         VALUES (?, '2026-03-10', 1, 1, ?, 121${names.map(() => ', ?').join('')})`
+      )
+      .run(CUIT, nextNumber++, ...names.map((n) => cols[n])).lastInsertRowid
   );
 }
 
@@ -279,5 +292,35 @@ describe('/api/invoices/:id/tax-lines', () => {
       .prepare('SELECT COUNT(*) AS n FROM invoice_tax_lines WHERE invoice_id = ?')
       .get(id) as { n: number };
     expect(left.n).toBe(0);
+  });
+
+  describe('arcaSuggestion', () => {
+    const suggestion = async (id: number): Promise<unknown> =>
+      (await (await get(id)).json()).arcaSuggestion;
+
+    it('is null without a linked expected invoice', async () => {
+      expect(await suggestion(insertInvoice({ total: 121 }))).toBeNull();
+    });
+
+    it('is null when the expected invoice has no breakdown', async () => {
+      const exp = insertExpected();
+      expect(await suggestion(insertInvoice({ total: 121, expectedId: exp }))).toBeNull();
+    });
+
+    it('returns the ARCA lines (label null) when the expected invoice has a breakdown', async () => {
+      const exp = insertExpected({ net_taxed_21: 100, vat_21: 21, other_taxes: 5 });
+      expect(await suggestion(insertInvoice({ total: 126, expectedId: exp }))).toEqual([
+        { concept: 'NET_TAXED', rate: 21, amount: 100, label: null },
+        { concept: 'VAT', rate: 21, amount: 21, label: null },
+        { concept: 'OTHER_TAXES', rate: null, amount: 5, label: null },
+      ]);
+    });
+
+    it('is null when the invoice already has its own lines', async () => {
+      const exp = insertExpected({ net_taxed_21: 100, vat_21: 21 });
+      const id = insertInvoice({ total: 121, expectedId: exp });
+      expect((await put(id, { lines: [net(100), vat(21)] })).status).toBe(200);
+      expect(await suggestion(id)).toBeNull();
+    });
   });
 });

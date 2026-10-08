@@ -1035,6 +1035,8 @@ async function buildTaxLinesResponse(
     diff: check?.diff ?? null,
     // null = no breakdown loaded; false also when lines exist but the invoice has no total
     sumMatches: lines.length === 0 ? null : (check?.ok ?? false),
+    // Breakdown informed by ARCA for the linked expected invoice (never saved automatically)
+    arcaSuggestion: await repo.findArcaSuggestion(ctx),
   };
 }
 
