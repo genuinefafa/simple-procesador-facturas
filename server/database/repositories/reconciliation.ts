@@ -5,7 +5,9 @@
  * in a single query, and manages the acks (accepted differences).
  */
 
-import { getRawDb } from '../db';
+import { eq, sql } from 'drizzle-orm';
+import { getDb, getRawDb } from '../db';
+import { invoiceTaxLines } from '../schema';
 import type { PeriodRange } from '../../contracts/stats';
 import { EXPECTED_TAX_COLUMN_KEYS, type ExpectedTaxColumns } from '../../utils/expected-tax-lines';
 
@@ -126,6 +128,42 @@ export class ReconciliationRepository {
   async findTaxBreakdownCandidate(invoiceId: number): Promise<TaxBreakdownCandidate | null> {
     const row = getRawDb().prepare(`${BASE_SQL} WHERE f.id = ?`).get(invoiceId) as Row | null;
     return row ? mapRow(row) : null;
+  }
+
+  /**
+   * Replaces the breakdown of several invoices in ONE transaction. When
+   * `clearAck` is set the tax_breakdown ack of those invoices is removed too.
+   */
+  async replaceBreakdowns(
+    entries: Array<{
+      invoiceId: number;
+      lines: Array<{ concept: string; rate: number | null; amount: number }>;
+    }>,
+    clearAck = false
+  ): Promise<void> {
+    getDb().transaction((tx) => {
+      for (const { invoiceId, lines } of entries) {
+        tx.delete(invoiceTaxLines).where(eq(invoiceTaxLines.invoiceId, invoiceId)).run();
+        if (lines.length > 0) {
+          tx.insert(invoiceTaxLines)
+            .values(
+              lines.map((l) => ({
+                invoiceId,
+                concept: l.concept as (typeof invoiceTaxLines.$inferInsert)['concept'],
+                rate: l.rate,
+                amount: l.amount,
+                label: null,
+              }))
+            )
+            .run();
+        }
+        if (clearAck) {
+          tx.run(
+            sql`DELETE FROM reconciliation_acks WHERE invoice_id = ${invoiceId} AND kind = ${TAX_BREAKDOWN_KIND}`
+          );
+        }
+      }
+    });
   }
 
   async upsertAck(

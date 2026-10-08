@@ -21,6 +21,7 @@ import { emisoresRouter } from './routes/emisores.js';
 import { expectedInvoicesRouter } from './routes/expected-invoices.js';
 import { invoicesKnownRouter } from './routes/invoices-known.js';
 import { statsRouter } from './routes/stats.js';
+import { reconciliationRouter } from './routes/reconciliation.js';
 
 export const app = new Hono();
 
@@ -40,6 +41,7 @@ app.route('/api/emisores', emisoresRouter);
 app.route('/api/expected-invoices', expectedInvoicesRouter);
 app.route('/api/invoices-known', invoicesKnownRouter);
 app.route('/api/stats', statsRouter);
+app.route('/api/reconciliation', reconciliationRouter);
 
 const BUILD_DIR = join(import.meta.dirname, '..', '..', 'client', 'build');
 
