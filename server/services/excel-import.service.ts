@@ -7,7 +7,47 @@ import { normalizeCUIT, validateCUIT } from '@shared/validators/cuit';
 import { ExpectedInvoiceRepository } from '../database/repositories/expected-invoice.js';
 import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter.js';
 import { normalizeEmitterName } from '../utils/emitter-name-normalizer.js';
+import {
+  parseAmount,
+  type ExpectedTaxColumnKey,
+  type ExpectedTaxColumns,
+} from '../utils/expected-tax-lines';
 import path from 'path';
+
+/**
+ * ARCA breakdown headers ("Mis Comprobantes Recibidos") -> expected_invoices column.
+ * Keys are normalized with `normalizeHeader`.
+ */
+const TAX_COLUMN_HEADERS: Array<[string, ExpectedTaxColumnKey]> = [
+  ['Tipo Cambio', 'exchangeRate'],
+  ['Neto Grav. IVA 0%', 'netTaxed0'],
+  ['IVA 2,5%', 'vat2_5'],
+  ['Neto Grav. IVA 2,5%', 'netTaxed2_5'],
+  ['IVA 5%', 'vat5'],
+  ['Neto Grav. IVA 5%', 'netTaxed5'],
+  ['IVA 10,5%', 'vat10_5'],
+  ['Neto Grav. IVA 10,5%', 'netTaxed10_5'],
+  ['IVA 21%', 'vat21'],
+  ['Neto Grav. IVA 21%', 'netTaxed21'],
+  ['IVA 27%', 'vat27'],
+  ['Neto Grav. IVA 27%', 'netTaxed27'],
+  ['Neto Gravado Total', 'netTaxedTotal'],
+  ['Neto No Gravado', 'netUntaxed'],
+  ['Op. Exentas', 'exempt'],
+  ['Otros Tributos', 'otherTaxes'],
+  ['Total IVA', 'vatTotal'],
+];
+
+/** Lowercase, no accents, no dots, collapsed spaces: "Neto Grav. IVA 2,5%" -> "neto grav iva 2,5%" */
+function normalizeHeader(header: string): string {
+  return header
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\./g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 
 /**
  * Extrae el valor primitivo de una celda de ExcelJS
@@ -69,6 +109,8 @@ export interface ParsedInvoice {
   cae?: string;
   caeExpiration?: string;
   currency?: string;
+  /** ARCA breakdown; present only when the Excel has those columns (null = empty cell) */
+  taxColumns?: Partial<ExpectedTaxColumns>;
 }
 
 export interface ColumnMapping {
@@ -85,6 +127,8 @@ export interface ColumnMapping {
   emitterDocType?: string;
   emitterDocNumber?: string;
   emitterDenomination?: string;
+  // Desglose de ARCA (opcional, formato con alícuotas)
+  taxColumns?: Partial<Record<ExpectedTaxColumnKey, string>>;
 }
 
 /**
@@ -424,6 +468,14 @@ export class ExcelImportService {
       }
     }
 
+    // Desglose de ARCA: opcional, match exacto (tolera acentos/mayúsculas/espacios/puntos)
+    const taxColumns: Partial<Record<ExpectedTaxColumnKey, string>> = {};
+    for (const [expectedHeader, key] of TAX_COLUMN_HEADERS) {
+      const wanted = normalizeHeader(expectedHeader);
+      const header = headers.find((h) => normalizeHeader(h) === wanted);
+      if (header) taxColumns[key] = header;
+    }
+
     return {
       cuit: cuitColumn,
       // Si existe "Denominación Emisor" (ARCA completo), usar esa. Si no, buscar por regex
@@ -458,6 +510,7 @@ export class ExcelImportService {
       emitterDocType,
       emitterDocNumber,
       emitterDenomination,
+      taxColumns: Object.keys(taxColumns).length > 0 ? taxColumns : undefined,
     };
   }
 
@@ -592,9 +645,10 @@ export class ExcelImportService {
       ? getCellStringValue(row[mapping.emitterName]).trim() || undefined
       : undefined;
 
-    const totalRaw = mapping.total ? getCellStringValue(row[mapping.total]).trim() : '';
-    const total =
-      totalRaw && totalRaw !== '0' && totalRaw !== '' ? parseFloat(totalRaw) : undefined;
+    const parsedTotal = mapping.total
+      ? parseAmount(this.cellAmountSource(row[mapping.total]))
+      : null;
+    const total = parsedTotal !== null && parsedTotal !== 0 ? parsedTotal : undefined;
 
     const caeRaw = mapping.cae ? getCellStringValue(row[mapping.cae]).trim() : '';
     const cae = caeRaw && caeRaw !== '0' && caeRaw !== '' ? caeRaw : undefined;
@@ -602,6 +656,16 @@ export class ExcelImportService {
     const caeExpiration = mapping.caeExpiration
       ? getCellStringValue(row[mapping.caeExpiration]).trim() || undefined
       : undefined;
+
+    let taxColumns: Partial<ExpectedTaxColumns> | undefined;
+    if (mapping.taxColumns) {
+      taxColumns = {};
+      for (const [key, header] of Object.entries(mapping.taxColumns) as Array<
+        [ExpectedTaxColumnKey, string]
+      >) {
+        taxColumns[key] = parseAmount(this.cellAmountSource(row[header]));
+      }
+    }
 
     return {
       cuit: normalizedCuit,
@@ -614,7 +678,14 @@ export class ExcelImportService {
       cae,
       caeExpiration,
       currency: 'ARS',
+      taxColumns,
     };
+  }
+
+  /** Numbers stay numbers; any other cell content goes through its text form */
+  private cellAmountSource(value: ExcelJS.CellValue | undefined): number | string {
+    if (typeof value === 'number') return value;
+    return getCellStringValue(value ?? null);
   }
 
   /**

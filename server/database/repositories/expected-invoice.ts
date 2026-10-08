@@ -6,6 +6,11 @@ import { eq, inArray, and, desc, gte, lte, like, SQL, sql } from 'drizzle-orm';
 import { getDb } from '../db';
 import { getInvoiceSign } from '../../utils/afip-codes';
 import {
+  EXPECTED_TAX_COLUMN_KEYS,
+  type ExpectedTaxColumns,
+  type ExpectedTaxColumnKey,
+} from '../../utils/expected-tax-lines';
+import {
   expectedInvoices,
   importBatches,
   emisores,
@@ -16,7 +21,7 @@ import {
 
 export type ExpectedInvoiceStatus = 'pending' | 'matched' | 'balanced';
 
-export interface ExpectedInvoice {
+export interface ExpectedInvoice extends ExpectedTaxColumns {
   id: number;
   importBatchId: number | null;
   cuit: string;
@@ -118,7 +123,17 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       importDate: row.importDate || null,
       notes: row.notes || null,
       balancedWithId: row.balancedWithId || null,
+      ...this.mapTaxColumns(row),
     };
+  }
+
+  /** ARCA breakdown columns (null stays null; 0 is a valid value) */
+  private mapTaxColumns(row: DrizzelExpectedInvoice): ExpectedTaxColumns {
+    const out = {} as ExpectedTaxColumns;
+    for (const key of EXPECTED_TAX_COLUMN_KEYS) {
+      out[key] = row[key] ?? null;
+    }
+    return out;
   }
 
   private mapDrizzleToImportBatch(row: DrizzelImportBatch | undefined): ImportBatch {
@@ -236,6 +251,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       cae?: string;
       caeExpiration?: string;
       currency?: string;
+      taxColumns?: Partial<Record<ExpectedTaxColumnKey, number | null>>;
     }>,
     batchId: number
   ): Promise<{
@@ -267,7 +283,8 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
               invoice.total !== duplicate.total) ||
             (invoice.cae && invoice.cae !== duplicate.cae) ||
             (invoice.caeExpiration && invoice.caeExpiration !== duplicate.caeExpiration) ||
-            (invoice.currency && invoice.currency !== duplicate.currency);
+            (invoice.currency && invoice.currency !== duplicate.currency) ||
+            this.changedTaxColumns(invoice.taxColumns, duplicate) !== undefined;
 
           if (hasChanges) {
             // Actualizar solo los campos que son diferentes
@@ -277,6 +294,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
               cae: invoice.cae || duplicate.cae || undefined,
               caeExpiration: invoice.caeExpiration || duplicate.caeExpiration || undefined,
               currency: invoice.currency || duplicate.currency || undefined,
+              taxColumns: this.changedTaxColumns(invoice.taxColumns, duplicate),
             });
             updated.push(updatedInvoice);
           } else {
@@ -300,6 +318,7 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
               caeExpiration: invoice.caeExpiration || null,
               currency: invoice.currency || 'ARS',
               status: 'pending',
+              ...this.cleanTaxColumns(invoice.taxColumns),
             })
             .returning();
 
@@ -316,6 +335,36 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     }
 
     return { created, updated, unchanged };
+  }
+
+  /** Keeps only known breakdown keys with a defined value */
+  private cleanTaxColumns(
+    cols: Partial<Record<ExpectedTaxColumnKey, number | null>> | undefined
+  ): Partial<Record<ExpectedTaxColumnKey, number | null>> {
+    const out: Partial<Record<ExpectedTaxColumnKey, number | null>> = {};
+    if (!cols) return out;
+    for (const key of EXPECTED_TAX_COLUMN_KEYS) {
+      if (cols[key] !== undefined) out[key] = cols[key];
+    }
+    return out;
+  }
+
+  /**
+   * Breakdown columns that differ from the stored ones. A null coming from the
+   * Excel (column absent or empty cell) never overwrites a stored value, same
+   * as the other fields of the reimport.
+   */
+  private changedTaxColumns(
+    incoming: Partial<Record<ExpectedTaxColumnKey, number | null>> | undefined,
+    stored: ExpectedInvoice
+  ): Partial<Record<ExpectedTaxColumnKey, number | null>> | undefined {
+    if (!incoming) return undefined;
+    const out: Partial<Record<ExpectedTaxColumnKey, number | null>> = {};
+    for (const key of EXPECTED_TAX_COLUMN_KEYS) {
+      const value = incoming[key];
+      if (value !== null && value !== undefined && value !== stored[key]) out[key] = value;
+    }
+    return Object.keys(out).length > 0 ? out : undefined;
   }
 
   async findById(id: number): Promise<ExpectedInvoice | null> {
@@ -526,9 +575,12 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       caeExpiration?: string;
       currency?: string;
       notes?: string;
+      taxColumns?: Partial<Record<ExpectedTaxColumnKey, number | null>>;
     }
   ): Promise<ExpectedInvoice> {
     const updates: Record<string, string | number | null> = {};
+
+    if (data.taxColumns) Object.assign(updates, this.cleanTaxColumns(data.taxColumns));
 
     if (data.emitterName !== undefined) updates.emitterName = data.emitterName;
     if (data.total !== undefined) updates.total = data.total;
