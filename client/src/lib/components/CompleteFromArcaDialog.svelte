@@ -8,7 +8,11 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import { formatCurrency } from '$lib/formatters';
   import { reconciliationService } from '$lib/services/ReconciliationService';
-  import { bucketLabel, type ReconciliationLine } from '$lib/services/ReconciliationService.types';
+  import {
+    bucketLabel,
+    type CompleteResponse,
+    type ReconciliationLine,
+  } from '$lib/services/ReconciliationService.types';
 
   export interface CompleteItem {
     invoiceId: number;
@@ -21,8 +25,8 @@
   interface Props {
     open?: boolean;
     items: CompleteItem[];
-    /** Called after the server applied the copy (even if some were skipped) */
-    onapplied?: () => void;
+    /** Called after the server applied the copy (even if some were skipped); the caller reports it */
+    onapplied?: (result: CompleteResponse) => void;
   }
 
   let { open = $bindable(false), items, onapplied }: Props = $props();
@@ -37,18 +41,8 @@
       toast.error(result.error ?? 'No se pudo completar el desglose.');
       return;
     }
-    const { applied, skipped } = result.data;
-    const parts = [`${applied.length} ${applied.length === 1 ? 'completada' : 'completadas'}`];
-    if (skipped.length > 0) {
-      parts.push(
-        `${skipped.length} ${skipped.length === 1 ? 'omitida' : 'omitidas'} porque cambiaron`
-      );
-      toast.warning(parts.join(' · '));
-    } else {
-      toast.success(parts.join(' · '));
-    }
     open = false;
-    onapplied?.();
+    onapplied?.(result.data);
   }
 </script>
 

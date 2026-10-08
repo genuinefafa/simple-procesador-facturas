@@ -12,16 +12,19 @@
   import { reconciliationService } from '$lib/services/ReconciliationService';
   import {
     REASON_LABELS,
+    type CompleteResponse,
     type TaxReconciliationItem,
   } from '$lib/services/ReconciliationService.types';
 
   interface Props {
     invoiceId: number;
     /** Called after the breakdown was copied from ARCA */
-    onapplied?: () => void;
+    onapplied?: (result: CompleteResponse) => void;
+    /** Changing this value reloads the comparison */
+    refreshToken?: number;
   }
 
-  let { invoiceId, onapplied }: Props = $props();
+  let { invoiceId, onapplied, refreshToken = 0 }: Props = $props();
 
   let item = $state<TaxReconciliationItem | null>(null);
   let loadError = $state<string | null>(null);
@@ -39,6 +42,7 @@
 
   $effect(() => {
     void invoiceId;
+    void refreshToken;
     load();
   });
 

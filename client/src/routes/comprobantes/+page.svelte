@@ -11,11 +11,13 @@
   import UnifiedSearchBox from '$lib/components/UnifiedSearchBox.svelte';
   import UploadReport from '$lib/components/UploadReport.svelte';
   import type { PageData } from './$types';
-  import type { Comprobante } from '$lib/types/comprobante';
+  import type { Comprobante, TaxReconciliationSummary } from '$lib/types/comprobante';
   import { FileUpload } from 'melt/builders';
   import { goto, invalidateAll } from '$app/navigation';
   import { page } from '$app/stores';
   import { toast, Toaster } from 'svelte-sonner';
+  import { reconciliationService } from '$lib/services/ReconciliationService';
+  import type { CompleteResponse } from '$lib/services/ReconciliationService.types';
   import {
     formatCurrency,
     getFriendlyType,
@@ -314,9 +316,30 @@
     return items.slice(0, COMPLETE_BATCH_MAX);
   });
 
-  async function onBreakdownApplied() {
-    openBreakdowns = new Set();
-    await invalidateAll();
+  async function onBreakdownApplied(result: CompleteResponse) {
+    const { applied, skipped } = result;
+    if (applied.length === 1) toast.success('Desglose copiado desde ARCA');
+    else if (applied.length > 1) toast.success(`${applied.length} desgloses copiados desde ARCA`);
+    if (skipped.length > 0) {
+      toast.warning(
+        `${skipped.length} ${skipped.length === 1 ? 'omitida' : 'omitidas'} porque cambiaron`
+      );
+    }
+    // Patch only the affected rows instead of reloading the whole list
+    const items = await Promise.all(applied.map((id) => reconciliationService.get(id)));
+    const next = new Map(reconOverrides);
+    items.forEach((res, i) => {
+      if (res.success && res.data) {
+        const { status, reason, arcaLines } = res.data;
+        next.set(applied[i]!, {
+          status,
+          reason,
+          ...(status === 'completable' && arcaLines ? { arcaLines } : {}),
+        });
+      }
+    });
+    reconOverrides = next;
+    reconVersion++;
   }
 
   const CREDIT_NOTE_TYPES = new Set([3, 8, 13, 21, 53]);
@@ -582,7 +605,27 @@
   });
 
   // Helpers para búsqueda meta-lenguaje
-  let visibleComprobantes = $derived(data.comprobantes.filter(isVisible));
+  // Rows patched locally after copying a breakdown from ARCA (avoids reloading the list)
+  let reconOverrides = $state<Map<number, TaxReconciliationSummary | null>>(new Map());
+  // Bumped to make open row panels reload their comparison
+  let reconVersion = $state(0);
+
+  // A fresh server load supersedes any local patch
+  $effect(() => {
+    void data.comprobantes;
+    reconOverrides = new Map();
+  });
+
+  let comprobantes = $derived(
+    reconOverrides.size === 0
+      ? data.comprobantes
+      : data.comprobantes.map((c) =>
+          c.final && reconOverrides.has(c.final.id)
+            ? { ...c, taxReconciliation: reconOverrides.get(c.final.id) }
+            : c
+        )
+  );
+  let visibleComprobantes = $derived(comprobantes.filter(isVisible));
 
   let hasActiveFilters = $derived(searchFilters.length > 0);
 
@@ -760,9 +803,9 @@
   <section class="filter-summary">
     <div class="count">
       {#if hasActiveFilters}
-        Mostrando {visibleComprobantes.length} de {data.comprobantes.length} comprobantes
+        Mostrando {visibleComprobantes.length} de {comprobantes.length} comprobantes
       {:else}
-        {data.comprobantes.length} comprobantes
+        {comprobantes.length} comprobantes
       {/if}
     </div>
     <div class="filter-actions">
@@ -816,7 +859,7 @@
       <span>Hash</span>
       <span></span>
     </div>
-    {#each visibleComprobantes as comp}
+    {#each visibleComprobantes as comp (comp.id)}
       {@const canCopy = canGenerateFilename(comp)}
       {@const hasEmitter = !!(
         getEmitterName(comp).short ||
@@ -951,7 +994,11 @@
       </div>
       {#if comp.final && comp.taxReconciliation && openBreakdowns.has(comp.final.id)}
         <div class="row sub-row breakdown-row">
-          <TaxBreakdownRowPanel invoiceId={comp.final.id} onapplied={onBreakdownApplied} />
+          <TaxBreakdownRowPanel
+            invoiceId={comp.final.id}
+            refreshToken={reconVersion}
+            onapplied={onBreakdownApplied}
+          />
         </div>
       {/if}
       {#if isExpanded && expectedId != null}
