@@ -132,7 +132,7 @@ function checkDuplicates(lines: TaxLine[], ctx: z.RefinementCtx): void {
  * An empty array is valid and means "remove the breakdown".
  * `total` null/undefined: the invoice has no total, so lines are rejected.
  */
-export function makeTaxLinesBodySchema(total: number | null | undefined) {
+export function makeTaxLinesBodySchema(total: number | null | undefined): z.ZodType<TaxLinesBody> {
   return z
     .object({
       lines: z
