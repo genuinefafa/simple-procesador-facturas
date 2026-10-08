@@ -8,14 +8,27 @@
   import { toast } from 'svelte-sonner';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
-  import { AlertTriangle, Plus, Trash2, Edit, Save, X } from '$lib/components/icons';
+  import {
+    AlertTriangle,
+    ArrowUp,
+    Calculator,
+    CornerDownRight,
+    Plus,
+    Trash2,
+    Edit,
+    Save,
+    X,
+  } from '$lib/components/icons';
   import { formatCurrency } from '$lib/formatters';
   import { invoiceTaxLinesService } from '$lib/services/InvoiceTaxLinesService';
   import TaxLineSelect from './TaxLineSelect.svelte';
   import {
     CONCEPT_OPTIONS,
+    EDITOR_CONCEPT_OPTIONS,
+    FREE_RATE_CONCEPTS,
     LABEL_CONCEPTS,
     RATES_BY_CONCEPT,
+    REPEATABLE_CONCEPTS,
     TAX_SUM_TOLERANCE,
     type TaxLine,
     type TaxLineConcept,
@@ -44,6 +57,8 @@
     rate: string;
     amount: string;
     label: string;
+    /** UI-only helper for the percentage calculator ('total' | 'net:<rate>'); never saved */
+    base: string;
   }
 
   let data = $state<TaxLinesResponse | null>(null);
@@ -54,17 +69,42 @@
   let saveError = $state<string | null>(null);
   let rows = $state<Row[]>([]);
   let removeDialogOpen = $state(false);
-  let shortcutRate = $state('21');
+  // Shortcut preset: "<vat rate>|<VAT perception rate>" (perception 0 = none)
+  let shortcutPreset = $state('21|0');
+
+  /** Common VAT + VAT perception combinations; the total is divided by 1 + (sum / 100). */
+  const SHORTCUT_PRESETS: ReadonlyArray<{ value: string; label: string }> = [
+    [21, 0],
+    [21, 3],
+    [21, 1.5],
+    [10.5, 0],
+    [10.5, 1.5],
+    [10.5, 3],
+    [27, 0],
+    [27, 3],
+  ].map(([vat, perc]) => {
+    const coef = formatRate(Math.round((1 + (vat + perc) / 100) * 10000) / 10000);
+    const name = perc ? `${formatRate(vat)}% + perc. ${formatRate(perc)}%` : `${formatRate(vat)}%`;
+    return { value: `${vat}|${perc}`, label: `${name} (÷ ${coef})` };
+  });
+
+  const shortcutVatRate = $derived(Number(shortcutPreset.split('|')[0]));
+  const shortcutPercRate = $derived(Number(shortcutPreset.split('|')[1]));
   let nextKey = 1;
 
   const effectiveLetter = $derived(letter ?? data?.letter ?? null);
   const showShortcut = $derived(effectiveLetter === 'A' || effectiveLetter === 'M');
   const effectiveTotal = $derived(data?.total ?? total);
 
+  const isFixedRate = (c: TaxLineConcept | ''): boolean => c !== '' && !!RATES_BY_CONCEPT[c];
+  const isFreeRate = (c: TaxLineConcept | ''): boolean =>
+    c !== '' && FREE_RATE_CONCEPTS.includes(c);
+
+  // NET_TAXED states which VAT rate the net is taxed at, so it reads "IVA 21%"
   const rateOptions = (c: TaxLineConcept | ''): Array<{ value: string; label: string }> =>
     (c ? (RATES_BY_CONCEPT[c] ?? []) : []).map((r) => ({
       value: String(r),
-      label: `${formatRate(r)}%`,
+      label: c === 'NET_TAXED' ? `IVA ${formatRate(r)}%` : `${formatRate(r)}%`,
     }));
 
   function formatRate(rate: number): string {
@@ -72,8 +112,12 @@
   }
 
   function conceptLabel(line: TaxLineInput): string {
-    const base = CONCEPT_OPTIONS.find((o) => o.value === line.concept)?.label ?? line.concept;
-    const withRate = line.rate !== null ? `${base} ${formatRate(line.rate)}%` : base;
+    const name = CONCEPT_OPTIONS.find((o) => o.value === line.concept)?.label ?? line.concept;
+    if (line.concept === 'NET_TAXED' && line.rate !== null) {
+      return `${name} · IVA ${formatRate(line.rate)}%`;
+    }
+    if (line.concept === 'VAT' && line.rate !== null) return `IVA ${formatRate(line.rate)}%`;
+    const withRate = line.rate !== null ? `${name} ${formatRate(line.rate)}%` : name;
     return line.label ? `${withRate} (${line.label})` : withRate;
   }
 
@@ -91,9 +135,16 @@
     return {
       key: nextKey++,
       concept: line.concept,
-      rate: line.rate !== null ? String(line.rate) : '',
+      // Fixed-list rates keep the dot (select values); free rates show a comma
+      rate:
+        line.rate === null
+          ? ''
+          : isFreeRate(line.concept)
+            ? formatRate(line.rate)
+            : String(line.rate),
       amount: String(line.amount),
       label: line.label ?? '',
+      base: '',
     };
   }
 
@@ -129,8 +180,25 @@
     saveError = null;
   }
 
+  /** Suggests a logical concept for the new row; the user can change it. */
   function addRow(): void {
-    rows.push({ key: nextKey++, concept: '', rate: '', amount: '', label: '' });
+    let concept: TaxLineConcept | '' = '';
+    let rate = '';
+    if (rows.length === 0) {
+      concept = 'NET_TAXED';
+    } else {
+      const lacking = rows.find(
+        (r) =>
+          r.concept === 'NET_TAXED' &&
+          r.rate !== '' &&
+          !rows.some((o) => o.concept === 'VAT' && o.rate === r.rate)
+      );
+      if (lacking) {
+        concept = 'VAT';
+        rate = lacking.rate;
+      }
+    }
+    rows.push({ key: nextKey++, concept, rate, amount: '', label: '', base: '' });
   }
 
   function removeRow(key: number): void {
@@ -138,22 +206,144 @@
   }
 
   function setConcept(row: Row, concept: string): void {
+    const prev = row.concept;
     row.concept = concept as TaxLineConcept;
     const rates = RATES_BY_CONCEPT[row.concept];
-    if (!rates) row.rate = '';
-    else if (!rates.includes(Number(row.rate))) row.rate = '';
+    if (rates) {
+      if (!rates.includes(Number(row.rate))) row.rate = '';
+    } else if (!isFreeRate(row.concept) || isFixedRate(prev)) {
+      row.rate = '';
+    }
     if (!LABEL_CONCEPTS.includes(row.concept)) row.label = '';
+    row.base = '';
   }
 
-  /** Fills the form with net + VAT computed from the total (does not save). */
+  const isNetOrVat = (c: TaxLineConcept | ''): boolean => c === 'NET_TAXED' || c === 'VAT';
+
+  function validAmount(row: Row): number | null {
+    const a = parseAmountLoose(row.amount);
+    return Number.isFinite(a) && a > 0 ? a : null;
+  }
+
+  /** Net of the NET_TAXED line with exactly this VAT rate, or null if absent. */
+  function netOfRate(rate: string): number | null {
+    if (rate === '') return null;
+    const row = rows.find((r) => r.concept === 'NET_TAXED' && Number(r.rate) === Number(rate));
+    return row ? validAmount(row) : null;
+  }
+
+  /** Taxed nets already loaded (rows with a rate and a positive amount). */
+  const taxedNets = $derived(
+    rows
+      .filter((r) => r.concept === 'NET_TAXED' && r.rate !== '' && validAmount(r) !== null)
+      .map((r) => ({ rate: r.rate, amount: validAmount(r) as number }))
+  );
+
+  const baseOptions = $derived<Array<{ value: string; label: string }>>(
+    taxedNets.length === 0
+      ? []
+      : [
+          ...taxedNets.map((n) => ({
+            value: `net:${n.rate}`,
+            label: `Neto ${formatRate(Number(n.rate))}%`,
+          })),
+          { value: 'total', label: 'Neto total' },
+        ]
+  );
+
+  /** Explicit choice if still valid; otherwise the single net, or the total when several. */
+  function effectiveBase(row: Row): string {
+    if (row.base && baseOptions.some((o) => o.value === row.base)) return row.base;
+    if (taxedNets.length === 1) return `net:${taxedNets[0]!.rate}`;
+    return taxedNets.length > 1 ? 'total' : '';
+  }
+
+  function baseAmount(base: string): number | null {
+    if (base === 'total') return round2(taxedNets.reduce((acc, n) => acc + n.amount, 0));
+    if (base.startsWith('net:')) return netOfRate(base.slice(4));
+    return null;
+  }
+
+  function rateNumber(row: Row): number {
+    return parseAmountLoose(row.rate);
+  }
+
+  // Calculators only run on click: a hand-edited amount is never overwritten.
+  function vatCalcHint(row: Row): string | null {
+    if (row.rate === '') return 'Seleccione la alícuota para calcular el IVA';
+    if (netOfRate(row.rate) === null) {
+      return `Cargue el neto gravado de IVA ${formatRate(Number(row.rate))}% para calcular el IVA`;
+    }
+    return null;
+  }
+
+  function percCalcHint(row: Row): string | null {
+    const pct = rateNumber(row);
+    if (!Number.isFinite(pct) || pct <= 0) return 'Ingrese el porcentaje para calcular el monto';
+    if (baseAmount(effectiveBase(row)) === null)
+      return 'Cargue un neto gravado para usarlo como base';
+    return null;
+  }
+
+  function calcVat(row: Row): void {
+    const net = netOfRate(row.rate);
+    if (net === null) return;
+    row.amount = String(round2((net * Number(row.rate)) / 100));
+  }
+
+  function calcPerc(row: Row): void {
+    const base = baseAmount(effectiveBase(row));
+    const pct = rateNumber(row);
+    if (base === null || !Number.isFinite(pct) || pct <= 0) return;
+    row.amount = String(round2((base * pct) / 100));
+  }
+
+  /**
+   * Rows that the shortcut keeps: everything but NET_TAXED / VAT, and also
+   * VAT_PERCEPTION when the preset includes a perception (it is regenerated).
+   */
+  const shortcutKept = $derived(
+    rows.filter(
+      (r) =>
+        !isNetOrVat(r.concept) &&
+        !(shortcutPercRate > 0 && r.concept === 'VAT_PERCEPTION') &&
+        (r.concept !== '' || r.amount.trim() !== '')
+    )
+  );
+  const shortcutRest = $derived(
+    effectiveTotal === null
+      ? null
+      : round2(
+          effectiveTotal -
+            shortcutKept.reduce((acc, r) => {
+              const a = parseAmountLoose(r.amount);
+              return acc + (Number.isFinite(a) ? a : 0);
+            }, 0)
+        )
+  );
+  const shortcutDisabled = $derived(shortcutRest === null || shortcutRest <= 0);
+
+  /**
+   * Fills net + VAT from (total - the other rows). Rows that are not
+   * NET_TAXED/VAT (perceptions, other taxes, exempt, untaxed) are preserved.
+   * Does not save.
+   */
   function applyShortcut(): void {
-    if (effectiveTotal === null || effectiveTotal <= 0) return;
-    const rate = Number(shortcutRate);
-    const net = round2(effectiveTotal / (1 + rate / 100));
-    const vat = round2(effectiveTotal - net);
+    if (shortcutRest === null || shortcutRest <= 0) return;
+    const rate = shortcutVatRate;
+    const perc = shortcutPercRate;
+    let net = round2(shortcutRest / (1 + (rate + perc) / 100));
+    const percAmount = perc > 0 ? round2((net * perc) / 100) : 0;
+    const vat = perc > 0 ? round2((net * rate) / 100) : round2(shortcutRest - net);
+    // Rounding cents go to the net so the lines add up exactly to the total
+    net = round2(shortcutRest - vat - percAmount);
     rows = [
       toRow({ concept: 'NET_TAXED', rate, amount: net, label: null }),
       toRow({ concept: 'VAT', rate, amount: vat, label: null }),
+      ...(perc > 0
+        ? [toRow({ concept: 'VAT_PERCEPTION', rate: perc, amount: percAmount, label: null })]
+        : []),
+      ...shortcutKept,
     ];
   }
 
@@ -161,6 +351,15 @@
     rows.map((row) => {
       if (!row.concept) return 'Seleccione un concepto';
       if (RATES_BY_CONCEPT[row.concept] && row.rate === '') return 'Seleccione la alícuota';
+      if (isFreeRate(row.concept) && row.rate.trim() !== '') {
+        const pct = rateNumber(row);
+        if (!Number.isFinite(pct) || pct <= 0 || pct > 100) {
+          return 'El porcentaje debe ser mayor a 0 y hasta 100';
+        }
+        if (Math.abs(pct * 1e4 - Math.round(pct * 1e4)) > 1e-6) {
+          return 'El porcentaje admite hasta 4 decimales';
+        }
+      }
       const amount = parseAmountLoose(row.amount);
       if (!Number.isFinite(amount) || amount <= 0) return 'Ingrese un monto mayor a cero';
       if (row.label.trim().length > 100) return 'La descripción admite hasta 100 caracteres';
@@ -171,7 +370,7 @@
   const duplicateError = $derived.by(() => {
     const seen = new Set<string>();
     for (const row of rows) {
-      if (!row.concept || LABEL_CONCEPTS.includes(row.concept)) continue;
+      if (!row.concept || REPEATABLE_CONCEPTS.includes(row.concept)) continue;
       const key = `${row.concept}:${row.rate}`;
       if (seen.has(key)) return 'Hay conceptos repetidos (mismo concepto y alícuota)';
       seen.add(key);
@@ -202,7 +401,11 @@
       const concept = r.concept as TaxLineConcept;
       return {
         concept,
-        rate: RATES_BY_CONCEPT[concept] ? Number(r.rate) : null,
+        rate: RATES_BY_CONCEPT[concept]
+          ? Number(r.rate)
+          : isFreeRate(concept) && r.rate.trim() !== ''
+            ? parseAmountLoose(r.rate)
+            : null,
         amount: round2(parseAmountLoose(r.amount)),
         label: LABEL_CONCEPTS.includes(concept) && r.label.trim() ? r.label.trim() : null,
       };
@@ -264,26 +467,32 @@
     <div class="form">
       {#if showShortcut}
         <div class="shortcut">
-          <span class="shortcut-label">Atajo Neto + IVA</span>
+          <span class="shortcut-label">Atajo Neto + Coef</span>
           <div class="shortcut-rate">
             <TaxLineSelect
-              value={shortcutRate}
-              options={['21', '10.5', '27'].map((r) => ({
-                value: r,
-                label: `${formatRate(Number(r))}%`,
-              }))}
-              ariaLabel="Alícuota del atajo"
-              onchange={(v) => (shortcutRate = v)}
+              value={shortcutPreset}
+              options={SHORTCUT_PRESETS}
+              ariaLabel="Coeficiente del atajo"
+              onchange={(v) => (shortcutPreset = v)}
             />
           </div>
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={effectiveTotal === null || effectiveTotal <= 0}
-            onclick={applyShortcut}
-          >
+          <Button size="sm" variant="secondary" disabled={shortcutDisabled} onclick={applyShortcut}>
             Calcular desde el total
           </Button>
+          {#if shortcutDisabled}
+            <p class="shortcut-hint">
+              {effectiveTotal === null
+                ? 'El comprobante no tiene total cargado.'
+                : 'No queda importe por distribuir: los demás conceptos ya igualan o superan el total.'}
+            </p>
+          {:else}
+            <p class="shortcut-hint">
+              Se calcula sobre {formatCurrency(shortcutRest)} y se conservan las demás líneas{shortcutPercRate >
+              0
+                ? ' (las percepciones de IVA se recalculan)'
+                : ''}.
+            </p>
+          {/if}
         </div>
       {/if}
 
@@ -293,7 +502,7 @@
             <div class="cell concept">
               <TaxLineSelect
                 value={row.concept}
-                options={CONCEPT_OPTIONS}
+                options={EDITOR_CONCEPT_OPTIONS}
                 placeholder="Concepto"
                 ariaLabel="Concepto"
                 onchange={(v) => setConcept(row, v)}
@@ -305,7 +514,7 @@
                 <TaxLineSelect
                   value={row.rate}
                   options={rateOptions(row.concept)}
-                  placeholder="Alícuota"
+                  placeholder={row.concept === 'NET_TAXED' ? 'Gravado a' : 'Alícuota'}
                   ariaLabel="Alícuota"
                   onchange={(v) => (row.rate = v)}
                 />
@@ -313,7 +522,9 @@
                 <input
                   type="text"
                   class="field"
-                  placeholder="Descripción (opcional)"
+                  placeholder={row.concept === 'IIBB_PERCEPTION'
+                    ? 'Jurisdicción (ej. BA)'
+                    : 'Descripción'}
                   aria-label="Descripción"
                   maxlength="100"
                   bind:value={row.label}
@@ -338,6 +549,67 @@
             >
               <X size={14} />
             </button>
+            {#if row.concept === 'VAT'}
+              {@const hint = vatCalcHint(row)}
+              <div class="subrow">
+                <div class="sub-lead">
+                  <CornerDownRight size={14} />
+                  <span>{row.rate ? `${formatRate(Number(row.rate))}%` : '—'} sobre</span>
+                </div>
+                <span class="sub-base">
+                  {row.rate
+                    ? `Neto IVA ${formatRate(Number(row.rate))}%`
+                    : 'Neto de la misma alícuota'}
+                </span>
+                <button
+                  type="button"
+                  class="calc-btn"
+                  aria-label={hint ?? 'Calcular el IVA desde el neto y completar el monto'}
+                  data-tip={hint ?? 'Calcular y completar el monto'}
+                  disabled={hint !== null}
+                  onclick={() => calcVat(row)}
+                >
+                  <ArrowUp size={12} />
+                  <Calculator size={14} />
+                </button>
+              </div>
+            {:else if isFreeRate(row.concept)}
+              {@const hint = percCalcHint(row)}
+              <div class="subrow">
+                <div class="sub-lead">
+                  <CornerDownRight size={14} />
+                  <input
+                    type="text"
+                    inputmode="decimal"
+                    class="field pct-input"
+                    placeholder="%"
+                    aria-label="Porcentaje"
+                    bind:value={row.rate}
+                  />
+                  <span>% sobre</span>
+                </div>
+                <div class="base-select">
+                  <TaxLineSelect
+                    value={effectiveBase(row)}
+                    options={baseOptions}
+                    placeholder="Sin neto cargado"
+                    ariaLabel="Base de cálculo"
+                    onchange={(v) => (row.base = v)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="calc-btn"
+                  aria-label={hint ?? 'Calcular el porcentaje de la base y completar el monto'}
+                  data-tip={hint ?? 'Calcular y completar el monto'}
+                  disabled={hint !== null}
+                  onclick={() => calcPerc(row)}
+                >
+                  <ArrowUp size={12} />
+                  <Calculator size={14} />
+                </button>
+              </div>
+            {/if}
             {#if rowErrors[i] && (row.concept || row.amount)}
               <p class="row-error">{rowErrors[i]}</p>
             {/if}
@@ -544,20 +816,27 @@
   }
 
   .shortcut-rate {
-    width: 90px;
+    width: 230px;
   }
 
   .rows {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-2);
+    gap: var(--spacing-1);
   }
 
   .row {
     display: grid;
-    grid-template-columns: minmax(150px, 1.4fr) minmax(90px, 1fr) minmax(90px, 0.9fr) auto;
+    grid-template-columns: minmax(140px, 1.25fr) minmax(120px, 1.15fr) minmax(90px, 0.9fr) auto;
     gap: var(--spacing-2);
     align-items: center;
+    padding: var(--spacing-2);
+    border-radius: var(--radius-base);
+  }
+
+  /* Striped groups: a line and its sub-row read as one block */
+  .row:nth-child(odd) {
+    background: var(--color-neutral-100);
   }
 
   .row-error {
@@ -581,6 +860,111 @@
   .field:focus-visible {
     outline: 2px solid var(--color-primary-500);
     outline-offset: 2px;
+  }
+
+  .cell.detail {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    min-width: 0;
+  }
+
+  .cell.detail > :global(:first-child) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .shortcut-hint {
+    flex-basis: 100%;
+    margin: 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  .subrow {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: subgrid;
+    align-items: center;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
+  }
+
+  .subrow .field {
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-1) var(--spacing-2);
+  }
+
+  .sub-lead {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    padding-left: var(--spacing-3);
+    white-space: nowrap;
+  }
+
+  .sub-base {
+    padding-left: var(--spacing-2);
+  }
+
+  .pct-input {
+    width: 56px;
+    text-align: right;
+  }
+
+  .base-select {
+    min-width: 0;
+    font-size: var(--font-size-xs);
+  }
+
+  .calc-btn {
+    justify-self: end;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: var(--spacing-1) var(--spacing-2);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-base);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+  }
+
+  .calc-btn:hover:not(:disabled) {
+    color: var(--color-primary-500);
+    border-color: var(--color-primary-500);
+  }
+
+  .calc-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .icon-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  /* CSS tooltip (preferred over native title) */
+  [data-tip] {
+    position: relative;
+  }
+
+  [data-tip]:hover::after {
+    content: attr(data-tip);
+    position: absolute;
+    right: 0;
+    bottom: 100%;
+    z-index: 10;
+    width: max-content;
+    max-width: 220px;
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--radius-base);
+    background: var(--color-text-primary);
+    color: var(--color-surface);
+    font-size: var(--font-size-xs);
+    white-space: normal;
+    pointer-events: none;
   }
 
   .amount-input {
