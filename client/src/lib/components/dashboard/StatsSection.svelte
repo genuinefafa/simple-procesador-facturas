@@ -126,21 +126,13 @@
     <p class="state">Cargando totales...</p>
   {:else}
     <div class="content" class:loading>
-      <StatsKpis
-        {summary}
-        showPending={full}
-        onpendingclick={() => open(pendingExpectedQuery(period))}
-      />
-
-      {#if !full}
-        <div class="panel">
-          <h3>Pendientes</h3>
-          <PendingList
-            pending={summary.pendingExpected}
-            onexpectedclick={() => open(pendingExpectedQuery(period))}
-            onfilesclick={() => open(pendingFilesQuery())}
-          />
-        </div>
+      <!-- Reports: KPIs lead. Dashboard: charts lead, KPIs and pending follow. -->
+      {#if full}
+        <StatsKpis
+          {summary}
+          showPending
+          onpendingclick={() => open(pendingExpectedQuery(period))}
+        />
       {/if}
 
       {#if isEmpty}
@@ -178,6 +170,19 @@
             />
           </div>
         {/if}
+      {/if}
+
+      {#if !full}
+        <StatsKpis {summary} showPending={false} />
+
+        <div class="panel">
+          <h3>Pendientes</h3>
+          <PendingList
+            pending={summary.pendingExpected}
+            onexpectedclick={() => open(pendingExpectedQuery(period))}
+            onfilesclick={() => open(pendingFilesQuery())}
+          />
+        </div>
       {/if}
     </div>
   {/if}
