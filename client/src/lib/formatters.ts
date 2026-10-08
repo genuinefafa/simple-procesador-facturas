@@ -290,7 +290,8 @@ export function formatNumber(value?: number | null): string {
  */
 export function formatCurrency(value?: number | null): string {
   if (value === null || value === undefined) return '—';
-  return `$${formatNumber(value)}`;
+  // Sign before the symbol: -$1.234,56, not $-1.234,56
+  return value < 0 ? `-$${formatNumber(-value)}` : `$${formatNumber(value)}`;
 }
 
 /**

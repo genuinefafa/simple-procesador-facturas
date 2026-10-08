@@ -6,6 +6,11 @@ import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 export type EstadoValue = 'pendientes' | 'reconocidas' | 'esperadas';
 
 /**
+ * Valores válidos para el filtro de letra (A, B, C, M u otro)
+ */
+export type LetraValue = 'A' | 'B' | 'C' | 'M' | 'other';
+
+/**
  * Tipos de nodos de filtro soportados
  */
 export type FilterNode =
@@ -26,6 +31,7 @@ export type FilterNode =
     }
   | { type: 'tipo'; value: string; negate: boolean }
   | { type: 'estado'; value: EstadoValue; negate: boolean }
+  | { type: 'letra'; value: LetraValue; negate: boolean }
   | { type: 'freetext'; value: string; negate: boolean };
 
 export type DateRange = { start: Date; end: Date };
@@ -45,6 +51,8 @@ export type ParseResult = {
  * - !emisor:acme → NOT emisor
  * - categoria:sin → sin categoría
  * - numero:123 → número de comprobante
+ * - categoria:<key> → categoría por key exacta (o substring de descripción)
+ * - letra:A|B|C|M|otro → letra de la factura final (otro = E, X, etc.)
  */
 export function parseSearchQuery(query: string): ParseResult {
   const filters: FilterNode[] = [];
@@ -88,6 +96,8 @@ export function serializeFilters(filters: FilterNode[]): string {
           return `${prefix}tipo:${f.value}`;
         case 'estado':
           return `${prefix}estado:${f.value}`;
+        case 'letra':
+          return `${prefix}letra:${f.value === 'other' ? 'otro' : f.value}`;
         case 'fecha':
           return `${prefix}fecha:${serializeDateFilter(f)}`;
         case 'total':
@@ -205,6 +215,9 @@ function parseToken(token: string): FilterNode | null {
 
     case 'estado':
       return parseEstadoField(value, negate);
+
+    case 'letra':
+      return parseLetraField(value, negate);
 
     default:
       // Campo desconocido → tratar como texto libre
@@ -353,6 +366,22 @@ function parseEstadoField(value: string, negate: boolean): FilterNode {
     value: estado,
     negate,
   };
+}
+
+/**
+ * Parsea campo de letra (A, B, C, M, otro)
+ */
+function parseLetraField(value: string, negate: boolean): FilterNode {
+  const upper = value.toUpperCase();
+
+  if (upper === 'A' || upper === 'B' || upper === 'C' || upper === 'M') {
+    return { type: 'letra', value: upper, negate };
+  }
+  if (upper === 'OTRO' || upper === 'OTRA' || upper === 'OTHER') {
+    return { type: 'letra', value: 'other', negate };
+  }
+
+  throw new Error(`Letra inválida: ${value}. Valores válidos: A, B, C, M, otro`);
 }
 
 /**

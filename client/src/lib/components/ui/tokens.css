@@ -47,6 +47,19 @@
   --color-text-tertiary: #7b827d;
   --color-text-inverse: #ffffff;
 
+
+  /* Categorical chart palette. Fixed order, do not cycle: with more than
+     8 series the tail is folded into "Otras" (--color-chart-other). */
+  --color-chart-1: #2a78d6;
+  --color-chart-2: #eb6834;
+  --color-chart-3: #1baf7a;
+  --color-chart-4: #eda100;
+  --color-chart-5: #e87ba4;
+  --color-chart-6: #008300;
+  --color-chart-7: #4a3aa7;
+  --color-chart-8: #e34948;
+  --color-chart-other: var(--color-neutral-400);
+
   /* === Spacing === */
   --spacing-0: 0;
   --spacing-1: 0.25rem; /* 4px */

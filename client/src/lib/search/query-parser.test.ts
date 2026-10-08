@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseSearchQuery } from './query-parser';
+import { parseSearchQuery, serializeFilters } from './query-parser';
 
 describe('Query Parser', () => {
   describe('Emisor filters', () => {
@@ -352,6 +352,46 @@ describe('Query Parser', () => {
         type: 'freetext',
         value: 'unknown:value',
       });
+    });
+  });
+
+  describe('Letra filters', () => {
+    it('should parse letra:A', () => {
+      const result = parseSearchQuery('letra:A');
+      expect(result.errors).toEqual([]);
+      expect(result.filters[0]).toEqual({ type: 'letra', value: 'A', negate: false });
+    });
+
+    it('should be case-insensitive and map otro to other', () => {
+      expect(parseSearchQuery('letra:m').filters[0]).toMatchObject({ value: 'M' });
+      expect(parseSearchQuery('letra:otro').filters[0]).toMatchObject({ value: 'other' });
+    });
+
+    it('should support negation', () => {
+      expect(parseSearchQuery('!letra:B').filters[0]).toEqual({
+        type: 'letra',
+        value: 'B',
+        negate: true,
+      });
+    });
+
+    it('should error on invalid letter', () => {
+      expect(parseSearchQuery('letra:Z').errors.length).toBeGreaterThan(0);
+    });
+
+    it('should roundtrip through serializeFilters', () => {
+      const q = 'letra:A !letra:otro';
+      expect(serializeFilters(parseSearchQuery(q).filters)).toBe(q);
+    });
+  });
+
+  describe('Dashboard deep-link date forms', () => {
+    it('should parse year, month and quarter-range forms', () => {
+      for (const q of ['fecha:2026', 'fecha:2026-09', 'fecha:2026-07-01..2026-09-30']) {
+        const result = parseSearchQuery(q);
+        expect(result.errors).toEqual([]);
+        expect(result.filters[0]).toMatchObject({ type: 'fecha', operator: 'range' });
+      }
     });
   });
 });

@@ -98,6 +98,10 @@
           <code>categoria:servicios</code>, <code>categoria:sin</code>
         </div>
         <div class="help-section">
+          <strong>Letra:</strong>
+          <code>letra:A</code>, <code>letra:B</code>, <code>letra:otro</code>
+        </div>
+        <div class="help-section">
           <strong>Importe:</strong>
           <code>total:>1000</code>, <code>total:&lt;500</code>
         </div>

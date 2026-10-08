@@ -59,6 +59,7 @@ export {
   Cloud,
   Package,
   Inbox,
+  ChartColumn,
 
   // Balance
   Scale,

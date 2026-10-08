@@ -1,9 +1,12 @@
 import type { FilterNode } from './query-parser';
 import type { Comprobante } from '$lib/types/comprobante';
 import { getFriendlyType } from '$lib/formatters';
+import { getInvoiceLetter } from '@server/utils/afip-codes';
 
 type Category = {
   id: number;
+  /** Stable machine key; matched exactly (case-insensitive) before falling back to description */
+  key?: string;
   description: string;
 };
 
@@ -50,6 +53,9 @@ function evaluateFilterCondition(
     case 'estado':
       return matchesEstado(c, filter.value);
 
+    case 'letra':
+      return matchesLetra(c, filter.value);
+
     case 'freetext':
       return matchesFreeText(c, filter.value);
 
@@ -88,7 +94,8 @@ function matchesFecha(c: Comprobante, filter: FilterNode & { type: 'fecha' }): b
   const dateStr = getDate(c);
   if (!dateStr) return false;
 
-  const compDate = new Date(dateStr + 'T00:00:00');
+  // Some dates carry a full ISO timestamp; compare by calendar day only
+  const compDate = new Date(dateStr.slice(0, 10) + 'T00:00:00');
   if (isNaN(compDate.getTime())) return false;
 
   if (filter.operator === 'range' && typeof filter.value === 'object' && 'start' in filter.value) {
@@ -127,8 +134,15 @@ function matchesCategoria(c: Comprobante, value: string | null, categories: Cate
     return categoryId === null;
   }
 
-  // Match por nombre de categoría
   const valueLower = value.toLowerCase();
+
+  // Exact match by key wins over description substring
+  const byKey = categories.find((cat) => cat.key?.toLowerCase() === valueLower);
+  if (byKey) {
+    return categoryId === byKey.id;
+  }
+
+  // Match por nombre de categoría
   const category = categories.find((cat) => cat.description.toLowerCase().includes(valueLower));
 
   if (category) {
@@ -250,6 +264,14 @@ function matchesEstado(c: Comprobante, value: string): boolean {
     default:
       return false;
   }
+}
+
+/**
+ * Match por letra de la factura final (no matchea si no hay final)
+ */
+function matchesLetra(c: Comprobante, value: string): boolean {
+  if (!c.final) return false;
+  return getInvoiceLetter(c.final.invoiceType) === value;
 }
 
 /**
