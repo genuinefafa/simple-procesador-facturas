@@ -377,6 +377,34 @@ const invoiceTaxLines_ = sqliteTable(
 export { invoiceTaxLines_ as invoiceTaxLines };
 
 // =============================================================================
+// RECONCILIATION ACKS (#191) - accepted differences between invoice and ARCA
+// =============================================================================
+
+const reconciliationAcks_ = sqliteTable(
+  'reconciliation_acks',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoiceId: integer('invoice_id')
+      .notNull()
+      .references(() => facturas_.id, { onDelete: 'cascade' }),
+    // 'tax_breakdown' today; reusable for other reconciled fields
+    kind: text('kind').notNull(),
+    // ARCA values at the time the difference was accepted
+    arcaFingerprint: text('arca_fingerprint').notNull(),
+    note: text('note'),
+    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    invoiceKindUq: uniqueIndex('uq_reconciliation_acks_invoice_kind').on(
+      table.invoiceId,
+      table.kind
+    ),
+  })
+);
+
+export { reconciliationAcks_ as reconciliationAcks };
+
+// =============================================================================
 // TIPOS TYPESCRIPT
 // =============================================================================
 
@@ -397,6 +425,9 @@ export type NewFacturaCorreccion = typeof facturasCorrecciones_.$inferInsert;
 
 export type InvoiceTaxLine = typeof invoiceTaxLines_.$inferSelect;
 export type NewInvoiceTaxLine = typeof invoiceTaxLines_.$inferInsert;
+
+export type ReconciliationAck = typeof reconciliationAcks_.$inferSelect;
+export type NewReconciliationAck = typeof reconciliationAcks_.$inferInsert;
 
 // NOTA: PendingFile types fueron eliminados - usar File types
 
