@@ -327,6 +327,81 @@ describe('StatsRepository.getSummary', () => {
   });
 });
 
+describe('StatsRepository.getTaxBreakdown', () => {
+  beforeEach(() => {
+    resetTestDb();
+    nextNumber = 1;
+    getRawDb()
+      .prepare('INSERT INTO emisores (cuit, nombre) VALUES (?, ?)')
+      .run(CUIT, 'Emisor Test');
+  });
+
+  it('with no breakdown loaded: empty byMonth, zero credit, coverage 0 of N', () => {
+    insertInvoice({ type: 1, total: 100 });
+    insertInvoice({ type: 51, total: 200, date: '2026-04-01' });
+    insertInvoice({ type: 11, total: 300 }); // C: not part of coverage
+
+    expect(new StatsRepository().getSummary(YEAR).taxBreakdown).toEqual({
+      byMonth: [],
+      vatCredit: 0,
+      coverage: { withBreakdown: 0, total: 2 },
+    });
+  });
+
+  it('mixes invoices and credit notes, groups by month and maps the series', () => {
+    const inv = insertInvoice({ type: 1, total: 1210 + 30 + 40, date: '2026-03-10' });
+    insertTaxLine(inv, 'NET_TAXED', 1000, 21);
+    insertTaxLine(inv, 'VAT', 210, 21);
+    insertTaxLine(inv, 'VAT_PERCEPTION', 10);
+    insertTaxLine(inv, 'IIBB_PERCEPTION', 30);
+    insertTaxLine(inv, 'OTHER_TAXES', 40);
+    const nc = insertInvoice({ type: 3, total: 121, date: '2026-03-20' });
+    insertTaxLine(nc, 'NET_TAXED', 100, 21);
+    insertTaxLine(nc, 'VAT', 21, 21);
+    const apr = insertInvoice({ type: 1, total: 110, date: '2026-04-05' });
+    insertTaxLine(apr, 'NET_UNTAXED', 50);
+    insertTaxLine(apr, 'EXEMPT', 50);
+    insertTaxLine(apr, 'VAT', 10);
+    insertInvoice({ type: 1, total: 999, date: '2026-04-06' }); // A without breakdown
+
+    expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
+      byMonth: [
+        { month: '2026-03', net: 900, vat: 199, other: 70 },
+        { month: '2026-04', net: 100, vat: 10, other: 0 },
+      ],
+      vatCredit: 209,
+      coverage: { withBreakdown: 3, total: 4 },
+    });
+  });
+
+  it('B invoice with breakdown appears by month but not in vatCredit nor coverage', () => {
+    const b = insertInvoice({ type: 6, total: 121 });
+    insertTaxLine(b, 'NET_TAXED', 100, 21);
+    insertTaxLine(b, 'VAT', 21, 21);
+
+    expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
+      byMonth: [{ month: '2026-03', net: 100, vat: 21, other: 0 }],
+      vatCredit: 0,
+      coverage: { withBreakdown: 0, total: 0 },
+    });
+  });
+
+  it('excludes foreign currency and out-of-period invoices', () => {
+    const usd = insertInvoice({ type: 1, total: 121, currency: 'USD' });
+    insertTaxLine(usd, 'NET_TAXED', 100, 21);
+    insertTaxLine(usd, 'VAT', 21, 21);
+    const old = insertInvoice({ type: 1, total: 121, date: '2025-12-31' });
+    insertTaxLine(old, 'NET_TAXED', 100, 21);
+    insertTaxLine(old, 'VAT', 21, 21);
+
+    expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
+      byMonth: [],
+      vatCredit: 0,
+      coverage: { withBreakdown: 0, total: 0 },
+    });
+  });
+});
+
 describe('StatsRepository period boundaries', () => {
   beforeEach(() => {
     resetTestDb();
@@ -375,5 +450,10 @@ describe('GET /api/stats/summary', () => {
     expect(body).toHaveProperty('byMonth');
     expect(body).toHaveProperty('byLetter');
     expect(body.pendingExpected).toEqual({ count: 0, total: 0 });
+    expect(body.taxBreakdown).toEqual({
+      byMonth: [],
+      vatCredit: 0,
+      coverage: { withBreakdown: 0, total: 0 },
+    });
   });
 });

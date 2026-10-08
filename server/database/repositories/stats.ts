@@ -47,12 +47,33 @@ export interface PendingExpectedStat {
   total: number;
 }
 
+export interface TaxBreakdownMonth {
+  /** YYYY-MM */
+  month: string;
+  /** net_taxed + net_untaxed + exempt */
+  net: number;
+  /** vat + vat_perception */
+  vat: number;
+  /** iibb_perception + other_taxes */
+  other: number;
+}
+
+export interface TaxBreakdownStats {
+  /** Only invoices with a loaded breakdown (any letter), signed */
+  byMonth: TaxBreakdownMonth[];
+  /** SUM(vat + vat_perception) over A/M invoices with a loaded breakdown */
+  vatCredit: number;
+  /** Coverage over A/M invoices (vat_recoverable = 1) */
+  coverage: { withBreakdown: number; total: number };
+}
+
 export interface StatsSummary {
   totals: StatsTotals;
   byCategory: CategoryStat[];
   byMonth: MonthCategoryStat[];
   byLetter: LetterStat[];
   pendingExpected: PendingExpectedStat;
+  taxBreakdown: TaxBreakdownStats;
 }
 
 /**
@@ -69,6 +90,7 @@ export class StatsRepository {
       byMonth: this.getByMonth(range),
       byLetter: this.getByLetter(range),
       pendingExpected: this.getPendingExpected(range),
+      taxBreakdown: this.getTaxBreakdown(range),
     };
   }
 
@@ -137,6 +159,45 @@ export class StatsRepository {
       )
       .all(from, to) as Array<Omit<LetterStat, 'vatRecoverable'> & { vatRecoverable: number }>;
     return rows.map((r) => ({ ...r, vatRecoverable: r.vatRecoverable === 1 }));
+  }
+
+  /**
+   * Net / VAT / other by month, VAT fiscal credit and coverage. Invoices
+   * without a loaded breakdown are never estimated: they only count in the
+   * coverage total.
+   */
+  getTaxBreakdown({ from, to }: PeriodRange): TaxBreakdownStats {
+    const db = getRawDb();
+    const byMonth = db
+      .prepare(
+        `SELECT
+           issue_month AS month,
+           COALESCE(SUM(net_taxed + net_untaxed + exempt), 0) AS net,
+           COALESCE(SUM(vat + vat_perception), 0) AS vat,
+           COALESCE(SUM(iibb_perception + other_taxes), 0) AS other
+         FROM v_comprobantes_oro
+         WHERE ${PERIOD_FILTER} AND has_tax_breakdown = 1
+         GROUP BY issue_month
+         ORDER BY issue_month`
+      )
+      .all(from, to) as TaxBreakdownMonth[];
+
+    const credit = db
+      .prepare(
+        `SELECT
+           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 THEN vat + vat_perception END), 0) AS vatCredit,
+           COALESCE(SUM(has_tax_breakdown), 0) AS withBreakdown,
+           COUNT(*) AS total
+         FROM v_comprobantes_oro
+         WHERE ${PERIOD_FILTER} AND vat_recoverable = 1`
+      )
+      .get(from, to) as { vatCredit: number; withBreakdown: number; total: number };
+
+    return {
+      byMonth,
+      vatCredit: credit.vatCredit,
+      coverage: { withBreakdown: credit.withBreakdown, total: credit.total },
+    };
   }
 
   /**
