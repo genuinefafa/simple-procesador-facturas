@@ -27,7 +27,18 @@ import {
   createInvoiceProcessingService,
   createInvoiceCreationService,
 } from '../../factories';
-import { InvoicePatchSchema, QrPasteSchema, formatZodError } from '../../contracts';
+import {
+  InvoicePatchSchema,
+  QrPasteSchema,
+  formatZodError,
+  makeTaxLinesBodySchema,
+  checkTaxLinesSum,
+} from '../../contracts';
+import {
+  InvoiceTaxLinesRepository,
+  type InvoiceTaxContext,
+} from '../../database/repositories/invoice-tax-lines';
+import { getInvoiceLetter } from '../../utils/afip-codes';
 import { extractFromAFIPUrl } from '../../extractors/qr-extractor';
 import { calculateFileHash } from '../../utils/file-hash';
 import type {
@@ -993,5 +1004,82 @@ invoicesRouter.delete('/:id', async (c) => {
       },
       500
     );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Tax breakdown (#190)
+// ---------------------------------------------------------------------------
+
+async function buildTaxLinesResponse(
+  ctx: InvoiceTaxContext,
+  repo: InvoiceTaxLinesRepository
+): Promise<Record<string, unknown>> {
+  const rows = await repo.findByInvoiceId(ctx.id);
+  const lines = rows.map((r) => ({
+    id: r.id,
+    concept: r.concept,
+    rate: r.rate,
+    amount: r.amount,
+    label: r.label,
+  }));
+  const check = lines.length > 0 && ctx.total !== null ? checkTaxLinesSum(lines, ctx.total) : null;
+  const sum = check?.sum ?? checkTaxLinesSum(lines, 0).sum;
+  return {
+    invoiceId: ctx.id,
+    total: ctx.total,
+    currency: ctx.currency,
+    letter: getInvoiceLetter(ctx.invoiceType),
+    lines,
+    sum,
+    diff: check?.diff ?? null,
+    // null = no breakdown loaded; false also when lines exist but the invoice has no total
+    sumMatches: lines.length === 0 ? null : (check?.ok ?? false),
+  };
+}
+
+// GET /api/invoices/:id/tax-lines
+invoicesRouter.get('/:id/tax-lines', async (c) => {
+  try {
+    const invoiceId = parseInt(c.req.param('id'), 10);
+    if (isNaN(invoiceId)) {
+      return c.json({ success: false, error: 'ID de factura inválido' }, 400);
+    }
+    const repo = new InvoiceTaxLinesRepository();
+    const ctx = await repo.findInvoiceContext(invoiceId);
+    if (!ctx) {
+      return c.json({ success: false, error: 'Factura no encontrada' }, 404);
+    }
+    return c.json(await buildTaxLinesResponse(ctx, repo));
+  } catch (error) {
+    console.error('Error fetching tax lines:', error);
+    return c.json({ success: false, error: 'Error al obtener el desglose' }, 500);
+  }
+});
+
+// PUT /api/invoices/:id/tax-lines — replaces the whole breakdown ([] removes it)
+invoicesRouter.put('/:id/tax-lines', async (c) => {
+  try {
+    const invoiceId = parseInt(c.req.param('id'), 10);
+    if (isNaN(invoiceId)) {
+      return c.json({ success: false, error: 'ID de factura inválido' }, 400);
+    }
+    const repo = new InvoiceTaxLinesRepository();
+    const ctx = await repo.findInvoiceContext(invoiceId);
+    if (!ctx) {
+      return c.json({ success: false, error: 'Factura no encontrada' }, 404);
+    }
+
+    const body: unknown = await c.req.json().catch(() => null);
+    const result = makeTaxLinesBodySchema(ctx.total).safeParse(body);
+    if (!result.success) {
+      return c.json(formatZodError(result.error), 400);
+    }
+
+    await repo.replaceForInvoice(invoiceId, result.data.lines);
+    return c.json(await buildTaxLinesResponse(ctx, repo));
+  } catch (error) {
+    console.error('Error saving tax lines:', error);
+    return c.json({ success: false, error: 'Error al guardar el desglose' }, 500);
   }
 });

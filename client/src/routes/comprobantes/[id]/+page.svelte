@@ -1,6 +1,7 @@
 <script lang="ts">
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
+  import InvoiceTaxBreakdown from '$lib/components/InvoiceTaxBreakdown.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
   import DuplicateHashAlert from '$lib/components/DuplicateHashAlert.svelte';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
@@ -909,6 +910,8 @@
               </button>
             </div>
           {/if}
+
+          <InvoiceTaxBreakdown invoiceId={comprobante.final.id} total={comprobante.final.total} />
         </section>
 
         {#if comprobante.expected}
