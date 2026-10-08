@@ -69,6 +69,7 @@ export {
   Link2,
   Unlink2,
   Star,
+  GitCompareArrows,
 } from 'lucide-svelte';
 
 /**
