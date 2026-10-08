@@ -156,6 +156,11 @@ export function pendingExpectedQuery(period: string): string {
   return `estado:esperadas ${periodDateFilter(period)}`.trim();
 }
 
+/** Unprocessed files. Deliberately without a count: see issue #123. */
+export function pendingFilesQuery(): string {
+  return 'estado:pendientes';
+}
+
 // ============================================================================
 // Colors
 // ============================================================================

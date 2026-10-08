@@ -17,6 +17,7 @@ import {
   monthsOfPeriod,
   parsePeriod,
   pendingExpectedQuery,
+  pendingFilesQuery,
   percentOf,
   periodDateFilter,
   quarterRange,
@@ -107,12 +108,17 @@ describe('deep link queries', () => {
       letterQuery('M', '2026-09'),
       letterQuery('other', '2026'),
       pendingExpectedQuery('2026-Q1'),
+      pendingFilesQuery(),
     ];
     for (const q of queries) {
       const { errors, filters } = parseSearchQuery(q);
       expect(errors).toEqual([]);
       expect(filters.length).toBe(q.split(' ').length);
     }
+  });
+
+  it('builds the unprocessed files query without a count', () => {
+    expect(pendingFilesQuery()).toBe('estado:pendientes');
   });
 
   it('encodes the query in the URL', () => {

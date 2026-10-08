@@ -128,6 +128,7 @@ import { ICON_SIZES } from '$lib/components/icons';
 | Icono | Componente | Uso |
 |-------|------------|-----|
 | 🏠 | `Home` | Inicio, dashboard |
+| 📊 | `ChartColumn` | Reportes, gráficos |
 | 👥 | `Users` | Usuarios, emisores |
 | 👤 | `User` | Usuario individual |
 | 🏢 | `Building2` | Empresa, edificio |

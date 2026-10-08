@@ -10,9 +10,11 @@
   interface Props {
     summary: StatsSummaryResponse;
     onpendingclick?: () => void;
+    /** Show the ARCA pending indicator under the KPIs (default true) */
+    showPending?: boolean;
   }
 
-  let { summary, onpendingclick }: Props = $props();
+  let { summary, onpendingclick, showPending = true }: Props = $props();
 
   const intFormatter = new Intl.NumberFormat('es-AR');
   const pending = $derived(summary.pendingExpected);
@@ -37,7 +39,7 @@
   </div>
 </div>
 
-{#if pending.count > 0}
+{#if showPending && pending.count > 0}
   <button type="button" class="pending" onclick={() => onpendingclick?.()}>
     <Info size={14} />
     <span>

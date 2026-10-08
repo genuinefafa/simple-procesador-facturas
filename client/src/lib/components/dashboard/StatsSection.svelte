@@ -1,11 +1,17 @@
 <script lang="ts">
   /**
-   * Dashboard totals section: period selector, KPIs and charts.
-   * The period lives in the URL (`?period=2026`, `2026-Q3`, `2026-09`).
+   * Totals section shared by the dashboard and the reports page. Loads the
+   * summary for `period` and renders KPIs and charts.
+   *
+   * - `full` (reports): period selector, ARCA pending indicator under the KPIs
+   *   and the letter donut.
+   * - summary (dashboard): fixed period, actionable "Pendientes" block and a
+   *   link to the reports page.
+   *
+   * The period is owned by the caller (the reports page keeps it in the URL).
    */
   import 'layerchart/core.css';
   import { goto } from '$app/navigation';
-  import { page } from '$app/state';
   import {
     assignCategoryColors,
     buildCategoryRows,
@@ -17,22 +23,31 @@
     monthCategoryQuery,
     monthsOfPeriod,
     pendingExpectedQuery,
+    pendingFilesQuery,
     periodLabel,
-    resolvePeriodKey,
   } from '$lib/utils/dashboard';
   import {
     statsService,
     type CategoryRef,
     type StatsSummaryResponse,
   } from '$lib/services/StatsService';
+  import { ChartColumn } from '$lib/components/icons';
+  import Button from '$lib/components/ui/Button.svelte';
   import PeriodSelector from './PeriodSelector.svelte';
+  import PendingList from './PendingList.svelte';
   import StatsKpis from './StatsKpis.svelte';
   import CategoryBarChart from './CategoryBarChart.svelte';
   import MonthlyStackedChart from './MonthlyStackedChart.svelte';
   import LetterDonutChart from './LetterDonutChart.svelte';
 
-  // URL is the source of truth for the period
-  const period = $derived(resolvePeriodKey(page.url.searchParams.get('period')));
+  interface Props {
+    period: string;
+    /** Reports mode: selector + donut. Defaults to the dashboard summary. */
+    full?: boolean;
+    onperiodchange?: (key: string) => void;
+  }
+
+  let { period, full = false, onperiodchange }: Props = $props();
 
   let summary = $state<StatsSummaryResponse | null>(null);
   let categories = $state<CategoryRef[]>([]);
@@ -82,10 +97,6 @@
   const letterSlices = $derived(summary ? buildLetterSlices(summary.byLetter) : []);
   const isEmpty = $derived(!!summary && summary.totals.count === 0);
 
-  function changePeriod(key: string) {
-    goto(`?period=${encodeURIComponent(key)}`, { keepFocus: true, noScroll: true });
-  }
-
   function open(q: string) {
     goto(comprobantesUrl(q));
   }
@@ -97,7 +108,16 @@
       <p class="eyebrow">Totales</p>
       <h2 id="stats-title">Resumen de {periodLabel(period)}</h2>
     </div>
-    <PeriodSelector {period} onchange={changePeriod} />
+    {#if full}
+      <PeriodSelector {period} onchange={(key) => onperiodchange?.(key)} />
+    {:else}
+      <Button
+        variant="secondary"
+        onclick={() => goto(`/reportes?period=${encodeURIComponent(period)}`)}
+      >
+        <ChartColumn size={16} /> Ver reportes
+      </Button>
+    {/if}
   </div>
 
   {#if error}
@@ -106,7 +126,22 @@
     <p class="state">Cargando totales...</p>
   {:else}
     <div class="content" class:loading>
-      <StatsKpis {summary} onpendingclick={() => open(pendingExpectedQuery(period))} />
+      <StatsKpis
+        {summary}
+        showPending={full}
+        onpendingclick={() => open(pendingExpectedQuery(period))}
+      />
+
+      {#if !full}
+        <div class="panel">
+          <h3>Pendientes</h3>
+          <PendingList
+            pending={summary.pendingExpected}
+            onexpectedclick={() => open(pendingExpectedQuery(period))}
+            onfilesclick={() => open(pendingFilesQuery())}
+          />
+        </div>
+      {/if}
 
       {#if isEmpty}
         <p class="state">No hay facturas cargadas en {periodLabel(period)}.</p>
@@ -134,13 +169,15 @@
           </div>
         {/if}
 
-        <div class="panel">
-          <h3>Facturas por letra</h3>
-          <LetterDonutChart
-            slices={letterSlices}
-            onselect={(slice) => open(letterQuery(slice.letter, period))}
-          />
-        </div>
+        {#if full}
+          <div class="panel">
+            <h3>Facturas por letra</h3>
+            <LetterDonutChart
+              slices={letterSlices}
+              onselect={(slice) => open(letterQuery(slice.letter, period))}
+            />
+          </div>
+        {/if}
       {/if}
     </div>
   {/if}
