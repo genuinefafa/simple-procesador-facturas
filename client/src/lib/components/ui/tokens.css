@@ -131,4 +131,7 @@
   --z-modal: 1400;
   --z-popover: 1500;
   --z-tooltip: 1600;
+
+  /* === Tooltips === */
+  --tooltip-max-width: 16rem;
 }
