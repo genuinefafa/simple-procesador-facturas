@@ -299,7 +299,8 @@
                 onchange={(v) => setConcept(row, v)}
               />
             </div>
-            <div class="cell rate">
+            <!-- Rate and label are mutually exclusive per concept: they share one cell -->
+            <div class="cell detail">
               {#if row.concept && RATES_BY_CONCEPT[row.concept]}
                 <TaxLineSelect
                   value={row.rate}
@@ -307,6 +308,15 @@
                   placeholder="Alícuota"
                   ariaLabel="Alícuota"
                   onchange={(v) => (row.rate = v)}
+                />
+              {:else if row.concept && LABEL_CONCEPTS.includes(row.concept)}
+                <input
+                  type="text"
+                  class="field"
+                  placeholder="Descripción (opcional)"
+                  aria-label="Descripción"
+                  maxlength="100"
+                  bind:value={row.label}
                 />
               {/if}
             </div>
@@ -319,18 +329,6 @@
                 aria-label="Monto"
                 bind:value={row.amount}
               />
-            </div>
-            <div class="cell label">
-              {#if row.concept && LABEL_CONCEPTS.includes(row.concept)}
-                <input
-                  type="text"
-                  class="field"
-                  placeholder="Descripción (opcional)"
-                  aria-label="Descripción"
-                  maxlength="100"
-                  bind:value={row.label}
-                />
-              {/if}
             </div>
             <button
               type="button"
@@ -557,7 +555,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: minmax(150px, 1.2fr) 100px minmax(110px, 1fr) minmax(0, 1.4fr) auto;
+    grid-template-columns: minmax(150px, 1.4fr) minmax(90px, 1fr) minmax(90px, 0.9fr) auto;
     gap: var(--spacing-2);
     align-items: center;
   }
@@ -618,11 +616,5 @@
 
   .totals.bad {
     border: 1px solid var(--color-error);
-  }
-
-  @media (max-width: 640px) {
-    .row {
-      grid-template-columns: 1fr 1fr auto;
-    }
   }
 </style>
