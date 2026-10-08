@@ -94,6 +94,27 @@ interface GoldRow {
   vat_recoverable: number;
   category_id: number | null;
   balance_group_id: number | null;
+  has_tax_breakdown: number;
+  net_taxed: number | null;
+  net_untaxed: number | null;
+  exempt: number | null;
+  vat: number | null;
+  vat_perception: number | null;
+  iibb_perception: number | null;
+  other_taxes: number | null;
+}
+
+function insertTaxLine(
+  invoiceId: number,
+  concept: string,
+  amount: number,
+  rate: number | null = null
+): void {
+  getRawDb()
+    .prepare(
+      'INSERT INTO invoice_tax_lines (invoice_id, concept, rate, amount) VALUES (?, ?, ?, ?)'
+    )
+    .run(invoiceId, concept, rate, amount);
 }
 
 function goldRows(): GoldRow[] {
@@ -147,6 +168,64 @@ describe('v_comprobantes_oro', () => {
     const [row] = goldRows();
     expect(row.issue_date).toBe('2026-01-06');
     expect(row.issue_month).toBe('2026-01');
+  });
+
+  describe('tax breakdown columns', () => {
+    const CONCEPT_COLUMNS = [
+      'net_taxed',
+      'net_untaxed',
+      'exempt',
+      'vat',
+      'vat_perception',
+      'iibb_perception',
+      'other_taxes',
+    ] as const;
+
+    it('has NULLs and has_tax_breakdown = 0 for an invoice without lines', () => {
+      insertInvoice({ type: 1, total: 100 });
+      const [row] = goldRows();
+      expect(row.has_tax_breakdown).toBe(0);
+      for (const col of CONCEPT_COLUMNS) expect(row[col]).toBeNull();
+    });
+
+    it('sums lines per concept (several rates add up) and keeps 0 for absent concepts', () => {
+      const id = insertInvoice({ type: 1, total: 1210 + 105 + 50 });
+      insertTaxLine(id, 'NET_TAXED', 1000, 21);
+      insertTaxLine(id, 'NET_TAXED', 100, 10.5);
+      insertTaxLine(id, 'VAT', 210, 21);
+      insertTaxLine(id, 'VAT', 10.5, 10.5);
+      insertTaxLine(id, 'IIBB_PERCEPTION', 30);
+      insertTaxLine(id, 'OTHER_TAXES', 20);
+
+      const [row] = goldRows();
+      expect(row.has_tax_breakdown).toBe(1);
+      expect(row.net_taxed).toBe(1100);
+      expect(row.net_untaxed).toBe(0);
+      expect(row.exempt).toBe(0);
+      expect(row.vat).toBe(220.5);
+      expect(row.vat_perception).toBe(0);
+      expect(row.iibb_perception).toBe(30);
+      expect(row.other_taxes).toBe(20);
+    });
+
+    it('applies the sign: credit notes get negative values', () => {
+      const id = insertInvoice({ type: 3, total: 121 });
+      insertTaxLine(id, 'NET_TAXED', 100, 21);
+      insertTaxLine(id, 'VAT', 21, 21);
+
+      const [row] = goldRows();
+      expect(row.has_tax_breakdown).toBe(1);
+      expect(row.net_taxed).toBe(-100);
+      expect(row.vat).toBe(-21);
+      expect(row.exempt).toBe(0);
+    });
+
+    it('does not duplicate invoice rows when there are several lines', () => {
+      const id = insertInvoice({ type: 1, total: 121 });
+      insertTaxLine(id, 'NET_TAXED', 100, 21);
+      insertTaxLine(id, 'VAT', 21, 21);
+      expect(goldRows()).toHaveLength(1);
+    });
   });
 
   it('keeps balance group secondaries so the group nets out', () => {
