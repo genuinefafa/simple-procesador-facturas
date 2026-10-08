@@ -177,7 +177,7 @@
     void load();
   });
 
-  /** `useSuggestion` is true only for the explicit "Revisar y cargar" action. */
+  /** `useSuggestion` is true only for the explicit "Copiar desde ARCA" action. */
   function startEdit(useSuggestion = false): void {
     saveError = null;
     const hasOwnLines = !!data && data.lines.length > 0;
@@ -684,9 +684,12 @@
     {#if suggestion}
       <div class="notice" role="status">
         <Info size={14} />
-        <span>ARCA informa un desglose para este comprobante.</span>
+        <span>
+          ARCA informó el desglose de este comprobante. Podés copiarlo al formulario, revisarlo y
+          guardarlo.
+        </span>
         <Button size="sm" variant="secondary" onclick={() => startEdit(true)}>
-          Revisar y cargar
+          Copiar desde ARCA
         </Button>
       </div>
     {/if}
