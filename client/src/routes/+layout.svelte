@@ -1,15 +1,7 @@
 <script lang="ts">
   import { page } from '$app/stores';
   import '$lib/components/ui/tokens.css';
-  import {
-    Home,
-    ChartColumn,
-    GitCompareArrows,
-    ClipboardList,
-    Users,
-    Menu,
-    User,
-  } from '$lib/components/icons';
+  import { Home, ChartColumn, ClipboardList, Users, Menu, User } from '$lib/components/icons';
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   type NavItem = {
@@ -23,7 +15,6 @@
   const navItems: NavItem[] = [
     { href: '/', label: 'Dashboard', icon: Home },
     { href: '/reportes', label: 'Reportes', icon: ChartColumn },
-    { href: '/conciliacion', label: 'Conciliación', icon: GitCompareArrows },
     { href: '/comprobantes', label: 'Comprobantes', icon: ClipboardList },
     { href: '/emisores', label: 'Emisores', icon: Users },
   ];

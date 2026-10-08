@@ -3,6 +3,11 @@
   import CategoryPills from '$lib/components/CategoryPills.svelte';
   import CategorySelect from '$lib/components/CategorySelect.svelte';
   import CompletenessIndicator from '$lib/components/CompletenessIndicator.svelte';
+  import CompleteFromArcaDialog, {
+    type CompleteItem,
+  } from '$lib/components/CompleteFromArcaDialog.svelte';
+  import TaxBreakdownIndicator from '$lib/components/TaxBreakdownIndicator.svelte';
+  import TaxBreakdownRowPanel from '$lib/components/TaxBreakdownRowPanel.svelte';
   import UnifiedSearchBox from '$lib/components/UnifiedSearchBox.svelte';
   import UploadReport from '$lib/components/UploadReport.svelte';
   import type { PageData } from './$types';
@@ -273,6 +278,45 @@
     } else {
       toast.error(result.error || 'Error al cargar grupo de balance');
     }
+  }
+
+  // --- Tax breakdown vs ARCA (#191) ---
+  // Invoice ids whose comparison panel is open (several can be open at once)
+  let openBreakdowns = $state<Set<number>>(new Set());
+
+  function toggleBreakdown(invoiceId: number) {
+    const next = new Set(openBreakdowns);
+    if (next.has(invoiceId)) next.delete(invoiceId);
+    else next.add(invoiceId);
+    openBreakdowns = next;
+  }
+
+  const COMPLETE_BATCH_MAX = 500; // server limit per request
+  let completeOpen = $state(false);
+
+  // Batch action only makes sense when the user is looking at the completables
+  let completeCandidates = $derived.by((): CompleteItem[] => {
+    const filtering = searchFilters.some(
+      (f) => f.type === 'desglose' && f.value === 'completable' && !f.negate
+    );
+    if (!filtering) return [];
+    const items: CompleteItem[] = [];
+    for (const comp of visibleComprobantes) {
+      const rec = comp.taxReconciliation;
+      if (!comp.final || rec?.status !== 'completable' || !rec.arcaLines) continue;
+      items.push({
+        invoiceId: comp.final.id,
+        label: formatComprobante(comp),
+        emitter: getEmitterName(comp).short || formatCuit(comp.final.cuit),
+        arcaLines: rec.arcaLines,
+      });
+    }
+    return items.slice(0, COMPLETE_BATCH_MAX);
+  });
+
+  async function onBreakdownApplied() {
+    openBreakdowns = new Set();
+    await invalidateAll();
   }
 
   const CREDIT_NOTE_TYPES = new Set([3, 8, 13, 21, 53]);
@@ -750,6 +794,11 @@
         {/if}
         Gmail
       </button>
+      {#if completeCandidates.length > 0}
+        <Button size="sm" variant="primary" onclick={() => (completeOpen = true)}>
+          Completar desde ARCA ({completeCandidates.length})
+        </Button>
+      {/if}
       {#if hasActiveFilters}
         <button class="clear-all" onclick={clearAllFilters} type="button"> Limpiar filtros </button>
       {/if}
@@ -854,6 +903,11 @@
         </span>
         <span class="col-type-status">
           <CompletenessIndicator comprobante={comp} />
+          <TaxBreakdownIndicator
+            reconciliation={comp.taxReconciliation}
+            expanded={comp.final != null && openBreakdowns.has(comp.final.id)}
+            ontoggle={() => comp.final && toggleBreakdown(comp.final.id)}
+          />
         </span>
         <span class="col-hash"
           >{comp.final?.fileHash || comp.file?.fileHash
@@ -895,6 +949,11 @@
           <Button size="sm" onclick={() => navigateToDetail(comp.id)}>Ver</Button>
         </span>
       </div>
+      {#if comp.final && comp.taxReconciliation && openBreakdowns.has(comp.final.id)}
+        <div class="row sub-row breakdown-row">
+          <TaxBreakdownRowPanel invoiceId={comp.final.id} onapplied={onBreakdownApplied} />
+        </div>
+      {/if}
       {#if isExpanded && expectedId != null}
         {@const group = expandedGroups.get(expectedId)}
         {@const members = group?.members ?? []}
@@ -968,6 +1027,12 @@
     {/each}
   </section>
 </div>
+
+<CompleteFromArcaDialog
+  bind:open={completeOpen}
+  items={completeCandidates}
+  onapplied={onBreakdownApplied}
+/>
 
 <style>
   .page-container {
@@ -1094,7 +1159,7 @@
   .row {
     display: grid;
     /* Fecha | Emisor (flexible) | Comprobante | Total | Categoría | Estado | Hash | Acción */
-    grid-template-columns: 85px minmax(200px, 1fr) 220px 110px 150px 90px 70px 100px;
+    grid-template-columns: 85px minmax(200px, 1fr) 220px 110px 150px 120px 70px 100px;
     gap: var(--spacing-2);
     padding: var(--spacing-2) var(--spacing-3);
     align-items: center;
@@ -1217,7 +1282,7 @@
   .col-type-status {
     display: flex;
     gap: var(--spacing-1);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   /* Columna de comprobante */
