@@ -8,6 +8,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { getRawDb } from '../../database/db.js';
 import { cleanupTestDb, runTestMigrations, resetTestDb } from '../../database/db-test.js';
 import { StatsRepository } from '../../database/repositories/stats.js';
+import { app } from '../../http/app.js';
 import { periodToRange } from '../../contracts/stats.js';
 import {
   AFIP_TYPES,
@@ -61,13 +62,14 @@ function insertInvoice(opts: {
   date?: string;
   categoryId?: number;
   expectedId?: number;
+  currency?: string;
 }): number {
   return Number(
     getRawDb()
       .prepare(
         `INSERT INTO facturas
-           (emisor_cuit, fecha_emision, tipo_comprobante, punto_venta, numero_comprobante, total, category_id, expected_invoice_id)
-         VALUES (?, ?, ?, 1, ?, ?, ?, ?)`
+           (emisor_cuit, fecha_emision, tipo_comprobante, punto_venta, numero_comprobante, total, category_id, expected_invoice_id, moneda)
+         VALUES (?, ?, ?, 1, ?, ?, ?, ?, ?)`
       )
       .run(
         CUIT,
@@ -76,7 +78,8 @@ function insertInvoice(opts: {
         nextNumber++,
         opts.total,
         opts.categoryId ?? null,
-        opts.expectedId ?? null
+        opts.expectedId ?? null,
+        opts.currency ?? 'ARS'
       ).lastInsertRowid
   );
 }
@@ -102,7 +105,7 @@ function goldRows(): GoldRow[] {
 describe('v_comprobantes_oro', () => {
   beforeAll(async () => {
     // Start from a fresh test DB so the view migration is applied even when a
-    // previous run left an older schema behind.
+    // previous run left an older schema behind. TODO: See issue #193
     cleanupTestDb();
     await runTestMigrations();
   });
@@ -117,9 +120,14 @@ describe('v_comprobantes_oro', () => {
 
   it('mirrors getInvoiceLetter/getInvoiceSign for every ARCA code', () => {
     const codes: Array<number | null> = [
-      ...Object.values(AFIP_TYPES).map((t) => t.code),
+      ...new Set([
+        // Every code in the JSON plus the whole 0-300 range, so codes listed in
+        // the SQL CASE but missing from the JSON are caught too.
+        ...Object.values(AFIP_TYPES).map((t) => t.code),
+        ...Array.from({ length: 301 }, (_, i) => i),
+        9999,
+      ]),
       null,
-      9999,
     ];
     const ids = codes.map((code) => insertInvoice({ type: code, total: 100 }));
 
@@ -181,6 +189,8 @@ describe('StatsRepository.getSummary', () => {
     insertInvoice({ type: 3, total: 200, categoryId: catX, date: '2026-04-15' });
     // Uncategorized
     insertInvoice({ type: 6, total: 50 });
+    // Foreign currency: left out of totals, counted apart
+    insertInvoice({ type: 1, total: 5000, categoryId: catX, currency: 'USD' });
     // Out of period
     insertInvoice({ type: 1, total: 9999, categoryId: catX, date: '2025-12-31' });
     // Pending expected invoices: an invoice and a credit note, not in totals
@@ -189,7 +199,12 @@ describe('StatsRepository.getSummary', () => {
 
     const summary = new StatsRepository().getSummary(YEAR);
 
-    expect(summary.totals).toEqual({ count: 4, total: 1150, vatRecoverableTotal: 800 });
+    expect(summary.totals).toEqual({
+      count: 4,
+      total: 1150,
+      vatRecoverableTotal: 800,
+      foreignCurrencyCount: 1,
+    });
 
     expect(summary.byCategory).toEqual([
       {
@@ -230,5 +245,56 @@ describe('StatsRepository.getSummary', () => {
     insertInvoice({ type: 11, total: 400, expectedId: exp });
 
     expect(new StatsRepository().getPendingExpected(YEAR)).toEqual({ count: 0, total: 0 });
+  });
+});
+
+describe('StatsRepository period boundaries', () => {
+  beforeEach(() => {
+    resetTestDb();
+    nextNumber = 1;
+    getRawDb()
+      .prepare('INSERT INTO emisores (cuit, nombre) VALUES (?, ?)')
+      .run(CUIT, 'Emisor Test');
+  });
+
+  it('includes the last day of the period and excludes the next one', () => {
+    insertInvoice({ type: 11, total: 1, date: '2026-09-30' });
+    insertInvoice({ type: 11, total: 10, date: '2026-10-01' });
+    insertInvoice({ type: 11, total: 100, date: '2026-12-31T00:00:00.000Z' });
+    insertInvoice({ type: 11, total: 1000, date: '2027-01-01' });
+
+    const repo = new StatsRepository();
+    expect(repo.getTotals(periodToRange('2026-09')).total).toBe(1);
+    expect(repo.getTotals(periodToRange('2026-Q3')).total).toBe(1);
+    expect(repo.getTotals(periodToRange('2026-Q4')).total).toBe(110);
+    expect(repo.getTotals(periodToRange('2026')).total).toBe(111);
+  });
+});
+
+describe('GET /api/stats/summary', () => {
+  beforeEach(() => {
+    resetTestDb();
+  });
+
+  it('returns 400 without a valid period', async () => {
+    expect((await app.request('/api/stats/summary')).status).toBe(400);
+    expect((await app.request('/api/stats/summary?period=2026-13')).status).toBe(400);
+  });
+
+  it('returns the period range and the summary', async () => {
+    const res = await app.request('/api/stats/summary?period=2026-Q2');
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.period).toEqual({ key: '2026-Q2', from: '2026-04-01', to: '2026-07-01' });
+    expect(body.totals).toEqual({
+      count: 0,
+      total: 0,
+      vatRecoverableTotal: 0,
+      foreignCurrencyCount: 0,
+    });
+    expect(body).toHaveProperty('byCategory');
+    expect(body).toHaveProperty('byMonth');
+    expect(body).toHaveProperty('byLetter');
+    expect(body.pendingExpected).toEqual({ count: 0, total: 0 });
   });
 });

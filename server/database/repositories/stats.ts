@@ -14,6 +14,8 @@ export interface StatsTotals {
   count: number;
   total: number;
   vatRecoverableTotal: number;
+  /** Invoices in the period left out of every total because they are not in ARS */
+  foreignCurrencyCount: number;
 }
 
 export interface CategoryStat {
@@ -53,7 +55,11 @@ export interface StatsSummary {
   pendingExpected: PendingExpectedStat;
 }
 
-const PERIOD_FILTER = 'issue_date >= ? AND issue_date < ?';
+/**
+ * Totals are in ARS only: amounts in other currencies are not converted, so
+ * they are left out and counted apart (foreignCurrencyCount).
+ */
+const PERIOD_FILTER = "issue_date >= ? AND issue_date < ? AND COALESCE(currency, 'ARS') = 'ARS'";
 
 export class StatsRepository {
   getSummary(range: PeriodRange): StatsSummary {
@@ -72,11 +78,13 @@ export class StatsRepository {
         `SELECT
            COUNT(*) AS count,
            COALESCE(SUM(signed_total), 0) AS total,
-           COALESCE(SUM(CASE WHEN vat_recoverable = 1 THEN signed_total END), 0) AS vatRecoverableTotal
+           COALESCE(SUM(CASE WHEN vat_recoverable = 1 THEN signed_total END), 0) AS vatRecoverableTotal,
+           (SELECT COUNT(*) FROM v_comprobantes_oro
+            WHERE issue_date >= ? AND issue_date < ? AND COALESCE(currency, 'ARS') <> 'ARS') AS foreignCurrencyCount
          FROM v_comprobantes_oro
          WHERE ${PERIOD_FILTER}`
       )
-      .get(from, to) as StatsTotals;
+      .get(from, to, from, to) as StatsTotals;
     return row;
   }
 
@@ -142,6 +150,7 @@ export class StatsRepository {
          FROM expected_invoices ei
          WHERE ei.status = 'pending'
            AND substr(ei.issue_date, 1, 10) >= ? AND substr(ei.issue_date, 1, 10) < ?
+           AND COALESCE(ei.currency, 'ARS') = 'ARS'
            AND NOT EXISTS (SELECT 1 FROM facturas f WHERE f.expected_invoice_id = ei.id)`
       )
       .all(from, to) as Array<{ invoiceType: number | null; total: number | null }>;
