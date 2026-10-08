@@ -155,6 +155,36 @@ describe('Filter Executor', () => {
       expect(matcher(comprobante, filter)).toBe(true);
     });
 
+    it('should match a date stored as a full ISO timestamp', () => {
+      const comprobante = createTestComprobante({
+        effectiveDate: '2024-01-15T00:00:00.000Z',
+      });
+
+      const filter: FilterNode = {
+        type: 'fecha',
+        operator: 'eq',
+        value: new Date('2024-01-15T00:00:00'),
+        negate: false,
+      };
+
+      expect(matcher(comprobante, filter)).toBe(true);
+    });
+
+    it('should include the last day of a range', () => {
+      const comprobante = createTestComprobante({
+        effectiveDate: '2026-09-30',
+      });
+
+      const filter: FilterNode = {
+        type: 'fecha',
+        operator: 'range',
+        value: { start: new Date('2026-07-01T00:00:00'), end: new Date('2026-09-30T00:00:00') },
+        negate: false,
+      };
+
+      expect(matcher(comprobante, filter)).toBe(true);
+    });
+
     it('should match date > (greater than)', () => {
       const comprobante = createTestComprobante({
         effectiveDate: '2024-02-15',

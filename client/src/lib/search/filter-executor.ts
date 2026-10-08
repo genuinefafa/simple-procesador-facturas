@@ -94,7 +94,8 @@ function matchesFecha(c: Comprobante, filter: FilterNode & { type: 'fecha' }): b
   const dateStr = getDate(c);
   if (!dateStr) return false;
 
-  const compDate = new Date(dateStr + 'T00:00:00');
+  // Some dates carry a full ISO timestamp; compare by calendar day only
+  const compDate = new Date(dateStr.slice(0, 10) + 'T00:00:00');
   if (isNaN(compDate.getTime())) return false;
 
   if (filter.operator === 'range' && typeof filter.value === 'object' && 'start' in filter.value) {
