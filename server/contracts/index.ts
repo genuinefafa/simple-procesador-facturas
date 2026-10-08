@@ -42,3 +42,7 @@ export type {
 
 // Utilities
 export { formatZodError } from './utils.js';
+
+// Stats (dashboard)
+export { StatsQuerySchema, periodSchema, periodToRange } from './stats.js';
+export type { StatsQueryInput, PeriodRange } from './stats.js';

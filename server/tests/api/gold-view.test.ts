@@ -1,0 +1,234 @@
+/**
+ * Gold layer view (v_comprobantes_oro) + StatsRepository (#189).
+ *
+ * Fictitious data only (CUITs from CLAUDE.md).
+ */
+
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { getRawDb } from '../../database/db.js';
+import { cleanupTestDb, runTestMigrations, resetTestDb } from '../../database/db-test.js';
+import { StatsRepository } from '../../database/repositories/stats.js';
+import { periodToRange } from '../../contracts/stats.js';
+import {
+  AFIP_TYPES,
+  getInvoiceLetter,
+  getInvoiceSign,
+  isVatRecoverable,
+} from '../../utils/afip-codes.js';
+
+const CUIT = '30-12345678-9';
+const YEAR = periodToRange('2026');
+
+let nextNumber = 1;
+
+function insertCategory(key: string): number {
+  return Number(
+    getRawDb()
+      .prepare('INSERT INTO categories (key, description) VALUES (?, ?)')
+      .run(key, `Categoría ${key}`).lastInsertRowid
+  );
+}
+
+function insertExpected(opts: {
+  type: number;
+  total: number;
+  date?: string;
+  status?: 'pending' | 'matched' | 'balanced';
+  balancedWithId?: number;
+}): number {
+  return Number(
+    getRawDb()
+      .prepare(
+        `INSERT INTO expected_invoices
+           (cuit, issue_date, invoice_type, point_of_sale, invoice_number, total, status, balanced_with_id)
+         VALUES (?, ?, ?, 1, ?, ?, ?, ?)`
+      )
+      .run(
+        CUIT,
+        opts.date ?? '2026-03-10',
+        opts.type,
+        nextNumber++,
+        opts.total,
+        opts.status ?? 'pending',
+        opts.balancedWithId ?? null
+      ).lastInsertRowid
+  );
+}
+
+function insertInvoice(opts: {
+  type: number | null;
+  total: number;
+  date?: string;
+  categoryId?: number;
+  expectedId?: number;
+}): number {
+  return Number(
+    getRawDb()
+      .prepare(
+        `INSERT INTO facturas
+           (emisor_cuit, fecha_emision, tipo_comprobante, punto_venta, numero_comprobante, total, category_id, expected_invoice_id)
+         VALUES (?, ?, ?, 1, ?, ?, ?, ?)`
+      )
+      .run(
+        CUIT,
+        opts.date ?? '2026-03-10',
+        opts.type,
+        nextNumber++,
+        opts.total,
+        opts.categoryId ?? null,
+        opts.expectedId ?? null
+      ).lastInsertRowid
+  );
+}
+
+interface GoldRow {
+  invoice_id: number;
+  issue_date: string;
+  issue_month: string;
+  letter: string;
+  sign: number;
+  signed_total: number;
+  vat_recoverable: number;
+  category_id: number | null;
+  balance_group_id: number | null;
+}
+
+function goldRows(): GoldRow[] {
+  return getRawDb()
+    .prepare('SELECT * FROM v_comprobantes_oro ORDER BY invoice_id')
+    .all() as GoldRow[];
+}
+
+describe('v_comprobantes_oro', () => {
+  beforeAll(async () => {
+    // Start from a fresh test DB so the view migration is applied even when a
+    // previous run left an older schema behind.
+    cleanupTestDb();
+    await runTestMigrations();
+  });
+
+  beforeEach(() => {
+    resetTestDb();
+    nextNumber = 1;
+    getRawDb()
+      .prepare('INSERT INTO emisores (cuit, nombre) VALUES (?, ?)')
+      .run(CUIT, 'Emisor Test');
+  });
+
+  it('mirrors getInvoiceLetter/getInvoiceSign for every ARCA code', () => {
+    const codes: Array<number | null> = [
+      ...Object.values(AFIP_TYPES).map((t) => t.code),
+      null,
+      9999,
+    ];
+    const ids = codes.map((code) => insertInvoice({ type: code, total: 100 }));
+
+    const byId = new Map(goldRows().map((r) => [r.invoice_id, r]));
+    codes.forEach((code, i) => {
+      const row = byId.get(ids[i])!;
+      const letter = getInvoiceLetter(code);
+      const sign = getInvoiceSign(code);
+      expect({ code, letter: row.letter, sign: row.sign }).toEqual({ code, letter, sign });
+      expect(row.signed_total).toBe(sign * 100);
+      expect(row.vat_recoverable === 1).toBe(isVatRecoverable(letter));
+    });
+  });
+
+  it('normalizes ISO timestamps in issue_date', () => {
+    insertInvoice({ type: 11, total: 10, date: '2026-01-06T00:00:00.000Z' });
+    const [row] = goldRows();
+    expect(row.issue_date).toBe('2026-01-06');
+    expect(row.issue_month).toBe('2026-01');
+  });
+
+  it('keeps balance group secondaries so the group nets out', () => {
+    const principal = insertExpected({ type: 6, total: 500, status: 'matched' });
+    const secondary = insertExpected({
+      type: 8,
+      total: 500,
+      status: 'matched',
+      balancedWithId: principal,
+    });
+    insertInvoice({ type: 6, total: 500, expectedId: principal });
+    insertInvoice({ type: 8, total: 500, expectedId: secondary });
+
+    const rows = goldRows();
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.balance_group_id)).toEqual([principal, principal]);
+    expect(new StatsRepository().getTotals(YEAR).total).toBe(0);
+  });
+});
+
+describe('StatsRepository.getSummary', () => {
+  beforeEach(() => {
+    resetTestDb();
+    nextNumber = 1;
+    getRawDb()
+      .prepare('INSERT INTO emisores (cuit, nombre) VALUES (?, ?)')
+      .run(CUIT, 'Emisor Test');
+  });
+
+  it('reads only invoices, signs credit notes and keeps the uncategorized bucket', () => {
+    const catX = insertCategory('X');
+    const catY = insertCategory('Y');
+
+    // Invoice linked to an expected one
+    const linked = insertExpected({ type: 1, total: 1000, status: 'matched' });
+    insertInvoice({ type: 1, total: 1000, categoryId: catX, expectedId: linked });
+    // Invoice without expected (not informed by ARCA)
+    insertInvoice({ type: 11, total: 300, categoryId: catY, date: '2026-04-02' });
+    // Credit note A, stored positive
+    insertInvoice({ type: 3, total: 200, categoryId: catX, date: '2026-04-15' });
+    // Uncategorized
+    insertInvoice({ type: 6, total: 50 });
+    // Out of period
+    insertInvoice({ type: 1, total: 9999, categoryId: catX, date: '2025-12-31' });
+    // Pending expected invoices: an invoice and a credit note, not in totals
+    insertExpected({ type: 11, total: 700 });
+    insertExpected({ type: 13, total: 100 });
+
+    const summary = new StatsRepository().getSummary(YEAR);
+
+    expect(summary.totals).toEqual({ count: 4, total: 1150, vatRecoverableTotal: 800 });
+
+    expect(summary.byCategory).toEqual([
+      {
+        categoryId: catX,
+        categoryKey: 'X',
+        categoryDescription: 'Categoría X',
+        count: 2,
+        total: 800,
+      },
+      {
+        categoryId: catY,
+        categoryKey: 'Y',
+        categoryDescription: 'Categoría Y',
+        count: 1,
+        total: 300,
+      },
+      { categoryId: null, categoryKey: null, categoryDescription: null, count: 1, total: 50 },
+    ]);
+
+    expect(summary.byMonth).toEqual([
+      { month: '2026-03', categoryId: catX, categoryKey: 'X', total: 1000 },
+      { month: '2026-03', categoryId: null, categoryKey: null, total: 50 },
+      { month: '2026-04', categoryId: catY, categoryKey: 'Y', total: 300 },
+      { month: '2026-04', categoryId: catX, categoryKey: 'X', total: -200 },
+    ]);
+
+    expect(summary.byLetter).toEqual([
+      { letter: 'A', vatRecoverable: true, count: 2, total: 800 },
+      { letter: 'C', vatRecoverable: false, count: 1, total: 300 },
+      { letter: 'B', vatRecoverable: false, count: 1, total: 50 },
+    ]);
+
+    expect(summary.pendingExpected).toEqual({ count: 2, total: 600 });
+  });
+
+  it('excludes pending expected invoices that already have an invoice', () => {
+    const exp = insertExpected({ type: 11, total: 400 });
+    insertInvoice({ type: 11, total: 400, expectedId: exp });
+
+    expect(new StatsRepository().getPendingExpected(YEAR)).toEqual({ count: 0, total: 0 });
+  });
+});
