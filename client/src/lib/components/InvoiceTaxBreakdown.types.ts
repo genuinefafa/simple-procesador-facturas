@@ -52,6 +52,15 @@ export const CONCEPT_OPTIONS: ReadonlyArray<{ value: TaxLineConcept; label: stri
   { value: 'OTHER_TAXES', label: 'Otros tributos' },
 ];
 
+/** Shorter names for the editor select: the detail panel is narrow. */
+const SHORT_CONCEPT_LABELS: Partial<Record<TaxLineConcept, string>> = {
+  VAT_PERCEPTION: 'Perc. IVA',
+  IIBB_PERCEPTION: 'Perc. IIBB',
+};
+
+export const EDITOR_CONCEPT_OPTIONS: ReadonlyArray<{ value: TaxLineConcept; label: string }> =
+  CONCEPT_OPTIONS.map((o) => ({ value: o.value, label: SHORT_CONCEPT_LABELS[o.value] ?? o.label }));
+
 export const RATES_BY_CONCEPT: Partial<Record<TaxLineConcept, readonly number[]>> = {
   NET_TAXED: [0, 2.5, 5, 10.5, 21, 27],
   VAT: [2.5, 5, 10.5, 21, 27],

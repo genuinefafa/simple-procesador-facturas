@@ -14,6 +14,7 @@
   import TaxLineSelect from './TaxLineSelect.svelte';
   import {
     CONCEPT_OPTIONS,
+    EDITOR_CONCEPT_OPTIONS,
     FREE_RATE_CONCEPTS,
     LABEL_CONCEPTS,
     RATES_BY_CONCEPT,
@@ -456,7 +457,7 @@
             <div class="cell concept">
               <TaxLineSelect
                 value={row.concept}
-                options={CONCEPT_OPTIONS}
+                options={EDITOR_CONCEPT_OPTIONS}
                 placeholder="Concepto"
                 ariaLabel="Concepto"
                 onchange={(v) => setConcept(row, v)}
@@ -472,13 +473,26 @@
                   ariaLabel="Alícuota"
                   onchange={(v) => (row.rate = v)}
                 />
+                {#if row.concept === 'VAT'}
+                  {@const hint = vatCalcHint(row)}
+                  <button
+                    type="button"
+                    class="icon-btn calc"
+                    aria-label={hint ?? 'Calcular IVA desde el neto de la misma alícuota'}
+                    data-tip={hint ?? 'Calcular IVA desde el neto'}
+                    disabled={hint !== null}
+                    onclick={() => calcVat(row)}
+                  >
+                    <Calculator size={14} />
+                  </button>
+                {/if}
               {:else if row.concept && LABEL_CONCEPTS.includes(row.concept)}
                 <input
                   type="text"
                   class="field"
                   placeholder={row.concept === 'IIBB_PERCEPTION'
                     ? 'Jurisdicción (ej. BA)'
-                    : 'Descripción (opcional)'}
+                    : 'Descripción'}
                   aria-label="Descripción"
                   maxlength="100"
                   bind:value={row.label}
@@ -486,19 +500,6 @@
               {/if}
             </div>
             <div class="cell amount">
-              {#if row.concept === 'VAT'}
-                {@const hint = vatCalcHint(row)}
-                <button
-                  type="button"
-                  class="icon-btn calc"
-                  aria-label={hint ?? 'Calcular IVA desde el neto de la misma alícuota'}
-                  data-tip={hint ?? 'Calcular IVA desde el neto'}
-                  disabled={hint !== null}
-                  onclick={() => calcVat(row)}
-                >
-                  <Calculator size={14} />
-                </button>
-              {/if}
               <input
                 type="text"
                 inputmode="decimal"
@@ -766,7 +767,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: minmax(150px, 1.4fr) minmax(90px, 1fr) minmax(90px, 0.9fr) auto;
+    grid-template-columns: minmax(140px, 1.25fr) minmax(120px, 1.15fr) minmax(90px, 0.9fr) auto;
     gap: var(--spacing-2);
     align-items: center;
   }
@@ -794,10 +795,16 @@
     outline-offset: 2px;
   }
 
-  .cell.amount {
+  .cell.detail {
     display: flex;
     align-items: center;
     gap: var(--spacing-1);
+    min-width: 0;
+  }
+
+  .cell.detail > :global(:first-child) {
+    flex: 1;
+    min-width: 0;
   }
 
   .shortcut-hint {
