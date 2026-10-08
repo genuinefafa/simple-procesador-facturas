@@ -120,7 +120,7 @@
 </script>
 
 <section class="stats" aria-labelledby="stats-title">
-  <div class="stats-header">
+  <div class="stats-header" class:stacked={full}>
     <div>
       <p class="eyebrow">Totales</p>
       <h2 id="stats-title">Resumen de {periodLabel(period)}</h2>
@@ -250,6 +250,14 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: var(--spacing-4);
+  }
+
+  /* Reports: the period selector goes on its own line, left-aligned, so its
+     buttons do not move when the number of selects changes */
+  .stats-header.stacked {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-3);
   }
 
   .stats-header h2 {

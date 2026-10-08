@@ -59,9 +59,21 @@
   </div>
 
   <div class="values">
+    <label class="field">
+      <span class="visually-hidden">Año</span>
+      <select
+        value={parsed.year}
+        onchange={(e) =>
+          update({ ...parsed, year: Number((e.currentTarget as HTMLSelectElement).value) })}
+      >
+        {#each years as y (y)}
+          <option value={y}>{y}</option>
+        {/each}
+      </select>
+    </label>
     {#if parsed.kind === 'quarter'}
       <label class="field">
-        <span class="field-label">Trimestre</span>
+        <span class="visually-hidden">Trimestre</span>
         <select
           value={parsed.quarter}
           onchange={(e) =>
@@ -74,7 +86,7 @@
       </label>
     {:else if parsed.kind === 'month'}
       <label class="field">
-        <span class="field-label">Mes</span>
+        <span class="visually-hidden">Mes</span>
         <select
           value={parsed.month}
           onchange={(e) =>
@@ -86,19 +98,6 @@
         </select>
       </label>
     {/if}
-
-    <label class="field">
-      <span class="field-label">Año</span>
-      <select
-        value={parsed.year}
-        onchange={(e) =>
-          update({ ...parsed, year: Number((e.currentTarget as HTMLSelectElement).value) })}
-      >
-        {#each years as y (y)}
-          <option value={y}>{y}</option>
-        {/each}
-      </select>
-    </label>
   </div>
 </div>
 
@@ -106,7 +105,7 @@
   .selector {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
+    align-items: center;
     gap: var(--spacing-4);
   }
 
@@ -123,15 +122,15 @@
 
   .field {
     display: flex;
-    flex-direction: column;
-    gap: var(--spacing-1);
   }
 
-  .field-label {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 
   select {
