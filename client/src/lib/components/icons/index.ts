@@ -69,7 +69,11 @@ export {
   Link2,
   Unlink2,
   Star,
-  GitCompareArrows,
+  CopyPlus,
+  CircleHelp,
+  TriangleAlert,
+  Diff,
+  Pin,
 } from 'lucide-svelte';
 
 /**
