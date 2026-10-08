@@ -124,7 +124,12 @@
             <h3>Mes a mes por categoría</h3>
             <MonthlyStackedChart
               data={monthly}
-              onselect={(month, series) => open(monthCategoryQuery(series.categoryKey, month))}
+              onselect={(month, series) => {
+                // The folded "Otras" series has no query that represents it
+                if (series.categoryKey !== undefined) {
+                  open(monthCategoryQuery(series.categoryKey, month));
+                }
+              }}
             />
           </div>
         {/if}

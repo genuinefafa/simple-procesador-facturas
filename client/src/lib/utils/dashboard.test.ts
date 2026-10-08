@@ -94,7 +94,6 @@ describe('deep link queries', () => {
     expect(categoryQuery(null, '2026-Q3')).toBe('categoria:sin fecha:2026-07-01..2026-09-30');
     expect(monthCategoryQuery('servicios', '2026-09')).toBe('categoria:servicios fecha:2026-09');
     expect(monthCategoryQuery(null, '2026-09')).toBe('categoria:sin fecha:2026-09');
-    expect(monthCategoryQuery(undefined, '2026-09')).toBe('fecha:2026-09');
     expect(letterQuery('A', '2026')).toBe('letra:A fecha:2026');
     expect(letterQuery('other', '2026-09')).toBe('letra:otro fecha:2026-09');
     expect(pendingExpectedQuery('2026')).toBe('estado:esperadas fecha:2026');
@@ -148,6 +147,9 @@ describe('percentages', () => {
     expect(percentOf(25, 100)).toBe(25);
     expect(percentOf(10, 0)).toBeNull();
     expect(percentOf(-10, 100)).toBe(-10);
+    // Negative or zero net totals (credit notes dominate): no meaningful share
+    expect(percentOf(50, -100)).toBeNull();
+    expect(percentOf(100, -20)).toBeNull();
   });
 
   it('formats with es-AR decimals', () => {

@@ -15,7 +15,7 @@
 </script>
 
 <ul class="legend" aria-label={label}>
-  {#each items as item (item.label)}
+  {#each items as item, i (i)}
     <li class="legend-item">
       <span class="swatch" style:background={item.color}></span>
       <span>{item.label}</span>

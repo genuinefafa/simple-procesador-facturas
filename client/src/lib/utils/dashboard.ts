@@ -144,10 +144,8 @@ export function categoryQuery(categoryKey: string | null, period: string): strin
   return `${categoryFilter(categoryKey)} ${periodDateFilter(period)}`.trim();
 }
 
-export function monthCategoryQuery(categoryKey: string | null | undefined, month: string): string {
-  // undefined = no category filter (e.g. the folded "Otras" series)
-  const cat = categoryKey === undefined ? '' : `${categoryFilter(categoryKey)} `;
-  return `${cat}fecha:${month}`;
+export function monthCategoryQuery(categoryKey: string | null, month: string): string {
+  return `${categoryFilter(categoryKey)} fecha:${month}`;
 }
 
 export function letterQuery(letter: LetterStat['letter'], period: string): string {
@@ -206,9 +204,13 @@ export const LETTER_ORDER: LetterStat['letter'][] = ['A', 'M', 'B', 'C', 'other'
 // Numbers
 // ============================================================================
 
-/** Share of `part` in `whole` as a percentage, or null when `whole` is 0 */
+/**
+ * Share of `part` in `whole` as a percentage. Null when `whole` is zero or
+ * negative (e.g. a period dominated by credit notes), where a share is
+ * meaningless.
+ */
 export function percentOf(part: number, whole: number): number | null {
-  if (!whole) return null;
+  if (!(whole > 0)) return null;
   return (part / whole) * 100;
 }
 

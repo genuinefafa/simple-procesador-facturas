@@ -28,7 +28,7 @@
     <p class="tooltip-title">{title}</p>
   {/if}
   <ul class="tooltip-rows">
-    {#each rows as row (row.label)}
+    {#each rows as row, i (i)}
       <li class="tooltip-row">
         {#if row.color}
           <span class="swatch" style:background={row.color}></span>
