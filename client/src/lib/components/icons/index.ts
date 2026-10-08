@@ -74,6 +74,7 @@ export {
   TriangleAlert,
   Diff,
   Pin,
+  CheckCheck,
 } from 'lucide-svelte';
 
 /**

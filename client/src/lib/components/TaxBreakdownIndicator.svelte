@@ -5,7 +5,15 @@
    * Renders an invisible slot when there is nothing to flag, to keep alignment.
    */
   import type { TaxReconciliationSummary } from '$lib/types/comprobante';
-  import { CopyPlus, CircleHelp, TriangleAlert, Diff, Pin } from '$lib/components/icons';
+  import { REASON_LABELS } from '$lib/services/ReconciliationService.types';
+  import {
+    CopyPlus,
+    CircleHelp,
+    TriangleAlert,
+    Diff,
+    Pin,
+    CheckCheck,
+  } from '$lib/components/icons';
 
   type Props = {
     reconciliation: TaxReconciliationSummary | null | undefined;
@@ -28,7 +36,7 @@
       };
     }
     if (status === 'manual' && reason === 'arca_no_breakdown') {
-      return { icon: CircleHelp, tone: 'neutral', tooltip: 'ARCA no informa desglose' };
+      return { icon: CircleHelp, tone: 'neutral', tooltip: REASON_LABELS.arca_no_breakdown };
     }
     if (status === 'manual' && reason === 'arca_sum_mismatch') {
       return {
@@ -39,6 +47,9 @@
     }
     if (status === 'divergent') {
       return { icon: Diff, tone: 'danger', tooltip: 'Distinto de ARCA' };
+    }
+    if (status === 'ok' && reason === 'matches_arca') {
+      return { icon: CheckCheck, tone: 'success', tooltip: 'Desglose igual a ARCA' };
     }
     if (status === 'ok' && reason === 'accepted') {
       return { icon: Pin, tone: 'neutral', tooltip: 'Diferencia aceptada' };
@@ -107,10 +118,17 @@
     line-height: 1.4;
     padding: 4px 8px;
     border-radius: 4px;
-    white-space: nowrap;
+    width: max-content;
+    max-width: var(--tooltip-max-width);
+    white-space: normal;
+    text-align: center;
     pointer-events: none;
     z-index: 10;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  .success {
+    color: var(--color-success);
   }
 
   .info {
