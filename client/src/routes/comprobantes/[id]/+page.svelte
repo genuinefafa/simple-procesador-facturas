@@ -926,21 +926,24 @@
           {/if}
 
           {#key breakdownRefreshKey}
-            <InvoiceTaxBreakdown invoiceId={comprobante.final.id} total={comprobante.final.total} />
+            <InvoiceTaxBreakdown
+              invoiceId={comprobante.final.id}
+              total={comprobante.final.total}
+              oncompare={comprobante.final.expectedInvoiceId
+                ? () => setCompareParam(true)
+                : undefined}
+              compareActive={comparingBreakdown}
+            />
           {/key}
 
-          {#if comprobante.final.expectedInvoiceId}
-            {#if comparingBreakdown}
+          {#if comprobante.final.expectedInvoiceId && comparingBreakdown}
+            <div class="breakdown-comparison">
               <TaxBreakdownComparison
                 invoiceId={comprobante.final.id}
                 onchange={() => breakdownRefreshKey++}
                 onclose={() => setCompareParam(false)}
               />
-            {:else}
-              <Button size="sm" variant="secondary" onclick={() => setCompareParam(true)}>
-                Comparar con ARCA
-              </Button>
-            {/if}
+            </div>
           {/if}
         </section>
 
@@ -1321,6 +1324,10 @@
     border: none;
     padding: 0;
     background: transparent;
+  }
+
+  .breakdown-comparison {
+    margin-top: var(--spacing-4);
   }
 
   /* Meta row for factura header */
