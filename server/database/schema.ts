@@ -320,6 +320,42 @@ const facturasCorrecciones_ = sqliteTable(
 export { facturasCorrecciones_ as facturasCorrecciones };
 
 // =============================================================================
+// INVOICE TAX LINES (silver layer, #190)
+// =============================================================================
+
+/** Tax breakdown concepts. Credit notes are stored with POSITIVE amounts. */
+export const TAX_LINE_CONCEPTS = [
+  'NET_TAXED',
+  'NET_UNTAXED',
+  'EXEMPT',
+  'VAT',
+  'VAT_PERCEPTION',
+  'OTHER_TAXES',
+] as const;
+
+const invoiceTaxLines_ = sqliteTable(
+  'invoice_tax_lines',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    invoiceId: integer('invoice_id')
+      .notNull()
+      .references(() => facturas_.id, { onDelete: 'cascade' }),
+    concept: text('concept', { enum: TAX_LINE_CONCEPTS }).notNull(),
+    // VAT rate in %, only for NET_TAXED and VAT
+    rate: real('rate'),
+    amount: real('amount').notNull(),
+    // Free-form description (VAT_PERCEPTION / OTHER_TAXES)
+    label: text('label'),
+    createdAt: text('created_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    invoiceIdx: index('idx_invoice_tax_lines_invoice').on(table.invoiceId),
+  })
+);
+
+export { invoiceTaxLines_ as invoiceTaxLines };
+
+// =============================================================================
 // TIPOS TYPESCRIPT
 // =============================================================================
 
@@ -337,6 +373,9 @@ export type NewEmisorTemplateHistorial = typeof emisorTemplatesHistorial_.$infer
 
 export type FacturaCorreccion = typeof facturasCorrecciones_.$inferSelect;
 export type NewFacturaCorreccion = typeof facturasCorrecciones_.$inferInsert;
+
+export type InvoiceTaxLine = typeof invoiceTaxLines_.$inferSelect;
+export type NewInvoiceTaxLine = typeof invoiceTaxLines_.$inferInsert;
 
 // NOTA: PendingFile types fueron eliminados - usar File types
 
