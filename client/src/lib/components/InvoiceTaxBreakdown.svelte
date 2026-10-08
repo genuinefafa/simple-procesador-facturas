@@ -69,7 +69,27 @@
   let saveError = $state<string | null>(null);
   let rows = $state<Row[]>([]);
   let removeDialogOpen = $state(false);
-  let shortcutRate = $state('21');
+  // Shortcut preset: "<vat rate>|<VAT perception rate>" (perception 0 = none)
+  let shortcutPreset = $state('21|0');
+
+  /** Common VAT + VAT perception combinations; the total is divided by 1 + (sum / 100). */
+  const SHORTCUT_PRESETS: ReadonlyArray<{ value: string; label: string }> = [
+    [21, 0],
+    [21, 3],
+    [21, 1.5],
+    [10.5, 0],
+    [10.5, 1.5],
+    [10.5, 3],
+    [27, 0],
+    [27, 3],
+  ].map(([vat, perc]) => {
+    const coef = formatRate(Math.round((1 + (vat + perc) / 100) * 10000) / 10000);
+    const name = perc ? `${formatRate(vat)}% + perc. ${formatRate(perc)}%` : `${formatRate(vat)}%`;
+    return { value: `${vat}|${perc}`, label: `${name} (÷ ${coef})` };
+  });
+
+  const shortcutVatRate = $derived(Number(shortcutPreset.split('|')[0]));
+  const shortcutPercRate = $derived(Number(shortcutPreset.split('|')[1]));
   let nextKey = 1;
 
   const effectiveLetter = $derived(letter ?? data?.letter ?? null);
@@ -225,7 +245,7 @@
       : [
           ...taxedNets.map((n) => ({
             value: `net:${n.rate}`,
-            label: `Neto IVA ${formatRate(Number(n.rate))}%`,
+            label: `Neto ${formatRate(Number(n.rate))}%`,
           })),
           { value: 'total', label: 'Neto total' },
         ]
@@ -278,9 +298,17 @@
     row.amount = String(round2((base * pct) / 100));
   }
 
-  /** Sum of the rows that the shortcut keeps (everything but NET_TAXED / VAT). */
+  /**
+   * Rows that the shortcut keeps: everything but NET_TAXED / VAT, and also
+   * VAT_PERCEPTION when the preset includes a perception (it is regenerated).
+   */
   const shortcutKept = $derived(
-    rows.filter((r) => !isNetOrVat(r.concept) && (r.concept !== '' || r.amount.trim() !== ''))
+    rows.filter(
+      (r) =>
+        !isNetOrVat(r.concept) &&
+        !(shortcutPercRate > 0 && r.concept === 'VAT_PERCEPTION') &&
+        (r.concept !== '' || r.amount.trim() !== '')
+    )
   );
   const shortcutRest = $derived(
     effectiveTotal === null
@@ -302,12 +330,19 @@
    */
   function applyShortcut(): void {
     if (shortcutRest === null || shortcutRest <= 0) return;
-    const rate = Number(shortcutRate);
-    const net = round2(shortcutRest / (1 + rate / 100));
-    const vat = round2(shortcutRest - net);
+    const rate = shortcutVatRate;
+    const perc = shortcutPercRate;
+    let net = round2(shortcutRest / (1 + (rate + perc) / 100));
+    const percAmount = perc > 0 ? round2((net * perc) / 100) : 0;
+    const vat = perc > 0 ? round2((net * rate) / 100) : round2(shortcutRest - net);
+    // Rounding cents go to the net so the lines add up exactly to the total
+    net = round2(shortcutRest - vat - percAmount);
     rows = [
       toRow({ concept: 'NET_TAXED', rate, amount: net, label: null }),
       toRow({ concept: 'VAT', rate, amount: vat, label: null }),
+      ...(perc > 0
+        ? [toRow({ concept: 'VAT_PERCEPTION', rate: perc, amount: percAmount, label: null })]
+        : []),
       ...shortcutKept,
     ];
   }
@@ -432,16 +467,13 @@
     <div class="form">
       {#if showShortcut}
         <div class="shortcut">
-          <span class="shortcut-label">Atajo Neto + IVA</span>
+          <span class="shortcut-label">Atajo Neto + Coef</span>
           <div class="shortcut-rate">
             <TaxLineSelect
-              value={shortcutRate}
-              options={['21', '10.5', '27'].map((r) => ({
-                value: r,
-                label: `${formatRate(Number(r))}%`,
-              }))}
-              ariaLabel="Alícuota del atajo"
-              onchange={(v) => (shortcutRate = v)}
+              value={shortcutPreset}
+              options={SHORTCUT_PRESETS}
+              ariaLabel="Coeficiente del atajo"
+              onchange={(v) => (shortcutPreset = v)}
             />
           </div>
           <Button size="sm" variant="secondary" disabled={shortcutDisabled} onclick={applyShortcut}>
@@ -455,7 +487,10 @@
             </p>
           {:else}
             <p class="shortcut-hint">
-              Se conservan las demás líneas y se calcula sobre {formatCurrency(shortcutRest)}.
+              Se calcula sobre {formatCurrency(shortcutRest)} y se conservan las demás líneas{shortcutPercRate >
+              0
+                ? ' (las percepciones de IVA se recalculan)'
+                : ''}.
             </p>
           {/if}
         </div>
@@ -781,7 +816,7 @@
   }
 
   .shortcut-rate {
-    width: 90px;
+    width: 230px;
   }
 
   .rows {
