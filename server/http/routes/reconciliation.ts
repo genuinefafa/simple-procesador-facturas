@@ -101,14 +101,14 @@ const STALE_FINGERPRINT = {
 } as const;
 
 // GET /api/reconciliation/tax-breakdown?period=
-reconciliationRouter.get('/tax-breakdown', async (c) => {
+reconciliationRouter.get('/tax-breakdown', (c) => {
   const parsed = ReconciliationListQuerySchema.safeParse({ period: c.req.query('period') });
   if (!parsed.success) {
     return c.json(formatZodError(parsed.error), 400);
   }
   try {
     const repo = new ReconciliationRepository();
-    const candidates = await repo.listTaxBreakdownCandidates(periodToRange(parsed.data.period));
+    const candidates = repo.listTaxBreakdownCandidates(periodToRange(parsed.data.period));
     const items = candidates.map(toItem);
     const counts = { completable: 0, manual: 0, ok: 0, divergent: 0 };
     for (const item of items) counts[item.status]++;
@@ -140,7 +140,7 @@ reconciliationRouter.post('/tax-breakdown/complete', async (c) => {
     }> = [];
 
     for (const invoiceId of parsed.data.invoiceIds) {
-      const candidate = await repo.findTaxBreakdownCandidate(invoiceId);
+      const candidate = repo.findTaxBreakdownCandidate(invoiceId);
       if (!candidate) {
         skipped.push({ invoiceId, status: null, reason: 'not_found' });
         continue;
@@ -154,7 +154,7 @@ reconciliationRouter.post('/tax-breakdown/complete', async (c) => {
       applied.push(invoiceId);
     }
 
-    await repo.replaceBreakdowns(entries);
+    repo.replaceBreakdowns(entries);
     return c.json({ success: true, applied, skipped });
   } catch (error) {
     console.error('Error completing tax breakdowns from ARCA:', error);
@@ -163,11 +163,11 @@ reconciliationRouter.post('/tax-breakdown/complete', async (c) => {
 });
 
 // GET /api/reconciliation/tax-breakdown/:invoiceId
-reconciliationRouter.get('/tax-breakdown/:invoiceId', async (c) => {
+reconciliationRouter.get('/tax-breakdown/:invoiceId', (c) => {
   const invoiceId = parseId(c.req.param('invoiceId'));
   if (invoiceId === null) return c.json(INVALID_ID, 400);
   try {
-    const candidate = await new ReconciliationRepository().findTaxBreakdownCandidate(invoiceId);
+    const candidate = new ReconciliationRepository().findTaxBreakdownCandidate(invoiceId);
     if (!candidate) return c.json(NOT_FOUND, 404);
     return c.json({ success: true, item: toItem(candidate) });
   } catch (error) {
@@ -185,7 +185,7 @@ reconciliationRouter.post('/tax-breakdown/:invoiceId/normalize', async (c) => {
   if (!parsed.success) return c.json(formatZodError(parsed.error), 400);
   try {
     const repo = new ReconciliationRepository();
-    const candidate = await repo.findTaxBreakdownCandidate(invoiceId);
+    const candidate = repo.findTaxBreakdownCandidate(invoiceId);
     if (!candidate) return c.json(NOT_FOUND, 404);
 
     const r = evaluate(candidate, true);
@@ -212,8 +212,8 @@ reconciliationRouter.post('/tax-breakdown/:invoiceId/normalize', async (c) => {
       );
     }
 
-    await repo.replaceBreakdowns([{ invoiceId, lines: r.arcaLines }], true);
-    const fresh = await repo.findTaxBreakdownCandidate(invoiceId);
+    repo.replaceBreakdowns([{ invoiceId, lines: r.arcaLines }], true);
+    const fresh = repo.findTaxBreakdownCandidate(invoiceId);
     return c.json({ success: true, item: toItem(fresh as TaxBreakdownCandidate) });
   } catch (error) {
     console.error('Error normalizing tax breakdown:', error);
@@ -230,7 +230,7 @@ reconciliationRouter.put('/tax-breakdown/:invoiceId/ack', async (c) => {
   if (!parsed.success) return c.json(formatZodError(parsed.error), 400);
   try {
     const repo = new ReconciliationRepository();
-    const candidate = await repo.findTaxBreakdownCandidate(invoiceId);
+    const candidate = repo.findTaxBreakdownCandidate(invoiceId);
     if (!candidate) return c.json(NOT_FOUND, 404);
 
     const r = evaluate(candidate, true);
@@ -244,13 +244,13 @@ reconciliationRouter.put('/tax-breakdown/:invoiceId/ack', async (c) => {
       return c.json(STALE_FINGERPRINT, 409);
     }
 
-    await repo.upsertAck(
+    repo.upsertAck(
       invoiceId,
       TAX_BREAKDOWN_KIND,
       parsed.data.arcaFingerprint,
       parsed.data.note?.trim() || null
     );
-    const fresh = await repo.findTaxBreakdownCandidate(invoiceId);
+    const fresh = repo.findTaxBreakdownCandidate(invoiceId);
     return c.json({ success: true, item: toItem(fresh as TaxBreakdownCandidate) });
   } catch (error) {
     console.error('Error saving reconciliation ack:', error);
@@ -259,15 +259,15 @@ reconciliationRouter.put('/tax-breakdown/:invoiceId/ack', async (c) => {
 });
 
 // DELETE /api/reconciliation/tax-breakdown/:invoiceId/ack — idempotent
-reconciliationRouter.delete('/tax-breakdown/:invoiceId/ack', async (c) => {
+reconciliationRouter.delete('/tax-breakdown/:invoiceId/ack', (c) => {
   const invoiceId = parseId(c.req.param('invoiceId'));
   if (invoiceId === null) return c.json(INVALID_ID, 400);
   try {
     const repo = new ReconciliationRepository();
-    const candidate = await repo.findTaxBreakdownCandidate(invoiceId);
+    const candidate = repo.findTaxBreakdownCandidate(invoiceId);
     if (!candidate) return c.json(NOT_FOUND, 404);
-    await repo.deleteAck(invoiceId, TAX_BREAKDOWN_KIND);
-    const fresh = await repo.findTaxBreakdownCandidate(invoiceId);
+    repo.deleteAck(invoiceId, TAX_BREAKDOWN_KIND);
+    const fresh = repo.findTaxBreakdownCandidate(invoiceId);
     return c.json({ success: true, item: toItem(fresh as TaxBreakdownCandidate) });
   } catch (error) {
     console.error('Error deleting reconciliation ack:', error);

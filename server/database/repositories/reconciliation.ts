@@ -114,7 +114,7 @@ function mapRow(r: Row): TaxBreakdownCandidate {
 
 export class ReconciliationRepository {
   /** Invoices issued in [from, to), newest first. One query for everything. */
-  async listTaxBreakdownCandidates(range: PeriodRange): Promise<TaxBreakdownCandidate[]> {
+  listTaxBreakdownCandidates(range: PeriodRange): TaxBreakdownCandidate[] {
     const rows = getRawDb()
       .prepare(
         `${BASE_SQL}
@@ -125,7 +125,7 @@ export class ReconciliationRepository {
     return rows.map(mapRow);
   }
 
-  async findTaxBreakdownCandidate(invoiceId: number): Promise<TaxBreakdownCandidate | null> {
+  findTaxBreakdownCandidate(invoiceId: number): TaxBreakdownCandidate | null {
     const row = getRawDb().prepare(`${BASE_SQL} WHERE f.id = ?`).get(invoiceId) as Row | null;
     return row ? mapRow(row) : null;
   }
@@ -134,13 +134,13 @@ export class ReconciliationRepository {
    * Replaces the breakdown of several invoices in ONE transaction. When
    * `clearAck` is set the tax_breakdown ack of those invoices is removed too.
    */
-  async replaceBreakdowns(
+  replaceBreakdowns(
     entries: Array<{
       invoiceId: number;
       lines: Array<{ concept: string; rate: number | null; amount: number }>;
     }>,
     clearAck = false
-  ): Promise<void> {
+  ): void {
     getDb().transaction((tx) => {
       for (const { invoiceId, lines } of entries) {
         tx.delete(invoiceTaxLines).where(eq(invoiceTaxLines.invoiceId, invoiceId)).run();
@@ -166,12 +166,7 @@ export class ReconciliationRepository {
     });
   }
 
-  async upsertAck(
-    invoiceId: number,
-    kind: string,
-    fingerprint: string,
-    note: string | null
-  ): Promise<void> {
+  upsertAck(invoiceId: number, kind: string, fingerprint: string, note: string | null): void {
     getRawDb()
       .prepare(
         `INSERT INTO reconciliation_acks (invoice_id, kind, arca_fingerprint, note)
@@ -184,7 +179,7 @@ export class ReconciliationRepository {
       .run(invoiceId, kind, fingerprint, note);
   }
 
-  async deleteAck(invoiceId: number, kind: string): Promise<void> {
+  deleteAck(invoiceId: number, kind: string): void {
     getRawDb()
       .prepare('DELETE FROM reconciliation_acks WHERE invoice_id = ? AND kind = ?')
       .run(invoiceId, kind);

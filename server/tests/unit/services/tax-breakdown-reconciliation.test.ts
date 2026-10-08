@@ -5,10 +5,19 @@ import {
   type ReconciliationInput,
 } from '../../../services/tax-breakdown-reconciliation';
 
-const line = (concept: string, rate: number | null, amount: number) => ({ concept, rate, amount });
+interface L {
+  concept: string;
+  rate: number | null;
+  amount: number;
+}
+const line = (concept: string, rate: number | null, amount: number): L => ({
+  concept,
+  rate,
+  amount,
+});
 
 function input(
-  over: Partial<ReconciliationInput> & { lines?: ReturnType<typeof line>[]; total?: number | null }
+  over: Partial<ReconciliationInput> & { lines?: L[]; total?: number | null }
 ): ReconciliationInput {
   return {
     invoice: { total: over.total === undefined ? 1210 : over.total, lines: over.lines ?? [] },

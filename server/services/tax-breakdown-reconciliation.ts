@@ -119,7 +119,9 @@ function keyOf(b: Omit<Bucket, 'amount'>): BucketKey {
   return b.rate === null ? b.concept : `${b.concept}:${b.rate}`;
 }
 
-function toBuckets(lines: ReadonlyArray<{ concept: string; rate: number | null; amount: number }>) {
+function toBuckets(
+  lines: ReadonlyArray<{ concept: string; rate: number | null; amount: number }>
+): Map<BucketKey, Bucket> {
   const map = new Map<BucketKey, Bucket>();
   for (const l of lines) {
     const b = bucketOf(l.concept, l.rate);
