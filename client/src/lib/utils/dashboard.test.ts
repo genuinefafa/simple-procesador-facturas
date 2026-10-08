@@ -7,6 +7,7 @@ import {
   buildCumulativeData,
   buildMonthlyData,
   buildPeriodKey,
+  buildTaxBreakdownData,
   categoryColor,
   categoryQuery,
   changePeriodKind,
@@ -282,5 +283,23 @@ describe('cumulativeCategoryQuery', () => {
 
   it('formats the current month', () => {
     expect(currentMonth(new Date(2026, 9, 8))).toBe('2026-10');
+  });
+});
+
+describe('buildTaxBreakdownData', () => {
+  it('zero-fills the months of the period and keeps the fixed series', () => {
+    const data = buildTaxBreakdownData(
+      [
+        { month: '2026-07', net: 1000, vat: 210, other: 30 },
+        { month: '2026-09', net: -100, vat: -21, other: 0 },
+      ],
+      monthsOfPeriod('2026-Q3')
+    );
+    expect(data.series.map((s) => s.key)).toEqual(['net', 'vat', 'other']);
+    expect(data.series.map((s) => s.label)).toEqual(['Neto', 'IVA', 'Otros']);
+    expect(data.rows.map((r) => r.month)).toEqual(['2026-07', '2026-08', '2026-09']);
+    expect(data.rows[0]).toEqual({ month: '2026-07', net: 1000, vat: 210, other: 30 });
+    expect(data.rows[1]).toEqual({ month: '2026-08', net: 0, vat: 0, other: 0 });
+    expect(data.rows[2].net).toBe(-100);
   });
 });

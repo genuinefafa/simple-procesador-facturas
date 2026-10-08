@@ -94,6 +94,27 @@ interface GoldRow {
   vat_recoverable: number;
   category_id: number | null;
   balance_group_id: number | null;
+  has_tax_breakdown: number;
+  net_taxed: number | null;
+  net_untaxed: number | null;
+  exempt: number | null;
+  vat: number | null;
+  vat_perception: number | null;
+  iibb_perception: number | null;
+  other_taxes: number | null;
+}
+
+function insertTaxLine(
+  invoiceId: number,
+  concept: string,
+  amount: number,
+  rate: number | null = null
+): void {
+  getRawDb()
+    .prepare(
+      'INSERT INTO invoice_tax_lines (invoice_id, concept, rate, amount) VALUES (?, ?, ?, ?)'
+    )
+    .run(invoiceId, concept, rate, amount);
 }
 
 function goldRows(): GoldRow[] {
@@ -147,6 +168,64 @@ describe('v_comprobantes_oro', () => {
     const [row] = goldRows();
     expect(row.issue_date).toBe('2026-01-06');
     expect(row.issue_month).toBe('2026-01');
+  });
+
+  describe('tax breakdown columns', () => {
+    const CONCEPT_COLUMNS = [
+      'net_taxed',
+      'net_untaxed',
+      'exempt',
+      'vat',
+      'vat_perception',
+      'iibb_perception',
+      'other_taxes',
+    ] as const;
+
+    it('has NULLs and has_tax_breakdown = 0 for an invoice without lines', () => {
+      insertInvoice({ type: 1, total: 100 });
+      const [row] = goldRows();
+      expect(row.has_tax_breakdown).toBe(0);
+      for (const col of CONCEPT_COLUMNS) expect(row[col]).toBeNull();
+    });
+
+    it('sums lines per concept (several rates add up) and keeps 0 for absent concepts', () => {
+      const id = insertInvoice({ type: 1, total: 1210 + 105 + 50 });
+      insertTaxLine(id, 'NET_TAXED', 1000, 21);
+      insertTaxLine(id, 'NET_TAXED', 100, 10.5);
+      insertTaxLine(id, 'VAT', 210, 21);
+      insertTaxLine(id, 'VAT', 10.5, 10.5);
+      insertTaxLine(id, 'IIBB_PERCEPTION', 30);
+      insertTaxLine(id, 'OTHER_TAXES', 20);
+
+      const [row] = goldRows();
+      expect(row.has_tax_breakdown).toBe(1);
+      expect(row.net_taxed).toBe(1100);
+      expect(row.net_untaxed).toBe(0);
+      expect(row.exempt).toBe(0);
+      expect(row.vat).toBe(220.5);
+      expect(row.vat_perception).toBe(0);
+      expect(row.iibb_perception).toBe(30);
+      expect(row.other_taxes).toBe(20);
+    });
+
+    it('applies the sign: credit notes get negative values', () => {
+      const id = insertInvoice({ type: 3, total: 121 });
+      insertTaxLine(id, 'NET_TAXED', 100, 21);
+      insertTaxLine(id, 'VAT', 21, 21);
+
+      const [row] = goldRows();
+      expect(row.has_tax_breakdown).toBe(1);
+      expect(row.net_taxed).toBe(-100);
+      expect(row.vat).toBe(-21);
+      expect(row.exempt).toBe(0);
+    });
+
+    it('does not duplicate invoice rows when there are several lines', () => {
+      const id = insertInvoice({ type: 1, total: 121 });
+      insertTaxLine(id, 'NET_TAXED', 100, 21);
+      insertTaxLine(id, 'VAT', 21, 21);
+      expect(goldRows()).toHaveLength(1);
+    });
   });
 
   it('keeps balance group secondaries so the group nets out', () => {
@@ -248,6 +327,81 @@ describe('StatsRepository.getSummary', () => {
   });
 });
 
+describe('StatsRepository.getTaxBreakdown', () => {
+  beforeEach(() => {
+    resetTestDb();
+    nextNumber = 1;
+    getRawDb()
+      .prepare('INSERT INTO emisores (cuit, nombre) VALUES (?, ?)')
+      .run(CUIT, 'Emisor Test');
+  });
+
+  it('with no breakdown loaded: empty byMonth, zero credit, coverage 0 of N', () => {
+    insertInvoice({ type: 1, total: 100 });
+    insertInvoice({ type: 51, total: 200, date: '2026-04-01' });
+    insertInvoice({ type: 11, total: 300 }); // C: not part of coverage
+
+    expect(new StatsRepository().getSummary(YEAR).taxBreakdown).toEqual({
+      byMonth: [],
+      vatCredit: 0,
+      coverage: { withBreakdown: 0, total: 2 },
+    });
+  });
+
+  it('mixes invoices and credit notes, groups by month and maps the series', () => {
+    const inv = insertInvoice({ type: 1, total: 1210 + 30 + 40, date: '2026-03-10' });
+    insertTaxLine(inv, 'NET_TAXED', 1000, 21);
+    insertTaxLine(inv, 'VAT', 210, 21);
+    insertTaxLine(inv, 'VAT_PERCEPTION', 10);
+    insertTaxLine(inv, 'IIBB_PERCEPTION', 30);
+    insertTaxLine(inv, 'OTHER_TAXES', 40);
+    const nc = insertInvoice({ type: 3, total: 121, date: '2026-03-20' });
+    insertTaxLine(nc, 'NET_TAXED', 100, 21);
+    insertTaxLine(nc, 'VAT', 21, 21);
+    const apr = insertInvoice({ type: 1, total: 110, date: '2026-04-05' });
+    insertTaxLine(apr, 'NET_UNTAXED', 50);
+    insertTaxLine(apr, 'EXEMPT', 50);
+    insertTaxLine(apr, 'VAT', 10);
+    insertInvoice({ type: 1, total: 999, date: '2026-04-06' }); // A without breakdown
+
+    expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
+      byMonth: [
+        { month: '2026-03', net: 900, vat: 199, other: 70 },
+        { month: '2026-04', net: 100, vat: 10, other: 0 },
+      ],
+      vatCredit: 209,
+      coverage: { withBreakdown: 3, total: 4 },
+    });
+  });
+
+  it('B invoice with breakdown appears by month but not in vatCredit nor coverage', () => {
+    const b = insertInvoice({ type: 6, total: 121 });
+    insertTaxLine(b, 'NET_TAXED', 100, 21);
+    insertTaxLine(b, 'VAT', 21, 21);
+
+    expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
+      byMonth: [{ month: '2026-03', net: 100, vat: 21, other: 0 }],
+      vatCredit: 0,
+      coverage: { withBreakdown: 0, total: 0 },
+    });
+  });
+
+  it('excludes foreign currency and out-of-period invoices', () => {
+    const usd = insertInvoice({ type: 1, total: 121, currency: 'USD' });
+    insertTaxLine(usd, 'NET_TAXED', 100, 21);
+    insertTaxLine(usd, 'VAT', 21, 21);
+    const old = insertInvoice({ type: 1, total: 121, date: '2025-12-31' });
+    insertTaxLine(old, 'NET_TAXED', 100, 21);
+    insertTaxLine(old, 'VAT', 21, 21);
+
+    expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
+      byMonth: [],
+      vatCredit: 0,
+      coverage: { withBreakdown: 0, total: 0 },
+    });
+  });
+});
+
 describe('StatsRepository period boundaries', () => {
   beforeEach(() => {
     resetTestDb();
@@ -296,5 +450,10 @@ describe('GET /api/stats/summary', () => {
     expect(body).toHaveProperty('byMonth');
     expect(body).toHaveProperty('byLetter');
     expect(body.pendingExpected).toEqual({ count: 0, total: 0 });
+    expect(body.taxBreakdown).toEqual({
+      byMonth: [],
+      vatCredit: 0,
+      coverage: { withBreakdown: 0, total: 0 },
+    });
   });
 });

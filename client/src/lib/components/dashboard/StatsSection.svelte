@@ -18,6 +18,7 @@
     buildLetterSlices,
     buildCumulativeData,
     buildMonthlyData,
+    buildTaxBreakdownData,
     categoryQuery,
     comprobantesUrl,
     letterQuery,
@@ -41,6 +42,7 @@
   import StatsKpis from './StatsKpis.svelte';
   import CategoryBarChart from './CategoryBarChart.svelte';
   import MonthlyStackedChart from './MonthlyStackedChart.svelte';
+  import TaxBreakdownChart from './TaxBreakdownChart.svelte';
   import CumulativeAreaChart from './CumulativeAreaChart.svelte';
   import LetterDonutChart from './LetterDonutChart.svelte';
 
@@ -98,6 +100,11 @@
       ? buildMonthlyData(summary.byMonth, categoryRows, monthsOfPeriod(summary.period.key))
       : null
   );
+  const taxBreakdown = $derived(
+    summary
+      ? buildTaxBreakdownData(summary.taxBreakdown.byMonth, monthsOfPeriod(summary.period.key))
+      : null
+  );
   // Running total; needs at least two months to show growth
   const cumulative = $derived.by(() => {
     if (!monthly) return null;
@@ -113,7 +120,7 @@
 </script>
 
 <section class="stats" aria-labelledby="stats-title">
-  <div class="stats-header">
+  <div class="stats-header" class:stacked={full}>
     <div>
       <p class="eyebrow">Totales</p>
       <h2 id="stats-title">Resumen de {periodLabel(period)}</h2>
@@ -167,6 +174,17 @@
                   open(monthCategoryQuery(series.categoryKey, month));
                 }
               }}
+            />
+          </div>
+        {/if}
+
+        {#if taxBreakdown && summary}
+          <div class="panel">
+            <h3>Neto, IVA y otros por mes</h3>
+            <TaxBreakdownChart
+              data={taxBreakdown}
+              stats={summary.taxBreakdown}
+              periodLabel={periodLabel(summary.period.key)}
             />
           </div>
         {/if}
@@ -232,6 +250,14 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: var(--spacing-4);
+  }
+
+  /* Reports: the period selector goes on its own line, left-aligned, so its
+     buttons do not move when the number of selects changes */
+  .stats-header.stacked {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--spacing-3);
   }
 
   .stats-header h2 {

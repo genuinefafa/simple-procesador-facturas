@@ -49,6 +49,26 @@ export interface PendingExpectedStat {
   total: number;
 }
 
+export interface TaxBreakdownMonth {
+  /** YYYY-MM */
+  month: string;
+  /** net_taxed + net_untaxed + exempt */
+  net: number;
+  /** vat + vat_perception */
+  vat: number;
+  /** iibb_perception + other_taxes */
+  other: number;
+}
+
+export interface TaxBreakdownStats {
+  /** Only invoices with a loaded breakdown (any letter), signed */
+  byMonth: TaxBreakdownMonth[];
+  /** VAT fiscal credit: vat + vat_perception of A/M invoices with breakdown */
+  vatCredit: number;
+  /** Coverage over A/M invoices */
+  coverage: { withBreakdown: number; total: number };
+}
+
 export interface StatsSummaryResponse {
   period: {
     key: PeriodKey;
@@ -62,6 +82,7 @@ export interface StatsSummaryResponse {
   byMonth: MonthCategoryStat[];
   byLetter: LetterStat[];
   pendingExpected: PendingExpectedStat;
+  taxBreakdown: TaxBreakdownStats;
 }
 
 export interface CategoryRef {

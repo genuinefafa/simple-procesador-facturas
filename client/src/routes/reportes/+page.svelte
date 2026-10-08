@@ -19,7 +19,9 @@
 <header class="header">
   <p class="eyebrow">Análisis</p>
   <h1>Reportes</h1>
-  <p class="lede">Totales por categoría, mes a mes y por letra para el período elegido.</p>
+  <p class="lede">
+    Totales por categoría, mes a mes, desglose impositivo y por letra para el período elegido.
+  </p>
 </header>
 
 <StatsSection {period} full onperiodchange={changePeriod} />
