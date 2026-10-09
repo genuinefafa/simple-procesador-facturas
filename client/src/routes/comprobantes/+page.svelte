@@ -58,6 +58,8 @@
   let arcaReconciliationLoading = $state(false);
   let arcaCloseTimer: ReturnType<typeof setTimeout> | null = null;
   let arcaRunId = 0;
+  // Years covered by the last ARCA import, to refresh its reconciliation counts
+  let arcaPeriods: string[] = [];
 
   onDestroy(() => {
     if (arcaCloseTimer) clearTimeout(arcaCloseTimer);
@@ -358,6 +360,12 @@
     });
     reconOverrides = next;
     reconVersion++;
+    // Keep the ARCA import infobar counts in sync with what was just copied
+    if (applied.length > 0 && arcaImports && arcaReconciliation) {
+      const runId = arcaRunId;
+      const summary = await fetchArcaReconciliation(arcaPeriods);
+      if (summary && runId === arcaRunId && arcaImports) arcaReconciliation = summary;
+    }
   }
 
   const CREDIT_NOTE_TYPES = new Set([3, 8, 13, 21, 53]);
@@ -746,6 +754,20 @@
     );
   }
 
+  /** Sums completable/divergent across the given years; null if any request fails. */
+  async function fetchArcaReconciliation(periods: string[]): Promise<ReconciliationSummary | null> {
+    const results = await Promise.all(periods.map((p) => reconciliationService.list(p)));
+    if (!results.every((r) => r.success)) return null;
+    const summary = { completable: 0, divergent: 0 };
+    for (const r of results) {
+      if (r.success && r.data) {
+        summary.completable += r.data.counts.completable;
+        summary.divergent += r.data.counts.divergent;
+      }
+    }
+    return summary;
+  }
+
   async function importArcaFiles(files: File[]) {
     cancelArcaAutoClose();
     const runId = ++arcaRunId;
@@ -784,23 +806,14 @@
     if (runId !== arcaRunId || !arcaImports) return;
 
     // Reconciliation counts: one request per distinct year across the whole batch
-    const periods = [
+    arcaPeriods = [
       ...new Set(arcaImports.flatMap((e) => (e.status === 'done' ? (e.result.periods ?? []) : []))),
     ];
     let summary: ReconciliationSummary | null = null;
-    if (periods.length > 0) {
+    if (arcaPeriods.length > 0) {
       arcaReconciliationLoading = true;
-      const results = await Promise.all(periods.map((p) => reconciliationService.list(p)));
+      summary = await fetchArcaReconciliation(arcaPeriods);
       if (runId !== arcaRunId || !arcaImports) return;
-      if (results.every((r) => r.success)) {
-        summary = { completable: 0, divergent: 0 };
-        for (const r of results) {
-          if (r.success && r.data) {
-            summary.completable += r.data.counts.completable;
-            summary.divergent += r.data.counts.divergent;
-          }
-        }
-      }
       arcaReconciliationLoading = false;
     }
     arcaReconciliation = summary;
@@ -848,6 +861,7 @@
       reconciliation={arcaReconciliation}
       reconciliationLoading={arcaReconciliationLoading}
       onClose={closeArcaReport}
+      activeQuery={searchQuery}
       onfilter={(query) => (searchQuery = query)}
     />
   {/if}

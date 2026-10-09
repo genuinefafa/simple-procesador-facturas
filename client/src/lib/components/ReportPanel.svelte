@@ -216,8 +216,14 @@
     padding: 0;
   }
 
-  .report-panel :global(.link-button:hover) {
+  .report-panel :global(.link-button:hover:not(:disabled)) {
     color: var(--color-primary-700);
+  }
+
+  .report-panel :global(.link-button:disabled) {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    cursor: default;
   }
 
   .report-panel :global(.file-list .link-button) {

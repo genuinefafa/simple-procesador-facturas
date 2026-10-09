@@ -23,9 +23,18 @@
     reconciliationLoading: boolean;
     onClose: () => void;
     onfilter?: (query: string) => void;
+    /** Current search query; a filter already applied disables its button */
+    activeQuery?: string;
   }
 
-  let { entries, reconciliation, reconciliationLoading, onClose, onfilter }: Props = $props();
+  let {
+    entries,
+    reconciliation,
+    reconciliationLoading,
+    onClose,
+    onfilter,
+    activeQuery = '',
+  }: Props = $props();
 
   const allFinished = $derived(entries.every((e) => e.status !== 'loading'));
 
@@ -55,6 +64,8 @@
 
   const showCompletable = $derived((reconciliation?.completable ?? 0) > 0);
   const showDivergent = $derived((reconciliation?.divergent ?? 0) > 0);
+  const mainQuery = $derived(showCompletable ? 'desglose:completable' : 'desglose:divergente');
+  const isApplied = (query: string) => activeQuery.trim() === query;
 </script>
 
 <ReportPanel title="Importación de ARCA" {onClose}>
@@ -120,7 +131,11 @@
             {/if}
             {#if showCompletable && showDivergent}
               ·
-              <button class="link-button" onclick={() => filter('desglose:divergente')}>
+              <button
+                class="link-button"
+                disabled={isApplied('desglose:divergente')}
+                onclick={() => filter('desglose:divergente')}
+              >
                 {reconciliation.divergent}
                 con diferencias
               </button>
@@ -136,9 +151,10 @@
           <Button
             variant="secondary"
             size="sm"
-            onclick={() => filter(showCompletable ? 'desglose:completable' : 'desglose:divergente')}
+            disabled={isApplied(mainQuery)}
+            onclick={() => filter(mainQuery)}
           >
-            Ver conciliación
+            {isApplied(mainQuery) ? 'Filtro aplicado' : 'Ver conciliación'}
           </Button>
         </div>
       {:else if reconciliation}
