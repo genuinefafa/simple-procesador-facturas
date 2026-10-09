@@ -2,6 +2,7 @@
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import InvoiceTaxBreakdown from '$lib/components/InvoiceTaxBreakdown.svelte';
+  import TaxBreakdownComparison from '$lib/components/TaxBreakdownComparison.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
   import DuplicateHashAlert from '$lib/components/DuplicateHashAlert.svelte';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
@@ -12,6 +13,7 @@
   import type { PageData } from './$types';
   import { toast, Toaster } from 'svelte-sonner';
   import { invalidateAll, goto } from '$app/navigation';
+  import { page } from '$app/state';
   import {
     formatDateTime,
     formatDateShort,
@@ -41,6 +43,18 @@
   const deleteHandler = createDeleteHandler();
 
   let processing = $state(false);
+
+  // Tax breakdown comparison with ARCA: URL is the source of truth (?compare=desglose)
+  const comparingBreakdown = $derived(page.url.searchParams.get('compare') === 'desglose');
+  let breakdownRefreshKey = $state(0);
+
+  function setCompareParam(on: boolean) {
+    const params = new URLSearchParams(page.url.searchParams);
+    if (on) params.set('compare', 'desglose');
+    else params.delete('compare');
+    const qs = params.toString();
+    goto(qs ? `?${qs}` : page.url.pathname, { keepFocus: true, noScroll: true });
+  }
   let linkExpectedDialogOpen = $state(false);
   let sourceComparisonRef: SourceComparison | null = $state(null);
   let availableExpected = $state<ExpectedInvoiceSummary[]>([]);
@@ -911,7 +925,26 @@
             </div>
           {/if}
 
-          <InvoiceTaxBreakdown invoiceId={comprobante.final.id} total={comprobante.final.total} />
+          {#key breakdownRefreshKey}
+            <InvoiceTaxBreakdown
+              invoiceId={comprobante.final.id}
+              total={comprobante.final.total}
+              oncompare={comprobante.final.expectedInvoiceId
+                ? () => setCompareParam(true)
+                : undefined}
+              compareActive={comparingBreakdown}
+            />
+          {/key}
+
+          {#if comprobante.final.expectedInvoiceId && comparingBreakdown}
+            <div class="breakdown-comparison">
+              <TaxBreakdownComparison
+                invoiceId={comprobante.final.id}
+                onchange={() => breakdownRefreshKey++}
+                onclose={() => setCompareParam(false)}
+              />
+            </div>
+          {/if}
         </section>
 
         {#if comprobante.expected}
@@ -1291,6 +1324,10 @@
     border: none;
     padding: 0;
     background: transparent;
+  }
+
+  .breakdown-comparison {
+    margin-top: var(--spacing-4);
   }
 
   /* Meta row for factura header */

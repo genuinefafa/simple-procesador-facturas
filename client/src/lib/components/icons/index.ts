@@ -69,6 +69,13 @@ export {
   Link2,
   Unlink2,
   Star,
+  CopyPlus,
+  CircleHelp,
+  CircleMinus,
+  TriangleAlert,
+  Diff,
+  Pin,
+  CheckCheck,
 } from 'lucide-svelte';
 
 /**

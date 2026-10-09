@@ -56,6 +56,9 @@ function evaluateFilterCondition(
     case 'letra':
       return matchesLetra(c, filter.value);
 
+    case 'desglose':
+      return matchesDesglose(c, filter.value);
+
     case 'freetext':
       return matchesFreeText(c, filter.value);
 
@@ -264,6 +267,15 @@ function matchesEstado(c: Comprobante, value: string): boolean {
     default:
       return false;
   }
+}
+
+/**
+ * Match por estado del desglose vs ARCA (no matchea si no hay estado calculado)
+ */
+function matchesDesglose(c: Comprobante, value: string): boolean {
+  const status = c.taxReconciliation?.status;
+  if (!status) return false;
+  return (value === 'divergente' ? 'divergent' : value) === status;
 }
 
 /**

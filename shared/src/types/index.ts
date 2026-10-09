@@ -28,4 +28,5 @@ export type {
   FileExtractionRecord,
   Match,
   Comprobante,
+  TaxReconciliationSummary,
 } from "./comprobante.js";

@@ -102,6 +102,11 @@
           <code>letra:A</code>, <code>letra:B</code>, <code>letra:otro</code>
         </div>
         <div class="help-section">
+          <strong>Desglose vs ARCA:</strong>
+          <code>desglose:completable</code>, <code>desglose:divergente</code>,
+          <code>desglose:manual</code>, <code>desglose:ok</code>
+        </div>
+        <div class="help-section">
           <strong>Importe:</strong>
           <code>total:>1000</code>, <code>total:&lt;500</code>
         </div>

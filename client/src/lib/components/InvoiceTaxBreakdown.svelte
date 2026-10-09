@@ -50,9 +50,20 @@
      * automatically.
      */
     prefill?: TaxLineInput[];
+    /** When set, a "Comparar con ARCA" button is shown next to the header actions */
+    oncompare?: () => void;
+    /** The comparison is already open: the button is hidden (the section has its own close) */
+    compareActive?: boolean;
   }
 
-  let { invoiceId, total = null, letter = null, prefill }: Props = $props();
+  let {
+    invoiceId,
+    total = null,
+    letter = null,
+    prefill,
+    oncompare,
+    compareActive = false,
+  }: Props = $props();
 
   interface Row {
     key: number;
@@ -464,14 +475,21 @@
 <div class="tax-breakdown">
   <header class="head">
     <h3>Desglose impositivo</h3>
-    {#if !editing && !loading && viewLines.length > 0}
+    {#if !editing && !loading}
       <div class="head-actions">
-        <Button size="sm" variant="secondary" onclick={() => startEdit()}>
-          <Edit size={14} /> Editar
-        </Button>
-        <Button size="sm" variant="ghost" onclick={() => (removeDialogOpen = true)}>
-          <Trash2 size={14} /> Quitar desglose
-        </Button>
+        {#if viewLines.length > 0}
+          <Button size="sm" variant="secondary" onclick={() => startEdit()}>
+            <Edit size={14} /> Editar
+          </Button>
+        {/if}
+        {#if oncompare && !compareActive}
+          <Button size="sm" variant="secondary" onclick={oncompare}>Comparar con ARCA</Button>
+        {/if}
+        {#if viewLines.length > 0}
+          <Button size="sm" variant="ghost" onclick={() => (removeDialogOpen = true)}>
+            <Trash2 size={14} /> Quitar desglose
+          </Button>
+        {/if}
       </div>
     {/if}
   </header>

@@ -6,6 +6,11 @@ import { startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-fns';
 export type EstadoValue = 'pendientes' | 'reconocidas' | 'esperadas';
 
 /**
+ * Valores válidos para el filtro de desglose (conciliación con ARCA)
+ */
+export type DesgloseValue = 'completable' | 'manual' | 'ok' | 'divergente';
+
+/**
  * Valores válidos para el filtro de letra (A, B, C, M u otro)
  */
 export type LetraValue = 'A' | 'B' | 'C' | 'M' | 'other';
@@ -32,6 +37,7 @@ export type FilterNode =
   | { type: 'tipo'; value: string; negate: boolean }
   | { type: 'estado'; value: EstadoValue; negate: boolean }
   | { type: 'letra'; value: LetraValue; negate: boolean }
+  | { type: 'desglose'; value: DesgloseValue; negate: boolean }
   | { type: 'freetext'; value: string; negate: boolean };
 
 export type DateRange = { start: Date; end: Date };
@@ -53,6 +59,7 @@ export type ParseResult = {
  * - numero:123 → número de comprobante
  * - categoria:<key> → categoría por key exacta (o substring de descripción)
  * - letra:A|B|C|M|otro → letra de la factura final (otro = E, X, etc.)
+ * - desglose:completable|manual|ok|divergente → estado del desglose vs ARCA
  */
 export function parseSearchQuery(query: string): ParseResult {
   const filters: FilterNode[] = [];
@@ -98,6 +105,8 @@ export function serializeFilters(filters: FilterNode[]): string {
           return `${prefix}estado:${f.value}`;
         case 'letra':
           return `${prefix}letra:${f.value === 'other' ? 'otro' : f.value}`;
+        case 'desglose':
+          return `${prefix}desglose:${f.value}`;
         case 'fecha':
           return `${prefix}fecha:${serializeDateFilter(f)}`;
         case 'total':
@@ -218,6 +227,9 @@ function parseToken(token: string): FilterNode | null {
 
     case 'letra':
       return parseLetraField(value, negate);
+
+    case 'desglose':
+      return parseDesgloseField(value, negate);
 
     default:
       // Campo desconocido → tratar como texto libre
@@ -366,6 +378,33 @@ function parseEstadoField(value: string, negate: boolean): FilterNode {
     value: estado,
     negate,
   };
+}
+
+const DESGLOSE_ALIASES: Record<string, DesgloseValue> = {
+  completable: 'completable',
+  completables: 'completable',
+  manual: 'manual',
+  manuales: 'manual',
+  ok: 'ok',
+  divergente: 'divergente',
+  divergentes: 'divergente',
+  diferente: 'divergente',
+  diferentes: 'divergente',
+};
+
+/**
+ * Parsea campo de desglose (estado de conciliación con ARCA)
+ */
+function parseDesgloseField(value: string, negate: boolean): FilterNode {
+  const desglose = DESGLOSE_ALIASES[value.toLowerCase()];
+
+  if (!desglose) {
+    throw new Error(
+      `Desglose inválido: ${value}. Valores válidos: completable, manual, ok, divergente`
+    );
+  }
+
+  return { type: 'desglose', value: desglose, negate };
 }
 
 /**

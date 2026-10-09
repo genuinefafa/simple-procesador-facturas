@@ -92,6 +92,25 @@ export type Match = {
   categoryId?: number | null;
 };
 
+/** Tax breakdown reconciliation state of a final invoice vs its ARCA reference */
+export type TaxReconciliationSummary = {
+  status: "completable" | "manual" | "ok" | "divergent";
+  reason:
+    | "no_total"
+    | "no_expected"
+    | "arca_no_breakdown"
+    | "arca_missing_breakdown"
+    | "not_required"
+    | "arca_sum_mismatch"
+    | "arca_available"
+    | "matches_arca"
+    | "no_arca_reference"
+    | "accepted"
+    | "differs";
+  /** Only present when status is "completable" (needed to preview the copy) */
+  arcaLines?: Array<{ concept: string; rate: number | null; amount: number }>;
+};
+
 export type Comprobante = {
   /** ID único: "factura:123" | "expected:456" | "file:789" */
   id: string;
@@ -104,4 +123,6 @@ export type Comprobante = {
   emitterName?: string | null;
   /** Fecha representativa según kind: issueDate (final/expected), uploadDate (file) */
   effectiveDate: string | null;
+  /** Only for kind "factura"; null when it cannot be computed */
+  taxReconciliation?: TaxReconciliationSummary | null;
 };

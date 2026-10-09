@@ -63,3 +63,16 @@ export type {
   TaxLinesBody,
   TaxLinesSumCheck,
 } from './invoice-tax-lines.js';
+
+// Reconciliation invoice vs ARCA (#191)
+export {
+  ReconciliationListQuerySchema,
+  CompleteFromArcaBodySchema,
+  ArcaFingerprintBodySchema,
+  AcceptDifferenceBodySchema,
+} from './reconciliation.js';
+export type {
+  CompleteFromArcaBody,
+  ArcaFingerprintBody,
+  AcceptDifferenceBody,
+} from './reconciliation.js';

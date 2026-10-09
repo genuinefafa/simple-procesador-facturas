@@ -12,8 +12,11 @@ import { join, extname } from 'path';
 
 import { InvoiceRepository } from '../../database/repositories/invoice';
 import { FileRepository } from '../../database/repositories/file';
+import { ReconciliationRepository } from '../../database/repositories/reconciliation';
+import { reconcileTaxBreakdown } from '../../services/tax-breakdown-reconciliation';
 import { createComprobanteService } from '../../factories';
 import type { File as FileRecord } from '../../database/schema';
+import type { Comprobante } from '@shared/types';
 
 // @ts-expect-error - no type definitions available for heic-convert
 import heicConvertUntyped from 'heic-convert';
@@ -33,11 +36,48 @@ function resolveAbsolutePath(storagePath: string): string {
   return join(DATA_DIR, storagePath);
 }
 
+/**
+ * Adds the tax breakdown reconciliation state to every comprobante with a
+ * final invoice. One query for all invoices (no N+1). ARCA lines are only
+ * included for completable ones, to preview the copy without extra requests.
+ */
+function attachTaxReconciliation(comprobantes: Comprobante[]): void {
+  const withFinal = comprobantes.filter((cmp) => cmp.final !== null);
+  if (withFinal.length === 0) return;
+  try {
+    const byInvoice = new Map(
+      new ReconciliationRepository().listAllTaxBreakdownCandidates().map((c) => [c.invoiceId, c])
+    );
+    for (const cmp of withFinal) {
+      const candidate = byInvoice.get(cmp.final!.id);
+      if (!candidate) continue;
+      const r = reconcileTaxBreakdown({
+        invoice: {
+          total: candidate.total,
+          invoiceType: candidate.invoiceType,
+          lines: candidate.lines,
+        },
+        expected: candidate.expected,
+        ack: candidate.ack,
+      });
+      cmp.taxReconciliation = {
+        status: r.status,
+        reason: r.reason,
+        ...(r.status === 'completable' && r.arcaLines ? { arcaLines: r.arcaLines } : {}),
+      };
+    }
+  } catch (error) {
+    // The listing must not fail because of an auxiliary indicator
+    console.error('Error computing tax reconciliation for comprobantes:', error);
+  }
+}
+
 export const comprobantesRouter = new Hono();
 
 comprobantesRouter.get('/', async (c) => {
   const service = createComprobanteService();
   const { comprobantes } = await service.listAll();
+  attachTaxReconciliation(comprobantes);
   return c.json({ count: comprobantes.length, comprobantes });
 });
 
