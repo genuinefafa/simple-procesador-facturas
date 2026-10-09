@@ -219,7 +219,8 @@ const expectedInvoices_ = sqliteTable(
     issueDateIdx: index('idx_expected_invoices_date').on(table.issueDate),
     categoryIdx: index('idx_expected_invoices_category').on(table.categoryId),
     balancedIdx: index('idx_expected_invoices_balanced').on(table.balancedWithId),
-    uniqueInvoice: index('unique_expected_invoice').on(
+    // Same key as findDuplicate in the import (#203)
+    uniqueInvoice: uniqueIndex('unique_expected_invoice').on(
       table.cuit,
       table.invoiceType,
       table.pointOfSale,
@@ -269,10 +270,15 @@ const facturas_ = sqliteTable(
     emisorIdx: index('idx_facturas_emisor').on(table.emisorCuit),
     fechaIdx: index('idx_facturas_fecha').on(table.fechaEmision),
     totalIdx: index('idx_facturas_total').on(table.total),
-    expectedInvoiceIdx: index('idx_facturas_expected_invoice').on(table.expectedInvoiceId),
-    fileIdx: index('idx_facturas_file').on(table.fileId),
+    // An expected invoice and a file have at most one invoice each (#203)
+    expectedInvoiceIdx: uniqueIndex('idx_facturas_expected_invoice')
+      .on(table.expectedInvoiceId)
+      .where(sql`${table.expectedInvoiceId} IS NOT NULL`),
+    fileIdx: uniqueIndex('idx_facturas_file')
+      .on(table.fileId)
+      .where(sql`${table.fileId} IS NOT NULL`),
     categoryIdx: index('idx_facturas_category').on(table.categoryId),
-    uniqueFactura: index('unique_factura').on(
+    uniqueFactura: uniqueIndex('unique_factura').on(
       table.emisorCuit,
       table.tipoComprobante,
       table.puntoVenta,

@@ -19,6 +19,7 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
+    "db:refresh-status": "bun scripts/refresh-link-status.ts",
     "db:seed": "tsx scripts/seed.ts",
     "db:reset": "rm -f ../data/database.sqlite && tsx scripts/migrate.ts",
     "reconcile-files": "tsx scripts/reconcile-files.ts",

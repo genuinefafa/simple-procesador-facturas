@@ -2,7 +2,7 @@
  * Repository para la gestión de facturas (Drizzle ORM)
  */
 
-import { eq, and, count, or, like } from 'drizzle-orm';
+import { eq, ne, and, count, or, like, isNull, type SQL } from 'drizzle-orm';
 import { getDb } from '../db';
 import { facturas, type Factura } from '../schema';
 import type { InvoiceType, Currency } from '@shared/types';
@@ -32,6 +32,17 @@ export interface IInvoiceRepository {
     pointOfSale: number,
     number: number
   ): Promise<Invoice | null>;
+  findLinkConflicts(
+    target: {
+      emitterCuit: string;
+      invoiceType: InvoiceType | null;
+      pointOfSale: number;
+      invoiceNumber: number;
+      expectedInvoiceId?: number | null;
+      fileId?: number | null;
+    },
+    excludeId?: number
+  ): Promise<{ byNumber?: Invoice; byExpected?: Invoice; byFile?: Invoice }>;
   list(filters?: {
     emitterCuit?: string;
     dateFrom?: Date;
@@ -183,6 +194,51 @@ export class InvoiceRepository implements IInvoiceRepository {
       .limit(1);
 
     return result.length > 0 ? this.mapDrizzleToInvoice(result[0]!) : null;
+  }
+
+  /**
+   * Finds invoices that would break a link invariant (#203) if an invoice with
+   * the given values were saved: same emitter+type+POS+number, same expected
+   * invoice, or same file. `excludeId` skips the invoice being edited.
+   */
+  async findLinkConflicts(
+    target: {
+      emitterCuit: string;
+      invoiceType: InvoiceType | null;
+      pointOfSale: number;
+      invoiceNumber: number;
+      expectedInvoiceId?: number | null;
+      fileId?: number | null;
+    },
+    excludeId?: number
+  ): Promise<{ byNumber?: Invoice; byExpected?: Invoice; byFile?: Invoice }> {
+    const notSelf = excludeId !== undefined ? ne(facturas.id, excludeId) : undefined;
+    const first = async (condition: SQL | undefined): Promise<Invoice | undefined> => {
+      const rows = await getDb().select().from(facturas).where(and(condition, notSelf)).limit(1);
+      return rows[0] ? this.mapDrizzleToInvoice(rows[0]) : undefined;
+    };
+
+    // NULL type mirrors the UNIQUE index semantics only for equal NULLs
+    const typeCondition =
+      target.invoiceType === null
+        ? isNull(facturas.tipoComprobante)
+        : eq(facturas.tipoComprobante, target.invoiceType);
+
+    return {
+      byNumber: await first(
+        and(
+          eq(facturas.emisorCuit, target.emitterCuit),
+          typeCondition,
+          eq(facturas.puntoVenta, target.pointOfSale),
+          eq(facturas.numeroComprobante, target.invoiceNumber)
+        )
+      ),
+      byExpected:
+        target.expectedInvoiceId != null
+          ? await first(eq(facturas.expectedInvoiceId, target.expectedInvoiceId))
+          : undefined,
+      byFile: target.fileId != null ? await first(eq(facturas.fileId, target.fileId)) : undefined,
+    };
   }
 
   async list(filters?: {

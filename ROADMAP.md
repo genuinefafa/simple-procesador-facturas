@@ -72,6 +72,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | 12 | #56 | Detector de duplicados + merge de facturas | Feature | Alto | Media |
 | 13 | #51 | Operaciones batch en listado | Feature | Medio | Baja |
 | 14 | #119 | Tests E2E con Playwright | QA | Alto | Paralelo |
+| 15 | #203 | Integridad de vínculos factura ↔ archivo ↔ esperada (UNIQUE + 409 + `db:refresh-status`) — PR abierto, migración pendiente en prod | Bug | Medio | ⬆️ Alta |
 
 ---
 
