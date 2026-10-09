@@ -1,13 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import {
-    Upload,
-    X,
-    CheckCircle,
-    AlertTriangle,
-    XCircle,
-    ArrowRight,
-  } from '$lib/components/icons';
+  import ReportPanel from '$lib/components/ReportPanel.svelte';
+  import { Upload, CheckCircle, AlertTriangle, XCircle, ArrowRight } from '$lib/components/icons';
 
   interface UploadedFile {
     fileId: number;
@@ -43,13 +37,8 @@
   }
 </script>
 
-<div class="upload-report">
-  <div class="header">
-    <h3><Upload size={18} /> Resultado de importación</h3>
-    <button class="close-btn" onclick={onClose} aria-label="Cerrar">
-      <X size={18} />
-    </button>
-  </div>
+<ReportPanel title="Resultado de importación" {onClose}>
+  {#snippet icon()}<Upload size={18} />{/snippet}
 
   <div class="summary">
     {#if successCount > 0}
@@ -144,179 +133,4 @@
       </ul>
     </div>
   {/if}
-</div>
-
-<style>
-  .upload-report {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    padding-bottom: 0.75rem;
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .header h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .close-btn {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    cursor: pointer;
-    color: var(--color-text-secondary);
-    padding: 0;
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    transition: background-color 0.2s;
-  }
-
-  .close-btn:hover {
-    background-color: var(--color-border);
-  }
-
-  .summary {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .summary-item {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    border-radius: 4px;
-    font-weight: 500;
-  }
-
-  .summary-item.success {
-    background-color: #d4edda;
-    color: #155724;
-  }
-
-  .summary-item.warning {
-    background-color: #fff3cd;
-    color: #856404;
-  }
-
-  .summary-item.error {
-    background-color: #f8d7da;
-    color: #721c24;
-  }
-
-  .section {
-    margin-top: 1.5rem;
-  }
-
-  .section h4 {
-    margin: 0 0 0.75rem 0;
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--color-text-secondary);
-  }
-
-  .file-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .file-list li {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.35rem 0.5rem;
-    font-size: 0.85rem;
-    border-left: 3px solid transparent;
-  }
-
-  .duplicate-item {
-    background-color: #fff8e1;
-    border-left-color: #ffc107;
-  }
-
-  .success-item {
-    background-color: #e8f5e9;
-    border-left-color: #4caf50;
-  }
-
-  .error-item {
-    background-color: #ffebee;
-    border-left-color: #f44336;
-  }
-
-  .filename {
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 0.8rem;
-    color: var(--color-text);
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .arrow {
-    color: var(--color-text-secondary);
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-  }
-
-  .link-button {
-    background: none;
-    border: none;
-    color: #1976d2;
-    cursor: pointer;
-    text-decoration: underline;
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 0.85rem;
-    padding: 0;
-  }
-
-  .link-button:hover {
-    color: #1565c0;
-  }
-
-  .hash {
-    font-family: 'Monaco', 'Menlo', monospace;
-    font-size: 0.75rem;
-    color: var(--color-text-secondary);
-    margin-left: auto;
-  }
-
-  .duplicate-info {
-    font-size: 0.85rem;
-    color: var(--color-text-secondary);
-  }
-
-  .error-message {
-    font-size: 0.85rem;
-    color: #c62828;
-    margin-top: 0.25rem;
-  }
-</style>
+</ReportPanel>
