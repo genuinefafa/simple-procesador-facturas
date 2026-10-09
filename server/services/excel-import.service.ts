@@ -8,6 +8,7 @@ import { ExpectedInvoiceRepository } from '../database/repositories/expected-inv
 import { EmitterRepository, type IEmitterRepository } from '../database/repositories/emitter.js';
 import { normalizeEmitterName } from '../utils/emitter-name-normalizer.js';
 import {
+  EXPECTED_TAX_COLUMN_KEYS,
   parseAmount,
   type ExpectedTaxColumnKey,
   type ExpectedTaxColumns,
@@ -96,6 +97,36 @@ export interface ImportResult {
   emittersCreated: number;
   emittersExisting: number;
   errors: Array<{ row: number; error: string }>;
+  /** Valid rows that carry an ARCA tax breakdown (at least one non-null amount; 0 counts). */
+  withBreakdown: number;
+  /** Distinct 'YYYY' years of the valid rows' issue dates, ascending. */
+  periods: string[];
+}
+
+/**
+ * True when the row carries an actual ARCA breakdown amount. The exchange rate
+ * is excluded: ARCA fills it (usually 1) on every row, so it says nothing
+ * about the breakdown.
+ */
+function hasBreakdownAmounts(columns: Partial<ExpectedTaxColumns>): boolean {
+  return EXPECTED_TAX_COLUMN_KEYS.some(
+    (k) => k !== 'exchangeRate' && columns[k] !== null && columns[k] !== undefined
+  );
+}
+
+/** Counts rows with an ARCA breakdown and collects their distinct years. */
+export function summarizeImportRows(rows: ReadonlyArray<ParsedInvoice>): {
+  withBreakdown: number;
+  periods: string[];
+} {
+  let withBreakdown = 0;
+  const years = new Set<string>();
+  for (const row of rows) {
+    if (row.taxColumns && hasBreakdownAmounts(row.taxColumns)) withBreakdown++;
+    const year = row.issueDate.slice(0, 4);
+    if (/^\d{4}$/.test(year)) years.add(year);
+  }
+  return { withBreakdown, periods: [...years].sort() };
 }
 
 export interface ParsedInvoice {
@@ -407,6 +438,7 @@ export class ExcelImportService {
       emittersCreated,
       emittersExisting,
       errors,
+      ...summarizeImportRows(rows),
     };
   }
 

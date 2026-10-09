@@ -243,6 +243,8 @@ expectedInvoicesRouter.post('/import', async (c) => {
       emittersCreated: result.emittersCreated,
       emittersExisting: result.emittersExisting,
       errors: result.errors,
+      withBreakdown: result.withBreakdown,
+      periods: result.periods,
     });
   } catch (error) {
     console.error('   ❌ Error en importación:', error);
