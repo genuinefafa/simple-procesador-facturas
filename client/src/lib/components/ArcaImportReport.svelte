@@ -23,7 +23,7 @@
     reconciliationLoading: boolean;
     onClose: () => void;
     onfilter?: (query: string) => void;
-    /** Current search query: a button stays disabled while the filter it applied is active */
+    /** Current search query; a filter already applied disables its button */
     activeQuery?: string;
   }
 
@@ -38,12 +38,7 @@
 
   const allFinished = $derived(entries.every((e) => e.status !== 'loading'));
 
-  // Last filter applied from this report. A query that was already active before
-  // the import does not count: the user has not seen the button act yet.
-  let appliedQuery = $state<string | null>(null);
-
   function filter(query: string) {
-    appliedQuery = query;
     if (onfilter) {
       onfilter(query);
     } else {
@@ -70,7 +65,7 @@
   const showCompletable = $derived((reconciliation?.completable ?? 0) > 0);
   const showDivergent = $derived((reconciliation?.divergent ?? 0) > 0);
   const mainQuery = $derived(showCompletable ? 'desglose:completable' : 'desglose:divergente');
-  const isApplied = (query: string) => appliedQuery === query && activeQuery.trim() === query;
+  const isApplied = (query: string) => activeQuery.trim() === query;
 </script>
 
 <ReportPanel title="Importación de ARCA" {onClose}>
