@@ -9,6 +9,13 @@
   import TaxBreakdownIndicator from '$lib/components/TaxBreakdownIndicator.svelte';
   import TaxBreakdownRowPanel from '$lib/components/TaxBreakdownRowPanel.svelte';
   import UnifiedSearchBox from '$lib/components/UnifiedSearchBox.svelte';
+  import { onDestroy } from 'svelte';
+  import ArcaImportReport from '$lib/components/ArcaImportReport.svelte';
+  import type {
+    ArcaImportEntry,
+    ArcaImportResult,
+    ReconciliationSummary,
+  } from '$lib/components/ArcaImportReport.types';
   import UploadReport from '$lib/components/UploadReport.svelte';
   import type { PageData } from './$types';
   import type { Comprobante, TaxReconciliationSummary } from '$lib/types/comprobante';
@@ -44,6 +51,19 @@
   // Estado unificado para búsqueda meta-lenguaje (incluye estado y categoría)
   let searchQuery = $state('');
   let searchFilters = $state<FilterNode[]>([]);
+
+  // ARCA import infobar state
+  let arcaImports = $state<ArcaImportEntry[] | null>(null);
+  let arcaReconciliation = $state<ReconciliationSummary | null>(null);
+  let arcaReconciliationLoading = $state(false);
+  let arcaCloseTimer: ReturnType<typeof setTimeout> | null = null;
+  let arcaRunId = 0;
+  // Years covered by the last ARCA import, to refresh its reconciliation counts
+  let arcaPeriods: string[] = [];
+
+  onDestroy(() => {
+    if (arcaCloseTimer) clearTimeout(arcaCloseTimer);
+  });
 
   // Filter matcher
   const matchesSearchFilter = $derived(createFilterMatcher(categories));
@@ -340,6 +360,12 @@
     });
     reconOverrides = next;
     reconVersion++;
+    // Keep the ARCA import infobar counts in sync with what was just copied
+    if (applied.length > 0 && arcaImports && arcaReconciliation) {
+      const runId = arcaRunId;
+      const summary = await fetchArcaReconciliation(arcaPeriods);
+      if (summary && runId === arcaRunId && arcaImports) arcaReconciliation = summary;
+    }
   }
 
   const CREDIT_NOTE_TYPES = new Set([3, 8, 13, 21, 53]);
@@ -645,49 +671,14 @@
   }
 
   async function handleFiles(uploadedFiles: File[]) {
+    // A new batch cancels any pending auto-close of the ARCA infobar
+    cancelArcaAutoClose();
     const excel = uploadedFiles.filter((f) => /\.(xlsx|xls|csv)$/i.test(f.name));
     const others = uploadedFiles.filter((f) => !/\.(xlsx|xls|csv)$/i.test(f.name));
 
-    // 1) Excel/CSV -> expected import (one by one)
-    for (const f of excel) {
-      const fd = new FormData();
-      fd.append('file', f);
-      const toastId = toast.loading(`Importando ${f.name}...`);
-
-      try {
-        const response = await fetch('/api/expected-invoices/import', { method: 'POST', body: fd });
-        const data = await response.json();
-
-        if (data.success) {
-          const parts = [];
-          if (data.imported > 0) parts.push(`${data.imported} nuevas`);
-          if (data.updated > 0) parts.push(`${data.updated} actualizadas`);
-          if (data.unchanged > 0) parts.push(`${data.unchanged} sin cambios`);
-
-          // Importación completamente exitosa: 100% nuevas, sin errores
-          const isCleanImport =
-            data.imported > 0 &&
-            data.updated === 0 &&
-            data.unchanged === 0 &&
-            data.errors?.length === 0;
-          const message = `${f.name}: ${parts.join(', ')}`;
-
-          if (isCleanImport) {
-            // Auto-cierre: importación limpia, todo nuevo
-            toast.success(message, { id: toastId, duration: 3000 });
-          } else {
-            // Cierre manual: hay algo que requiere atención
-            toast.success(message, { id: toastId, duration: Infinity });
-          }
-        } else {
-          toast.error(`Error al importar ${f.name}: ${data.error}`, {
-            id: toastId,
-            duration: Infinity,
-          });
-        }
-      } catch (err) {
-        toast.error(`Error al importar ${f.name}`, { id: toastId, duration: Infinity });
-      }
+    // 1) Excel/CSV -> expected import (one by one), reported in the ARCA infobar
+    if (excel.length > 0) {
+      await importArcaFiles(excel);
     }
 
     // 2) Otros -> upload pending (batch)
@@ -722,8 +713,114 @@
       }
     }
 
-    // 3) Refresh reactivo
+    // 3) Refresh reactivo (Excel-only batches already refreshed in importArcaFiles)
+    if (others.length > 0) {
+      await invalidateAll();
+    }
+  }
+
+  const ARCA_AUTO_CLOSE_MS = 4000;
+
+  function cancelArcaAutoClose() {
+    if (arcaCloseTimer) {
+      clearTimeout(arcaCloseTimer);
+      arcaCloseTimer = null;
+    }
+  }
+
+  function closeArcaReport() {
+    cancelArcaAutoClose();
+    arcaRunId++; // invalidate any in-flight reconciliation fetch
+    arcaImports = null;
+    arcaReconciliation = null;
+    arcaReconciliationLoading = false;
+  }
+
+  /** Clean import: everything new, no errors, nothing left to reconcile. */
+  function isCleanArcaImport(
+    entries: ArcaImportEntry[],
+    reconciliation: ReconciliationSummary | null
+  ): boolean {
+    if (!reconciliation || reconciliation.completable > 0 || reconciliation.divergent > 0) {
+      return false;
+    }
+    return entries.every(
+      (e) =>
+        e.status === 'done' &&
+        e.result.errors.length === 0 &&
+        e.result.updated === 0 &&
+        e.result.unchanged === 0 &&
+        e.result.imported > 0
+    );
+  }
+
+  /** Sums completable/divergent across the given years; null if any request fails. */
+  async function fetchArcaReconciliation(periods: string[]): Promise<ReconciliationSummary | null> {
+    const results = await Promise.all(periods.map((p) => reconciliationService.list(p)));
+    if (!results.every((r) => r.success)) return null;
+    const summary = { completable: 0, divergent: 0 };
+    for (const r of results) {
+      if (r.success && r.data) {
+        summary.completable += r.data.counts.completable;
+        summary.divergent += r.data.counts.divergent;
+      }
+    }
+    return summary;
+  }
+
+  async function importArcaFiles(files: File[]) {
+    cancelArcaAutoClose();
+    const runId = ++arcaRunId;
+    arcaReconciliation = null;
+    arcaReconciliationLoading = false;
+    arcaImports = files.map((f): ArcaImportEntry => ({ filename: f.name, status: 'loading' }));
+
+    const setEntry = (index: number, entry: ArcaImportEntry) => {
+      if (runId !== arcaRunId || !arcaImports) return;
+      arcaImports = arcaImports.map((e, i) => (i === index ? entry : e));
+    };
+
+    for (const [i, f] of files.entries()) {
+      const fd = new FormData();
+      fd.append('file', f);
+      try {
+        const response = await fetch('/api/expected-invoices/import', { method: 'POST', body: fd });
+        const data = await response.json();
+        if (data.success) {
+          setEntry(i, { filename: f.name, status: 'done', result: data as ArcaImportResult });
+        } else {
+          setEntry(i, {
+            filename: f.name,
+            status: 'error',
+            error: data.error ?? 'Error desconocido',
+          });
+        }
+      } catch {
+        setEntry(i, { filename: f.name, status: 'error', error: 'Error de conexión' });
+      }
+    }
+
+    // Refresh the listing without touching scroll/navigation. Always, even if the
+    // infobar was closed mid-import: the data changed either way.
     await invalidateAll();
+    if (runId !== arcaRunId || !arcaImports) return;
+
+    // Reconciliation counts: one request per distinct year across the whole batch
+    arcaPeriods = [
+      ...new Set(arcaImports.flatMap((e) => (e.status === 'done' ? (e.result.periods ?? []) : []))),
+    ];
+    let summary: ReconciliationSummary | null = null;
+    if (arcaPeriods.length > 0) {
+      arcaReconciliationLoading = true;
+      summary = await fetchArcaReconciliation(arcaPeriods);
+      if (runId !== arcaRunId || !arcaImports) return;
+      arcaReconciliationLoading = false;
+    }
+    arcaReconciliation = summary;
+
+    if (isCleanArcaImport(arcaImports, summary)) {
+      arcaCloseTimer = setTimeout(closeArcaReport, ARCA_AUTO_CLOSE_MS);
+    }
   }
 </script>
 
@@ -756,6 +853,18 @@
       </p>
     </div>
   </header>
+
+  <!-- ARCA import infobar (can coexist with the upload report / dropzone) -->
+  {#if arcaImports}
+    <ArcaImportReport
+      entries={arcaImports}
+      reconciliation={arcaReconciliation}
+      reconciliationLoading={arcaReconciliationLoading}
+      onClose={closeArcaReport}
+      activeQuery={searchQuery}
+      onfilter={(query) => (searchQuery = query)}
+    />
+  {/if}
 
   <!-- Upload Report o Dropzone -->
   {#if uploadResult}

@@ -220,8 +220,8 @@ describe('/api/reconciliation/tax-breakdown', () => {
   });
 
   it('ack: 409 unless divergent; pins, goes stale when ARCA changes, and can be deleted', async () => {
-    const expectedId = insertExpected(arca);
-    const okId = insertInvoice({ total: 121, expectedId, lines: matching });
+    // One invoice per expected invoice (unique index since #203)
+    const okId = insertInvoice({ total: 121, expectedId: insertExpected(arca), lines: matching });
     const okItem = ((await (await app.request(`${BASE}/${okId}`)).json()) as Any).item;
     const notDivergent = await app.request(
       `${BASE}/${okId}/ack`,
@@ -229,6 +229,7 @@ describe('/api/reconciliation/tax-breakdown', () => {
     );
     expect(notDivergent.status).toBe(409);
 
+    const expectedId = insertExpected(arca);
     const id = insertInvoice({ total: 121, expectedId, lines: diverging });
     const item = ((await (await app.request(`${BASE}/${id}`)).json()) as Any).item;
     expect(item.status).toBe('divergent');

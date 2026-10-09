@@ -7,11 +7,12 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import ExcelJS from 'exceljs';
 import { mkdtempSync, rmSync } from 'fs';
+import { readFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { getRawDb } from '../../database/db.js';
 import { cleanupTestDb, runTestMigrations, resetTestDb } from '../../database/db-test.js';
-import { ExcelImportService } from '../../services/excel-import.service.js';
+import { ExcelImportService, summarizeImportRows } from '../../services/excel-import.service.js';
 import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice.js';
 import {
   expectedToTaxLines,
@@ -359,6 +360,61 @@ describe('expected_invoices tax columns (#129)', () => {
     expect(body.invoice.netTaxed21).toBe(100);
     expect(body.invoice.vat21).toBe(21);
     expect(body.invoice.vat5).toBeNull();
+  });
+  it('reports withBreakdown and periods across two years', async () => {
+    const file = await writeXlsx({
+      headers: ARCA_HEADERS,
+      rows: [
+        baseRow(21, { 'Neto Grav. IVA 21%': 100, 'IVA 21%': 21, 'Imp. Total': 121 }),
+        baseRow(22, { Fecha: '15/01/2025', 'IVA 21%': 0, 'Imp. Total': 50 }),
+        baseRow(23, { Fecha: '20/06/2025', 'Imp. Total': 80 }),
+      ],
+    });
+    const result = await new ExcelImportService().importFromFile(file);
+    expect(result.errors).toEqual([]);
+    expect(result.totalRows).toBe(3);
+    expect(result.withBreakdown).toBe(2);
+    expect(result.periods).toEqual(['2025', '2026']);
+  });
+
+  it('reports withBreakdown 0 for the old format', async () => {
+    const oldHeaders = ARCA_HEADERS.filter(
+      (h) => !/IVA|Neto|Exentas|Tributos|Cambio/.test(h) || h === 'Tipo Doc. Emisor'
+    );
+    const file = await writeXlsx({
+      headers: oldHeaders,
+      rows: [
+        oldHeaders.map((h) => baseRow(24, { 'Imp. Total': 500 })[ARCA_HEADERS.indexOf(h)] ?? null),
+      ],
+    });
+    const result = await new ExcelImportService().importFromFile(file);
+    expect(result.imported).toBe(1);
+    expect(result.withBreakdown).toBe(0);
+    expect(result.periods).toEqual(['2026']);
+  });
+
+  it('summarizeImportRows handles empty input', () => {
+    expect(summarizeImportRows([])).toEqual({ withBreakdown: 0, periods: [] });
+  });
+
+  it('returns withBreakdown and periods from POST /api/expected-invoices/import', async () => {
+    const file = await writeXlsx({
+      headers: ARCA_HEADERS,
+      rows: [
+        baseRow(25, { 'Neto Grav. IVA 21%': 100, 'IVA 21%': 21, 'Imp. Total': 121 }),
+        baseRow(26, { Fecha: '01/02/2025', 'Imp. Total': 10 }),
+      ],
+    });
+    const form = new FormData();
+    form.append('file', new File([await readFile(file)], 'arca-test.xlsx'));
+    const res = await app.request('/api/expected-invoices/import', {
+      method: 'POST',
+      body: form,
+    });
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { withBreakdown: number; periods: string[] };
+    expect(body.withBreakdown).toBe(1);
+    expect(body.periods).toEqual(['2025', '2026']);
   });
 });
 
