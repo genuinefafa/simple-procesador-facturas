@@ -9,6 +9,8 @@ export type ReconciliationReason =
   | 'no_total'
   | 'no_expected'
   | 'arca_no_breakdown'
+  | 'arca_missing_breakdown'
+  | 'not_required'
   | 'arca_sum_mismatch'
   | 'arca_available'
   | 'matches_arca'
@@ -85,7 +87,9 @@ export const STATUS_LABELS: Record<ReconciliationStatus, string> = {
 export const REASON_LABELS: Record<ReconciliationReason, string> = {
   no_total: 'Sin total cargado',
   no_expected: 'Sin vincular a ARCA',
-  arca_no_breakdown: 'Sin desglose de ARCA: reimporte el Excel de ARCA del período',
+  arca_no_breakdown: 'ARCA no informa desglose',
+  arca_missing_breakdown: 'Falta el desglose de ARCA (comprobante A/M)',
+  not_required: 'No requiere desglose: ARCA informa solo el total en comprobantes B/C',
   arca_sum_mismatch: 'El desglose de ARCA no suma el total',
   arca_available: 'ARCA informa un desglose que cuadra con el total',
   matches_arca: 'Igual a ARCA',

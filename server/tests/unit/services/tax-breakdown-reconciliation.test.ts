@@ -17,10 +17,18 @@ const line = (concept: string, rate: number | null, amount: number): L => ({
 });
 
 function input(
-  over: Partial<ReconciliationInput> & { lines?: L[]; total?: number | null }
+  over: Partial<ReconciliationInput> & {
+    lines?: L[];
+    total?: number | null;
+    invoiceType?: number | null;
+  }
 ): ReconciliationInput {
   return {
-    invoice: { total: over.total === undefined ? 1210 : over.total, lines: over.lines ?? [] },
+    invoice: {
+      total: over.total === undefined ? 1210 : over.total,
+      invoiceType: over.invoiceType === undefined ? 1 : over.invoiceType,
+      lines: over.lines ?? [],
+    },
     expected: over.expected === undefined ? { id: 7, netTaxed21: 1000, vat21: 210 } : over.expected,
     ack: over.ack ?? null,
   };
@@ -39,7 +47,8 @@ describe('reconcileTaxBreakdown - invoice without lines', () => {
   it.each([
     ['no_total', { total: null }],
     ['no_expected', { expected: null }],
-    ['arca_no_breakdown', { expected: { id: 7 } }],
+    ['arca_missing_breakdown', { expected: { id: 7 } }],
+    ['arca_no_breakdown', { expected: { id: 7 }, invoiceType: null }],
     ['arca_sum_mismatch', { total: 5000 }],
   ] as const)('is manual: %s', (reason, over) => {
     const r = reconcileTaxBreakdown(input(over));
@@ -49,7 +58,30 @@ describe('reconcileTaxBreakdown - invoice without lines', () => {
 
   it('treats all-zero ARCA columns as no breakdown', () => {
     const r = reconcileTaxBreakdown(input({ expected: { id: 7, netTaxed21: 0 } }));
-    expect(r.reason).toBe('arca_no_breakdown');
+    expect(r.reason).toBe('arca_missing_breakdown');
+  });
+
+  it.each([[6], [11], [8], [19]])('type %i without ARCA breakdown is ok/not_required', (t) => {
+    const r = reconcileTaxBreakdown(input({ expected: { id: 7 }, invoiceType: t }));
+    expect(r.status).toBe('ok');
+    expect(r.reason).toBe('not_required');
+  });
+
+  it.each([[1], [63], [81]])(
+    'type %i without ARCA breakdown is manual/arca_missing_breakdown',
+    (t) => {
+      const r = reconcileTaxBreakdown(input({ expected: { id: 7 }, invoiceType: t }));
+      expect(r.status).toBe('manual');
+      expect(r.reason).toBe('arca_missing_breakdown');
+    }
+  );
+
+  it('C invoice with own lines and no ARCA breakdown stays ok/no_arca_reference', () => {
+    const r = reconcileTaxBreakdown(
+      input({ expected: { id: 7 }, invoiceType: 11, lines: okLines })
+    );
+    expect(r.status).toBe('ok');
+    expect(r.reason).toBe('no_arca_reference');
   });
 
   it('credit notes: negative ARCA values with positive total are completable', () => {

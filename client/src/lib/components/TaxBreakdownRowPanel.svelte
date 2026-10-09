@@ -69,7 +69,9 @@
   {:else if !item}
     <p class="state">Cargando comparación...</p>
   {:else}
-    <TaxBreakdownCompareTable {item} />
+    {#if item.reason !== 'not_required'}
+      <TaxBreakdownCompareTable {item} />
+    {/if}
     <p class="reason">
       {REASON_LABELS[item.reason]}
       {#if item.ackStale}

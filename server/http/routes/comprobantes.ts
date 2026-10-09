@@ -52,7 +52,11 @@ function attachTaxReconciliation(comprobantes: Comprobante[]): void {
       const candidate = byInvoice.get(cmp.final!.id);
       if (!candidate) continue;
       const r = reconcileTaxBreakdown({
-        invoice: { total: candidate.total, lines: candidate.lines },
+        invoice: {
+          total: candidate.total,
+          invoiceType: candidate.invoiceType,
+          lines: candidate.lines,
+        },
         expected: candidate.expected,
         ack: candidate.ack,
       });

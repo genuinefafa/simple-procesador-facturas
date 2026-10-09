@@ -12,6 +12,7 @@ import {
   type ExpectedTaxColumns,
   type ExpectedTaxLine,
 } from '../utils/expected-tax-lines';
+import { getInvoiceLetter, isValidARCACode, isVatRecoverable } from '../utils/afip-codes';
 import { checkTaxLinesSum, TAX_LINES_SUM_TOLERANCE } from '../contracts/invoice-tax-lines';
 
 export type ReconciliationStatus = 'completable' | 'manual' | 'ok' | 'divergent';
@@ -19,7 +20,9 @@ export type ReconciliationStatus = 'completable' | 'manual' | 'ok' | 'divergent'
 export type ReconciliationReason =
   | 'no_total' // manual: invoice without total
   | 'no_expected' // manual: not linked to an expected invoice
-  | 'arca_no_breakdown' // manual: expected has no breakdown columns
+  | 'arca_no_breakdown' // manual: expected has no breakdown columns and the invoice type is unknown
+  | 'arca_missing_breakdown' // manual: A/M invoice (VAT itemized) but ARCA has no breakdown
+  | 'not_required' // ok: B/C/other invoice, ARCA reports only the total (normal)
   | 'arca_sum_mismatch' // manual: ARCA lines sum != invoice total (+-0.05)
   | 'arca_available' // completable: no breakdown yet, ARCA has a consistent one
   | 'matches_arca' // ok
@@ -45,6 +48,8 @@ export interface BucketDiff {
 export interface ReconciliationInput {
   invoice: {
     total: number | null;
+    /** ARCA document type code (tipo_comprobante); null when unknown */
+    invoiceType: number | null;
     lines: Array<{ concept: string; rate: number | null; amount: number }>;
   };
   expected: ({ id: number } & Partial<ExpectedTaxColumns>) | null;
@@ -190,7 +195,16 @@ export function reconcileTaxBreakdown(input: ReconciliationInput): Reconciliatio
     });
     if (invoice.total === null) return manual('no_total');
     if (expected === null) return manual('no_expected');
-    if (!hasArca) return manual('arca_no_breakdown');
+    if (!hasArca) {
+      if (invoice.invoiceType === null || !isValidARCACode(invoice.invoiceType)) {
+        return manual('arca_no_breakdown');
+      }
+      // Same rule as the gold view's vat_recoverable: only A/M itemize VAT.
+      if (isVatRecoverable(getInvoiceLetter(invoice.invoiceType))) {
+        return manual('arca_missing_breakdown');
+      }
+      return { ...base, status: 'ok', reason: 'not_required' };
+    }
     if (!checkTaxLinesSum(arcaLines, Math.abs(invoice.total)).ok) {
       return manual('arca_sum_mismatch');
     }

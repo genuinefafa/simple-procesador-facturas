@@ -58,7 +58,7 @@ interface TaxReconciliationItem {
 
 function evaluate(c: TaxBreakdownCandidate, ignoreAck = false): ReconciliationResult {
   return reconcileTaxBreakdown({
-    invoice: { total: c.total, lines: c.lines },
+    invoice: { total: c.total, invoiceType: c.invoiceType, lines: c.lines },
     expected: c.expected,
     ack: ignoreAck ? null : c.ack,
   });

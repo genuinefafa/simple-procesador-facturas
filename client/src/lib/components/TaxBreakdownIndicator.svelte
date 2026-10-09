@@ -9,6 +9,7 @@
   import {
     CopyPlus,
     CircleHelp,
+    CircleMinus,
     TriangleAlert,
     Diff,
     Pin,
@@ -37,6 +38,16 @@
     }
     if (status === 'manual' && reason === 'arca_no_breakdown') {
       return { icon: CircleHelp, tone: 'neutral', tooltip: REASON_LABELS.arca_no_breakdown };
+    }
+    if (status === 'manual' && reason === 'arca_missing_breakdown') {
+      return {
+        icon: TriangleAlert,
+        tone: 'warning',
+        tooltip: REASON_LABELS.arca_missing_breakdown,
+      };
+    }
+    if (status === 'ok' && reason === 'not_required') {
+      return { icon: CircleMinus, tone: 'neutral', tooltip: REASON_LABELS.not_required };
     }
     if (status === 'manual' && reason === 'arca_sum_mismatch') {
       return {

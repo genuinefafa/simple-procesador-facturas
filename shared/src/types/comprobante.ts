@@ -99,6 +99,8 @@ export type TaxReconciliationSummary = {
     | "no_total"
     | "no_expected"
     | "arca_no_breakdown"
+    | "arca_missing_breakdown"
+    | "not_required"
     | "arca_sum_mismatch"
     | "arca_available"
     | "matches_arca"

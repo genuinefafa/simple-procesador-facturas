@@ -71,6 +71,7 @@ export {
   Star,
   CopyPlus,
   CircleHelp,
+  CircleMinus,
   TriangleAlert,
   Diff,
   Pin,
