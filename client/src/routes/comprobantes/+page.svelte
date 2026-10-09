@@ -777,9 +777,9 @@
         setEntry(i, { filename: f.name, status: 'error', error: 'Error de conexión' });
       }
     }
-    if (runId !== arcaRunId || !arcaImports) return;
 
-    // Refresh the listing without touching scroll/navigation
+    // Refresh the listing without touching scroll/navigation. Always, even if the
+    // infobar was closed mid-import: the data changed either way.
     await invalidateAll();
     if (runId !== arcaRunId || !arcaImports) return;
 

@@ -61,7 +61,7 @@
   {#snippet icon()}<FileSpreadsheet size={18} />{/snippet}
 
   <div class="summary">
-    {#each entries as entry (entry.filename)}
+    {#each entries as entry, i (i)}
       {#if entry.status === 'loading'}
         <div class="summary-item loading">
           <span class="icon spin"><Loader2 size={18} /></span>
@@ -89,7 +89,7 @@
               {plural(r.errors.length, 'error', 'errores')}
             </summary>
             <ul class="file-list">
-              {#each r.errors as err (err.row)}
+              {#each r.errors as err, i (i)}
                 <li class="error-item">
                   <span class="error-message">Fila {err.row}: {err.error}</span>
                 </li>
