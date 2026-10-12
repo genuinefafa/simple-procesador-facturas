@@ -86,6 +86,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--spacing-3);
     padding: var(--spacing-2) var(--spacing-3);
     font-size: var(--font-size-sm);
     cursor: pointer;

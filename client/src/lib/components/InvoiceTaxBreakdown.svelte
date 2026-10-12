@@ -234,8 +234,11 @@
   function addRow(): void {
     let concept: TaxLineConcept | '' = '';
     let rate = '';
+    let amount = '';
     if (rows.length === 0) {
       concept = noVat ? 'UNDISCRIMINATED' : 'NET_TAXED';
+      // Without VAT itemization the whole total is the undiscriminated amount
+      if (noVat && effectiveTotal != null) amount = String(Math.abs(effectiveTotal));
     } else if (noVat) {
       concept = rows.some((r) => r.concept === 'UNDISCRIMINATED')
         ? 'OTHER_TAXES'
@@ -252,7 +255,7 @@
         rate = lacking.rate;
       }
     }
-    rows.push({ key: nextKey++, concept, rate, amount: '', label: '', base: '' });
+    rows.push({ key: nextKey++, concept, rate, amount, label: '', base: '' });
   }
 
   function removeRow(key: number): void {
@@ -985,7 +988,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: minmax(140px, 1.25fr) minmax(120px, 1.15fr) minmax(90px, 0.9fr) auto;
+    grid-template-columns: minmax(170px, 1.25fr) minmax(120px, 1.15fr) minmax(90px, 0.9fr) auto;
     gap: var(--spacing-2);
     align-items: center;
     padding: var(--spacing-2);
