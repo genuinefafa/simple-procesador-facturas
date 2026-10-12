@@ -142,3 +142,20 @@ export function isVatRecoverable(letter: InvoiceLetter): boolean {
 export function discriminatesVat(code: number | null | undefined): boolean {
   return isVatRecoverable(getInvoiceLetter(code));
 }
+
+/**
+ * True when the code is a known document type that does not itemize VAT
+ * (B, C, E, documents without letter). Unknown or missing codes return false,
+ * so callers can keep unrestricted behavior when the type is not known.
+ *
+ * @example
+ * doesNotItemizeVat(6) // true (Factura B)
+ * doesNotItemizeVat(1) // false (Factura A)
+ * doesNotItemizeVat(9999) // false (unknown)
+ */
+export function doesNotItemizeVat(code: number | null | undefined): boolean {
+  if (code === null || code === undefined) return false;
+  return (
+    getDocumentTypeFromARCACode(code) !== undefined && !discriminatesVat(code)
+  );
+}

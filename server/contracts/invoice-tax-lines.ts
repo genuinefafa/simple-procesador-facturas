@@ -6,7 +6,7 @@
  */
 
 import * as z from 'zod';
-import { discriminatesVat, getDocumentTypeFromARCACode } from '@shared/arca';
+import { discriminatesVat, doesNotItemizeVat } from '@shared/arca';
 
 export const TAX_LINE_CONCEPTS = [
   'NET_TAXED',
@@ -183,11 +183,8 @@ export function makeTaxLinesBodySchema(
 ): z.ZodType<TaxLinesBody> {
   // Only restrict by letter when the code is a known ARCA document type;
   // null/unknown codes keep the unrestricted behavior.
-  const knownType =
-    invoiceType !== null && invoiceType !== undefined
-      ? getDocumentTypeFromARCACode(invoiceType) !== undefined
-      : false;
-  const itemizesVat = discriminatesVat(invoiceType);
+  const nonItemized = doesNotItemizeVat(invoiceType);
+  const itemized = discriminatesVat(invoiceType);
 
   return z
     .object({
@@ -201,14 +198,14 @@ export function makeTaxLinesBodySchema(
       checkDuplicates(body.lines, ctx);
 
       body.lines.forEach((line, i) => {
-        if (knownType && !itemizesVat && !NON_ITEMIZED_ALLOWED_CONCEPTS.includes(line.concept)) {
+        if (nonItemized && !NON_ITEMIZED_ALLOWED_CONCEPTS.includes(line.concept)) {
           ctx.addIssue({
             code: 'custom',
             path: ['lines', i, 'concept'],
             message:
               'Este comprobante no discrimina IVA: solo admite los conceptos "No discriminado" y "Otros tributos"',
           });
-        } else if (knownType && itemizesVat && line.concept === 'UNDISCRIMINATED') {
+        } else if (itemized && line.concept === 'UNDISCRIMINATED') {
           ctx.addIssue({
             code: 'custom',
             path: ['lines', i, 'concept'],
