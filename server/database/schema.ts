@@ -358,6 +358,8 @@ export const TAX_LINE_CONCEPTS = [
   'VAT_PERCEPTION',
   'IIBB_PERCEPTION',
   'OTHER_TAXES',
+  // Total minus other taxes for documents that do not itemize VAT (B/C/no letter); it is expense, not credit
+  'UNDISCRIMINATED',
 ] as const;
 
 const invoiceTaxLines_ = sqliteTable(
