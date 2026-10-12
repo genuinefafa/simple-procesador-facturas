@@ -13,6 +13,7 @@
 		"preview": "cd client && bun run preview",
 		"test": "cd server && bun run test",
 		"test:coverage": "cd server && bun run test:coverage",
+		"debug:arca:excel": "tsx scripts/debug/arca/excel-columns.ts",
 		"debug:qr": "tsx scripts/debug/qr/extract.ts",
 		"debug:qr:raw": "tsx scripts/debug/qr/raw.ts",
 		"debug:qr:scales": "tsx scripts/debug/qr/scales.ts",
