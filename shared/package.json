@@ -5,6 +5,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./types": "./src/types/index.ts",
+    "./arca": "./src/arca/index.ts",
     "./contracts": "./src/contracts/index.ts",
     "./validators": "./src/validators/index.ts",
     "./validators/cuit": "./src/validators/cuit.ts"
