@@ -76,6 +76,9 @@ export {
   Diff,
   Pin,
   CheckCheck,
+
+  // Tipos de comprobante
+  Undo2,
 } from 'lucide-svelte';
 
 /**

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Select as SelectBuilder } from 'melt/builders';
   import { getInvoiceTypeFromARCA } from '$lib/formatters';
-  import { ARCA_INVOICE_TYPES } from '$lib/constants/arca-codes';
+  import { AFIP_TYPES } from '@shared/arca';
   import { Check, ChevronDown } from '$lib/components/icons';
   import { SelectDropdown } from '$lib/components/ui';
 
@@ -12,6 +12,17 @@
   }
 
   let { value = $bindable(null), onchange, readonly = false }: Props = $props();
+
+  // Most common codes first, then the rest by code
+  const COMMON_CODES = [1, 6, 11, 3, 8, 13, 2, 7, 12, 51, 19];
+  const commonSet = new Set(COMMON_CODES);
+  const typeOptions = [
+    ...COMMON_CODES.filter((c) => AFIP_TYPES[String(c)]),
+    ...Object.values(AFIP_TYPES)
+      .map((t) => t.code)
+      .filter((c) => !commonSet.has(c))
+      .sort((a, b) => a - b),
+  ].map((code) => ({ code, description: AFIP_TYPES[String(code)].description }));
 
   // Select builder
   const select = new SelectBuilder<number | null>({
@@ -44,7 +55,7 @@
       <span class="truncate">
         {#if value !== null}
           {@const typeInfo = getInvoiceTypeFromARCA(value)}
-          {typeInfo.icon}
+          <typeInfo.icon size={14} />
           {typeInfo.description} ({value})
         {:else}
           Seleccionar tipo...
@@ -58,9 +69,10 @@
       maxWidth="max(var(--melt-invoker-width), 400px)"
       maxHeight="300px"
     >
-      {#each ARCA_INVOICE_TYPES as type}
+      {#each typeOptions as type (type.code)}
+        {@const TypeIcon = getInvoiceTypeFromARCA(type.code).icon}
         <div {...select.getOption(type.code, type.description)} class="select-option">
-          <span>{type.icon} {type.description} ({type.code})</span>
+          <span class="option-label"><TypeIcon size={14} /> {type.description} ({type.code})</span>
           {#if select.isSelected(type.code)}
             <span class="selected-indicator"><Check size={16} /></span>
           {/if}
@@ -146,6 +158,18 @@
 
   .select-option[data-highlighted] {
     background: var(--color-primary-50);
+  }
+
+  .option-label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-2);
+  }
+
+  /* Keep the trigger as a block so text-overflow: ellipsis still applies */
+  .select-trigger .truncate :global(svg) {
+    vertical-align: text-bottom;
+    margin-right: var(--spacing-1);
   }
 
   .select-option .selected-indicator {
