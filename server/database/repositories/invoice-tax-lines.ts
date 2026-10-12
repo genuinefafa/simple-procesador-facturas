@@ -87,7 +87,7 @@ export class InvoiceTaxLinesRepository implements IInvoiceTaxLinesRepository {
       .from(expectedInvoices)
       .where(eq(expectedInvoices.id, ctx.expectedInvoiceId))
       .limit(1);
-    const lines = expectedToTaxLines(rows[0]);
+    const lines = expectedToTaxLines(rows[0], ctx.invoiceType);
     if (!lines || lines.length === 0) return null;
     return lines.map((l) => ({ ...l, label: null }));
   }

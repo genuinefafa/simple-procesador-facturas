@@ -9,7 +9,7 @@
 
 import {
   expectedToTaxLines,
-  type ExpectedTaxColumns,
+  type ExpectedTaxSource,
   type ExpectedTaxLine,
 } from '../utils/expected-tax-lines';
 import { discriminatesVat, isValidARCACode } from '../utils/afip-codes';
@@ -22,7 +22,7 @@ export type ReconciliationReason =
   | 'no_expected' // manual: not linked to an expected invoice
   | 'arca_no_breakdown' // manual: expected has no breakdown columns and the invoice type is unknown
   | 'arca_missing_breakdown' // manual: A/M invoice (VAT itemized) but ARCA has no breakdown
-  | 'not_required' // ok: B/C/other invoice, ARCA reports only the total (normal)
+  | 'not_required' // ok: B/C/other invoice and nothing derivable from ARCA (e.g. expected without total)
   | 'arca_sum_mismatch' // manual: ARCA lines sum != invoice total (+-0.05)
   | 'arca_available' // completable: no breakdown yet, ARCA has a consistent one
   | 'matches_arca' // ok
@@ -32,7 +32,13 @@ export type ReconciliationReason =
 
 export type BucketKey = string; // 'NET_TAXED:21', 'VAT:10.5', 'NET_UNTAXED', 'EXEMPT', 'OTHER'
 
-export type BucketConcept = 'NET_TAXED' | 'VAT' | 'NET_UNTAXED' | 'EXEMPT' | 'OTHER';
+export type BucketConcept =
+  | 'NET_TAXED'
+  | 'VAT'
+  | 'NET_UNTAXED'
+  | 'EXEMPT'
+  | 'UNDISCRIMINATED'
+  | 'OTHER';
 
 export interface BucketDiff {
   key: BucketKey;
@@ -52,7 +58,7 @@ export interface ReconciliationInput {
     invoiceType: number | null;
     lines: Array<{ concept: string; rate: number | null; amount: number }>;
   };
-  expected: ({ id: number } & Partial<ExpectedTaxColumns>) | null;
+  expected: ({ id: number } & ExpectedTaxSource) | null;
   ack: { arcaFingerprint: string } | null;
 }
 
@@ -78,9 +84,10 @@ const CONCEPT_ORDER: Record<string, number> = {
   NET_UNTAXED: 1,
   EXEMPT: 2,
   VAT: 3,
-  VAT_PERCEPTION: 4,
-  IIBB_PERCEPTION: 4,
-  OTHER_TAXES: 4,
+  UNDISCRIMINATED: 4,
+  VAT_PERCEPTION: 5,
+  IIBB_PERCEPTION: 5,
+  OTHER_TAXES: 5,
 };
 
 /**
@@ -113,6 +120,7 @@ function bucketOf(concept: string, rate: number | null): Omit<Bucket, 'amount'> 
       return { concept, rate };
     case 'NET_UNTAXED':
     case 'EXEMPT':
+    case 'UNDISCRIMINATED':
       return { concept, rate: null };
     default:
       // VAT_PERCEPTION, IIBB_PERCEPTION, OTHER_TAXES: ARCA does not separate them
@@ -144,7 +152,8 @@ const BUCKET_ORDER: Record<BucketConcept, number> = {
   NET_UNTAXED: 1,
   EXEMPT: 2,
   VAT: 3,
-  OTHER: 4,
+  UNDISCRIMINATED: 4,
+  OTHER: 5,
 };
 
 function compareBuckets(
@@ -180,7 +189,8 @@ function compareBuckets(
 /** Classifies an invoice breakdown against its ARCA reference. */
 export function reconcileTaxBreakdown(input: ReconciliationInput): ReconciliationResult {
   const { invoice, expected, ack } = input;
-  const arcaLines = expectedToTaxLines(expected);
+  // The invoice type (source of truth) wins over the expected one when deriving.
+  const arcaLines = expectedToTaxLines(expected, invoice.invoiceType);
   const hasArca = arcaLines !== null && arcaLines.length > 0 && expected !== null;
   const fingerprint = hasArca ? arcaFingerprint(expected.id, arcaLines) : null;
   const ackStale = ack !== null && ack.arcaFingerprint !== fingerprint;

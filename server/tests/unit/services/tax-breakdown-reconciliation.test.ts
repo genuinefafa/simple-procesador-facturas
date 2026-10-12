@@ -230,3 +230,72 @@ describe('arcaFingerprint', () => {
     );
   });
 });
+
+describe('reconcileTaxBreakdown - invoices that do not itemize VAT (B/C)', () => {
+  const zeros = { id: 7, total: 121, netTaxed21: 0, vat21: 0, netUntaxed: 0, otherTaxes: 0 };
+
+  it('B with an all-zero ARCA breakdown is completable with UNDISCRIMINATED = total', () => {
+    const r = reconcileTaxBreakdown(input({ expected: zeros, invoiceType: 6, total: 121 }));
+    expect(r.status).toBe('completable');
+    expect(r.reason).toBe('arca_available');
+    expect(r.arcaLines).toEqual([{ concept: 'UNDISCRIMINATED', rate: null, amount: 121 }]);
+  });
+
+  it('B with an old expected (null breakdown, total only) is completable', () => {
+    const r = reconcileTaxBreakdown(
+      input({ expected: { id: 7, total: 121 }, invoiceType: 11, total: 121 })
+    );
+    expect(r.status).toBe('completable');
+    expect(r.arcaLines).toEqual([{ concept: 'UNDISCRIMINATED', rate: null, amount: 121 }]);
+  });
+
+  it('splits other taxes from the undiscriminated amount', () => {
+    const r = reconcileTaxBreakdown(
+      input({ expected: { id: 7, total: 121, otherTaxes: 21 }, invoiceType: 6, total: 121 })
+    );
+    expect(r.arcaLines).toEqual([
+      { concept: 'UNDISCRIMINATED', rate: null, amount: 100 },
+      { concept: 'OTHER_TAXES', rate: null, amount: 21 },
+    ]);
+    expect(r.status).toBe('completable');
+  });
+
+  it('stays ok/not_required when the expected has no total', () => {
+    const r = reconcileTaxBreakdown(input({ expected: { id: 7 }, invoiceType: 6 }));
+    expect(r).toMatchObject({ status: 'ok', reason: 'not_required' });
+  });
+
+  it('is manual/arca_sum_mismatch when the expected total differs from the invoice total', () => {
+    const r = reconcileTaxBreakdown(input({ expected: zeros, invoiceType: 6, total: 500 }));
+    expect(r).toMatchObject({ status: 'manual', reason: 'arca_sum_mismatch' });
+  });
+
+  it('is ok/matches_arca when the invoice already has UNDISCRIMINATED = total', () => {
+    const r = reconcileTaxBreakdown(
+      input({
+        expected: zeros,
+        invoiceType: 6,
+        total: 121,
+        lines: [line('UNDISCRIMINATED', null, 121)],
+      })
+    );
+    expect(r).toMatchObject({ status: 'ok', reason: 'matches_arca' });
+    expect(r.buckets.map((b) => b.key)).toEqual(['UNDISCRIMINATED']);
+  });
+
+  it('the invoice type wins over the expected one', () => {
+    // expected says A (1) but the linked invoice is B (6)
+    const r = reconcileTaxBreakdown(
+      input({ expected: { ...zeros, invoiceType: 1 }, invoiceType: 6, total: 121 })
+    );
+    expect(r.arcaLines).toEqual([{ concept: 'UNDISCRIMINATED', rate: null, amount: 121 }]);
+  });
+
+  it('A with columns and a total keeps the column mapping', () => {
+    const r = reconcileTaxBreakdown(
+      input({ expected: { id: 7, total: 1210, netTaxed21: 1000, vat21: 210 }, invoiceType: 1 })
+    );
+    expect(r.arcaLines).toHaveLength(2);
+    expect(r.status).toBe('completable');
+  });
+});

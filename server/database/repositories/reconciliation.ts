@@ -32,7 +32,9 @@ export interface TaxBreakdownCandidate {
   currency: string;
   expectedInvoiceId: number | null;
   /** Breakdown columns of the linked expected invoice; null when not linked */
-  expected: ({ id: number } & ExpectedTaxColumns) | null;
+  expected:
+    | ({ id: number; total: number | null; invoiceType: number | null } & ExpectedTaxColumns)
+    | null;
   lines: CandidateTaxLine[];
   ack: { arcaFingerprint: string; note: string | null; createdAt: string } | null;
 }
@@ -61,6 +63,8 @@ const BASE_SQL = `
     COALESCE(f.moneda, 'ARS') AS currency,
     f.expected_invoice_id AS expectedInvoiceId,
     e.id AS x_id,
+    e.total AS x_total,
+    e.invoice_type AS x_invoiceType,
     ${EXPECTED_SELECT},
     (
       SELECT json_group_array(json_object(
@@ -85,7 +89,12 @@ function mapRow(r: Row): TaxBreakdownCandidate {
     for (const k of EXPECTED_TAX_COLUMN_KEYS) {
       cols[k] = (r[`x_${k}`] as number | null) ?? null;
     }
-    expected = { id: r.x_id as number, ...cols };
+    expected = {
+      id: r.x_id as number,
+      total: (r.x_total as number | null) ?? null,
+      invoiceType: (r.x_invoiceType as number | null) ?? null,
+      ...cols,
+    };
   }
   const lines = r.linesJson ? (JSON.parse(r.linesJson as string) as CandidateTaxLine[]) : [];
   return {

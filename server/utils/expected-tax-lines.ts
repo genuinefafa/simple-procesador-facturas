@@ -5,6 +5,8 @@
  * converts them to the line concepts used by the silver layer (#190).
  */
 
+import { doesNotItemizeVat } from '@shared/arca';
+
 /** Breakdown columns of expected_invoices (all nullable). */
 export const EXPECTED_TAX_COLUMN_KEYS = [
   'netTaxed0',
@@ -30,13 +32,25 @@ export type ExpectedTaxColumnKey = (typeof EXPECTED_TAX_COLUMN_KEYS)[number];
 
 export type ExpectedTaxColumns = { [K in ExpectedTaxColumnKey]: number | null };
 
-export type ExpectedTaxLineConcept = 'NET_TAXED' | 'NET_UNTAXED' | 'EXEMPT' | 'VAT' | 'OTHER_TAXES';
+export type ExpectedTaxLineConcept =
+  | 'NET_TAXED'
+  | 'NET_UNTAXED'
+  | 'EXEMPT'
+  | 'VAT'
+  | 'OTHER_TAXES'
+  | 'UNDISCRIMINATED';
 
 export interface ExpectedTaxLine {
   concept: ExpectedTaxLineConcept;
   rate: number | null;
   amount: number;
 }
+
+/** Expected invoice data needed to derive lines (columns + total and type). */
+export type ExpectedTaxSource = Partial<ExpectedTaxColumns> & {
+  total?: number | null;
+  invoiceType?: number | null;
+};
 
 /** True when at least one breakdown column has a value. */
 export function hasTaxColumns(expected: Partial<ExpectedTaxColumns>): boolean {
@@ -68,11 +82,31 @@ const VAT_BY_RATE: Array<[ExpectedTaxColumnKey, number]> = [
  * - ARCA does not separate VAT perceptions: "Otros Tributos" goes to OTHER_TAXES.
  * - `netTaxedTotal`, `vatTotal` and `exchangeRate` are not lines (derived / not an amount).
  * - Returns null when the expected invoice has no breakdown column at all.
+ * - Documents that do not itemize VAT (known type, e.g. B/C/no letter) ignore the
+ *   VAT columns: ARCA reports zeros/nulls and only the total, so the result is
+ *   UNDISCRIMINATED = total - otherTaxes (only when > 0) plus OTHER_TAXES.
+ *   Requires `expected.total`; without it the regular column mapping applies.
+ *   `invoiceType` (the linked invoice, the source of truth) takes precedence
+ *   over the type of the expected invoice itself.
  */
 export function expectedToTaxLines(
-  expected: Partial<ExpectedTaxColumns> | null | undefined
+  expected: ExpectedTaxSource | null | undefined,
+  invoiceType?: number | null
 ): ExpectedTaxLine[] | null {
-  if (!expected || !hasTaxColumns(expected)) return null;
+  if (!expected) return null;
+
+  const type = invoiceType ?? expected.invoiceType ?? null;
+  const total = expected.total;
+  if (doesNotItemizeVat(type) && total !== null && total !== undefined) {
+    const other = Math.abs(expected.otherTaxes ?? 0);
+    const net = Math.round((Math.abs(total) - other + Number.EPSILON) * 100) / 100;
+    const out: ExpectedTaxLine[] = [];
+    if (net > 0) out.push({ concept: 'UNDISCRIMINATED', rate: null, amount: net });
+    if (other > 0) out.push({ concept: 'OTHER_TAXES', rate: null, amount: other });
+    return out;
+  }
+
+  if (!hasTaxColumns(expected)) return null;
 
   const lines: ExpectedTaxLine[] = [];
   const push = (
