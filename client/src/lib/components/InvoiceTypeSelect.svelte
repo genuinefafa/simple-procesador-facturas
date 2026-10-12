@@ -95,6 +95,11 @@
 
   const inputAttrs = $derived(combobox.input);
 
+  // Selected value decorations (icon + friendly type), hidden while the user types
+  const selectedInfo = $derived(
+    value !== null && !combobox.touched ? getInvoiceTypeFromARCA(value) : null
+  );
+
   function handleFocus(event: FocusEvent) {
     inputAttrs.onfocus(event);
     (event.currentTarget as HTMLInputElement).select();
@@ -117,7 +122,11 @@
       class="readonly-input"
     />
   {:else}
-    <div class="input-wrapper">
+    <div class="input-wrapper" class:has-selection={selectedInfo !== null}>
+      {#if selectedInfo}
+        {@const SelectedIcon = selectedInfo.icon}
+        <span class="selected-icon" aria-hidden="true"><SelectedIcon size={14} /></span>
+      {/if}
       <input
         {...inputAttrs}
         onfocus={handleFocus}
@@ -127,6 +136,9 @@
         placeholder="Buscar tipo de comprobante…"
         autocomplete="off"
       />
+      {#if selectedInfo}
+        <span class="selected-friendly" aria-hidden="true">{selectedInfo.friendlyType}</span>
+      {/if}
       <button {...combobox.trigger} type="button" class="arrow" tabindex="-1" aria-label="Abrir">
         <ChevronDown size={16} />
       </button>
@@ -203,6 +215,29 @@
   .combobox-input:focus-visible {
     outline: 2px solid var(--color-primary-500);
     outline-offset: 2px;
+  }
+
+  /* Icon and friendly type of the selected value, drawn over the input padding */
+  .has-selection .combobox-input {
+    padding-left: calc(var(--spacing-3) + 14px + var(--spacing-2));
+    padding-right: calc(var(--spacing-3) + 24px + 4.5ch);
+  }
+
+  .selected-icon {
+    position: absolute;
+    left: var(--spacing-3);
+    display: flex;
+    align-items: center;
+    color: var(--color-text-secondary);
+    pointer-events: none;
+  }
+
+  .selected-friendly {
+    position: absolute;
+    right: calc(var(--spacing-2) + 24px);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    pointer-events: none;
   }
 
   .input-wrapper .arrow {
