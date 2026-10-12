@@ -173,6 +173,8 @@ export function getFriendlyType(arcaCode: number | null | undefined): string {
   return arcaFriendlyType(arcaCode) ?? 'UNKN';
 }
 
+export { doesNotItemizeVat } from '@shared/arca';
+
 /**
  * Obtiene el coeficiente de signo para un tipo de comprobante ARCA.
  * Usado para calcular balances correctamente.
