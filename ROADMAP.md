@@ -82,11 +82,13 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | Issue | Título | Estado |
 |-------|--------|--------|
 | #192 | Unificar mapas de códigos ARCA (`@shared/arca`) | ✅ PR #208 |
-| #192 | Línea "No discriminado" para B/C/sin letra (suma a neto, no a crédito) | 🔄 PR #210 |
+| #192 | Línea "No discriminado" para B/C/sin letra (suma a neto, no a crédito) | ✅ PR #210 |
 | - | Crear factura desde esperada con desglose en la misma operación | Pendiente |
 | #209 | Drizzle 1.0 RC + reparar tracking de migraciones en producción | Pendiente |
 | #211 | Unificar lista de conceptos de desglose en `shared/` | Pendiente |
 | #206 | Tique factura A (81): desglose ARCA no suma el total | Pendiente |
+| #212 | Crear factura desde archivo ya finalizado borra el archivo (copyFile origen = destino) | Pendiente (prioridad alta) |
+| #213 | Rediseñar comparación archivo ↔ esperada del pendiente | Pendiente |
 
 ## Milestones
 
