@@ -52,7 +52,7 @@ export interface PendingExpectedStat {
 export interface TaxBreakdownMonth {
   /** YYYY-MM */
   month: string;
-  /** net_taxed + net_untaxed + exempt */
+  /** net_taxed + net_untaxed + exempt + undiscriminated */
   net: number;
   /** vat + vat_perception */
   vat: number;

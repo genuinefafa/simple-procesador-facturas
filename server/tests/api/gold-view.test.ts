@@ -175,6 +175,7 @@ describe('v_comprobantes_oro', () => {
       'net_taxed',
       'net_untaxed',
       'exempt',
+      'undiscriminated',
       'vat',
       'vat_perception',
       'iibb_perception',
@@ -218,6 +219,18 @@ describe('v_comprobantes_oro', () => {
       expect(row.net_taxed).toBe(-100);
       expect(row.vat).toBe(-21);
       expect(row.exempt).toBe(0);
+    });
+
+    it('exposes undiscriminated separately from net_untaxed, signed on credit notes', () => {
+      const inv = insertInvoice({ type: 6, total: 100 });
+      insertTaxLine(inv, 'UNDISCRIMINATED', 100);
+      const nc = insertInvoice({ type: 8, total: 40 });
+      insertTaxLine(nc, 'UNDISCRIMINATED', 40);
+
+      const [a, b] = goldRows();
+      expect(a.undiscriminated).toBe(100);
+      expect(a.net_untaxed).toBe(0);
+      expect(b.undiscriminated).toBe(-40);
     });
 
     it('does not duplicate invoice rows when there are several lines', () => {
@@ -381,6 +394,18 @@ describe('StatsRepository.getTaxBreakdown', () => {
 
     expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
       byMonth: [{ month: '2026-03', net: 100, vat: 21, other: 0 }],
+      vatCredit: 0,
+      coverage: { withBreakdown: 0, total: 0 },
+    });
+  });
+
+  it('B invoice with UNDISCRIMINATED adds to net but not to vatCredit nor coverage', () => {
+    const b = insertInvoice({ type: 6, total: 150 });
+    insertTaxLine(b, 'UNDISCRIMINATED', 120);
+    insertTaxLine(b, 'OTHER_TAXES', 30);
+
+    expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
+      byMonth: [{ month: '2026-03', net: 120, vat: 0, other: 30 }],
       vatCredit: 0,
       coverage: { withBreakdown: 0, total: 0 },
     });
