@@ -4,6 +4,7 @@
   import { AFIP_TYPES } from '@shared/arca';
   import { Check, ChevronDown } from '$lib/components/icons';
   import { SelectDropdown } from '$lib/components/ui';
+  import InvoiceTypeLabel from './InvoiceTypeLabel.svelte';
 
   interface Props {
     value: number | null;
@@ -39,9 +40,6 @@
     const info = getInvoiceTypeFromARCA(code);
     return {
       code,
-      description: AFIP_TYPES[String(code)].description,
-      friendlyType: info.friendlyType,
-      icon: info.icon,
       label: labelFor(code),
       codeText: String(code),
       text: normalize(`${info.friendlyType} ${AFIP_TYPES[String(code)].description}`),
@@ -150,13 +148,8 @@
       maxHeight="300px"
     >
       {#each filteredOptions as type (type.code)}
-        {@const TypeIcon = type.icon}
         <div {...combobox.getOption(type.code, type.label)} class="select-option">
-          <span class="option-label">
-            <TypeIcon size={14} />
-            {type.label}
-            <span class="option-friendly">{type.friendlyType}</span>
-          </span>
+          <InvoiceTypeLabel code={type.code} />
           {#if combobox.isSelected(type.code)}
             <span class="selected-indicator"><Check size={16} /></span>
           {/if}
@@ -267,17 +260,6 @@
 
   .select-option[data-highlighted] {
     background: var(--color-primary-50);
-  }
-
-  .option-label {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--spacing-2);
-  }
-
-  .option-friendly {
-    font-size: var(--font-size-sm);
-    color: var(--color-text-secondary);
   }
 
   .no-results {
