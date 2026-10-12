@@ -150,7 +150,10 @@ describe('v_comprobantes_oro', () => {
       ]),
       null,
     ];
-    const ids = codes.map((code) => insertInvoice({ type: code, total: 100 }));
+    // ~300 inserts: one transaction keeps this under the default timeout on CI
+    const ids = getRawDb().transaction(() =>
+      codes.map((code) => insertInvoice({ type: code, total: 100 }))
+    )();
 
     const byId = new Map(goldRows().map((r) => [r.invoice_id, r]));
     codes.forEach((code, i) => {
