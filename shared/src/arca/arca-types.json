@@ -135,6 +135,30 @@
     "description": "Nota de Crédito E",
     "descriptionLong": "Nota de Crédito E (Exportación)"
   },
+  "39": {
+    "code": 39,
+    "invoiceType": "A",
+    "documentKind": "FAC",
+    "friendlyType": "OTRA",
+    "description": "Otros Comprobantes A",
+    "descriptionLong": "Otros Comprobantes A que cumplan con la R.G. 1415"
+  },
+  "40": {
+    "code": 40,
+    "invoiceType": "B",
+    "documentKind": "FAC",
+    "friendlyType": "OTRB",
+    "description": "Otros Comprobantes B",
+    "descriptionLong": "Otros Comprobantes B que cumplan con la R.G. 1415"
+  },
+  "49": {
+    "code": 49,
+    "invoiceType": "",
+    "documentKind": "FAC",
+    "friendlyType": "BUSD",
+    "description": "Compra de Bienes Usados",
+    "descriptionLong": "Comprobante de Compra de Bienes Usados a Consumidor Final"
+  },
   "51": {
     "code": 51,
     "invoiceType": "M",
@@ -158,6 +182,14 @@
     "friendlyType": "NCRM",
     "description": "Nota de Crédito M",
     "descriptionLong": "Nota de Crédito M (con CAI)"
+  },
+  "54": {
+    "code": 54,
+    "invoiceType": "M",
+    "documentKind": "FAC",
+    "friendlyType": "RECM",
+    "description": "Recibo M",
+    "descriptionLong": "Recibo M (con leyenda \"Operación sujeta a retención\")"
   },
   "60": {
     "code": 60,
@@ -207,6 +239,30 @@
     "description": "Tique Factura B",
     "descriptionLong": "Tique Factura B"
   },
+  "83": {
+    "code": 83,
+    "invoiceType": "",
+    "documentKind": "FAC",
+    "friendlyType": "TICK",
+    "description": "Tique",
+    "descriptionLong": "Tique (controlador fiscal, sin letra)"
+  },
+  "109": {
+    "code": 109,
+    "invoiceType": "C",
+    "documentKind": "FAC",
+    "friendlyType": "TIKC",
+    "description": "Tique C",
+    "descriptionLong": "Tique C"
+  },
+  "110": {
+    "code": 110,
+    "invoiceType": "",
+    "documentKind": "NCR",
+    "friendlyType": "TNCR",
+    "description": "Tique Nota de Crédito",
+    "descriptionLong": "Tique Nota de Crédito (controlador fiscal, sin letra)"
+  },
   "111": {
     "code": 111,
     "invoiceType": "C",
@@ -215,6 +271,54 @@
     "description": "Tique Factura C",
     "descriptionLong": "Tique Factura C"
   },
+  "112": {
+    "code": 112,
+    "invoiceType": "A",
+    "documentKind": "NCR",
+    "friendlyType": "TNCA",
+    "description": "Tique Nota de Crédito A",
+    "descriptionLong": "Tique Nota de Crédito A"
+  },
+  "113": {
+    "code": 113,
+    "invoiceType": "B",
+    "documentKind": "NCR",
+    "friendlyType": "TNCB",
+    "description": "Tique Nota de Crédito B",
+    "descriptionLong": "Tique Nota de Crédito B"
+  },
+  "114": {
+    "code": 114,
+    "invoiceType": "C",
+    "documentKind": "NCR",
+    "friendlyType": "TNCC",
+    "description": "Tique Nota de Crédito C",
+    "descriptionLong": "Tique Nota de Crédito C"
+  },
+  "115": {
+    "code": 115,
+    "invoiceType": "A",
+    "documentKind": "NDB",
+    "friendlyType": "TNDA",
+    "description": "Tique Nota de Débito A",
+    "descriptionLong": "Tique Nota de Débito A"
+  },
+  "116": {
+    "code": 116,
+    "invoiceType": "B",
+    "documentKind": "NDB",
+    "friendlyType": "TNDB",
+    "description": "Tique Nota de Débito B",
+    "descriptionLong": "Tique Nota de Débito B"
+  },
+  "117": {
+    "code": 117,
+    "invoiceType": "C",
+    "documentKind": "NDB",
+    "friendlyType": "TNDC",
+    "description": "Tique Nota de Débito C",
+    "descriptionLong": "Tique Nota de Débito C"
+  },
   "118": {
     "code": 118,
     "invoiceType": "M",
@@ -222,6 +326,22 @@
     "friendlyType": "TFCM",
     "description": "Tique Factura M",
     "descriptionLong": "Tique Factura M"
+  },
+  "119": {
+    "code": 119,
+    "invoiceType": "M",
+    "documentKind": "NCR",
+    "friendlyType": "TNCM",
+    "description": "Tique Nota de Crédito M",
+    "descriptionLong": "Tique Nota de Crédito M"
+  },
+  "120": {
+    "code": 120,
+    "invoiceType": "M",
+    "documentKind": "NDB",
+    "friendlyType": "TNDM",
+    "description": "Tique Nota de Débito M",
+    "descriptionLong": "Tique Nota de Débito M"
   },
   "201": {
     "code": 201,

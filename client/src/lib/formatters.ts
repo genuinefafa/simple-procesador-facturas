@@ -3,6 +3,14 @@
  * Centraliza funciones comunes de formateo de fechas, números, CUIT, tipos de comprobante
  */
 
+import {
+  getDocumentTypeFromARCACode,
+  getFriendlyType as arcaFriendlyType,
+  getInvoiceSign as arcaInvoiceSign,
+  type DocumentKind,
+} from '@shared/arca';
+import { FileText, Undo2, ArrowRight, CircleHelp } from '$lib/components/icons';
+
 /**
  * Formatea un CUIT en el formato XX-XXXXXXXX-X
  * @param cuit CUIT a formatear (puede tener o no guiones)
@@ -157,69 +165,12 @@ export function formatDateTime(value: string | Date | null | undefined): string 
 }
 
 /**
- * Mapeo de códigos ARCA a información de tipo de comprobante
- * Basado en los códigos numéricos oficiales de AFIP/ARCA
- *
- * sign: Coeficiente para cálculo de balance
- *   +1 = suma (facturas, notas de débito)
- *   -1 = resta (notas de crédito)
- *
- * Fuente: https://www.afip.gob.ar/inversiones-bienes-uso/documentos/tabla-comprobantes-bienes-de-uso.pdf
- */
-const ARCA_CODE_MAP: Record<
-  number,
-  { friendlyType: string; icon: string; description: string; sign: 1 | -1 }
-> = {
-  // Facturas (+)
-  1: { friendlyType: 'FACA', icon: '📄', description: 'Factura A', sign: 1 },
-  6: { friendlyType: 'FACB', icon: '📋', description: 'Factura B', sign: 1 },
-  11: { friendlyType: 'FACC', icon: '📑', description: 'Factura C', sign: 1 },
-  19: { friendlyType: 'FACE', icon: '📄', description: 'Factura E', sign: 1 },
-  51: { friendlyType: 'FACM', icon: '📄', description: 'Factura M', sign: 1 },
-  // Notas de Crédito (-)
-  3: { friendlyType: 'NCRA', icon: '↩️', description: 'Nota de Crédito A', sign: -1 },
-  8: { friendlyType: 'NCRB', icon: '↩️', description: 'Nota de Crédito B', sign: -1 },
-  13: { friendlyType: 'NCRC', icon: '↩️', description: 'Nota de Crédito C', sign: -1 },
-  21: { friendlyType: 'NCRE', icon: '↩️', description: 'Nota de Crédito E', sign: -1 },
-  53: { friendlyType: 'NCRM', icon: '↩️', description: 'Nota de Crédito M', sign: -1 },
-  // Notas de Débito (+)
-  2: { friendlyType: 'NDBA', icon: '➡️', description: 'Nota de Débito A', sign: 1 },
-  7: { friendlyType: 'NDBB', icon: '➡️', description: 'Nota de Débito B', sign: 1 },
-  12: { friendlyType: 'NDBC', icon: '➡️', description: 'Nota de Débito C', sign: 1 },
-  20: { friendlyType: 'NDBE', icon: '➡️', description: 'Nota de Débito E', sign: 1 },
-  52: { friendlyType: 'NDBM', icon: '➡️', description: 'Nota de Débito M', sign: 1 },
-  // Cuenta de Venta y Líquido producto (+)
-  80: {
-    friendlyType: 'CVLA',
-    icon: '🧾',
-    description: 'Cuenta de Venta y Líquido producto A',
-    sign: 1,
-  },
-  // Tiques Factura (+)
-  81: { friendlyType: 'TFCA', icon: '🧾', description: 'Tique Factura A', sign: 1 },
-  82: { friendlyType: 'TFCB', icon: '🧾', description: 'Tique Factura B', sign: 1 },
-  83: { friendlyType: 'TICK', icon: '🧾', description: 'Tique', sign: 1 },
-  109: { friendlyType: 'TKTC', icon: '🧾', description: 'Tique C', sign: 1 },
-  111: { friendlyType: 'TFCC', icon: '🧾', description: 'Tique Factura C', sign: 1 },
-  118: { friendlyType: 'TFCM', icon: '🧾', description: 'Tique Factura M', sign: 1 },
-  // Tiques Nota de Crédito (-)
-  110: { friendlyType: 'TNCC', icon: '↩️', description: 'Tique Nota de Crédito C', sign: -1 },
-  113: { friendlyType: 'TNCA', icon: '↩️', description: 'Tique Nota de Crédito A', sign: -1 },
-  114: { friendlyType: 'TNCB', icon: '↩️', description: 'Tique Nota de Crédito B', sign: -1 },
-  // Tiques Nota de Débito (+)
-  115: { friendlyType: 'TNDA', icon: '➡️', description: 'Tique Nota de Débito A', sign: 1 },
-  116: { friendlyType: 'TNDB', icon: '➡️', description: 'Tique Nota de Débito B', sign: 1 },
-  117: { friendlyType: 'TNDC', icon: '➡️', description: 'Tique Nota de Débito C', sign: 1 },
-};
-
-/**
  * Obtiene el tipo amigable (friendlyType) a partir de un código ARCA
  * @param arcaCode Código ARCA numérico (1, 6, 11, etc.)
  * @returns FriendlyType de 4 letras (FACA, FACB, etc.) o "UNKN" si no se encuentra
  */
 export function getFriendlyType(arcaCode: number | null | undefined): string {
-  if (arcaCode === null || arcaCode === undefined) return 'UNKN';
-  return ARCA_CODE_MAP[arcaCode]?.friendlyType || 'UNKN';
+  return arcaFriendlyType(arcaCode) ?? 'UNKN';
 }
 
 /**
@@ -229,48 +180,34 @@ export function getFriendlyType(arcaCode: number | null | undefined): string {
  * @returns 1 para facturas/notas de débito, -1 para notas de crédito
  */
 export function getInvoiceSign(arcaCode: number | null | undefined): 1 | -1 {
-  if (arcaCode === null || arcaCode === undefined) return 1;
-  return ARCA_CODE_MAP[arcaCode]?.sign ?? 1;
+  return arcaInvoiceSign(arcaCode);
 }
+
+/** Icon component (lucide) per document kind. Purely visual, so it lives here. */
+const DOCUMENT_KIND_ICONS: Record<DocumentKind, typeof FileText> = {
+  FAC: FileText,
+  NCR: Undo2,
+  NDB: ArrowRight,
+};
 
 /**
  * Obtiene información completa del tipo de comprobante a partir del código ARCA
  * @param arcaCode Código ARCA numérico (1, 6, 11, etc.)
- * @returns Objeto con {friendlyType, icon, description}
+ * @returns Objeto con {friendlyType, icon (componente lucide), description}
  */
 export function getInvoiceTypeFromARCA(arcaCode: number | null | undefined): {
   friendlyType: string;
-  icon: string;
+  icon: typeof FileText;
   description: string;
 } {
-  if (arcaCode === null || arcaCode === undefined) {
-    return { friendlyType: 'UNKN', icon: '❓', description: 'Desconocido' };
-  }
-  return (
-    ARCA_CODE_MAP[arcaCode] || { friendlyType: 'UNKN', icon: '❓', description: 'Desconocido' }
-  );
-}
-
-/**
- * Retorna ícono y etiqueta legible para tipos de comprobante
- * @param type Tipo de comprobante (ej: "Factura A", "Nota de Crédito")
- * @returns Objeto con {icon, label}
- * @deprecated Usar getInvoiceTypeFromARCA con códigos numéricos ARCA
- */
-export function getInvoiceTypeIcon(type: string | null | undefined): {
-  icon: string;
-  label: string;
-} {
-  if (!type) return { icon: '—', label: 'Desconocido' };
-  const types: Record<string, { icon: string; label: string }> = {
-    'Factura A': { icon: '📄', label: 'Factura A' },
-    'Factura B': { icon: '📋', label: 'Factura B' },
-    'Factura C': { icon: '📑', label: 'Factura C' },
-    'Nota de Crédito': { icon: '↩️', label: 'Nota de Crédito' },
-    'Nota de Débito': { icon: '➡️', label: 'Nota de Débito' },
-    Recibo: { icon: '🧾', label: 'Recibo' },
+  const type =
+    arcaCode === null || arcaCode === undefined ? undefined : getDocumentTypeFromARCACode(arcaCode);
+  if (!type) return { friendlyType: 'UNKN', icon: CircleHelp, description: 'Desconocido' };
+  return {
+    friendlyType: type.friendlyType,
+    icon: DOCUMENT_KIND_ICONS[type.documentKind],
+    description: type.description,
   };
-  return types[type] || { icon: '📄', label: type };
 }
 
 /**

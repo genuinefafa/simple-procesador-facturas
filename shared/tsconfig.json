@@ -11,9 +11,10 @@
     "declaration": true,
     "declarationMap": true,
     "composite": true,
+    "resolveJsonModule": true,
     "rootDir": "./src",
     "outDir": "./dist"
   },
-  "include": ["src/**/*.ts"],
+  "include": ["src/**/*.ts", "src/**/*.json"],
   "exclude": ["node_modules", "dist"]
 }

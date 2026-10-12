@@ -1,7 +1,7 @@
 import type { FilterNode } from './query-parser';
 import type { Comprobante } from '$lib/types/comprobante';
 import { getFriendlyType } from '$lib/formatters';
-import { getInvoiceLetter } from '@server/utils/afip-codes';
+import { getInvoiceLetter } from '@shared/arca';
 
 type Category = {
   id: number;

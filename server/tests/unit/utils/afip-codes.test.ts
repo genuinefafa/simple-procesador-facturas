@@ -11,6 +11,7 @@ import {
   getInvoiceLetter,
   getInvoiceSign,
   isVatRecoverable,
+  discriminatesVat,
 } from '../../../utils/afip-codes';
 
 describe('AFIP Codes', () => {
@@ -265,16 +266,24 @@ describe('Reporting helpers', () => {
     expect(getInvoiceLetter(82)).toBe('B');
     expect(getInvoiceLetter(111)).toBe('C');
     expect(getInvoiceLetter(118)).toBe('M');
+    expect(getInvoiceLetter(109)).toBe('C');
+    // Tique NC follow RG 3561 Annex II: 112 A, 113 B, 114 C
+    expect(getInvoiceLetter(112)).toBe('A');
+    expect(getInvoiceLetter(113)).toBe('B');
+    expect(getInvoiceLetter(114)).toBe('C');
+    // Documents without letter
+    expect(getInvoiceLetter(83)).toBe('other');
+    expect(getInvoiceLetter(110)).toBe('other');
     expect(getInvoiceLetter(19)).toBe('other');
     expect(getInvoiceLetter(9999)).toBe('other');
     expect(getInvoiceLetter(null)).toBe('other');
   });
 
   it('signs credit notes negative, including FCE MiPyMEs', () => {
-    for (const code of [3, 8, 13, 21, 53, 203, 208, 213]) {
+    for (const code of [3, 8, 13, 21, 53, 110, 112, 113, 114, 119, 203, 208, 213]) {
       expect(getInvoiceSign(code)).toBe(-1);
     }
-    for (const code of [1, 2, 6, 11, 51, 201, 9999]) {
+    for (const code of [1, 2, 6, 11, 51, 83, 115, 116, 117, 120, 201, 9999]) {
       expect(getInvoiceSign(code)).toBe(1);
     }
     expect(getInvoiceSign(null)).toBe(1);
@@ -286,5 +295,15 @@ describe('Reporting helpers', () => {
     expect(isVatRecoverable('B')).toBe(false);
     expect(isVatRecoverable('C')).toBe(false);
     expect(isVatRecoverable('other')).toBe(false);
+  });
+
+  it('only A and M codes discriminate VAT', () => {
+    for (const code of [1, 3, 39, 51, 63, 81, 112, 118, 201]) {
+      expect(discriminatesVat(code)).toBe(true);
+    }
+    for (const code of [6, 11, 19, 49, 82, 83, 109, 110, 113, 114, 9999]) {
+      expect(discriminatesVat(code)).toBe(false);
+    }
+    expect(discriminatesVat(null)).toBe(false);
   });
 });

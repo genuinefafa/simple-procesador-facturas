@@ -457,6 +457,20 @@ El wrapper debe tener `position: relative` y el content debe tener `position: ab
 3. **Contenedores padre**: `overflow: visible` si el dropdown puede sobresalir
 4. **NO usar**: `left: 0; top: 100%;` - Melt calcula las coordenadas automáticamente
 
+> **Actual**: para Select y Combobox nuevos usar el wrapper `SelectDropdown` de `$lib/components/ui`, que delega el posicionamiento en Floating UI (no setear `position`, `margin` ni `inset` en el content).
+
+### Combobox con buscador en línea (tipo select2)
+
+Cuando la lista es larga (ej. los ~50 tipos de comprobante ARCA), usar el builder `Combobox` de Melt dentro de `SelectDropdown`. Implementación de referencia: [InvoiceTypeSelect.svelte](../client/src/lib/components/InvoiceTypeSelect.svelte).
+
+- **El texto filtra, no es el valor**: el valor solo cambia al elegir una opción (`onValueChange`). Lo tipeado es una query.
+- **Filtrar solo si el usuario tipeó**: `combobox.touched` (true en `oninput`, false al abrir/cerrar). Sin eso, al abrir con un valor se filtra por su propio label y la lista aparece con una sola opción.
+- **Restaurar al cancelar**: un `$effect` que, con el combobox cerrado, fuerza `inputValue` al label del valor seleccionado.
+- **Búsqueda tolerante**: normalizar con `normalize('NFD')` y quitar diacríticos; todas las palabras deben matchear (AND). Palabras numéricas por prefijo del código.
+- **Valor seleccionado decorado**: ícono a la izquierda y dato secundario a la derecha, posicionados en absoluto sobre el padding del input y ocultos mientras se tipea.
+- **Mostrar el ítem igual en todos lados**: un componente de presentación compartido (ej. [InvoiceTypeLabel.svelte](../client/src/lib/components/InvoiceTypeLabel.svelte)) para las opciones y para el modo lectura.
+- **Escape con el combobox cerrado**: el builder lo usa para limpiar el valor; interceptarlo si el campo no admite vacío.
+
 ### Referencias
 
 - [InvoiceTypeSelect.svelte](../client/src/lib/components/InvoiceTypeSelect.svelte)

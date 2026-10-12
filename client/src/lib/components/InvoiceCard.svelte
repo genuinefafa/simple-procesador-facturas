@@ -12,9 +12,10 @@
   import Button from './ui/Button.svelte';
   import CategoryPills from './CategoryPills.svelte';
   import EmitterCombobox from './EmitterCombobox.svelte';
+  import InvoiceTypeLabel from './InvoiceTypeLabel.svelte';
   import InvoiceTypeSelect from './InvoiceTypeSelect.svelte';
   import { ExternalLink } from '$lib/components/icons';
-  import { getFriendlyType, formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
+  import { formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
   import type { Emitter, Category, InvoiceData, InvoiceSaveData } from './InvoiceCard.types';
 
   // Re-export types for consumers
@@ -254,7 +255,7 @@
         <InvoiceTypeSelect bind:value={formData.invoiceType} />
       {:else}
         <button type="button" class="field-value clickable" onclick={enterEditMode}>
-          {getFriendlyType(invoice.invoiceType)}
+          <InvoiceTypeLabel code={invoice.invoiceType} iconSize={16} />
         </button>
       {/if}
     </div>

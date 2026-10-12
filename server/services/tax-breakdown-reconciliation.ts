@@ -12,7 +12,7 @@ import {
   type ExpectedTaxColumns,
   type ExpectedTaxLine,
 } from '../utils/expected-tax-lines';
-import { getInvoiceLetter, isValidARCACode, isVatRecoverable } from '../utils/afip-codes';
+import { discriminatesVat, isValidARCACode } from '../utils/afip-codes';
 import { checkTaxLinesSum, TAX_LINES_SUM_TOLERANCE } from '../contracts/invoice-tax-lines';
 
 export type ReconciliationStatus = 'completable' | 'manual' | 'ok' | 'divergent';
@@ -199,8 +199,8 @@ export function reconcileTaxBreakdown(input: ReconciliationInput): Reconciliatio
       if (invoice.invoiceType === null || !isValidARCACode(invoice.invoiceType)) {
         return manual('arca_no_breakdown');
       }
-      // Same rule as the gold view's vat_recoverable: only A/M itemize VAT.
-      if (isVatRecoverable(getInvoiceLetter(invoice.invoiceType))) {
+      // Only codes that itemize VAT (A/M) need ARCA's breakdown.
+      if (discriminatesVat(invoice.invoiceType)) {
         return manual('arca_missing_breakdown');
       }
       return { ...base, status: 'ok', reason: 'not_required' };
