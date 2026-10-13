@@ -198,11 +198,8 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-4);
+    /* No frame: the parent .section already draws it (avoid double box) */
     min-width: 0;
-    padding: var(--spacing-4);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-surface);
   }
 
   .title {

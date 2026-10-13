@@ -770,7 +770,7 @@
     <DuplicateHashAlert {fileHash} {currentId} {currentType} {linkedFileId} {linkedInvoiceId} />
   {/if}
 
-  <div class="layout" class:has-invoice={comprobante.final}>
+  <div class="layout" class:has-invoice={comprobante.final || creatingFromArca}>
     <!-- Columna izquierda: Preview -->
     <aside class="preview-panel">
       {#if fileUrl}
@@ -1297,7 +1297,8 @@
     overflow: hidden;
   }
 
-  /* Cuando hay factura, dar un poco más de espacio al content */
+  /* Cuando hay factura (o se crea desde ARCA), más espacio al content: el
+     editor de desglose necesita ~430px */
   .layout.has-invoice {
     grid-template-columns: 1fr minmax(440px, 520px);
   }
