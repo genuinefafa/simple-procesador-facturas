@@ -76,3 +76,7 @@ export type {
   ArcaFingerprintBody,
   AcceptDifferenceBody,
 } from './reconciliation.js';
+
+// Invoice creation from an ARCA expected invoice
+export { CreateInvoiceFromExpectedSchema } from './invoice-from-expected.js';
+export type { CreateInvoiceFromExpectedInput } from './invoice-from-expected.js';
