@@ -6,6 +6,7 @@
  */
 
 import * as z from 'zod';
+import { discriminatesVat, doesNotItemizeVat } from '@shared/arca';
 
 export const TAX_LINE_CONCEPTS = [
   'NET_TAXED',
@@ -15,6 +16,8 @@ export const TAX_LINE_CONCEPTS = [
   'VAT_PERCEPTION',
   'IIBB_PERCEPTION',
   'OTHER_TAXES',
+  // Total minus other taxes, for documents that do not itemize VAT (B/C/no letter)
+  'UNDISCRIMINATED',
 ] as const;
 
 export type TaxLineConcept = (typeof TAX_LINE_CONCEPTS)[number];
@@ -43,6 +46,12 @@ export const TAX_LINE_LABEL_CONCEPTS: readonly TaxLineConcept[] = [
 export const TAX_LINE_REPEATABLE_CONCEPTS: readonly TaxLineConcept[] = [
   'VAT_PERCEPTION',
   'IIBB_PERCEPTION',
+  'OTHER_TAXES',
+];
+
+/** Concepts allowed on documents that do not itemize VAT (B, C, no letter). */
+export const NON_ITEMIZED_ALLOWED_CONCEPTS: readonly TaxLineConcept[] = [
+  'UNDISCRIMINATED',
   'OTHER_TAXES',
 ];
 
@@ -168,7 +177,15 @@ function checkDuplicates(lines: TaxLine[], ctx: z.RefinementCtx): void {
  * An empty array is valid and means "remove the breakdown".
  * `total` null/undefined: the invoice has no total, so lines are rejected.
  */
-export function makeTaxLinesBodySchema(total: number | null | undefined): z.ZodType<TaxLinesBody> {
+export function makeTaxLinesBodySchema(
+  total: number | null | undefined,
+  invoiceType?: number | null
+): z.ZodType<TaxLinesBody> {
+  // Only restrict by letter when the code is a known ARCA document type;
+  // null/unknown codes keep the unrestricted behavior.
+  const nonItemized = doesNotItemizeVat(invoiceType);
+  const itemized = discriminatesVat(invoiceType);
+
   return z
     .object({
       lines: z
@@ -179,6 +196,24 @@ export function makeTaxLinesBodySchema(total: number | null | undefined): z.ZodT
       if (body.lines.length === 0) return;
 
       checkDuplicates(body.lines, ctx);
+
+      body.lines.forEach((line, i) => {
+        if (nonItemized && !NON_ITEMIZED_ALLOWED_CONCEPTS.includes(line.concept)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['lines', i, 'concept'],
+            message:
+              'Este comprobante no discrimina IVA: solo admite los conceptos "No discriminado" y "Otros tributos"',
+          });
+        } else if (itemized && line.concept === 'UNDISCRIMINATED') {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['lines', i, 'concept'],
+            message:
+              'Este comprobante discrimina IVA: el concepto "No discriminado" no corresponde',
+          });
+        }
+      });
 
       if (total === null || total === undefined) {
         ctx.addIssue({

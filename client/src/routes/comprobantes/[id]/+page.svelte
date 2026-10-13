@@ -929,6 +929,7 @@
             <InvoiceTaxBreakdown
               invoiceId={comprobante.final.id}
               total={comprobante.final.total}
+              invoiceType={comprobante.final.invoiceType}
               oncompare={comprobante.final.expectedInvoiceId
                 ? () => setCompareParam(true)
                 : undefined}

@@ -71,4 +71,19 @@ describe('GET /api/comprobantes taxReconciliation', () => {
     });
     expect(byId(manual).taxReconciliation).toEqual({ status: 'manual', reason: 'no_expected' });
   });
+
+  it('flags a B invoice with a total-only expected as completable with UNDISCRIMINATED', async () => {
+    const expectedId = insertExpected(false);
+    const id = insertInvoice(expectedId);
+    getRawDb().prepare('UPDATE facturas SET tipo_comprobante = 6 WHERE id = ?').run(id);
+
+    const res = await app.request('/api/comprobantes');
+    const body = (await res.json()) as Any;
+    const cmp = body.comprobantes.find((c: Any) => c.id === `factura:${id}`);
+    expect(cmp.taxReconciliation).toEqual({
+      status: 'completable',
+      reason: 'arca_available',
+      arcaLines: [{ concept: 'UNDISCRIMINATED', rate: null, amount: 121 }],
+    });
+  });
 });

@@ -118,6 +118,30 @@ describe('/api/reconciliation/tax-breakdown', () => {
     expect(div.invoiceLines[0]).toMatchObject({ concept: 'NET_TAXED', rate: 21, label: null });
   });
 
+  it('B invoices linked to an expected with total only are completable and completed as UNDISCRIMINATED', async () => {
+    const expectedId = insertExpected({ net_taxed_21: 0, vat_21: 0, other_taxes: 0 });
+    const id = insertInvoice({ total: 121, expectedId });
+    // B (6) is the source of truth even if the expected says otherwise
+    getRawDb().prepare('UPDATE facturas SET tipo_comprobante = 6 WHERE id = ?').run(id);
+    const oldExpected = insertExpected({});
+    const oldId = insertInvoice({ total: 121, expectedId: oldExpected });
+    getRawDb().prepare('UPDATE facturas SET tipo_comprobante = 11 WHERE id = ?').run(oldId);
+
+    const res = await app.request(`${BASE}?period=2026-Q1`);
+    const body = (await res.json()) as Any;
+    expect(body.counts.completable).toBe(2);
+    const item = body.items.find((i: Any) => i.invoiceId === id);
+    expect(item.arcaLines).toEqual([{ concept: 'UNDISCRIMINATED', rate: null, amount: 121 }]);
+    expect(item.arcaFingerprint).toMatch(/^e\d+\|UNDISCRIMINATED=121\.00$/);
+
+    const done = await app.request(`${BASE}/complete`, json('POST', { invoiceIds: [id, oldId] }));
+    expect(((await done.json()) as Any).applied).toEqual([id, oldId]);
+    const rows = getRawDb()
+      .prepare('SELECT concept, rate, amount FROM invoice_tax_lines WHERE invoice_id = ?')
+      .all(id);
+    expect(rows).toEqual([{ concept: 'UNDISCRIMINATED', rate: null, amount: 121 }]);
+  });
+
   it('rejects an invalid period', async () => {
     expect((await app.request(`${BASE}?period=2026-13`)).status).toBe(400);
     expect((await app.request(BASE)).status).toBe(400);

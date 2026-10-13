@@ -13,6 +13,7 @@
   import CategoryPills from './CategoryPills.svelte';
   import EmitterCombobox from './EmitterCombobox.svelte';
   import InvoiceTypeLabel from './InvoiceTypeLabel.svelte';
+  import NoVatBadge from './NoVatBadge.svelte';
   import InvoiceTypeSelect from './InvoiceTypeSelect.svelte';
   import { ExternalLink } from '$lib/components/icons';
   import { formatCurrency, formatDateShort, formatCuit } from '$lib/formatters';
@@ -257,6 +258,7 @@
         <button type="button" class="field-value clickable" onclick={enterEditMode}>
           <InvoiceTypeLabel code={invoice.invoiceType} iconSize={16} />
         </button>
+        <NoVatBadge code={invoice.invoiceType} />
       {/if}
     </div>
 

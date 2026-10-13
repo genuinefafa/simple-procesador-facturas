@@ -72,11 +72,51 @@ describe('checkTaxLinesSum', () => {
   });
 });
 
+const und = (amount: number): object => ({ concept: 'UNDISCRIMINATED', rate: null, amount });
+const other = (amount: number): object => ({ concept: 'OTHER_TAXES', rate: null, amount });
+
+describe('letter rules (UNDISCRIMINATED)', () => {
+  it('B accepts UNDISCRIMINATED and UNDISCRIMINATED + OTHER_TAXES', () => {
+    expect(makeTaxLinesBodySchema(100, 6).safeParse({ lines: [und(100)] }).success).toBe(true);
+    expect(makeTaxLinesBodySchema(100, 6).safeParse({ lines: [und(90), other(10)] }).success).toBe(
+      true
+    );
+  });
+
+  it('B rejects NET_TAXED and VAT', () => {
+    expect(makeTaxLinesBodySchema(121, 6).safeParse({ lines: [net(100), vat(21)] }).success).toBe(
+      false
+    );
+  });
+
+  it('A rejects UNDISCRIMINATED', () => {
+    expect(makeTaxLinesBodySchema(100, 1).safeParse({ lines: [und(100)] }).success).toBe(false);
+  });
+
+  it('null or unknown type does not restrict by letter', () => {
+    expect(
+      makeTaxLinesBodySchema(121, null).safeParse({ lines: [net(100), vat(21)] }).success
+    ).toBe(true);
+    expect(makeTaxLinesBodySchema(100, 99999).safeParse({ lines: [und(100)] }).success).toBe(true);
+    expect(
+      makeTaxLinesBodySchema(121, 99999).safeParse({ lines: [net(100), vat(21)] }).success
+    ).toBe(true);
+  });
+});
+
 describe('/api/invoices/:id/tax-lines', () => {
   beforeAll(async () => {
     // TODO: See issue #193 (existing test DB skips new migrations)
     cleanupTestDb();
     await runTestMigrations();
+  });
+
+  it('letter rules: PUT on a B invoice: UNDISCRIMINATED ok, NET_TAXED 400, A + UNDISCRIMINATED 400', async () => {
+    const b = insertInvoice({ type: 6, total: 100 });
+    expect((await put(b, { lines: [und(100)] })).status).toBe(200);
+    expect((await put(b, { lines: [net(100, 0)] })).status).toBe(400);
+    const a = insertInvoice({ type: 1, total: 100 });
+    expect((await put(a, { lines: [und(100)] })).status).toBe(400);
   });
 
   beforeEach(() => {

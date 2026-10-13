@@ -50,7 +50,7 @@ export interface PendingExpectedStat {
 export interface TaxBreakdownMonth {
   /** YYYY-MM */
   month: string;
-  /** net_taxed + net_untaxed + exempt */
+  /** net_taxed + net_untaxed + exempt + undiscriminated */
   net: number;
   /** vat + vat_perception */
   vat: number;
@@ -172,7 +172,7 @@ export class StatsRepository {
       .prepare(
         `SELECT
            issue_month AS month,
-           COALESCE(SUM(net_taxed + net_untaxed + exempt), 0) AS net,
+           COALESCE(SUM(net_taxed + net_untaxed + exempt + undiscriminated), 0) AS net,
            COALESCE(SUM(vat + vat_perception), 0) AS vat,
            COALESCE(SUM(iibb_perception + other_taxes), 0) AS other
          FROM v_comprobantes_oro

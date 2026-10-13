@@ -10,7 +10,8 @@ export type TaxLineConcept =
   | 'VAT'
   | 'VAT_PERCEPTION'
   | 'IIBB_PERCEPTION'
-  | 'OTHER_TAXES';
+  | 'OTHER_TAXES'
+  | 'UNDISCRIMINATED';
 
 export interface TaxLineInput {
   concept: TaxLineConcept;
@@ -55,6 +56,7 @@ export const CONCEPT_OPTIONS: ReadonlyArray<{ value: TaxLineConcept; label: stri
   { value: 'VAT_PERCEPTION', label: 'Percepción IVA' },
   { value: 'IIBB_PERCEPTION', label: 'Percepción IIBB' },
   { value: 'OTHER_TAXES', label: 'Otros tributos' },
+  { value: 'UNDISCRIMINATED', label: 'No discriminado' },
 ];
 
 /** Shorter names for the editor select: the detail panel is narrow. */

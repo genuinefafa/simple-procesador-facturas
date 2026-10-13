@@ -20,7 +20,9 @@
     Save,
     X,
   } from '$lib/components/icons';
-  import { formatCurrency } from '$lib/formatters';
+  import { doesNotItemizeVat, formatCurrency } from '$lib/formatters';
+  import NoVatBadge from './NoVatBadge.svelte';
+  import { getDocumentTypeFromARCACode } from '@shared/arca';
   import { invoiceTaxLinesService } from '$lib/services/InvoiceTaxLinesService';
   import TaxLineSelect from './TaxLineSelect.svelte';
   import {
@@ -43,6 +45,11 @@
     /** Invoice letter (A, B, C, M...). Falls back to the one returned by the API. */
     letter?: string | null;
     /**
+     * ARCA document type code. Drives the "does not itemize VAT" behavior
+     * (B, C, E, no letter); unknown or missing keeps every concept available.
+     */
+    invoiceType?: number | null;
+    /**
      * Suggested lines to review when the invoice has no breakdown. Takes
      * precedence over the ARCA suggestion returned by the API
      * (`data.arcaSuggestion`, from the linked expected invoice). The form only
@@ -60,6 +67,7 @@
     invoiceId,
     total = null,
     letter = null,
+    invoiceType = null,
     prefill,
     oncompare,
     compareActive = false,
@@ -113,7 +121,23 @@
   );
 
   const effectiveLetter = $derived(letter ?? data?.letter ?? null);
-  const showShortcut = $derived(effectiveLetter === 'A' || effectiveLetter === 'M');
+  const noVat = $derived(doesNotItemizeVat(invoiceType));
+  // Known type that itemizes VAT (A/M): UNDISCRIMINATED does not apply
+  const itemizesVat = $derived(
+    invoiceType !== null && !noVat && getDocumentTypeFromARCACode(invoiceType) !== undefined
+  );
+  const showShortcut = $derived(
+    !noVat && (itemizesVat || effectiveLetter === 'A' || effectiveLetter === 'M')
+  );
+  const conceptOptions = $derived(
+    noVat
+      ? EDITOR_CONCEPT_OPTIONS.filter(
+          (o) => o.value === 'UNDISCRIMINATED' || o.value === 'OTHER_TAXES'
+        )
+      : itemizesVat
+        ? EDITOR_CONCEPT_OPTIONS.filter((o) => o.value !== 'UNDISCRIMINATED')
+        : EDITOR_CONCEPT_OPTIONS
+  );
   const effectiveTotal = $derived(data?.total ?? total);
 
   const isFixedRate = (c: TaxLineConcept | ''): boolean => c !== '' && !!RATES_BY_CONCEPT[c];
@@ -210,8 +234,15 @@
   function addRow(): void {
     let concept: TaxLineConcept | '' = '';
     let rate = '';
+    let amount = '';
     if (rows.length === 0) {
-      concept = 'NET_TAXED';
+      concept = noVat ? 'UNDISCRIMINATED' : 'NET_TAXED';
+      // Without VAT itemization the whole total is the undiscriminated amount
+      if (noVat && effectiveTotal != null) amount = String(Math.abs(effectiveTotal));
+    } else if (noVat) {
+      concept = rows.some((r) => r.concept === 'UNDISCRIMINATED')
+        ? 'OTHER_TAXES'
+        : 'UNDISCRIMINATED';
     } else {
       const lacking = rows.find(
         (r) =>
@@ -224,7 +255,7 @@
         rate = lacking.rate;
       }
     }
-    rows.push({ key: nextKey++, concept, rate, amount: '', label: '', base: '' });
+    rows.push({ key: nextKey++, concept, rate, amount, label: '', base: '' });
   }
 
   function removeRow(key: number): void {
@@ -373,6 +404,34 @@
     ];
   }
 
+  // Shortcut for documents that do not itemize VAT: the total (minus other rows) is undiscriminated
+  const undiscKept = $derived(
+    rows.filter(
+      (r) => r.concept !== 'UNDISCRIMINATED' && (r.concept !== '' || r.amount.trim() !== '')
+    )
+  );
+  const undiscRest = $derived(
+    effectiveTotal === null
+      ? null
+      : round2(
+          effectiveTotal -
+            undiscKept.reduce((acc, r) => {
+              const a = parseAmountLoose(r.amount);
+              return acc + (Number.isFinite(a) ? a : 0);
+            }, 0)
+        )
+  );
+  const undiscDisabled = $derived(undiscRest === null || undiscRest <= 0);
+
+  /** Loads one UNDISCRIMINATED line = total - the other rows. Does not save. */
+  function applyUndiscShortcut(): void {
+    if (undiscRest === null || undiscRest <= 0) return;
+    rows = [
+      toRow({ concept: 'UNDISCRIMINATED', rate: null, amount: undiscRest, label: null }),
+      ...undiscKept,
+    ];
+  }
+
   const rowErrors = $derived(
     rows.map((row) => {
       if (!row.concept) return 'Seleccione un concepto';
@@ -474,7 +533,10 @@
 
 <div class="tax-breakdown">
   <header class="head">
-    <h3>Desglose impositivo</h3>
+    <div class="title-group">
+      <h3>Desglose impositivo</h3>
+      <NoVatBadge code={invoiceType} />
+    </div>
     {#if !editing && !loading}
       <div class="head-actions">
         {#if viewLines.length > 0}
@@ -509,7 +571,30 @@
           </span>
         </div>
       {/if}
-      {#if showShortcut}
+      {#if noVat}
+        <div class="shortcut">
+          <span class="shortcut-label">Atajo Total como no discriminado</span>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={undiscDisabled}
+            onclick={applyUndiscShortcut}
+          >
+            Cargar desde el total
+          </Button>
+          {#if undiscDisabled}
+            <p class="shortcut-hint">
+              {effectiveTotal === null
+                ? 'El comprobante no tiene total cargado.'
+                : 'No queda importe por distribuir: los demás conceptos ya igualan o superan el total.'}
+            </p>
+          {:else}
+            <p class="shortcut-hint">
+              Se carga {formatCurrency(undiscRest)} como no discriminado y se conservan los otros tributos.
+            </p>
+          {/if}
+        </div>
+      {:else if showShortcut}
         <div class="shortcut">
           <span class="shortcut-label">Atajo Neto + Coef</span>
           <div class="shortcut-rate">
@@ -546,7 +631,7 @@
             <div class="cell concept">
               <TaxLineSelect
                 value={row.concept}
-                options={EDITOR_CONCEPT_OPTIONS}
+                options={conceptOptions}
                 placeholder="Concepto"
                 ariaLabel="Concepto"
                 onchange={(v) => setConcept(row, v)}
@@ -778,6 +863,13 @@
     flex-wrap: wrap;
   }
 
+  .title-group {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    flex-wrap: wrap;
+  }
+
   h3 {
     margin: 0;
     font-size: var(--font-size-base);
@@ -896,7 +988,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: minmax(140px, 1.25fr) minmax(120px, 1.15fr) minmax(90px, 0.9fr) auto;
+    grid-template-columns: minmax(170px, 1.25fr) minmax(120px, 1.15fr) minmax(90px, 0.9fr) auto;
     gap: var(--spacing-2);
     align-items: center;
     padding: var(--spacing-2);

@@ -76,6 +76,20 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 
 ---
 
+### Fase 6: Dashboard CFO — desglose impositivo (en curso)
+*Objetivo: neto / IVA / otros tributos confiables por mes (capas bronce → plata → oro). Detalle vivo en el kanban personal.*
+
+| Issue | Título | Estado |
+|-------|--------|--------|
+| #192 | Unificar mapas de códigos ARCA (`@shared/arca`) | ✅ PR #208 |
+| #192 | Línea "No discriminado" para B/C/sin letra (suma a neto, no a crédito) | ✅ PR #210 |
+| - | Crear factura desde esperada con desglose en la misma operación | Pendiente |
+| #209 | Drizzle 1.0 RC + reparar tracking de migraciones en producción | Pendiente |
+| #211 | Unificar lista de conceptos de desglose en `shared/` | Pendiente |
+| #206 | Tique factura A (81): desglose ARCA no suma el total | Pendiente |
+| #212 | Crear factura desde archivo ya finalizado borra el archivo (copyFile origen = destino) | Pendiente (prioridad alta) |
+| #213 | Rediseñar comparación archivo ↔ esperada del pendiente | Pendiente |
+
 ## Milestones
 
 ### M7: UX Improvements (Febrero 2026) ✅ Cerrado
@@ -220,4 +234,4 @@ npm run db:studio        # GUI Drizzle
 
 ---
 
-**Última actualización**: 2026-04-21
+**Última actualización**: 2026-10-12

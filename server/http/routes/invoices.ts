@@ -1134,7 +1134,7 @@ invoicesRouter.put('/:id/tax-lines', async (c) => {
     }
 
     const body: unknown = await c.req.json().catch(() => null);
-    const result = makeTaxLinesBodySchema(ctx.total).safeParse(body);
+    const result = makeTaxLinesBodySchema(ctx.total, ctx.invoiceType).safeParse(body);
     if (!result.success) {
       return c.json(formatZodError(result.error), 400);
     }

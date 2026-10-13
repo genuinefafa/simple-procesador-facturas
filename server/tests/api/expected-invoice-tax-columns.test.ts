@@ -464,3 +464,44 @@ describe('expectedToTaxLines', () => {
     ]);
   });
 });
+
+describe('expectedToTaxLines - documents that do not itemize VAT', () => {
+  it('derives UNDISCRIMINATED = total for B/C even with zeroed columns', () => {
+    expect(expectedToTaxLines({ total: 121, netTaxed21: 0, vat21: 0, invoiceType: 6 })).toEqual([
+      { concept: 'UNDISCRIMINATED', rate: null, amount: 121 },
+    ]);
+    expect(expectedToTaxLines({ total: 50 }, 11)).toEqual([
+      { concept: 'UNDISCRIMINATED', rate: null, amount: 50 },
+    ]);
+  });
+
+  it('subtracts other taxes and keeps amounts positive (credit notes)', () => {
+    expect(expectedToTaxLines({ total: -121, otherTaxes: -21, invoiceType: 8 })).toEqual([
+      { concept: 'UNDISCRIMINATED', rate: null, amount: 100 },
+      { concept: 'OTHER_TAXES', rate: null, amount: 21 },
+    ]);
+  });
+
+  it('omits UNDISCRIMINATED when total - otherTaxes is not positive', () => {
+    expect(expectedToTaxLines({ total: 20, otherTaxes: 20, invoiceType: 6 })).toEqual([
+      { concept: 'OTHER_TAXES', rate: null, amount: 20 },
+    ]);
+  });
+
+  it('keeps the regular mapping for A/M, unknown types and a missing total', () => {
+    expect(expectedToTaxLines({ total: 121, netTaxed21: 100, vat21: 21, invoiceType: 1 })).toEqual([
+      { concept: 'NET_TAXED', rate: 21, amount: 100 },
+      { concept: 'VAT', rate: 21, amount: 21 },
+    ]);
+    expect(expectedToTaxLines({ total: 121, invoiceType: 1 })).toBeNull();
+    expect(expectedToTaxLines({ total: 121, invoiceType: null })).toBeNull();
+    expect(expectedToTaxLines({ total: 121, invoiceType: 99999 })).toBeNull();
+    expect(expectedToTaxLines({ netTaxed21: 0, invoiceType: 6 })).toEqual([]);
+  });
+
+  it('the explicit invoice type overrides the expected one', () => {
+    expect(expectedToTaxLines({ total: 121, invoiceType: 1 }, 6)).toEqual([
+      { concept: 'UNDISCRIMINATED', rate: null, amount: 121 },
+    ]);
+  });
+});

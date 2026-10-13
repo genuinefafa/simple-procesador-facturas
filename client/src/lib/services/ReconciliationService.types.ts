@@ -18,7 +18,13 @@ export type ReconciliationReason =
   | 'accepted'
   | 'differs';
 
-export type BucketConcept = 'NET_TAXED' | 'VAT' | 'NET_UNTAXED' | 'EXEMPT' | 'OTHER';
+export type BucketConcept =
+  | 'NET_TAXED'
+  | 'VAT'
+  | 'NET_UNTAXED'
+  | 'EXEMPT'
+  | 'UNDISCRIMINATED'
+  | 'OTHER';
 
 export interface BucketDiff {
   key: string;
@@ -89,7 +95,7 @@ export const REASON_LABELS: Record<ReconciliationReason, string> = {
   no_expected: 'Sin vincular a ARCA',
   arca_no_breakdown: 'ARCA no informa desglose',
   arca_missing_breakdown: 'Falta el desglose de ARCA (comprobante A/M)',
-  not_required: 'No requiere desglose: ARCA informa solo el total en comprobantes B/C',
+  not_required: 'No requiere desglose: el comprobante no discrimina IVA y ARCA no informa el total',
   arca_sum_mismatch: 'El desglose de ARCA no suma el total',
   arca_available: 'ARCA informa un desglose que cuadra con el total',
   matches_arca: 'Igual a ARCA',
@@ -110,6 +116,8 @@ export function bucketLabel(concept: string, rate: number | null): string {
       return 'No gravado';
     case 'EXEMPT':
       return 'Exento';
+    case 'UNDISCRIMINATED':
+      return 'No discriminado';
     case 'OTHER':
     case 'OTHER_TAXES':
       return 'Percepciones y otros tributos';
