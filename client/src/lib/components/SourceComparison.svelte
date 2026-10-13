@@ -700,7 +700,7 @@
                 onclick={oncreatefromexpected}
                 disabled={processing}
               >
-                Crear factura desde ARCA
+                Crear factura
               </Button>
             {/if}
           </div>

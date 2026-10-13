@@ -84,3 +84,57 @@ export const LABEL_CONCEPTS: readonly TaxLineConcept[] = FREE_RATE_CONCEPTS;
 
 /** Concepts that may appear several times in a breakdown. */
 export const REPEATABLE_CONCEPTS: readonly TaxLineConcept[] = FREE_RATE_CONCEPTS;
+
+/** Props shared by both modes of InvoiceTaxBreakdown. */
+interface InvoiceTaxBreakdownBaseProps {
+  total?: number | null;
+  /** Invoice letter (A, B, C, M...). Falls back to the one returned by the API. */
+  letter?: string | null;
+  /**
+   * ARCA document type code. Drives the "does not itemize VAT" behavior
+   * (B, C, E, no letter); unknown or missing keeps every concept available.
+   */
+  invoiceType?: number | null;
+}
+
+/** Persisted mode: loads and saves the breakdown of an existing invoice. */
+export interface InvoiceTaxBreakdownPersistedProps extends InvoiceTaxBreakdownBaseProps {
+  invoiceId: number;
+  /**
+   * Suggested lines to review when the invoice has no breakdown. Takes
+   * precedence over the ARCA suggestion returned by the API
+   * (`data.arcaSuggestion`, from the linked expected invoice). The form only
+   * starts with them on an explicit click and they are never saved
+   * automatically.
+   */
+  prefill?: TaxLineInput[];
+  /** When set, a "Comparar con ARCA" button is shown next to the header actions */
+  oncompare?: () => void;
+  /** The comparison is already open: the button is hidden (the section has its own close) */
+  compareActive?: boolean;
+  lockedLines?: never;
+  initialLines?: never;
+  ondraftchange?: never;
+}
+
+/**
+ * Draft mode: no invoice yet. The editor starts open, never fetches or saves,
+ * and reports its state through `ondraftchange`. Locked lines (e.g. taken
+ * as-is from ARCA) are shown disabled and cannot be removed; only the
+ * perception / other-taxes concepts can be added or edited.
+ * The initial lines are read once on mount: remount (`{#key}`) to reset.
+ */
+export interface InvoiceTaxBreakdownDraftProps extends InvoiceTaxBreakdownBaseProps {
+  invoiceId?: never;
+  lockedLines: TaxLineInput[];
+  initialLines: TaxLineInput[];
+  /** Called on every change with the editable (non-locked) lines and whether the draft is valid */
+  ondraftchange: (editableLines: TaxLineInput[], valid: boolean) => void;
+  prefill?: never;
+  oncompare?: never;
+  compareActive?: never;
+}
+
+export type InvoiceTaxBreakdownProps =
+  | InvoiceTaxBreakdownPersistedProps
+  | InvoiceTaxBreakdownDraftProps;

@@ -4,7 +4,11 @@
    *
    * View mode lists the saved lines and compares their sum against the total;
    * edit mode lets the user load/replace them. Nothing is saved automatically.
+   *
+   * Draft mode (no `invoiceId`) is the same editor for an invoice that does not
+   * exist yet: no fetch, no save, and locked lines shown disabled.
    */
+  import { untrack } from 'svelte';
   import { toast } from 'svelte-sonner';
   import Button from '$lib/components/ui/Button.svelte';
   import Dialog from '$lib/components/ui/Dialog.svelte';
@@ -33,35 +37,12 @@
     RATES_BY_CONCEPT,
     REPEATABLE_CONCEPTS,
     TAX_SUM_TOLERANCE,
+    type InvoiceTaxBreakdownProps,
     type TaxLine,
     type TaxLineConcept,
     type TaxLineInput,
     type TaxLinesResponse,
   } from './InvoiceTaxBreakdown.types';
-
-  interface Props {
-    invoiceId: number;
-    total?: number | null;
-    /** Invoice letter (A, B, C, M...). Falls back to the one returned by the API. */
-    letter?: string | null;
-    /**
-     * ARCA document type code. Drives the "does not itemize VAT" behavior
-     * (B, C, E, no letter); unknown or missing keeps every concept available.
-     */
-    invoiceType?: number | null;
-    /**
-     * Suggested lines to review when the invoice has no breakdown. Takes
-     * precedence over the ARCA suggestion returned by the API
-     * (`data.arcaSuggestion`, from the linked expected invoice). The form only
-     * starts with them on an explicit click and they are never saved
-     * automatically.
-     */
-    prefill?: TaxLineInput[];
-    /** When set, a "Comparar con ARCA" button is shown next to the header actions */
-    oncompare?: () => void;
-    /** The comparison is already open: the button is hidden (the section has its own close) */
-    compareActive?: boolean;
-  }
 
   let {
     invoiceId,
@@ -71,7 +52,10 @@
     prefill,
     oncompare,
     compareActive = false,
-  }: Props = $props();
+    lockedLines,
+    initialLines,
+    ondraftchange,
+  }: InvoiceTaxBreakdownProps = $props();
 
   interface Row {
     key: number;
@@ -81,7 +65,17 @@
     label: string;
     /** UI-only helper for the percentage calculator ('total' | 'net:<rate>'); never saved */
     base: string;
+    /** Draft mode only: line taken as-is (e.g. from ARCA); shown disabled, cannot be removed */
+    locked?: boolean;
   }
+
+  const isDraft = $derived(invoiceId === undefined);
+  /** Concepts that can be added or edited in draft mode */
+  const DRAFT_EDITABLE_CONCEPTS: readonly TaxLineConcept[] = [
+    'VAT_PERCEPTION',
+    'IIBB_PERCEPTION',
+    'OTHER_TAXES',
+  ];
 
   let data = $state<TaxLinesResponse | null>(null);
   let loading = $state(true);
@@ -130,13 +124,17 @@
     !noVat && (itemizesVat || effectiveLetter === 'A' || effectiveLetter === 'M')
   );
   const conceptOptions = $derived(
-    noVat
-      ? EDITOR_CONCEPT_OPTIONS.filter(
-          (o) => o.value === 'UNDISCRIMINATED' || o.value === 'OTHER_TAXES'
+    isDraft
+      ? EDITOR_CONCEPT_OPTIONS.filter((o) =>
+          noVat ? o.value === 'OTHER_TAXES' : DRAFT_EDITABLE_CONCEPTS.includes(o.value)
         )
-      : itemizesVat
-        ? EDITOR_CONCEPT_OPTIONS.filter((o) => o.value !== 'UNDISCRIMINATED')
-        : EDITOR_CONCEPT_OPTIONS
+      : noVat
+        ? EDITOR_CONCEPT_OPTIONS.filter(
+            (o) => o.value === 'UNDISCRIMINATED' || o.value === 'OTHER_TAXES'
+          )
+        : itemizesVat
+          ? EDITOR_CONCEPT_OPTIONS.filter((o) => o.value !== 'UNDISCRIMINATED')
+          : EDITOR_CONCEPT_OPTIONS
   );
   const effectiveTotal = $derived(data?.total ?? total);
 
@@ -175,7 +173,7 @@
     return t === '' ? NaN : Number(t);
   }
 
-  function toRow(line: TaxLineInput): Row {
+  function toRow(line: TaxLineInput, locked = false): Row {
     return {
       key: nextKey++,
       concept: line.concept,
@@ -189,10 +187,12 @@
       amount: String(line.amount),
       label: line.label ?? '',
       base: '',
+      ...(locked ? { locked } : {}),
     };
   }
 
   async function load(): Promise<void> {
+    if (invoiceId === undefined) return;
     loading = true;
     loadError = null;
     const result = await invoiceTaxLinesService.get(invoiceId);
@@ -205,8 +205,19 @@
   }
 
   $effect(() => {
+    if (invoiceId === undefined) {
+      // Draft: open the editor once with the given lines (not reactive to later prop changes)
+      untrack(() => {
+        rows = [
+          ...(lockedLines ?? []).map((l) => toRow(l, true)),
+          ...(initialLines ?? []).map((l) => toRow(l)),
+        ];
+        loading = false;
+        editing = true;
+      });
+      return;
+    }
     // Reload when navigating to another invoice
-    void invoiceId;
     editing = false;
     prefilled = false;
     void load();
@@ -219,7 +230,7 @@
     const suggested = !hasOwnLines && useSuggestion ? suggestion : null;
     const source: TaxLineInput[] = hasOwnLines ? data!.lines : (suggested ?? []);
     prefilled = suggested !== null;
-    rows = source.map(toRow);
+    rows = source.map((l) => toRow(l));
     if (rows.length === 0) addRow();
     editing = true;
   }
@@ -235,7 +246,10 @@
     let concept: TaxLineConcept | '' = '';
     let rate = '';
     let amount = '';
-    if (rows.length === 0) {
+    if (isDraft) {
+      // Only perceptions / other taxes can be added: no smart suggestion
+      concept = noVat ? 'OTHER_TAXES' : '';
+    } else if (rows.length === 0) {
       concept = noVat ? 'UNDISCRIMINATED' : 'NET_TAXED';
       // Without VAT itemization the whole total is the undiscriminated amount
       if (noVat && effectiveTotal != null) amount = String(Math.abs(effectiveTotal));
@@ -434,6 +448,7 @@
 
   const rowErrors = $derived(
     rows.map((row) => {
+      if (row.locked) return null;
       if (!row.concept) return 'Seleccione un concepto';
       if (RATES_BY_CONCEPT[row.concept] && row.rate === '') return 'Seleccione la alícuota';
       if (isFreeRate(row.concept) && row.rate.trim() !== '') {
@@ -455,7 +470,7 @@
   const duplicateError = $derived.by(() => {
     const seen = new Set<string>();
     for (const row of rows) {
-      if (!row.concept || REPEATABLE_CONCEPTS.includes(row.concept)) continue;
+      if (row.locked || !row.concept || REPEATABLE_CONCEPTS.includes(row.concept)) continue;
       const key = `${row.concept}:${row.rate}`;
       if (seen.has(key)) return 'Hay conceptos repetidos (mismo concepto y alícuota)';
       seen.add(key);
@@ -482,23 +497,25 @@
   );
 
   function buildPayload(): TaxLineInput[] {
-    return rows.map((r) => {
-      const concept = r.concept as TaxLineConcept;
-      return {
-        concept,
-        rate: RATES_BY_CONCEPT[concept]
-          ? Number(r.rate)
-          : isFreeRate(concept) && r.rate.trim() !== ''
-            ? parseAmountLoose(r.rate)
-            : null,
-        amount: round2(parseAmountLoose(r.amount)),
-        label: LABEL_CONCEPTS.includes(concept) && r.label.trim() ? r.label.trim() : null,
-      };
-    });
+    return rows
+      .filter((r) => !r.locked)
+      .map((r) => {
+        const concept = r.concept as TaxLineConcept;
+        return {
+          concept,
+          rate: RATES_BY_CONCEPT[concept]
+            ? Number(r.rate)
+            : isFreeRate(concept) && r.rate.trim() !== ''
+              ? parseAmountLoose(r.rate)
+              : null,
+          amount: round2(parseAmountLoose(r.amount)),
+          label: LABEL_CONCEPTS.includes(concept) && r.label.trim() ? r.label.trim() : null,
+        };
+      });
   }
 
   async function save(): Promise<void> {
-    if (!canSave) return;
+    if (!canSave || invoiceId === undefined) return;
     saving = true;
     saveError = null;
     const result = await invoiceTaxLinesService.save(invoiceId, buildPayload());
@@ -514,6 +531,7 @@
   }
 
   async function removeBreakdown(): Promise<void> {
+    if (invoiceId === undefined) return;
     saving = true;
     const result = await invoiceTaxLinesService.save(invoiceId, []);
     saving = false;
@@ -528,10 +546,18 @@
     }
   }
 
+  // Draft mode: report the editable lines and validity to the parent on every change
+  $effect(() => {
+    if (!isDraft) return;
+    const editable = buildPayload();
+    const valid = rowErrors.every((e) => e === null) && duplicateError === null && formSumOk;
+    untrack(() => ondraftchange?.(editable, valid));
+  });
+
   const viewLines = $derived<TaxLine[]>(data?.lines ?? []);
 </script>
 
-<div class="tax-breakdown">
+<div class="tax-breakdown" class:draft={isDraft}>
   <header class="head">
     <div class="title-group">
       <h3>Desglose impositivo</h3>
@@ -571,7 +597,7 @@
           </span>
         </div>
       {/if}
-      {#if noVat}
+      {#if !isDraft && noVat}
         <div class="shortcut">
           <span class="shortcut-label">Atajo Total como no discriminado</span>
           <Button
@@ -594,7 +620,7 @@
             </p>
           {/if}
         </div>
-      {:else if showShortcut}
+      {:else if !isDraft && showShortcut}
         <div class="shortcut">
           <span class="shortcut-label">Atajo Neto + Coef</span>
           <div class="shortcut-rate">
@@ -631,9 +657,10 @@
             <div class="cell concept">
               <TaxLineSelect
                 value={row.concept}
-                options={conceptOptions}
+                options={row.locked ? EDITOR_CONCEPT_OPTIONS : conceptOptions}
                 placeholder="Concepto"
                 ariaLabel="Concepto"
+                disabled={row.locked}
                 onchange={(v) => setConcept(row, v)}
               />
             </div>
@@ -645,6 +672,7 @@
                   options={rateOptions(row.concept)}
                   placeholder={row.concept === 'NET_TAXED' ? 'Gravado a' : 'Alícuota'}
                   ariaLabel="Alícuota"
+                  disabled={row.locked}
                   onchange={(v) => (row.rate = v)}
                 />
               {:else if row.concept && LABEL_CONCEPTS.includes(row.concept)}
@@ -656,6 +684,7 @@
                     : 'Descripción'}
                   aria-label="Descripción"
                   maxlength="100"
+                  disabled={row.locked}
                   bind:value={row.label}
                 />
               {/if}
@@ -667,6 +696,7 @@
                 class="field amount-input"
                 placeholder="0,00"
                 aria-label="Monto"
+                disabled={row.locked}
                 bind:value={row.amount}
               />
             </div>
@@ -674,11 +704,14 @@
               type="button"
               class="icon-btn"
               aria-label="Quitar fila"
+              disabled={row.locked}
               onclick={() => removeRow(row.key)}
             >
               <X size={14} />
             </button>
-            {#if row.concept === 'VAT'}
+            {#if row.locked}
+              <!-- Locked lines have no calculator -->
+            {:else if row.concept === 'VAT'}
               {@const hint = vatCalcHint(row)}
               <div class="subrow">
                 <div class="sub-lead">
@@ -761,23 +794,27 @@
         </p>
       {:else if !formSumOk && rows.length > 0}
         <p class="error-text">
-          La diferencia no debe superar {formatCurrency(TAX_SUM_TOLERANCE)} para poder guardar.
+          La diferencia no debe superar {formatCurrency(TAX_SUM_TOLERANCE)} para poder {isDraft
+            ? 'crear la factura'
+            : 'guardar'}.
         </p>
       {/if}
       {#if duplicateError}
         <p class="error-text">{duplicateError}</p>
       {/if}
-      {#if saveError}
-        <p class="error-text" role="alert">{saveError}</p>
-      {/if}
+      {#if !isDraft}
+        {#if saveError}
+          <p class="error-text" role="alert">{saveError}</p>
+        {/if}
 
-      <div class="form-actions">
-        <Button size="sm" variant="primary" disabled={!canSave} onclick={save}>
-          <Save size={14} />
-          {saving ? 'Guardando...' : 'Guardar'}
-        </Button>
-        <Button size="sm" variant="ghost" disabled={saving} onclick={cancelEdit}>Cancelar</Button>
-      </div>
+        <div class="form-actions">
+          <Button size="sm" variant="primary" disabled={!canSave} onclick={save}>
+            <Save size={14} />
+            {saving ? 'Guardando...' : 'Guardar'}
+          </Button>
+          <Button size="sm" variant="ghost" disabled={saving} onclick={cancelEdit}>Cancelar</Button>
+        </div>
+      {/if}
     </div>
   {:else if viewLines.length === 0}
     <div class="empty">
@@ -853,6 +890,13 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-surface);
+  }
+
+  /* Embedded in another panel: no own frame (avoids a double box) */
+  .tax-breakdown.draft {
+    padding: 0;
+    border: none;
+    background: none;
   }
 
   .head {
@@ -1106,6 +1150,11 @@
     cursor: not-allowed;
   }
 
+  .field:disabled {
+    background: var(--color-neutral-100);
+    color: var(--color-text-secondary);
+  }
+
   /* CSS tooltip (preferred over native title) */
   [data-tip] {
     position: relative;
@@ -1143,7 +1192,7 @@
     cursor: pointer;
   }
 
-  .icon-btn:hover {
+  .icon-btn:hover:not(:disabled) {
     color: var(--color-error);
     background: var(--color-neutral-50);
   }

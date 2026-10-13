@@ -12,10 +12,18 @@
     options: ReadonlyArray<{ value: string; label: string }>;
     placeholder?: string;
     ariaLabel: string;
+    disabled?: boolean;
     onchange?: (value: string) => void;
   }
 
-  let { value, options, placeholder = 'Seleccionar...', ariaLabel, onchange }: Props = $props();
+  let {
+    value,
+    options,
+    placeholder = 'Seleccionar...',
+    ariaLabel,
+    disabled = false,
+    onchange,
+  }: Props = $props();
 
   const select = new SelectBuilder<string>({
     sameWidth: false,
@@ -31,7 +39,7 @@
   const selectedLabel = $derived(options.find((o) => o.value === value)?.label);
 </script>
 
-<button type="button" {...select.trigger} class="trigger" aria-label={ariaLabel}>
+<button type="button" {...select.trigger} class="trigger" aria-label={ariaLabel} {disabled}>
   <span class="text" class:placeholder={!selectedLabel}>{selectedLabel ?? placeholder}</span>
   <ChevronDown size={14} />
 </button>
@@ -63,7 +71,13 @@
     cursor: pointer;
   }
 
-  .trigger:hover {
+  .trigger:disabled {
+    background: var(--color-neutral-100);
+    color: var(--color-text-secondary);
+    cursor: default;
+  }
+
+  .trigger:hover:not(:disabled) {
     border-color: var(--color-primary-500);
   }
 
