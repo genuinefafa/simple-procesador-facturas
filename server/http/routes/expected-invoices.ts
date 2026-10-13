@@ -14,25 +14,19 @@ import {
   ExpectedInvoiceRepository,
   type ExpectedInvoiceStatus,
 } from '../../database/repositories/expected-invoice';
-import { InvoiceRepository } from '../../database/repositories/invoice';
-import { EmitterRepository } from '../../database/repositories/emitter';
-import { FileRepository } from '../../database/repositories/file';
 import { getExpectedInvoiceRepository, createExcelImportService } from '../../factories';
-import { createComprobanteService } from '../../factories';
+import { createComprobanteService, createInvoiceCreationService } from '../../factories';
+import { buildArcaBreakdown } from '../../utils/expected-tax-lines';
 import {
   BalanceGroupAddSchema,
   BalanceGroupSetPrincipalSchema,
   ExpectedInvoicePatchSchema,
+  CreateInvoiceFromExpectedSchema,
   formatZodError,
   type BalanceGroupMember,
   type BalanceGroupResponse,
 } from '../../contracts';
-import { getPersonType } from '@shared/validators/cuit';
-import {
-  checkLinkConflicts,
-  isUniqueViolation,
-  UNIQUE_VIOLATION_MESSAGE,
-} from '../../services/invoice-link-guard';
+import { isUniqueViolation, UNIQUE_VIOLATION_MESSAGE } from '../../services/invoice-link-guard';
 
 const balanceRepo = new ExpectedInvoiceRepository();
 
@@ -630,113 +624,48 @@ expectedInvoicesRouter.delete('/:id/balance/:memberId', async (c) => {
 });
 
 // POST /api/expected-invoices/:id/match
+// Creates the invoice entirely from ARCA data (incl. tax breakdown) + the file.
 expectedInvoicesRouter.post('/:id/match', async (c) => {
-  const id = c.req.param('id');
-  console.info(`\n🔗 [API] POST /api/expected-invoices/${id}/match`);
+  const id = parseInt(c.req.param('id'), 10);
+  if (isNaN(id)) {
+    return c.json({ success: false, error: 'ID inválido' }, 400);
+  }
 
   try {
-    const body = await c.req.json<{ fileId?: number; confirmed?: boolean }>();
-    const { fileId, confirmed } = body;
-
-    if (!fileId || confirmed === undefined) {
-      return c.json(
-        {
-          success: false,
-          error: 'Faltan parámetros: fileId y confirmed son requeridos',
-        },
-        400
-      );
+    const raw: unknown = await c.req.json().catch(() => null);
+    const parsedBody = CreateInvoiceFromExpectedSchema.safeParse(raw);
+    if (!parsedBody.success) {
+      return c.json(formatZodError(parsedBody.error), { status: 400 });
     }
+    const { fileId, categoryId, otherTaxLines } = parsedBody.data;
 
-    console.info(`   📋 Expected Invoice ID: ${id}`);
-    console.info(`   📄 File ID: ${fileId}`);
-    console.info(`   ✅ Confirmado: ${confirmed}`);
-
-    if (!confirmed) {
-      console.info(`   ⏭️  Match rechazado por usuario`);
-      return c.json({
-        success: true,
-        message: 'Match rechazado',
-      });
-    }
-
-    const expectedRepo = new ExpectedInvoiceRepository();
-    const expected = await expectedRepo.findById(parseInt(id, 10));
-
-    if (!expected) {
-      return c.json({ success: false, error: 'Factura esperada no encontrada' }, 404);
-    }
-
-    const fileRepo = new FileRepository();
-    const file = fileRepo.findById(fileId);
-
-    if (!file) {
-      return c.json({ success: false, error: 'Archivo no encontrado' }, 404);
-    }
-
-    console.info(`   💾 Creando factura desde datos del Excel AFIP...`);
-
-    const emitterRepo = new EmitterRepository();
-    let emitter = emitterRepo.findByCUIT(expected.cuit);
-
-    if (!emitter) {
-      console.info(`   ➕ Creando nuevo emisor: ${expected.cuit}`);
-      const personType = getPersonType(expected.cuit);
-
-      emitter = emitterRepo.create({
-        cuit: expected.cuit,
-        name: expected.emitterName || `Emisor ${expected.cuit}`,
-        aliases: [],
-        personType: personType || undefined,
-      });
-    }
-
-    const invoiceRepo = new InvoiceRepository();
-
-    // Link integrity (#203): number, expected and file must all be free
-    const conflict = await checkLinkConflicts(invoiceRepo, {
-      emitterCuit: emitter.cuit,
-      invoiceType: expected.invoiceType,
-      pointOfSale: expected.pointOfSale,
-      invoiceNumber: expected.invoiceNumber,
-      expectedInvoiceId: expected.id,
-      fileId,
+    const service = createInvoiceCreationService();
+    const result = await service.createFromExpected(id, fileId, {
+      categoryId,
+      otherTaxLines,
     });
 
-    if (conflict) {
-      console.warn(`   ⚠️  ${conflict}`);
-      return c.json({ success: false, error: conflict }, 409);
+    if (!result.success) {
+      if (result.errorCode === 'validation' && result.validationError) {
+        return c.json(formatZodError(result.validationError), { status: 400 });
+      }
+      const status =
+        result.errorCode === 'not_found'
+          ? 404
+          : result.errorCode === 'conflict'
+            ? 409
+            : result.errorCode === 'validation'
+              ? 400
+              : 500;
+      return c.json({ success: false, error: result.error }, status);
     }
 
-    const invoice = await invoiceRepo.create({
-      emitterCuit: emitter.cuit,
-      issueDate: expected.issueDate,
-      invoiceType: expected.invoiceType,
-      pointOfSale: expected.pointOfSale,
-      invoiceNumber: expected.invoiceNumber,
-      total: expected.total || undefined,
-      fileId: fileId,
-      expectedInvoiceId: expected.id,
-    });
-
-    console.info(`   ✅ Factura creada - ID: ${invoice.id}`);
-
-    fileRepo.updateStatus(fileId, 'processed');
-    console.info(`   🔗 Archivo marcado como procesado`);
-
-    await expectedRepo.refreshStatus(parseInt(id, 10));
-    console.info(`   ✅ Factura esperada marcada como matched`);
-
-    return c.json({
-      success: true,
-      invoice,
-      message: 'Factura creada exitosamente desde Excel AFIP',
-    });
+    return c.json({ success: true, invoice: result.invoice }, 201);
   } catch (error) {
     if (isUniqueViolation(error)) {
       return c.json({ success: false, error: UNIQUE_VIOLATION_MESSAGE }, 409);
     }
-    console.error('   ❌ Error al confirmar match:', error);
+    console.error('Error al crear factura desde esperada:', error);
     return c.json(
       {
         success: false,
@@ -745,6 +674,28 @@ expectedInvoicesRouter.post('/:id/match', async (c) => {
       500
     );
   }
+});
+
+// GET /api/expected-invoices/:id/arca-breakdown
+expectedInvoicesRouter.get('/:id/arca-breakdown', async (c) => {
+  const id = parseInt(c.req.param('id'), 10);
+  if (isNaN(id)) {
+    return c.json({ success: false, error: 'ID inválido' }, 400);
+  }
+  const expected = await new ExpectedInvoiceRepository().findById(id);
+  if (!expected) {
+    return c.json({ success: false, error: 'Factura esperada no encontrada' }, 404);
+  }
+  const { fixed, others } = buildArcaBreakdown(expected);
+  return c.json({
+    expectedId: expected.id,
+    total: expected.total,
+    invoiceType: expected.invoiceType,
+    currency: expected.currency ?? 'ARS',
+    fixed,
+    others,
+    arcaOtherTaxes: Math.abs(expected.otherTaxes ?? 0),
+  });
 });
 
 // GET /api/expected-invoices/:id

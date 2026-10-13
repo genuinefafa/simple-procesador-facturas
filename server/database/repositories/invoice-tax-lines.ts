@@ -29,6 +29,20 @@ export interface InvoiceTaxContext {
   expectedInvoiceId: number | null;
 }
 
+/** Minimal shape of a drizzle transaction/db handle able to insert tax lines. */
+type TaxLinesTx = Pick<ReturnType<typeof getDb>, 'insert'>;
+
+/**
+ * Inserts the breakdown lines of an invoice using the given transaction (sync).
+ * No-op for an empty array.
+ */
+export function insertTaxLines(tx: TaxLinesTx, invoiceId: number, lines: TaxLineInsert[]): void {
+  if (lines.length === 0) return;
+  tx.insert(invoiceTaxLines)
+    .values(lines.map((l) => ({ ...l, invoiceId })))
+    .run();
+}
+
 export interface IInvoiceTaxLinesRepository {
   findInvoiceContext(invoiceId: number): Promise<InvoiceTaxContext | null>;
   findByInvoiceId(invoiceId: number): Promise<InvoiceTaxLine[]>;
@@ -99,11 +113,7 @@ export class InvoiceTaxLinesRepository implements IInvoiceTaxLinesRepository {
   async replaceForInvoice(invoiceId: number, lines: TaxLineInsert[]): Promise<InvoiceTaxLine[]> {
     getDb().transaction((tx) => {
       tx.delete(invoiceTaxLines).where(eq(invoiceTaxLines.invoiceId, invoiceId)).run();
-      if (lines.length > 0) {
-        tx.insert(invoiceTaxLines)
-          .values(lines.map((l) => ({ ...l, invoiceId })))
-          .run();
-      }
+      insertTaxLines(tx, invoiceId, lines);
     });
     return this.findByInvoiceId(invoiceId);
   }

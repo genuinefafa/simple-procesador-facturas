@@ -5,7 +5,21 @@
 import { eq, ne, and, count, or, like, isNull, type SQL } from 'drizzle-orm';
 import { getDb } from '../db';
 import { facturas, type Factura } from '../schema';
+import { insertTaxLines, type TaxLineInsert } from './invoice-tax-lines';
 import type { InvoiceType, Currency } from '@shared/types';
+
+export type InvoiceCreateData = {
+  emitterCuit: string;
+  issueDate: Date | string;
+  invoiceType: InvoiceType;
+  pointOfSale: number;
+  invoiceNumber: number;
+  total?: number;
+  currency?: Currency;
+  fileId: number;
+  expectedInvoiceId?: number;
+  categoryId?: number;
+};
 
 /**
  * Interface for InvoiceRepository - enables dependency injection and testing
@@ -23,6 +37,7 @@ export interface IInvoiceRepository {
     expectedInvoiceId?: number;
     categoryId?: number;
   }): Promise<Invoice>;
+  createWithTaxLines(data: InvoiceCreateData, lines: TaxLineInsert[]): Promise<Invoice>;
   findById(id: number): Promise<Invoice | null>;
   findByFileId(fileId: number): Promise<Invoice[]>;
   findByExpectedInvoiceId(expectedInvoiceId: number): Promise<Invoice[]>;
@@ -150,6 +165,45 @@ export class InvoiceRepository implements IInvoiceRepository {
     }
 
     return this.mapDrizzleToInvoice(result[0]!);
+  }
+
+  /**
+   * Creates the invoice and its tax breakdown in ONE transaction: either both
+   * exist or none does.
+   */
+  createWithTaxLines(data: InvoiceCreateData, lines: TaxLineInsert[]): Promise<Invoice> {
+    return Promise.resolve().then(() => this.createWithTaxLinesSync(data, lines));
+  }
+
+  private createWithTaxLinesSync(data: InvoiceCreateData, lines: TaxLineInsert[]): Invoice {
+    const issueDateStr: string =
+      typeof data.issueDate === 'string'
+        ? data.issueDate
+        : data.issueDate.toISOString().slice(0, 10);
+
+    const row = getDb().transaction((tx) => {
+      const created = tx
+        .insert(facturas)
+        .values({
+          emisorCuit: data.emitterCuit,
+          fechaEmision: issueDateStr,
+          tipoComprobante: data.invoiceType,
+          puntoVenta: data.pointOfSale,
+          numeroComprobante: data.invoiceNumber,
+          total: data.total ?? null,
+          moneda: data.currency || 'ARS',
+          fileId: data.fileId,
+          expectedInvoiceId: data.expectedInvoiceId ?? null,
+          categoryId: data.categoryId ?? null,
+        })
+        .returning()
+        .get();
+      if (!created) throw new Error('Failed to create invoice');
+      insertTaxLines(tx, created.id, lines);
+      return created;
+    });
+
+    return this.mapDrizzleToInvoice(row);
   }
 
   async findById(id: number): Promise<Invoice | null> {
