@@ -223,11 +223,11 @@
     void load();
   });
 
-  /** `useSuggestion` is true only for the explicit "Copiar desde ARCA" action. */
-  function startEdit(useSuggestion = false): void {
+  /** Without own lines, the form starts from the ARCA suggestion when there is one. */
+  function startEdit(): void {
     saveError = null;
     const hasOwnLines = !!data && data.lines.length > 0;
-    const suggested = !hasOwnLines && useSuggestion ? suggestion : null;
+    const suggested = !hasOwnLines ? suggestion : null;
     const source: TaxLineInput[] = hasOwnLines ? data!.lines : (suggested ?? []);
     prefilled = suggested !== null;
     rows = source.map((l) => toRow(l));
@@ -592,8 +592,8 @@
         <div class="notice" role="status">
           <Info size={14} />
           <span>
-            Precargado desde ARCA: revisá los importes antes de guardar. Las percepciones vienen
-            agrupadas en Otros tributos; podés reclasificarlas.
+            Precargado desde ARCA. Otros tributos puede agrupar distintos conceptos; se sugiere
+            detallarlos.
           </span>
         </div>
       {/if}
@@ -822,16 +822,7 @@
       <Button size="sm" variant="secondary" onclick={() => startEdit()}>Cargar desglose</Button>
     </div>
     {#if suggestion}
-      <div class="notice" role="status">
-        <Info size={14} />
-        <span>
-          ARCA informó el desglose de este comprobante. Podés copiarlo al formulario, revisarlo y
-          guardarlo.
-        </span>
-        <Button size="sm" variant="secondary" onclick={() => startEdit(true)}>
-          Copiar desde ARCA
-        </Button>
-      </div>
+      <p class="muted">Se precarga con el desglose informado por ARCA.</p>
     {/if}
   {:else}
     <table class="lines">
