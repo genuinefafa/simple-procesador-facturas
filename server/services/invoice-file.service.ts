@@ -13,9 +13,9 @@
  * - InvoiceCreationService
  */
 
-import { existsSync, readdirSync, statSync } from 'fs';
+import { constants, existsSync, readdirSync, statSync } from 'fs';
 import { copyFile, mkdir, rename } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { FileRepository, type IFileRepository } from '../database/repositories/file.js';
 import { CategoryRepository, type ICategoryRepository } from '../database/repositories/category.js';
 import { generateProcessedFilename, generateSubdirectory } from '../utils/file-naming.js';
@@ -215,12 +215,28 @@ export class InvoiceFileService {
       categoryKey
     );
 
+    // Already at its canonical path (e.g. invoice deleted and recreated with the
+    // same data): copying a file onto itself deletes or truncates it. See #212
+    if (resolve(sourcePath) === resolve(absolutePath)) {
+      console.log(`[InvoiceFileService] ℹ️ Archivo ya está en la ubicación correcta`);
+      this.fileRepo.updatePath(fileId, relativePath);
+      this.fileRepo.updateStatus(fileId, 'processed');
+      return { success: true, newPath: absolutePath, oldPath: sourcePath, relativePath };
+    }
+
+    if (existsSync(absolutePath)) {
+      return {
+        success: false,
+        error: `Ya existe otro archivo en la ruta destino: ${relativePath}`,
+      };
+    }
+
     try {
       // Crear directorio destino si no existe
       await mkdir(join(FINALIZED_DIR, subdir), { recursive: true });
 
-      // Copiar archivo
-      await copyFile(sourcePath, absolutePath);
+      // COPYFILE_EXCL: never overwrite an existing file (race or case-only match)
+      await copyFile(sourcePath, absolutePath, constants.COPYFILE_EXCL);
       console.log(`[InvoiceFileService] ✅ Archivo copiado: ${sourcePath} -> ${absolutePath}`);
 
       // Actualizar storagePath en DB
@@ -273,9 +289,17 @@ export class InvoiceFileService {
     } = this.generateCanonicalPath(invoice, emitter, file.originalFilename, categoryKey);
 
     // Si la ruta es la misma, no hacer nada
-    if (currentPath === newPath) {
+    if (resolve(currentPath) === resolve(newPath)) {
       console.log(`[InvoiceFileService] ℹ️ Archivo ya está en la ubicación correcta`);
       return { success: true, newPath, relativePath };
+    }
+
+    // rename() silently replaces an existing destination: refuse instead. See #212
+    if (existsSync(newPath)) {
+      return {
+        success: false,
+        error: `Ya existe otro archivo en la ruta destino: ${relativePath}`,
+      };
     }
 
     try {
@@ -291,7 +315,7 @@ export class InvoiceFileService {
         console.log(`[InvoiceFileService] ✅ Archivo movido: ${currentPath} -> ${newPath}`);
       } else {
         // Copiar desde uploaded/input (preservar original)
-        await copyFile(currentPath, newPath);
+        await copyFile(currentPath, newPath, constants.COPYFILE_EXCL);
         console.log(
           `[InvoiceFileService] ✅ Archivo copiado desde uploaded: ${currentPath} -> ${newPath}`
         );
