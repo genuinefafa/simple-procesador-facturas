@@ -83,8 +83,9 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 |-------|--------|--------|
 | #192 | Unificar mapas de códigos ARCA (`@shared/arca`) | ✅ PR #208 |
 | #192 | Línea "No discriminado" para B/C/sin letra (suma a neto, no a crédito) | ✅ PR #210 |
-| - | Crear factura desde ARCA (botón único) con desglose en la misma operación | 🔄 PR en revisión |
+| - | Crear factura desde ARCA (botón único) con desglose en la misma operación | ✅ PR #216 |
 | #215 | Avisar cuando ARCA todavía no publicó el período del comprobante | Pendiente |
+| #217 | Repensar UX del detalle: creación desde ARCA y editor de desglose | Pendiente |
 | #209 | Drizzle 1.0 RC + reparar tracking de migraciones en producción | Pendiente |
 | #211 | Unificar lista de conceptos de desglose en `shared/` | Pendiente |
 | #206 | Tique factura A (81): desglose ARCA no suma el total | Pendiente |
