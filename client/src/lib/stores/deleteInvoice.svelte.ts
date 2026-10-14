@@ -35,6 +35,9 @@ export function createDeleteHandler() {
 
         if (response.ok && data.success) {
           toast.success(data.message, { id: toastId });
+          if (data.fileReleaseWarning) {
+            toast.warning(data.fileReleaseWarning);
+          }
           if (comprobante.file?.id) {
             await goto(`/comprobantes/file:${comprobante.file.id}`);
           } else if (comprobante.expected?.id) {

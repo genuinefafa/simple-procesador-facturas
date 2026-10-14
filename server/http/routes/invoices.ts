@@ -972,6 +972,8 @@ invoicesRouter.patch('/:id', async (c) => {
       categoryId: updates.categoryId,
     };
 
+    let fileRenameWarning: string | undefined;
+
     if (fileService.shouldRenameFile(renameCheckFields) && final && final.fileId) {
       try {
         const emitterRepo = new EmitterRepository();
@@ -979,6 +981,7 @@ invoicesRouter.patch('/:id', async (c) => {
 
         if (!emitter) {
           console.warn(`[PATCH] Emisor no encontrado: ${final.emitterCuit}`);
+          fileRenameWarning = 'No se pudo renombrar el archivo: emisor no encontrado';
         } else {
           const result = await fileService.renameWithCategoryResolution(
             final.fileId,
@@ -996,10 +999,12 @@ invoicesRouter.patch('/:id', async (c) => {
 
           if (!result.success) {
             console.warn(`[PATCH] No se pudo renombrar archivo: ${result.error}`);
+            fileRenameWarning = `No se pudo renombrar el archivo: ${result.error}`;
           }
         }
       } catch (err) {
         console.error('[PATCH] Error renombrando archivo:', err);
+        fileRenameWarning = 'No se pudo renombrar el archivo por un error inesperado';
       }
     }
 
@@ -1007,6 +1012,7 @@ invoicesRouter.patch('/:id', async (c) => {
       success: true,
       message: 'Factura actualizada correctamente',
       invoice: final,
+      fileRenameWarning,
     });
   } catch (error) {
     if (isUniqueViolation(error)) {
@@ -1040,6 +1046,20 @@ invoicesRouter.delete('/:id', async (c) => {
       return c.json({ success: false, error: result.error }, 404);
     }
 
+    // Don't leave the finalized copy orphaned: put the file back in input/
+    // (only when no other invoice still uses it)
+    let fileReleaseWarning: string | undefined;
+    if (result.unlinkedFile) {
+      const remaining = await invoiceRepo.findByFileId(result.unlinkedFile);
+      if (remaining.length === 0) {
+        const release = await new InvoiceFileService().releaseFinalizedFile(result.unlinkedFile);
+        if (!release.success) {
+          fileReleaseWarning = `La factura se eliminó, pero no se pudo liberar el archivo finalizado: ${release.error}`;
+          console.warn(`[DELETE] ${fileReleaseWarning}`);
+        }
+      }
+    }
+
     const messages: string[] = ['Factura eliminada correctamente'];
     if (result.unlinkedExpected) {
       messages.push(
@@ -1055,6 +1075,7 @@ invoicesRouter.delete('/:id', async (c) => {
       message: messages.join('. '),
       unlinkedExpected: result.unlinkedExpected,
       unlinkedFile: result.unlinkedFile,
+      fileReleaseWarning,
     });
   } catch (error) {
     console.error('Error deleting invoice:', error);
