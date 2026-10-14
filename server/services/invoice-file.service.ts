@@ -14,16 +14,18 @@
  */
 
 import { constants, existsSync, readdirSync, statSync } from 'fs';
-import { copyFile, mkdir, rename } from 'fs/promises';
-import { join, resolve } from 'path';
+import { copyFile, mkdir, rename, unlink } from 'fs/promises';
+import { basename, extname, join, resolve } from 'path';
 import { FileRepository, type IFileRepository } from '../database/repositories/file.js';
 import { CategoryRepository, type ICategoryRepository } from '../database/repositories/category.js';
+import { calculateFileHash } from '../utils/file-hash.js';
 import { generateProcessedFilename, generateSubdirectory } from '../utils/file-naming.js';
 import type { Emitter, InvoiceType } from '@shared/types';
 
 const PROJECT_ROOT = join(import.meta.dirname, '..', '..');
 const DATA_DIR = join(PROJECT_ROOT, 'data');
 const FINALIZED_DIR = join(DATA_DIR, 'finalized');
+const INPUT_DIR = join(DATA_DIR, 'input');
 
 /**
  * Datos de factura necesarios para operaciones de archivo
@@ -87,6 +89,9 @@ export class InvoiceFileService {
    * Busca un archivo en finalized/ por datos de factura.
    * Útil cuando storagePath en DB no coincide con el archivo real
    * (por ejemplo, después de un cambio de fecha o categoría).
+   *
+   * TODO: See issue #218 — matches by name only, so it may pick an orphan file;
+   * it should be restricted by file hash once orphans can be detected.
    */
   findFileByInvoiceData(cuit: string, _tipo: number, pv: number, num: number): string | null {
     try {
@@ -252,6 +257,72 @@ export class InvoiceFileService {
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       console.error(`[InvoiceFileService] ❌ Error copiando archivo: ${errorMsg}`);
+      return { success: false, error: errorMsg };
+    }
+  }
+
+  /**
+   * Releases the finalized copy of a file whose invoice was deleted/unlinked.
+   *
+   * The upload flow keeps the original in input/<originalFilename> (copyToFinalized
+   * copies, it does not move), so we first look for that copy and verify it by
+   * SHA-256. If it is gone we copy the finalized file back into input/ under a
+   * non-colliding name. Only after the DB points at an existing input file is the
+   * finalized copy removed: a failure never leaves the DB pointing at a missing
+   * file and the only copy is never deleted.
+   */
+  async releaseFinalizedFile(fileId: number): Promise<FileOperationResult> {
+    const file = this.fileRepo.findById(fileId);
+    if (!file) {
+      return { success: false, error: 'Archivo no encontrado en base de datos' };
+    }
+    if (!file.storagePath.startsWith('finalized/')) {
+      return { success: true, relativePath: file.storagePath };
+    }
+
+    const finalizedAbs = join(DATA_DIR, file.storagePath);
+    const finalizedExists = existsSync(finalizedAbs);
+
+    try {
+      const expectedHash =
+        file.fileHash || (finalizedExists ? (await calculateFileHash(finalizedAbs)).hash : null);
+
+      // 1. Original upload copy, verified by hash
+      const safeName = basename(file.originalFilename);
+      const candidate = join(INPUT_DIR, safeName);
+      let inputAbs: string | null = null;
+      if (expectedHash && existsSync(candidate)) {
+        if ((await calculateFileHash(candidate)).hash === expectedHash) {
+          inputAbs = candidate;
+        }
+      }
+
+      // 2. No usable input copy: restore from the finalized file
+      if (!inputAbs) {
+        if (!finalizedExists) {
+          return { success: false, error: 'No se encontró ninguna copia del archivo' };
+        }
+        await mkdir(INPUT_DIR, { recursive: true });
+        const ext = extname(safeName);
+        const base = safeName.slice(0, safeName.length - ext.length);
+        let target = join(INPUT_DIR, safeName);
+        for (let n = 1; existsSync(target); n++) {
+          target = join(INPUT_DIR, `${base}.restored-${n}${ext}`);
+        }
+        await copyFile(finalizedAbs, target, constants.COPYFILE_EXCL);
+        inputAbs = target;
+      }
+
+      // 3. Point the DB at the input file, then drop the finalized copy
+      this.fileRepo.updatePath(fileId, `input/${basename(inputAbs)}`);
+      this.fileRepo.updateStatus(fileId, 'uploaded');
+      if (finalizedExists) {
+        await unlink(finalizedAbs);
+      }
+      return { success: true, newPath: inputAbs, oldPath: finalizedAbs };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`[InvoiceFileService] ❌ Error liberando archivo finalizado: ${errorMsg}`);
       return { success: false, error: errorMsg };
     }
   }
