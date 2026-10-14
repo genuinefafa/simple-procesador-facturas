@@ -1023,7 +1023,7 @@
 
   .row {
     display: grid;
-    grid-template-columns: minmax(170px, 1.25fr) minmax(120px, 1.15fr) minmax(90px, 0.9fr) auto;
+    grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.15fr) minmax(80px, 0.9fr) auto;
     gap: var(--spacing-2);
     align-items: center;
     padding: var(--spacing-2);
