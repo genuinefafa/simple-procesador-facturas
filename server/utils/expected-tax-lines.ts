@@ -146,3 +146,43 @@ export function parseAmount(raw: unknown): number | null {
   const n = parseFloat(s);
   return Number.isFinite(n) ? n : null;
 }
+
+/** Tax line as stored in the silver layer (label only for "otros tributos"). */
+export interface BreakdownLine {
+  concept: ExpectedTaxLineConcept | 'VAT_PERCEPTION' | 'IIBB_PERCEPTION';
+  rate: number | null;
+  amount: number;
+  label: string | null;
+}
+
+export interface ArcaBreakdown {
+  /** Lines fixed by ARCA (everything except the "otros tributos" detail) */
+  fixed: BreakdownLine[];
+  /** Editable "otros tributos" detail (ARCA default: one OTHER_TAXES line) */
+  others: BreakdownLine[];
+  /** fixed + others */
+  lines: BreakdownLine[];
+}
+
+/**
+ * Builds the invoice breakdown from an expected invoice (ARCA is the frame).
+ * Only the detail of "otros tributos" can be replaced via `otherTaxLines`;
+ * sum/letter validation is up to `makeTaxLinesBodySchema`.
+ */
+export function buildArcaBreakdown(
+  expected: ExpectedTaxSource,
+  otherTaxLines?: BreakdownLine[]
+): ArcaBreakdown {
+  const fixed: BreakdownLine[] = (expectedToTaxLines(expected, expected.invoiceType) ?? [])
+    .filter((l) => l.concept !== 'OTHER_TAXES')
+    .map((l) => ({ ...l, label: null }));
+
+  const arcaOtherTaxes = Math.abs(expected.otherTaxes ?? 0);
+  const others: BreakdownLine[] =
+    otherTaxLines ??
+    (arcaOtherTaxes > 0
+      ? [{ concept: 'OTHER_TAXES', rate: null, amount: arcaOtherTaxes, label: null }]
+      : []);
+
+  return { fixed, others, lines: [...fixed, ...others] };
+}

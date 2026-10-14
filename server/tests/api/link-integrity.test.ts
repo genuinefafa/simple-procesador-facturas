@@ -5,7 +5,9 @@
  * valid check digit (from-file validates it).
  */
 
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { join } from 'path';
 import { getRawDb } from '../../database/db.js';
 import { cleanupTestDb, runTestMigrations, resetTestDb } from '../../database/db-test.js';
 import { ExpectedInvoiceRepository } from '../../database/repositories/expected-invoice.js';
@@ -16,8 +18,26 @@ const CUIT = '30123456781';
 const CUIT_FORMATTED = '30-12345678-1';
 let nextId = 1;
 
-function insertFile(): number {
+// /:id/match copies the file to data/finalized/: use physical files under a
+// year no real invoice uses and remove them afterwards
+const DATA_DIR = join(import.meta.dirname, '..', '..', '..', 'data');
+const INPUT_DIR = join(DATA_DIR, 'input', '__test_link_integrity__');
+const FINALIZED_DIR = join(DATA_DIR, 'finalized', '1999-03');
+
+function insertFile(physical = false): number {
   const n = nextId++;
+  if (physical) {
+    mkdirSync(INPUT_DIR, { recursive: true });
+    writeFileSync(join(INPUT_DIR, `test-${n}.pdf`), `pdf-${n}`);
+    return Number(
+      getRawDb()
+        .prepare(
+          `INSERT INTO files (original_filename, file_type, file_hash, storage_path, status)
+           VALUES (?, 'pdf', ?, ?, 'uploaded')`
+        )
+        .run(`test-${n}.pdf`, `hash-${n}`, join(INPUT_DIR, `test-${n}.pdf`)).lastInsertRowid
+    );
+  }
   return Number(
     getRawDb()
       .prepare(
@@ -34,7 +54,7 @@ function insertExpected(invoiceNumber: number): number {
       .prepare(
         `INSERT INTO expected_invoices
            (cuit, issue_date, invoice_type, point_of_sale, invoice_number, total, status)
-         VALUES (?, '2026-03-10', 1, 1, ?, 121, 'pending')`
+         VALUES (?, '1999-03-10', 1, 1, ?, 121, 'pending')`
       )
       .run(CUIT, invoiceNumber).lastInsertRowid
   );
@@ -85,6 +105,11 @@ const fromFile = (fileId: number, invoiceNumber: number, expectedId?: number): P
       total: 121,
     },
   });
+
+afterAll(() => {
+  rmSync(INPUT_DIR, { recursive: true, force: true });
+  rmSync(FINALIZED_DIR, { recursive: true, force: true });
+});
 
 describe('Link integrity (#203)', () => {
   beforeAll(async () => {
@@ -216,14 +241,13 @@ describe('Link integrity (#203)', () => {
   describe('POST /api/expected-invoices/:id/match', () => {
     it('stores expectedInvoiceId on the created invoice', async () => {
       const expectedId = insertExpected(1000);
-      const fileId = insertFile();
+      const fileId = insertFile(true);
 
       const res = await send('POST', `/api/expected-invoices/${expectedId}/match`, {
         fileId,
-        confirmed: true,
       });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(201);
       const row = getRawDb()
         .prepare('SELECT expected_invoice_id FROM facturas WHERE file_id = ?')
         .get(fileId) as { expected_invoice_id: number };
@@ -238,7 +262,6 @@ describe('Link integrity (#203)', () => {
 
       const res = await send('POST', `/api/expected-invoices/${expectedId}/match`, {
         fileId,
-        confirmed: true,
       });
 
       expect(res.status).toBe(409);

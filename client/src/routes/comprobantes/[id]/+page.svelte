@@ -8,6 +8,7 @@
   import NavigationBar from '$lib/components/NavigationBar.svelte';
   import SourceComparison from '$lib/components/SourceComparison.svelte';
   import InvoiceCard from '$lib/components/InvoiceCard.svelte';
+  import CreateFromArcaPanel from '$lib/components/CreateFromArcaPanel.svelte';
   import EmitterCombobox from '$lib/components/EmitterCombobox.svelte';
   import BalanceGroupPanel from '$lib/components/BalanceGroupPanel.svelte';
   import type { PageData } from './$types';
@@ -43,6 +44,8 @@
   const deleteHandler = createDeleteHandler();
 
   let processing = $state(false);
+  // Creating the invoice straight from the ARCA expected (file + expected present)
+  let creatingFromArca = $state(false);
 
   // Tax breakdown comparison with ARCA: URL is the source of truth (?compare=desglose)
   const comparingBreakdown = $derived(page.url.searchParams.get('compare') === 'desglose');
@@ -767,7 +770,7 @@
     <DuplicateHashAlert {fileHash} {currentId} {currentType} {linkedFileId} {linkedInvoiceId} />
   {/if}
 
-  <div class="layout" class:has-invoice={comprobante.final}>
+  <div class="layout" class:has-invoice={comprobante.final || creatingFromArca}>
     <!-- Columna izquierda: Preview -->
     <aside class="preview-panel">
       {#if fileUrl}
@@ -792,13 +795,21 @@
             expected={bestExpected}
             alternativeExpected={alternativeCandidates}
             readonly={isExpectedWithoutFile}
-            oncreatefromfile={() => {
-              if (comprobante.file) {
-                invoiceForm.populateFromFile(comprobante.file);
-              }
-            }}
+            oncreatefromfile={bestExpected
+              ? undefined
+              : () => {
+                  if (comprobante.file) {
+                    invoiceForm.populateFromFile(comprobante.file);
+                  }
+                }}
             oncreatefromexpected={async () => {
               if (!bestExpected) return;
+              // With a file, the invoice is a link expected<->file: all data comes from ARCA
+              if (comprobante.file) {
+                invoiceForm.reset();
+                creatingFromArca = true;
+                return;
+              }
               const emitterName = await emitterResolver.resolve(bestExpected.cuit);
               if (emitterName === null) return;
               invoiceForm.populateFromExpected(bestExpected, emitterName);
@@ -962,6 +973,18 @@
             />
           </section>
         {/if}
+
+        <!-- Sin factura + file + expected: crear desde ARCA (datos de solo lectura) -->
+      {:else if !isExpectedWithoutFile && comprobante.file && bestExpected && creatingFromArca}
+        <section class="section factura-section">
+          <CreateFromArcaPanel
+            expected={bestExpected}
+            fileId={comprobante.file.id}
+            {categories}
+            categoryId={bestExpected.categoryId ?? comprobante.file.categoryId ?? null}
+            oncancel={() => (creatingFromArca = false)}
+          />
+        </section>
 
         <!-- Sin factura + editMode: InvoiceCard en modo create -->
       {:else if !isExpectedWithoutFile && invoiceForm.editMode}
@@ -1274,7 +1297,8 @@
     overflow: hidden;
   }
 
-  /* Cuando hay factura, dar un poco más de espacio al content */
+  /* Cuando hay factura (o se crea desde ARCA), más espacio al content: el
+     editor de desglose necesita ~430px */
   .layout.has-invoice {
     grid-template-columns: 1fr minmax(440px, 520px);
   }
