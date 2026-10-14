@@ -900,6 +900,9 @@
               const result = await comprobanteService.updateInvoice(comprobante.final.id, data);
               if (result.success) {
                 toast.success('Factura actualizada', { id: toastId });
+                for (const warning of result.warnings ?? []) {
+                  toast.warning(warning);
+                }
                 await invalidateAll();
               } else {
                 toast.error(result.error || 'Error al guardar', { id: toastId });

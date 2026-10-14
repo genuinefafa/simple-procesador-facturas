@@ -252,7 +252,8 @@ class ComprobanteService {
       });
 
       if (response.ok) {
-        return { success: true };
+        const data = (await response.json().catch(() => ({}))) as { fileRenameWarning?: string };
+        return { success: true, warnings: data.fileRenameWarning ? [data.fileRenameWarning] : [] };
       }
       const err = await response.json();
       return { success: false, error: err.error || 'Error al guardar' };
