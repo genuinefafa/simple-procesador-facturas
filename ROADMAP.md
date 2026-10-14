@@ -86,7 +86,8 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | - | Crear factura desde ARCA (botón único) con desglose en la misma operación | ✅ PR #216 |
 | #215 | Avisar cuando ARCA todavía no publicó el período del comprobante | Pendiente |
 | #217 | Repensar UX del detalle: creación desde ARCA y editor de desglose | Pendiente |
-| #218 | Detector de archivos huérfanos en finalized/ (y resync global de nombres) | Pendiente |
+| - | Eliminar factura no deja huérfano en finalized/ + aviso si falla el rename | ✅ PR #219 |
+| #218 | Detector de archivos huérfanos en finalized/ (y resync global de nombres) | Pendiente (limpieza manual hecha 2026-10-14) |
 | #209 | Drizzle 1.0 RC + reparar tracking de migraciones en producción | Pendiente |
 | #211 | Unificar lista de conceptos de desglose en `shared/` | Pendiente |
 | #206 | Tique factura A (81): desglose ARCA no suma el total | Pendiente |
