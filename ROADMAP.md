@@ -90,7 +90,8 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | #218 | Detector de archivos huérfanos en finalized/ (y resync global de nombres) | Pendiente (limpieza manual hecha 2026-10-14) |
 | #209 | Drizzle 1.0 RC + reparar tracking de migraciones en producción | Pendiente |
 | #211 | Unificar lista de conceptos de desglose en `shared/` | Pendiente |
-| #206 | Tique factura A (81): desglose ARCA no suma el total | Pendiente |
+| #206 | Tique factura A (81): desglose ARCA no suma el total | Pendiente (propuesta: marca "desglose validado manualmente") |
+| #221 | Tique factura A (81) se reconoce como Factura A (1) al leer el PDF | Pendiente |
 | #212 | Crear factura desde archivo ya finalizado borra el archivo (copyFile origen = destino) | ✅ PR #214 |
 | #213 | Rediseñar comparación archivo ↔ esperada del pendiente | Pendiente |
 
