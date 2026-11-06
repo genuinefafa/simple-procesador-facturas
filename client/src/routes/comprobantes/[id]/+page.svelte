@@ -3,6 +3,7 @@
   import Dialog from '$lib/components/ui/Dialog.svelte';
   import InvoiceTaxBreakdown from '$lib/components/InvoiceTaxBreakdown.svelte';
   import TaxBreakdownComparison from '$lib/components/TaxBreakdownComparison.svelte';
+  import ConsistencyAlert from '$lib/components/ConsistencyAlert.svelte';
   import FilePreview from '$lib/components/FilePreview.svelte';
   import DuplicateHashAlert from '$lib/components/DuplicateHashAlert.svelte';
   import NavigationBar from '$lib/components/NavigationBar.svelte';
@@ -938,6 +939,20 @@
               </button>
             </div>
           {/if}
+
+          <ConsistencyAlert
+            invoiceId={comprobante.final.id}
+            {categories}
+            hasFile={comprobante.final.fileId != null}
+            refreshKey={[
+              comprobante.final.categoryId,
+              comprobante.final.total,
+              comprobante.final.issueDate,
+              comprobante.final.invoiceType,
+              comprobante.final.expectedInvoiceId,
+            ].join('|')}
+            onchange={() => invalidateAll()}
+          />
 
           {#key breakdownRefreshKey}
             <InvoiceTaxBreakdown
