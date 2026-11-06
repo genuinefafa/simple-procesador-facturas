@@ -108,7 +108,7 @@ function compare(
 export function computeDivergences(input: ConsistencyInput): Divergence[] {
   const { invoice, expected, file, acks } = input;
   const out: Divergence[] = [];
-  const push = (d: Divergence | null) => {
+  const push = (d: Divergence | null): void => {
     if (d) out.push(d);
   };
 
