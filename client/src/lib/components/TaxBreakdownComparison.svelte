@@ -144,7 +144,7 @@
       </div>
     {/if}
 
-    {#if item.arcaLines && item.arcaFingerprint}
+    {#if item.arcaLines && item.arcaFingerprint && item.arcaSumsToTotal !== false}
       <div class="actions">
         <Button
           size="sm"

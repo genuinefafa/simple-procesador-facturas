@@ -11,7 +11,8 @@
   } from '$lib/services/ReconciliationService.types';
 
   interface Props {
-    item: Pick<TaxReconciliationItem, 'buckets' | 'arcaLines'>;
+    item: Pick<TaxReconciliationItem, 'buckets' | 'arcaLines'> &
+      Partial<Pick<TaxReconciliationItem, 'otherTaxesImplied'>>;
   }
 
   let { item }: Props = $props();
@@ -53,6 +54,9 @@
       {/each}
     </tbody>
   </table>
+  {#if item.otherTaxesImplied}
+    <p class="implied">ARCA no detalla otros tributos; el valor surge del total.</p>
+  {/if}
 {/if}
 
 <style>
@@ -77,6 +81,12 @@
     padding: var(--spacing-1) var(--spacing-2);
     border-bottom: 1px solid var(--color-border);
     color: var(--color-text-primary);
+  }
+
+  .implied {
+    margin: var(--spacing-1) 0 0;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-tertiary);
   }
 
   .num {
