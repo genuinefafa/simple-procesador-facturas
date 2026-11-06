@@ -50,6 +50,7 @@
   // Tax breakdown comparison with ARCA: URL is the source of truth (?compare=desglose)
   const comparingBreakdown = $derived(page.url.searchParams.get('compare') === 'desglose');
   let breakdownRefreshKey = $state(0);
+  let breakdownSaves = $state(0);
 
   function setCompareParam(on: boolean) {
     const params = new URLSearchParams(page.url.searchParams);
@@ -948,6 +949,7 @@
                 ? () => setCompareParam(true)
                 : undefined}
               compareActive={comparingBreakdown}
+              onsaved={() => breakdownSaves++}
             />
           {/key}
 
@@ -955,6 +957,11 @@
             <div class="breakdown-comparison">
               <TaxBreakdownComparison
                 invoiceId={comprobante.final.id}
+                refreshKey={[
+                  breakdownSaves,
+                  comprobante.final.total,
+                  comprobante.final.invoiceType,
+                ].join('|')}
                 onchange={() => breakdownRefreshKey++}
                 onclose={() => setCompareParam(false)}
               />

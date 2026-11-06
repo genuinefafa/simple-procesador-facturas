@@ -112,6 +112,8 @@ export interface InvoiceTaxBreakdownPersistedProps extends InvoiceTaxBreakdownBa
   oncompare?: () => void;
   /** The comparison is already open: the button is hidden (the section has its own close) */
   compareActive?: boolean;
+  /** Called after the breakdown was saved or removed */
+  onsaved?: () => void;
   lockedLines?: never;
   initialLines?: never;
   ondraftchange?: never;
@@ -133,6 +135,7 @@ export interface InvoiceTaxBreakdownDraftProps extends InvoiceTaxBreakdownBasePr
   prefill?: never;
   oncompare?: never;
   compareActive?: never;
+  onsaved?: never;
 }
 
 export type InvoiceTaxBreakdownProps =

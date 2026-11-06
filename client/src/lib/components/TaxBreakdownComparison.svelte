@@ -19,12 +19,14 @@
 
   interface Props {
     invoiceId: number;
+    /** Changes whenever the invoice data changes elsewhere, to reload the comparison */
+    refreshKey?: string;
     /** Called after the invoice breakdown changed (so siblings can refresh) */
     onchange?: () => void;
     onclose: () => void;
   }
 
-  let { invoiceId, onchange, onclose }: Props = $props();
+  let { invoiceId, refreshKey = '', onchange, onclose }: Props = $props();
 
   let item = $state<TaxReconciliationItem | null>(null);
   let loading = $state(true);
@@ -48,6 +50,7 @@
 
   $effect(() => {
     void invoiceId;
+    void refreshKey;
     load();
   });
 
@@ -144,7 +147,8 @@
       </div>
     {/if}
 
-    {#if item.arcaLines && item.arcaFingerprint && item.arcaSumsToTotal !== false}
+    <!-- Matching ARCA leaves nothing to normalize, and doing it would drop the invoice's own detail -->
+    {#if item.arcaLines && item.arcaFingerprint && item.arcaSumsToTotal !== false && item.reason !== 'matches_arca'}
       <div class="actions">
         <Button
           size="sm"
