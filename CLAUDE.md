@@ -4,9 +4,10 @@ Este archivo contiene instrucciones para Claude Code sobre cómo trabajar en est
 
 ## Stack Tecnológico
 
-- **Frontend**: SvelteKit 2.x + Svelte 5 (runes)
+- **Runtime y paquetes**: Bun ≥ 1.3 (`bun.lock` es el único lockfile)
+- **Frontend**: SPA estática con SvelteKit 2.x (`adapter-static`) + Svelte 5 (runes)
 - **UI**: Melt UI Next v0.44 + CSS puro con design tokens
-- **Backend**: Node.js 22.x + Drizzle ORM + SQLite
+- **Backend**: Hono (`server/http/`), que sirve la API y el SPA, + Drizzle ORM + `bun:sqlite`
 - **Validación**: Zod para contracts de API
 
 ## Patrones Obligatorios
@@ -15,20 +16,21 @@ Este archivo contiene instrucciones para Claude Code sobre cómo trabajar en est
 
 ```typescript
 // server/contracts/[recurso].ts
-import { z } from 'zod';
-import { cuitSchema, dateStringSchema } from './shared';
+import * as z from 'zod';
+import { cuitSchema, dateStringSchema } from './schemas.js';
 
 export const MiSchema = z.object({
   campo: cuitSchema.optional(),
   // ...
 });
 
-// En el endpoint
-import { MiSchema, formatZodError } from '@server/contracts';
+// En la ruta Hono (server/http/routes/[recurso].ts)
+import { MiSchema, formatZodError } from '../../contracts/index.js';
 
+const body: unknown = await c.req.json().catch(() => null);
 const result = MiSchema.safeParse(body);
 if (!result.success) {
-  return json(formatZodError(result.error), { status: 400 });
+  return c.json(formatZodError(result.error), 400);
 }
 ```
 
@@ -157,19 +159,24 @@ client/src/lib/
 server/
 ├── contracts/
 │   ├── index.ts                 # Re-exporta todo
-│   ├── shared.ts                # Schemas reutilizables
+│   ├── schemas.ts               # Schemas reutilizables
 │   └── mi-recurso.ts
 ├── database/
 │   ├── schema.ts
 │   └── repositories/
+├── http/
+│   ├── app.ts
+│   └── routes/                  # Un router Hono por recurso
 └── services/
+
+shared/src/                      # Código común a cliente y server (`@shared`)
 ```
 
 ## Base de Datos
 
-- **Tablas principales**: `invoices`, `files`, `file_extraction_results`, `expected_invoices`, `emitters`, `categories`
+- **Tablas principales**: `facturas`, `files`, `file_extraction_results`, `expected_invoices`, `emisores`, `categories`, `invoice_tax_lines`, `reconciliation_acks`
 - **ORM**: Drizzle con repositorios en `server/database/repositories/`
-- **Migraciones**: `npm run db:migrate`
+- **Migraciones**: `bun run db:migrate` no es confiable porque el tracking está roto (ver #209); hoy el SQL de cada migración se aplica a mano
 
 ## Testing
 
@@ -184,12 +191,17 @@ Los tests usan `database.test.sqlite` automáticamente (detecta `VITEST=true`).
 ## Comandos
 
 ```bash
-npm run dev          # Desarrollo
-npm run check        # TypeScript
-npm run lint         # ESLint
-npm run format       # Prettier
-npm run db:migrate   # Migraciones
-npm run db:studio    # GUI Drizzle
+bun run dev          # Cliente (Vite)
+bun run dev:hono     # API (Hono)
+bun run check        # svelte-check; el server solo en modo --dry
+bun run lint         # ESLint
+bun run format       # Prettier
+bun run test         # Tests del server
+bun run db:migrate   # Migraciones (ver #209)
+bun run db:studio    # GUI Drizzle
+
+cd server && bun run typecheck   # TypeScript del server
+cd client && bun run test:run    # Tests del cliente
 ```
 
 ## Workflow Obligatorio con Git
