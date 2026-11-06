@@ -153,7 +153,11 @@ export function impliedOtherTaxes(
   type: number | null | undefined,
   lines?: ExpectedTaxLine[]
 ): number {
-  if (type === null || type === undefined || !IMPLIED_OTHER_TAXES_TYPES.includes(type)) return 0;
+  // How ARCA reports the row depends on ARCA's own type, even if the invoice was
+  // stored with another one (#221: tiques saved as type 1)
+  const arcaType = expected.invoiceType ?? type;
+  if (arcaType === null || arcaType === undefined) return 0;
+  if (!IMPLIED_OTHER_TAXES_TYPES.includes(arcaType)) return 0;
   const total = expected.total;
   if (total === null || total === undefined) return 0;
   if (Math.abs(expected.otherTaxes ?? 0) > 0) return 0;

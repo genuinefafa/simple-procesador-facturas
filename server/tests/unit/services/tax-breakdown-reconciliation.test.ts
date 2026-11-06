@@ -366,6 +366,18 @@ describe('reconcileTaxBreakdown - implied other taxes (type 81 tique)', () => {
     expect(r).toMatchObject({ status: 'manual', reason: 'arca_sum_mismatch' });
   });
 
+  it('infers from the ARCA type when the invoice was stored as type 1', () => {
+    const r = reconcileTaxBreakdown(
+      input({
+        expected: { ...tique, invoiceType: 81 },
+        invoiceType: 1,
+        total: 1240,
+        lines: [...manual, line('IIBB_PERCEPTION', 3, 30)],
+      })
+    );
+    expect(r).toMatchObject({ status: 'ok', reason: 'matches_arca', otherTaxesImplied: true });
+  });
+
   it('does not infer for type 1: a residue stays a real signal', () => {
     const r = reconcileTaxBreakdown(
       input({ expected: { ...tique, invoiceType: 1 }, invoiceType: 1, total: 1240 })
