@@ -299,3 +299,79 @@ describe('reconcileTaxBreakdown - invoices that do not itemize VAT (B/C)', () =>
     expect(r.status).toBe('completable');
   });
 });
+
+describe('reconcileTaxBreakdown - implied other taxes (type 81 tique)', () => {
+  // total 1240 = net 1000 + VAT 210 + perception 30 that ARCA does not itemize
+  const tique = { id: 7, total: 1240, netTaxed21: 1000, vat21: 210, otherTaxes: 0 };
+  const manual = [line('NET_TAXED', 21, 1000), line('VAT', 21, 210)];
+
+  it('matches manual lines that include the perception', () => {
+    const r = reconcileTaxBreakdown(
+      input({
+        expected: tique,
+        invoiceType: 81,
+        total: 1240,
+        lines: [...manual, line('OTHER_TAXES', null, 30)],
+      })
+    );
+    expect(r).toMatchObject({ status: 'ok', reason: 'matches_arca', otherTaxesImplied: true });
+  });
+
+  it.each(['IIBB_PERCEPTION', 'VAT_PERCEPTION'])('matches a %s detail by bucket', (concept) => {
+    const r = reconcileTaxBreakdown(
+      input({
+        expected: tique,
+        invoiceType: 81,
+        total: 1240,
+        lines: [...manual, line(concept, null, 30)],
+      })
+    );
+    expect(r).toMatchObject({ status: 'ok', reason: 'matches_arca' });
+  });
+
+  it('is completable without own lines and includes the residue', () => {
+    const r = reconcileTaxBreakdown(input({ expected: tique, invoiceType: 81, total: 1240 }));
+    expect(r).toMatchObject({ status: 'completable', arcaSumsToTotal: true });
+    expect(r.arcaLines).toContainEqual({ concept: 'OTHER_TAXES', rate: null, amount: 30 });
+    expect(r.arcaLines).toHaveLength(3);
+  });
+
+  it('is divergent when the loaded perception differs from the residue', () => {
+    const r = reconcileTaxBreakdown(
+      input({
+        expected: tique,
+        invoiceType: 81,
+        total: 1250,
+        lines: [...manual, line('OTHER_TAXES', null, 40)],
+      })
+    );
+    expect(r).toMatchObject({ status: 'divergent', reason: 'differs', arcaSumsToTotal: false });
+  });
+
+  it('does not infer again when other taxes are informed', () => {
+    const r = reconcileTaxBreakdown(
+      input({ expected: { ...tique, otherTaxes: 20 }, invoiceType: 81, total: 1240 })
+    );
+    expect(r.arcaLines).toContainEqual({ concept: 'OTHER_TAXES', rate: null, amount: 20 });
+    expect(r.otherTaxesImplied).toBe(false);
+    expect(r.status).toBe('manual');
+    expect(r.reason).toBe('arca_sum_mismatch');
+  });
+
+  it('does not infer a negative residue', () => {
+    const r = reconcileTaxBreakdown(
+      input({ expected: { ...tique, total: 1100 }, invoiceType: 81, total: 1100 })
+    );
+    expect(r.arcaLines?.some((l) => l.concept === 'OTHER_TAXES')).toBe(false);
+    expect(r).toMatchObject({ status: 'manual', reason: 'arca_sum_mismatch' });
+  });
+
+  it('does not infer for type 1: a residue stays a real signal', () => {
+    const r = reconcileTaxBreakdown(
+      input({ expected: { ...tique, invoiceType: 1 }, invoiceType: 1, total: 1240 })
+    );
+    expect(r.arcaLines?.some((l) => l.concept === 'OTHER_TAXES')).toBe(false);
+    expect(r.otherTaxesImplied).toBe(false);
+    expect(r).toMatchObject({ status: 'manual', reason: 'arca_sum_mismatch' });
+  });
+});

@@ -54,6 +54,8 @@ interface TaxReconciliationItem {
   buckets: BucketDiff[];
   ack: { arcaFingerprint: string; note: string | null; createdAt: string } | null;
   ackStale: boolean;
+  otherTaxesImplied: boolean;
+  arcaSumsToTotal: boolean | null;
 }
 
 function evaluate(c: TaxBreakdownCandidate, ignoreAck = false): ReconciliationResult {
@@ -85,6 +87,8 @@ function toItem(c: TaxBreakdownCandidate): TaxReconciliationItem {
     buckets: r.buckets,
     ack: c.ack,
     ackStale: r.ackStale,
+    otherTaxesImplied: r.otherTaxesImplied,
+    arcaSumsToTotal: r.arcaSumsToTotal,
   };
 }
 

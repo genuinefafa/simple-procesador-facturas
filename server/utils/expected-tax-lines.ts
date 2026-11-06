@@ -6,6 +6,17 @@
  */
 
 import { doesNotItemizeVat } from '@shared/arca';
+import { TAX_LINES_SUM_TOLERANCE } from '../contracts/invoice-tax-lines';
+
+/**
+ * Document types whose ARCA row reports net, VAT and total but leaves "Otros
+ * Tributos" at 0 even though the total includes perceptions (81 = Tique
+ * Factura A; measured: 5 of 5 have a residue, while the 199 type 1 invoices
+ * have none). For these, a positive residue (total - listed amounts) is taken
+ * as implied other taxes. For any other type a residue is a real signal
+ * (inconsistent data) and must NOT be absorbed.
+ */
+export const IMPLIED_OTHER_TAXES_TYPES: readonly number[] = [81];
 
 /** Breakdown columns of expected_invoices (all nullable). */
 export const EXPECTED_TAX_COLUMN_KEYS = [
@@ -124,7 +135,33 @@ export function expectedToTaxLines(
   for (const [key, rate] of VAT_BY_RATE) push('VAT', rate, expected[key]);
   push('OTHER_TAXES', null, expected.otherTaxes);
 
+  const implied = impliedOtherTaxes(expected, type, lines);
+  if (implied > 0) lines.push({ concept: 'OTHER_TAXES', rate: null, amount: implied });
+
   return lines;
+}
+
+/**
+ * Implied "otros tributos" (single place for comparison, fingerprint, complete
+ * and normalize). Applies only to IMPLIED_OTHER_TAXES_TYPES, when ARCA reports
+ * other taxes as 0/null and total - sum(lines) exceeds the sum tolerance.
+ * Negative residues are never inferred. ARCA data is not modified.
+ * `lines` are the already derived lines; without them they are derived here.
+ */
+export function impliedOtherTaxes(
+  expected: ExpectedTaxSource,
+  type: number | null | undefined,
+  lines?: ExpectedTaxLine[]
+): number {
+  if (type === null || type === undefined || !IMPLIED_OTHER_TAXES_TYPES.includes(type)) return 0;
+  const total = expected.total;
+  if (total === null || total === undefined) return 0;
+  if (Math.abs(expected.otherTaxes ?? 0) > 0) return 0;
+  const base =
+    lines ?? expectedToTaxLines({ ...expected, otherTaxes: null, total: null }, type) ?? [];
+  const sum = base.reduce((acc, l) => acc + l.amount, 0);
+  const residue = Math.round((Math.abs(total) - sum + Number.EPSILON) * 100) / 100;
+  return residue > TAX_LINES_SUM_TOLERANCE ? residue : 0;
 }
 
 /**
@@ -177,7 +214,8 @@ export function buildArcaBreakdown(
     .filter((l) => l.concept !== 'OTHER_TAXES')
     .map((l) => ({ ...l, label: null }));
 
-  const arcaOtherTaxes = Math.abs(expected.otherTaxes ?? 0);
+  const arcaOtherTaxes =
+    Math.abs(expected.otherTaxes ?? 0) || impliedOtherTaxes(expected, expected.invoiceType);
   const others: BreakdownLine[] =
     otherTaxLines ??
     (arcaOtherTaxes > 0
