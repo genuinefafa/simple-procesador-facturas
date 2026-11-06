@@ -1,6 +1,8 @@
 # Roadmap - Procesador de Facturas
 
-## Estado Actual (2026-02-19, actualizado)
+## Estado Actual (2026-11-06)
+
+> El orden de trabajo vive en el kanban personal; este archivo es referencia. Stack: Bun + Hono + SPA Svelte 5.
 
 | Área | Estado | Notas |
 |------|--------|-------|
@@ -83,6 +85,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 |-------|--------|--------|
 | #192 | Unificar mapas de códigos ARCA (`@shared/arca`) | ✅ PR #208 |
 | #192 | Línea "No discriminado" para B/C/sin letra (suma a neto, no a crédito) | ✅ PR #210 |
+| #191 | Consistencia entre capas | Desglose ✅ PR #205; categoría, total, fecha y tipo pendientes |
 | - | Crear factura desde ARCA (botón único) con desglose en la misma operación | ✅ PR #216 |
 | #215 | Avisar cuando ARCA todavía no publicó el período del comprobante | Pendiente |
 | #217 | Repensar UX del detalle: creación desde ARCA y editor de desglose | Pendiente |
@@ -154,7 +157,6 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 ### M10: Cloud Sync (Q2 2026)
 - [ ] #122 - Integración ARCA descarga automática
 - [ ] #87 - Sincronización OneDrive
-- [ ] #33 - Revisar UI Sincronización
 
 ### M6: Code Quality ✅ Cerrado
 - 7 issues completados, 0 abiertos
@@ -164,8 +166,6 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 Issues depriorizados o en espera de mejor definición:
 - #69 - Sincronizar datos facturas al actualizar expected_invoice
 - #71 - File Integrity Checker
-- #78 - Mejorar TopBar Search (reemplazado por #136)
-- #82 - Copiar lista al portapapeles
 - #99 - Estrategia tipos fechas (ex-M6)
 - #100 - Renombrar endpoint process → extract (ex-M6)
 - #128 - OR en filtros con coma
@@ -229,14 +229,14 @@ Callbacks opcionales + Constructor Injection en servicios
 ## Comandos de Desarrollo
 
 ```bash
-npm run dev              # Desarrollo http://localhost:5173
-npm run check            # TypeScript
-npm run lint             # ESLint
-npm run test             # Vitest
-npm run db:migrate       # Aplicar migraciones
-npm run db:studio        # GUI Drizzle
+bun run dev              # Cliente (Vite)
+bun run dev:hono         # API (Hono)
+bun run check            # svelte-check
+bun run lint             # ESLint
+bun run test             # Vitest (server)
+bun run db:studio        # GUI Drizzle
 ```
 
 ---
 
-**Última actualización**: 2026-10-12
+**Última actualización**: 2026-11-06
