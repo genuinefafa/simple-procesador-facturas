@@ -14,7 +14,10 @@ import {
   CopyCategoryBodySchema,
   formatZodError,
 } from '../../contracts/index.js';
-import { ConsistencyRepository } from '../../database/repositories/consistency.js';
+import {
+  ConsistencyRepository,
+  type ConsistencyContext,
+} from '../../database/repositories/consistency.js';
 import { ReconciliationRepository } from '../../database/repositories/reconciliation.js';
 import {
   computeDivergences,
@@ -33,7 +36,12 @@ function parseId(raw: string): number | null {
 const INVALID_ID = { success: false, error: 'ID de factura inválido' } as const;
 const NOT_FOUND = { success: false, error: 'Factura no encontrada' } as const;
 
-function view(invoiceId: number) {
+interface ConsistencyView {
+  ctx: ConsistencyContext;
+  divergences: Array<Divergence & { note: string | null }>;
+}
+
+function view(invoiceId: number): ConsistencyView | null {
   const ctx = new ConsistencyRepository().findContext(invoiceId);
   if (!ctx) return null;
   const divergences: Array<Divergence & { note: string | null }> = computeDivergences(
