@@ -14,6 +14,7 @@
     ConsistencyField,
     ConsistencySource,
     Divergence,
+    InvoiceCorrection,
   } from '$lib/services/ConsistencyService.types';
 
   interface Props {
@@ -135,6 +136,19 @@
     return null;
   });
 
+  function buildCorrection(d: Divergence): InvoiceCorrection {
+    switch (d.field) {
+      case 'category':
+        return { categoryId: Number(d.sourceValue) };
+      case 'total':
+        return { total: Number(d.sourceValue) };
+      case 'date':
+        return { issueDate: String(d.sourceValue).slice(0, 10) };
+      case 'type':
+        return { invoiceType: Number(d.sourceValue) };
+    }
+  }
+
   async function confirm() {
     if (!pending) return;
     const { action, d } = pending;
@@ -147,12 +161,7 @@
       else toast.error(r.error ?? 'No se pudo completar la categoría.');
       if (ok) toast.success('Categoría completada');
     } else if (action === 'correct') {
-      const correction =
-        d.field === 'total'
-          ? { total: Number(d.sourceValue) }
-          : d.field === 'date'
-            ? { issueDate: String(d.sourceValue).slice(0, 10) }
-            : { invoiceType: Number(d.sourceValue) };
+      const correction = buildCorrection(d);
       const r = await consistencyService.correctInvoice(invoiceId, correction);
       ok = r.success;
       if (r.success) toast.success('Factura corregida');
@@ -211,7 +220,16 @@
             {/if}
           </p>
           <div class="actions">
-            {#if d.field === 'category'}
+            {#if d.field === 'category' && d.invoiceValue === null}
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={busy}
+                onclick={() => startAction('correct', d)}
+              >
+                Completar la factura con esta categoría
+              </Button>
+            {:else if d.field === 'category'}
               <Button
                 variant="secondary"
                 size="sm"
@@ -285,13 +303,12 @@
         <span class="after">{preview.after}</span>
       </div>
       {#if pending.action === 'correct' && hasFile && (pending.d.field === 'date' || pending.d.field === 'type')}
-        <p class="warn">
-          El archivo asociado se va a renombrar para reflejar la nueva
-          {pending.d.field === 'date' ? 'fecha' : 'tipo de comprobante'}.
-        </p>
+        <p class="warn">El archivo asociado se va a renombrar para reflejar el cambio.</p>
       {/if}
       {#if pending.action === 'correct'}
-        <p class="hint">Solo se modifica la factura; el dato de ARCA no se toca.</p>
+        <p class="hint">
+          Solo se modifica la factura; {SOURCE_LABELS[pending.d.source]} no se toca.
+        </p>
       {/if}
     {:else}
       <div class="preview" aria-label="Valores actuales">

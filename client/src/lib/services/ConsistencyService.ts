@@ -5,7 +5,12 @@
  */
 
 import type { ApiResult } from './ComprobanteService';
-import type { ConsistencyField, ConsistencySource, Divergence } from './ConsistencyService.types';
+import type {
+  ConsistencyField,
+  ConsistencySource,
+  Divergence,
+  InvoiceCorrection,
+} from './ConsistencyService.types';
 
 const BASE = '/api/reconciliation/consistency';
 
@@ -41,9 +46,6 @@ function jsonInit(method: string, body?: unknown): RequestInit {
 }
 
 const pickDivergences = (b: Record<string, unknown>) => b.divergences as Divergence[];
-
-/** The only invoice fields that can be corrected from ARCA, by divergence field */
-export type InvoiceCorrection = { total: number } | { issueDate: string } | { invoiceType: number };
 
 class ConsistencyService {
   list(invoiceId: number): Promise<ApiResult<Divergence[]>> {
@@ -92,7 +94,7 @@ class ConsistencyService {
     );
   }
 
-  /** Corrects the invoice with the ARCA value (existing PATCH). May rename the file. */
+  /** Aligns the invoice with an input value (existing PATCH). May rename the file. */
   correctInvoice(invoiceId: number, correction: InvoiceCorrection): Promise<ApiResult<void>> {
     return request(
       `/api/invoices/${invoiceId}`,

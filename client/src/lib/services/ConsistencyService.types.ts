@@ -17,3 +17,10 @@ export interface Divergence {
   /** Note of the accepted difference; null when not accepted */
   note: string | null;
 }
+
+/** Fields of the invoice that can be aligned with an input value (one at a time). */
+export type InvoiceCorrection =
+  | { categoryId: number }
+  | { total: number }
+  | { issueDate: string }
+  | { invoiceType: number };
