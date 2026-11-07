@@ -18,9 +18,11 @@
     rows: TooltipRow[];
     /** Optional total line shown below the rows */
     total?: number | null;
+    /** Label of the total line (default "Total") */
+    totalLabel?: string;
   }
 
-  let { title, rows, total = null }: Props = $props();
+  let { title, rows, total = null, totalLabel = 'Total' }: Props = $props();
 </script>
 
 <div class="tooltip-body">
@@ -43,7 +45,7 @@
   </ul>
   {#if total !== null}
     <p class="tooltip-total">
-      <span>Total</span>
+      <span>{totalLabel}</span>
       <span>{formatCurrency(total)}</span>
     </p>
   {/if}

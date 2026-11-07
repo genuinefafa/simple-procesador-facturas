@@ -39,6 +39,47 @@
   </div>
 </div>
 
+{#if summary.incomeVsExpenses.coverage.issuedCount > 0}
+  {@const t = summary.incomeVsExpenses.totals}
+  <div class="kpis">
+    <div class="kpi">
+      <div class="kpi-label">Ingresos (neto)</div>
+      <div class="kpi-value">{formatCurrency(t.income)}</div>
+      <p class="kpi-hint">Comprobantes emitidos, sin IVA</p>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Gastos (neto)</div>
+      <div class="kpi-value">{formatCurrency(t.expenses)}</div>
+      <p class="kpi-hint">Facturas con desglose, sin IVA</p>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Resultado</div>
+      <div class="kpi-value">{formatCurrency(t.result)}</div>
+      <p class="kpi-hint">Ingresos menos gastos</p>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">IVA débito</div>
+      <div class="kpi-value">{formatCurrency(t.vatDebit)}</div>
+      <p class="kpi-hint">IVA de lo emitido</p>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">IVA crédito</div>
+      <div class="kpi-value">{formatCurrency(t.vatCredit + t.vatPerception)}</div>
+      <p class="kpi-hint">
+        IVA computable
+        {t.vatPerception !== 0
+          ? `(incluye ${formatCurrency(t.vatPerception)} de percepciones)`
+          : ''}
+      </p>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Saldo de IVA</div>
+      <div class="kpi-value">{formatCurrency(t.vatBalance)}</div>
+      <p class="kpi-hint">{t.vatBalance >= 0 ? 'A pagar' : 'A favor'}</p>
+    </div>
+  </div>
+{/if}
+
 {#if showPending && pending.count > 0}
   <button type="button" class="pending" onclick={() => onpendingclick?.()}>
     <Info size={14} />

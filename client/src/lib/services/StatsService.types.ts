@@ -69,6 +69,48 @@ export interface TaxBreakdownStats {
   coverage: { withBreakdown: number; total: number };
 }
 
+export interface IncomeVsExpensesMonth {
+  /** YYYY-MM */
+  month: string;
+  /** Issued net, credit notes subtract */
+  income: number;
+  /** Received net (invoices with a loaded breakdown) */
+  expenses: number;
+  vatDebit: number;
+  /** Recoverable VAT (A/M), without perception */
+  vatCredit: number;
+  /** Recoverable VAT perception (A/M) */
+  vatPerception: number;
+  /** vatDebit - (vatCredit + vatPerception); positive = payable */
+  vatBalance: number;
+}
+
+export interface IncomeVsExpensesTotals {
+  income: number;
+  expenses: number;
+  /** income - expenses */
+  result: number;
+  vatDebit: number;
+  vatCredit: number;
+  vatPerception: number;
+  vatBalance: number;
+}
+
+export interface IncomeVsExpensesCoverage {
+  issuedCount: number;
+  /** Received ARS invoices without breakdown: no net, never estimated */
+  invoicesWithoutBreakdown: number;
+  invoicesWithoutBreakdownTotal: number;
+  /** YYYY-MM months with issued invoices and no received invoices loaded */
+  monthsWithIncomeWithoutExpenses: string[];
+}
+
+export interface IncomeVsExpensesStats {
+  months: IncomeVsExpensesMonth[];
+  totals: IncomeVsExpensesTotals;
+  coverage: IncomeVsExpensesCoverage;
+}
+
 export interface StatsSummaryResponse {
   period: {
     key: PeriodKey;
@@ -83,6 +125,7 @@ export interface StatsSummaryResponse {
   byLetter: LetterStat[];
   pendingExpected: PendingExpectedStat;
   taxBreakdown: TaxBreakdownStats;
+  incomeVsExpenses: IncomeVsExpensesStats;
 }
 
 export interface CategoryRef {

@@ -19,6 +19,7 @@
     buildCumulativeData,
     buildMonthlyData,
     buildTaxBreakdownData,
+    buildIncomeExpensesRows,
     categoryQuery,
     comprobantesUrl,
     letterQuery,
@@ -43,6 +44,7 @@
   import CategoryBarChart from './CategoryBarChart.svelte';
   import MonthlyStackedChart from './MonthlyStackedChart.svelte';
   import TaxBreakdownChart from './TaxBreakdownChart.svelte';
+  import IncomeVsExpensesChart from './IncomeVsExpensesChart.svelte';
   import CumulativeAreaChart from './CumulativeAreaChart.svelte';
   import LetterDonutChart from './LetterDonutChart.svelte';
 
@@ -105,6 +107,11 @@
       ? buildTaxBreakdownData(summary.taxBreakdown.byMonth, monthsOfPeriod(summary.period.key))
       : null
   );
+  const incomeRows = $derived(
+    summary
+      ? buildIncomeExpensesRows(summary.incomeVsExpenses.months, monthsOfPeriod(summary.period.key))
+      : []
+  );
   // Running total; needs at least two months to show growth
   const cumulative = $derived.by(() => {
     if (!monthly) return null;
@@ -151,6 +158,24 @@
           onpendingclick={() => open(pendingExpectedQuery(period))}
         />
       {/if}
+
+      <div class="panel">
+        <h3>Ingresos vs gastos (neto)</h3>
+        <IncomeVsExpensesChart
+          mode="result"
+          rows={incomeRows}
+          coverage={summary.incomeVsExpenses.coverage}
+        />
+      </div>
+
+      <div class="panel">
+        <h3>IVA débito vs crédito</h3>
+        <IncomeVsExpensesChart
+          mode="vat"
+          rows={incomeRows}
+          coverage={summary.incomeVsExpenses.coverage}
+        />
+      </div>
 
       {#if isEmpty}
         <p class="state">No hay facturas cargadas en {periodLabel(period)}.</p>

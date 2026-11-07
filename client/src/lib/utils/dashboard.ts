@@ -5,6 +5,7 @@
 
 import type {
   CategoryStat,
+  IncomeVsExpensesMonth,
   LetterStat,
   MonthCategoryStat,
   TaxBreakdownMonth,
@@ -508,4 +509,65 @@ function pad2(n: number): string {
 
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
+}
+
+// ============================================================================
+// Income vs expenses
+// ============================================================================
+
+/** Series of the income vs expenses chart (semantic: green in, orange out) */
+export const INCOME_EXPENSES_SERIES: MonthlySeries[] = [
+  { key: 'income', label: 'Ingresos', color: 'var(--color-chart-3)', categoryKey: undefined },
+  { key: 'expenses', label: 'Gastos', color: 'var(--color-chart-2)', categoryKey: undefined },
+];
+
+/** Series of the VAT chart: debit vs credit (VAT + perception) */
+export const VAT_SERIES: MonthlySeries[] = [
+  { key: 'vatDebit', label: 'IVA débito', color: 'var(--color-chart-1)', categoryKey: undefined },
+  {
+    key: 'vatCreditTotal',
+    label: 'IVA crédito',
+    color: 'var(--color-chart-4)',
+    categoryKey: undefined,
+  },
+];
+
+/**
+ * Wide rows (one per month of the period, zero-filled) for both charts.
+ * `result` and `vatBalance` are not series: they only feed the tooltips.
+ * `vatCreditTotal` is VAT + perception, the same criterion as the fiscal
+ * credit KPI.
+ */
+export function buildIncomeExpensesRows(
+  months: IncomeVsExpensesMonth[],
+  periodMonths: string[]
+): MonthlyRow[] {
+  const all = [...new Set([...periodMonths, ...months.map((m) => m.month)])].sort();
+  const index = new Map(months.map((m) => [m.month, m]));
+  return all.map((month) => {
+    const m = index.get(month);
+    const income = m?.income ?? 0;
+    const expenses = m?.expenses ?? 0;
+    const vatDebit = m?.vatDebit ?? 0;
+    const vatCredit = m?.vatCredit ?? 0;
+    const vatPerception = m?.vatPerception ?? 0;
+    return {
+      month,
+      income,
+      expenses,
+      result: income - expenses,
+      vatDebit,
+      vatCredit,
+      vatPerception,
+      vatCreditTotal: vatCredit + vatPerception,
+      vatBalance: vatDebit - vatCredit - vatPerception,
+    };
+  });
+}
+
+/** "enero de 2025, febrero de 2025 y marzo de 2025" for YYYY-MM strings */
+export function formatMonthList(months: string[]): string {
+  const names = months.map((m) => `${monthName(Number(m.slice(5, 7)))} de ${m.slice(0, 4)}`);
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
 }
