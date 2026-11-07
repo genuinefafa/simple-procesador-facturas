@@ -13,6 +13,7 @@
   import type {
     ArcaImportEntry,
     ArcaImportResult,
+    ArcaIssuedImportResult,
     ReconciliationSummary,
   } from './ArcaImportReport.types';
 
@@ -62,6 +63,17 @@
     return parts.length > 0 ? parts.join(' · ') : 'sin filas';
   }
 
+  function summarizeIssued(r: ArcaIssuedImportResult): string {
+    const parts = [
+      `${r.created} ${plural(r.created, 'nuevo', 'nuevos')}`,
+      `${r.updated} ${plural(r.updated, 'actualizado', 'actualizados')}`,
+      `${r.unchanged} sin cambios`,
+    ];
+    if (r.errors.length > 0)
+      parts.push(`${r.errors.length} con ${plural(r.errors.length, 'error', 'errores')}`);
+    return `Comprobantes emitidos: ${parts.join(', ')}`;
+  }
+
   const showCompletable = $derived((reconciliation?.completable ?? 0) > 0);
   const showDivergent = $derived((reconciliation?.divergent ?? 0) > 0);
   const mainQuery = $derived(showCompletable ? 'desglose:completable' : 'desglose:divergente');
@@ -83,6 +95,31 @@
           <span class="icon"><XCircle size={18} /></span>
           <span><span class="filename-inline">{entry.filename}</span>: {entry.error}</span>
         </div>
+      {:else if entry.status === 'issued'}
+        {@const r = entry.result}
+        <div class="summary-item {r.errors.length > 0 ? 'warning' : 'success'}">
+          <span class="icon">
+            {#if r.errors.length > 0}<AlertTriangle size={18} />{:else}<CheckCircle
+                size={18}
+              />{/if}
+          </span>
+          <span><span class="filename-inline">{entry.filename}</span>: {summarizeIssued(r)}</span>
+        </div>
+        {#if r.errors.length > 0}
+          <details class="error-details">
+            <summary>
+              Ver {r.errors.length}
+              {plural(r.errors.length, 'error', 'errores')}
+            </summary>
+            <ul class="file-list">
+              {#each r.errors as err, i (i)}
+                <li class="error-item">
+                  <span class="error-message">Fila {err.row}: {err.error}</span>
+                </li>
+              {/each}
+            </ul>
+          </details>
+        {/if}
       {:else}
         {@const r = entry.result}
         <div class="summary-item {r.errors.length > 0 ? 'warning' : 'success'}">
