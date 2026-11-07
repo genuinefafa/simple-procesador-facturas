@@ -80,3 +80,13 @@ export type {
 // Invoice creation from an ARCA expected invoice
 export { CreateInvoiceFromExpectedSchema } from './invoice-from-expected.js';
 export type { CreateInvoiceFromExpectedInput } from './invoice-from-expected.js';
+
+// Layer consistency invoice vs expected/file (#191)
+export {
+  ConsistencyFieldSchema,
+  ConsistencySourceSchema,
+  CopyCategoryBodySchema,
+  ConsistencyAckKeySchema,
+  ConsistencyAckBodySchema,
+} from './consistency.js';
+export type { CopyCategoryBody, ConsistencyAckKey, ConsistencyAckBody } from './consistency.js';
