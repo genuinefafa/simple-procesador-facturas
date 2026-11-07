@@ -276,27 +276,11 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
         });
 
         if (duplicate) {
-          // Ya existe - verificar si hay datos nuevos para actualizar
-          const hasChanges =
-            (invoice.emitterName && invoice.emitterName !== duplicate.emitterName) ||
-            (invoice.total !== undefined &&
-              invoice.total !== null &&
-              invoice.total !== duplicate.total) ||
-            (invoice.cae && invoice.cae !== duplicate.cae) ||
-            (invoice.caeExpiration && invoice.caeExpiration !== duplicate.caeExpiration) ||
-            (invoice.currency && invoice.currency !== duplicate.currency) ||
-            this.changedTaxColumns(invoice.taxColumns, duplicate) !== undefined;
+          // Already exists: ARCA is the source of truth for every field it provides
+          const changes = this.changedExcelFields(invoice, duplicate);
 
-          if (hasChanges) {
-            // Actualizar solo los campos que son diferentes
-            const updatedInvoice = await this.updateInvoice(duplicate.id, {
-              emitterName: invoice.emitterName || duplicate.emitterName || undefined,
-              total: invoice.total !== undefined ? invoice.total : duplicate.total || undefined,
-              cae: invoice.cae || duplicate.cae || undefined,
-              caeExpiration: invoice.caeExpiration || duplicate.caeExpiration || undefined,
-              currency: invoice.currency || duplicate.currency || undefined,
-              taxColumns: this.changedTaxColumns(invoice.taxColumns, duplicate),
-            });
+          if (changes) {
+            const updatedInvoice = await this.updateInvoice(duplicate.id, changes);
             updated.push(updatedInvoice);
           } else {
             // No hay cambios, es idéntico
@@ -336,6 +320,53 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     }
 
     return { created, updated, unchanged };
+  }
+
+  /**
+   * Fields of a reimported row that differ from the stored expected invoice.
+   *
+   * Every field the Excel provides overwrites the stored one, except the key
+   * used to find the duplicate (CUIT + CAE, or CUIT + type + point of sale +
+   * number when there is no CAE). An empty cell never erases a stored value.
+   * Local fields (status, category, notes, links) are never touched.
+   *
+   * Returns undefined when nothing changed.
+   */
+  private changedExcelFields(
+    incoming: Parameters<ExpectedInvoiceRepository['createManyInvoices']>[0][number],
+    stored: ExpectedInvoice
+  ): Parameters<ExpectedInvoiceRepository['updateInvoice']>[1] | undefined {
+    const changes: Parameters<ExpectedInvoiceRepository['updateInvoice']>[1] = {};
+    const differs = <T>(value: T | null | undefined, current: T | null | undefined): boolean =>
+      value !== undefined && value !== null && value !== '' && value !== current;
+
+    if (differs(incoming.emitterName, stored.emitterName))
+      changes.emitterName = incoming.emitterName;
+    if (differs(incoming.issueDate, stored.issueDate)) changes.issueDate = incoming.issueDate;
+    if (differs(incoming.total, stored.total)) changes.total = incoming.total;
+    if (differs(incoming.caeExpiration, stored.caeExpiration)) {
+      changes.caeExpiration = incoming.caeExpiration;
+    }
+    if (differs(incoming.currency, stored.currency)) changes.currency = incoming.currency;
+
+    // Matched by CAE: type, point of sale and number are data, not key.
+    // Without CAE they are the key, and the CAE stays absent.
+    if (incoming.cae) {
+      if (differs(incoming.invoiceType, stored.invoiceType)) {
+        changes.invoiceType = incoming.invoiceType;
+      }
+      if (differs(incoming.pointOfSale, stored.pointOfSale)) {
+        changes.pointOfSale = incoming.pointOfSale;
+      }
+      if (differs(incoming.invoiceNumber, stored.invoiceNumber)) {
+        changes.invoiceNumber = incoming.invoiceNumber;
+      }
+    }
+
+    const taxColumns = this.changedTaxColumns(incoming.taxColumns, stored);
+    if (taxColumns) changes.taxColumns = taxColumns;
+
+    return Object.keys(changes).length > 0 ? changes : undefined;
   }
 
   /** Keeps only known breakdown keys with a defined value */
@@ -571,6 +602,10 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     id: number,
     data: {
       emitterName?: string;
+      issueDate?: string;
+      invoiceType?: number;
+      pointOfSale?: number;
+      invoiceNumber?: number;
       total?: number;
       cae?: string;
       caeExpiration?: string;
@@ -584,6 +619,10 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     if (data.taxColumns) Object.assign(updates, this.cleanTaxColumns(data.taxColumns));
 
     if (data.emitterName !== undefined) updates.emitterName = data.emitterName;
+    if (data.issueDate !== undefined) updates.issueDate = data.issueDate;
+    if (data.invoiceType !== undefined) updates.invoiceType = data.invoiceType;
+    if (data.pointOfSale !== undefined) updates.pointOfSale = data.pointOfSale;
+    if (data.invoiceNumber !== undefined) updates.invoiceNumber = data.invoiceNumber;
     if (data.total !== undefined) updates.total = data.total;
     if (data.cae !== undefined) updates.cae = data.cae;
     if (data.caeExpiration !== undefined) updates.caeExpiration = data.caeExpiration;
