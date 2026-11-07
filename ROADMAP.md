@@ -85,7 +85,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 |-------|--------|--------|
 | #192 | Unificar mapas de códigos ARCA (`@shared/arca`) | ✅ PR #208 |
 | #192 | Línea "No discriminado" para B/C/sin letra (suma a neto, no a crédito) | ✅ PR #210 |
-| #191 | Consistencia entre capas | Desglose ✅ PR #205; categoría, total, fecha y tipo pendientes |
+| #191 | Consistencia entre capas | Desglose ✅ PR #205; avisos de categoría, total, fecha y tipo en el detalle ✅ PR #224; pendientes: filtro `divergencias`, categorías en lote y aviso de esperada sin vincular |
 | - | Crear factura desde ARCA (botón único) con desglose en la misma operación | ✅ PR #216 |
 | #215 | Avisar cuando ARCA todavía no publicó el período del comprobante | Pendiente |
 | #217 | Repensar UX del detalle: creación desde ARCA y editor de desglose | Pendiente |
@@ -93,7 +93,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | #218 | Detector de archivos huérfanos en finalized/ (y resync global de nombres) | Pendiente (limpieza manual hecha 2026-10-14) |
 | #209 | Drizzle 1.0 RC + reparar tracking de migraciones en producción | Pendiente |
 | #211 | Unificar lista de conceptos de desglose en `shared/` | Pendiente |
-| #206 | Tique factura A (81): desglose ARCA no suma el total | Pendiente (propuesta: marca "desglose validado manualmente") |
+| #206 | Tique factura A (81): desglose ARCA no suma el total | ✅ PR #225 (otros tributos implícitos derivados del total) |
 | #221 | Tique factura A (81) se reconoce como Factura A (1) al leer el PDF | Pendiente |
 | #212 | Crear factura desde archivo ya finalizado borra el archivo (copyFile origen = destino) | ✅ PR #214 |
 | #213 | Rediseñar comparación archivo ↔ esperada del pendiente | Pendiente |
@@ -239,4 +239,4 @@ bun run db:studio        # GUI Drizzle
 
 ---
 
-**Última actualización**: 2026-11-06
+**Última actualización**: 2026-11-07
