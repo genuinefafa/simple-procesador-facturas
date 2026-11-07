@@ -19,7 +19,7 @@ import path from 'path';
  * ARCA breakdown headers ("Mis Comprobantes Recibidos") -> expected_invoices column.
  * Keys are normalized with `normalizeHeader`.
  */
-const TAX_COLUMN_HEADERS: Array<[string, ExpectedTaxColumnKey]> = [
+export const TAX_COLUMN_HEADERS: Array<[string, ExpectedTaxColumnKey]> = [
   ['Tipo Cambio', 'exchangeRate'],
   ['Neto Grav. IVA 0%', 'netTaxed0'],
   ['IVA 2,5%', 'vat2_5'],
@@ -40,7 +40,7 @@ const TAX_COLUMN_HEADERS: Array<[string, ExpectedTaxColumnKey]> = [
 ];
 
 /** Lowercase, no accents, no dots, collapsed spaces: "Neto Grav. IVA 2,5%" -> "neto grav iva 2,5%" */
-function normalizeHeader(header: string): string {
+export function normalizeHeader(header: string): string {
   return header
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -53,7 +53,7 @@ function normalizeHeader(header: string): string {
 /**
  * Extrae el valor primitivo de una celda de ExcelJS
  */
-function getCellStringValue(value: ExcelJS.CellValue): string {
+export function getCellStringValue(value: ExcelJS.CellValue): string {
   if (value === null || value === undefined) {
     return '';
   }
