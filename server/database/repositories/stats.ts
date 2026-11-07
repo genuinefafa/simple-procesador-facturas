@@ -339,7 +339,7 @@ export class StatsRepository {
     const months = [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
     for (const m of months) m.vatBalance = m.vatDebit - m.vatCredit - m.vatPerception;
 
-    const sum = (pick: (m: IncomeVsExpensesMonth) => number) =>
+    const sum = (pick: (m: IncomeVsExpensesMonth) => number): number =>
       months.reduce((acc, m) => acc + pick(m), 0);
     const totals: IncomeVsExpensesTotals = {
       income: sum((m) => m.income),
