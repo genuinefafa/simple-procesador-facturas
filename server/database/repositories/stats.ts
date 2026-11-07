@@ -67,6 +67,51 @@ export interface TaxBreakdownStats {
   coverage: { withBreakdown: number; total: number };
 }
 
+export interface IncomeVsExpensesMonth {
+  /** YYYY-MM */
+  month: string;
+  /** Issued net (v_emitidas_oro), credit notes subtract */
+  income: number;
+  /** Received net (v_comprobantes_oro), same expression as the tax breakdown net */
+  expenses: number;
+  /** Issued VAT */
+  vatDebit: number;
+  /** Recoverable VAT (A/M) of received invoices, without perception */
+  vatCredit: number;
+  /** Recoverable VAT perception (A/M) of received invoices */
+  vatPerception: number;
+  /** vatDebit - (vatCredit + vatPerception); positive = payable */
+  vatBalance: number;
+}
+
+export interface IncomeVsExpensesTotals {
+  income: number;
+  expenses: number;
+  /** income - expenses */
+  result: number;
+  vatDebit: number;
+  vatCredit: number;
+  vatPerception: number;
+  vatBalance: number;
+}
+
+export interface IncomeVsExpensesCoverage {
+  /** Issued invoices in the period */
+  issuedCount: number;
+  /** Received ARS invoices with no tax breakdown (no net, not estimated) */
+  invoicesWithoutBreakdown: number;
+  /** Their signed_total, informative only */
+  invoicesWithoutBreakdownTotal: number;
+  /** Months (YYYY-MM) with issued invoices and no received invoices loaded */
+  monthsWithIncomeWithoutExpenses: string[];
+}
+
+export interface IncomeVsExpensesStats {
+  months: IncomeVsExpensesMonth[];
+  totals: IncomeVsExpensesTotals;
+  coverage: IncomeVsExpensesCoverage;
+}
+
 export interface StatsSummary {
   totals: StatsTotals;
   byCategory: CategoryStat[];
@@ -74,6 +119,7 @@ export interface StatsSummary {
   byLetter: LetterStat[];
   pendingExpected: PendingExpectedStat;
   taxBreakdown: TaxBreakdownStats;
+  incomeVsExpenses: IncomeVsExpensesStats;
 }
 
 /**
@@ -91,6 +137,7 @@ export class StatsRepository {
       byLetter: this.getByLetter(range),
       pendingExpected: this.getPendingExpected(range),
       taxBreakdown: this.getTaxBreakdown(range),
+      incomeVsExpenses: this.getIncomeVsExpenses(range),
     };
   }
 
@@ -197,6 +244,126 @@ export class StatsRepository {
       byMonth,
       vatCredit: credit.vatCredit,
       coverage: { withBreakdown: credit.withBreakdown, total: credit.total },
+    };
+  }
+
+  /**
+   * Issued (v_emitidas_oro) vs received (v_comprobantes_oro) by month, all by
+   * issue date. Expenses use the same net expression as getTaxBreakdown;
+   * the VAT credit is the same criterion as TaxBreakdownStats.vatCredit
+   * (vat_recoverable = 1) but split from the perception. Received invoices
+   * without a breakdown contribute no net: they are only reported as coverage.
+   * Issued amounts are not currency-filtered (ARCA reports them in pesos).
+   */
+  getIncomeVsExpenses({ from, to }: PeriodRange): IncomeVsExpensesStats {
+    const db = getRawDb();
+    const issued = db
+      .prepare(
+        `SELECT
+           issue_month AS month,
+           COALESCE(SUM(net), 0) AS income,
+           COALESCE(SUM(vat), 0) AS vatDebit,
+           COUNT(*) AS count
+         FROM v_emitidas_oro
+         WHERE issue_date >= ? AND issue_date < ?
+         GROUP BY issue_month`
+      )
+      .all(from, to) as Array<{ month: string; income: number; vatDebit: number; count: number }>;
+
+    const received = db
+      .prepare(
+        `SELECT
+           issue_month AS month,
+           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 THEN
+             COALESCE(net_taxed, 0) + COALESCE(net_untaxed, 0) + COALESCE(exempt, 0) + COALESCE(undiscriminated, 0)
+           END), 0) AS expenses,
+           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 AND vat_recoverable = 1 THEN COALESCE(vat, 0) END), 0) AS vatCredit,
+           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 AND vat_recoverable = 1 THEN COALESCE(vat_perception, 0) END), 0) AS vatPerception
+         FROM v_comprobantes_oro
+         WHERE ${PERIOD_FILTER}
+         GROUP BY issue_month`
+      )
+      .all(from, to) as Array<{
+      month: string;
+      expenses: number;
+      vatCredit: number;
+      vatPerception: number;
+    }>;
+
+    const noBreakdown = db
+      .prepare(
+        `SELECT COUNT(*) AS count, COALESCE(SUM(signed_total), 0) AS total
+         FROM v_comprobantes_oro
+         WHERE ${PERIOD_FILTER} AND has_tax_breakdown = 0`
+      )
+      .get(from, to) as { count: number; total: number };
+
+    const loadedMonths = new Set(
+      (
+        db
+          .prepare(
+            `SELECT DISTINCT issue_month AS month FROM v_comprobantes_oro WHERE ${PERIOD_FILTER}`
+          )
+          .all(from, to) as Array<{ month: string }>
+      ).map((r) => r.month)
+    );
+
+    const byMonth = new Map<string, IncomeVsExpensesMonth>();
+    const rowOf = (month: string): IncomeVsExpensesMonth => {
+      let row = byMonth.get(month);
+      if (!row) {
+        row = {
+          month,
+          income: 0,
+          expenses: 0,
+          vatDebit: 0,
+          vatCredit: 0,
+          vatPerception: 0,
+          vatBalance: 0,
+        };
+        byMonth.set(month, row);
+      }
+      return row;
+    };
+    for (const r of issued) {
+      const row = rowOf(r.month);
+      row.income = r.income;
+      row.vatDebit = r.vatDebit;
+    }
+    for (const r of received) {
+      const row = rowOf(r.month);
+      row.expenses = r.expenses;
+      row.vatCredit = r.vatCredit;
+      row.vatPerception = r.vatPerception;
+    }
+    const months = [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
+    for (const m of months) m.vatBalance = m.vatDebit - m.vatCredit - m.vatPerception;
+
+    const sum = (pick: (m: IncomeVsExpensesMonth) => number) =>
+      months.reduce((acc, m) => acc + pick(m), 0);
+    const totals: IncomeVsExpensesTotals = {
+      income: sum((m) => m.income),
+      expenses: sum((m) => m.expenses),
+      result: 0,
+      vatDebit: sum((m) => m.vatDebit),
+      vatCredit: sum((m) => m.vatCredit),
+      vatPerception: sum((m) => m.vatPerception),
+      vatBalance: sum((m) => m.vatBalance),
+    };
+    totals.result = totals.income - totals.expenses;
+
+    return {
+      months,
+      totals,
+      coverage: {
+        issuedCount: issued.reduce((acc, r) => acc + r.count, 0),
+        invoicesWithoutBreakdown: noBreakdown.count,
+        invoicesWithoutBreakdownTotal: noBreakdown.total,
+        monthsWithIncomeWithoutExpenses: issued
+          .filter((r) => !loadedMonths.has(r.month))
+          .map((r) => r.month)
+          .sort(),
+      },
     };
   }
 

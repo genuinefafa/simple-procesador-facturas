@@ -453,6 +453,131 @@ describe('StatsRepository period boundaries', () => {
   });
 });
 
+describe('StatsRepository.getIncomeVsExpenses', () => {
+  const RECEIVER = '20-12345678-9';
+
+  function insertIssued(opts: { type: number; date: string; net: number; vat: number }): void {
+    getRawDb()
+      .prepare(
+        `INSERT INTO issued_invoices
+           (issue_date, invoice_type, point_of_sale, invoice_number, receiver_doc_number,
+            currency, net_taxed_total, vat_total, total)
+         VALUES (?, ?, 1, ?, ?, '$', ?, ?, ?)`
+      )
+      .run(opts.date, opts.type, nextNumber++, RECEIVER, opts.net, opts.vat, opts.net + opts.vat);
+  }
+
+  beforeEach(() => {
+    resetTestDb();
+    nextNumber = 1;
+    getRawDb()
+      .prepare('INSERT INTO emisores (cuit, nombre) VALUES (?, ?)')
+      .run(CUIT, 'Emisor Test');
+  });
+
+  it('empty period: no months, zero totals and coverage', () => {
+    expect(new StatsRepository().getIncomeVsExpenses(YEAR)).toEqual({
+      months: [],
+      totals: {
+        income: 0,
+        expenses: 0,
+        result: 0,
+        vatDebit: 0,
+        vatCredit: 0,
+        vatPerception: 0,
+        vatBalance: 0,
+      },
+      coverage: {
+        issuedCount: 0,
+        invoicesWithoutBreakdown: 0,
+        invoicesWithoutBreakdownTotal: 0,
+        monthsWithIncomeWithoutExpenses: [],
+      },
+    });
+  });
+
+  it('subtracts issued and received credit notes, and splits VAT credit from perception', () => {
+    insertIssued({ type: 1, date: '2026-03-05', net: 1000, vat: 210 });
+    insertIssued({ type: 3, date: '2026-03-20', net: 100, vat: 21 }); // issued NC
+    const a = insertInvoice({ type: 1, total: 1210 + 10, date: '2026-03-10' });
+    insertTaxLine(a, 'NET_TAXED', 500, 21);
+    insertTaxLine(a, 'VAT', 105, 21);
+    insertTaxLine(a, 'VAT_PERCEPTION', 10);
+    const nc = insertInvoice({ type: 3, total: 121, date: '2026-03-15' }); // received NC
+    insertTaxLine(nc, 'NET_TAXED', 50, 21);
+    insertTaxLine(nc, 'VAT', 10.5, 21);
+
+    const r = new StatsRepository().getIncomeVsExpenses(YEAR);
+    expect(r.months).toEqual([
+      {
+        month: '2026-03',
+        income: 900,
+        expenses: 450,
+        vatDebit: 189,
+        vatCredit: 94.5,
+        vatPerception: 10,
+        vatBalance: 84.5,
+      },
+    ]);
+    expect(r.totals).toEqual({
+      income: 900,
+      expenses: 450,
+      result: 450,
+      vatDebit: 189,
+      vatCredit: 94.5,
+      vatPerception: 10,
+      vatBalance: 84.5,
+    });
+    expect(r.coverage.issuedCount).toBe(2);
+    expect(r.coverage.monthsWithIncomeWithoutExpenses).toEqual([]);
+  });
+
+  it('B/C invoice adds to expenses via undiscriminated but not to the VAT credit', () => {
+    const b = insertInvoice({ type: 6, total: 150, date: '2026-04-02' });
+    insertTaxLine(b, 'UNDISCRIMINATED', 120);
+    insertTaxLine(b, 'OTHER_TAXES', 30);
+    const c = insertInvoice({ type: 11, total: 80, date: '2026-04-03' });
+    insertTaxLine(c, 'UNDISCRIMINATED', 80);
+
+    const r = new StatsRepository().getIncomeVsExpenses(YEAR);
+    expect(r.months).toEqual([
+      {
+        month: '2026-04',
+        income: 0,
+        expenses: 200,
+        vatDebit: 0,
+        vatCredit: 0,
+        vatPerception: 0,
+        vatBalance: 0,
+      },
+    ]);
+  });
+
+  it('reports invoices without breakdown as coverage and months with income but no expenses', () => {
+    insertIssued({ type: 11, date: '2026-01-10', net: 300, vat: 0 });
+    insertIssued({ type: 1, date: '2026-05-10', net: 700, vat: 147 });
+    insertInvoice({ type: 1, total: 999, date: '2026-05-11' }); // loaded, no breakdown
+    insertInvoice({ type: 3, total: 100, date: '2026-05-12' }); // NC without breakdown
+    insertInvoice({ type: 1, total: 5, date: '2025-12-31' }); // out of period
+
+    const r = new StatsRepository().getIncomeVsExpenses(YEAR);
+    expect(r.totals.expenses).toBe(0);
+    expect(r.totals.income).toBe(1000);
+    expect(r.coverage).toEqual({
+      issuedCount: 2,
+      invoicesWithoutBreakdown: 2,
+      invoicesWithoutBreakdownTotal: 899,
+      monthsWithIncomeWithoutExpenses: ['2026-01'],
+    });
+  });
+
+  it('respects the period range', () => {
+    insertIssued({ type: 1, date: '2025-12-31', net: 100, vat: 21 });
+    insertIssued({ type: 1, date: '2026-01-01', net: 200, vat: 42 });
+    expect(new StatsRepository().getIncomeVsExpenses(YEAR).totals.income).toBe(200);
+  });
+});
+
 describe('GET /api/stats/summary', () => {
   beforeEach(() => {
     resetTestDb();
@@ -483,5 +608,9 @@ describe('GET /api/stats/summary', () => {
       vatCredit: 0,
       coverage: { withBreakdown: 0, total: 0 },
     });
+    expect(body.incomeVsExpenses.months).toEqual([]);
+    expect(body.incomeVsExpenses.coverage.issuedCount).toBe(0);
+    expect(body.incomeVsExpenses.months).toEqual([]);
+    expect(body.incomeVsExpenses.coverage.issuedCount).toBe(0);
   });
 });
