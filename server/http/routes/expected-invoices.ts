@@ -26,6 +26,7 @@ import {
   type BalanceGroupMember,
   type BalanceGroupResponse,
 } from '../../contracts';
+import { IssuedInvoiceImportService } from '../../services/issued-invoice-import.service';
 import { isUniqueViolation, UNIQUE_VIOLATION_MESSAGE } from '../../services/invoice-link-guard';
 
 const balanceRepo = new ExpectedInvoiceRepository();
@@ -211,6 +212,15 @@ expectedInvoicesRouter.post('/import', async (c) => {
     await writeFile(filePath, Buffer.from(arrayBuffer));
 
     console.info(`   💾 Archivo guardado: ${filePath}`);
+
+    // "Mis Comprobantes Emitidos" (Receptor columns) goes to issued_invoices
+    const issued = await new IssuedInvoiceImportService().importIfIssued(filePath);
+    if (issued) {
+      console.info(
+        `   ✅ Emitidos: ${issued.created} nuevos, ${issued.updated} actualizados, ${issued.unchanged} sin cambios, ${issued.errors.length} errores`
+      );
+      return c.json(issued);
+    }
 
     const importService = await createExcelImportService();
     const result = await importService.importFromFile(filePath);
