@@ -9,6 +9,7 @@
 
 import {
   expectedToTaxLines,
+  impliedOtherTaxes,
   type ExpectedTaxSource,
   type ExpectedTaxLine,
 } from '../utils/expected-tax-lines';
@@ -73,6 +74,10 @@ export interface ReconciliationResult {
   buckets: BucketDiff[];
   /** There is an ack but its fingerprint differs from the current one */
   ackStale: boolean;
+  /** ARCA does not detail "otros tributos"; the amount comes from total - rest */
+  otherTaxesImplied: boolean;
+  /** ARCA lines sum to the invoice total (+-0.05); null when not evaluable */
+  arcaSumsToTotal: boolean | null;
 }
 
 function round2(n: number): number {
@@ -195,7 +200,22 @@ export function reconcileTaxBreakdown(input: ReconciliationInput): Reconciliatio
   const fingerprint = hasArca ? arcaFingerprint(expected.id, arcaLines) : null;
   const ackStale = ack !== null && ack.arcaFingerprint !== fingerprint;
 
-  const base = { arcaLines, arcaFingerprint: fingerprint, buckets: [] as BucketDiff[], ackStale };
+  const otherTaxesImplied =
+    expected !== null &&
+    impliedOtherTaxes(expected, invoice.invoiceType ?? expected.invoiceType) > 0;
+  const arcaSumsToTotal =
+    hasArca && invoice.total !== null
+      ? checkTaxLinesSum(arcaLines, Math.abs(invoice.total)).ok
+      : null;
+
+  const base = {
+    arcaLines,
+    arcaFingerprint: fingerprint,
+    buckets: [] as BucketDiff[],
+    ackStale,
+    otherTaxesImplied,
+    arcaSumsToTotal,
+  };
 
   if (invoice.lines.length === 0) {
     const manual = (reason: ReconciliationReason): ReconciliationResult => ({
@@ -215,7 +235,7 @@ export function reconcileTaxBreakdown(input: ReconciliationInput): Reconciliatio
       }
       return { ...base, status: 'ok', reason: 'not_required' };
     }
-    if (!checkTaxLinesSum(arcaLines, Math.abs(invoice.total)).ok) {
+    if (!arcaSumsToTotal) {
       return manual('arca_sum_mismatch');
     }
     return { ...base, status: 'completable', reason: 'arca_available' };

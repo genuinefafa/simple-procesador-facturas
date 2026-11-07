@@ -63,6 +63,10 @@ export interface TaxReconciliationItem {
   ack: { arcaFingerprint: string; note: string | null; createdAt: string } | null;
   /** There is an ack but ARCA changed since */
   ackStale: boolean;
+  /** ARCA does not detail other taxes; the amount is derived from the total */
+  otherTaxesImplied: boolean;
+  /** ARCA lines sum to the total; null when not evaluable */
+  arcaSumsToTotal: boolean | null;
 }
 
 export interface ReconciliationCounts {

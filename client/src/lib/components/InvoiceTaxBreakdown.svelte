@@ -52,6 +52,7 @@
     prefill,
     oncompare,
     compareActive = false,
+    onsaved,
     lockedLines,
     initialLines,
     ondraftchange,
@@ -525,6 +526,7 @@
       editing = false;
       prefilled = false;
       toast.success('Desglose guardado');
+      onsaved?.();
     } else {
       saveError = result.error ?? 'No se pudo guardar el desglose.';
     }
@@ -541,6 +543,7 @@
       editing = false;
       prefilled = false;
       toast.success('Desglose quitado');
+      onsaved?.();
     } else {
       toast.error(result.error ?? 'No se pudo quitar el desglose');
     }
