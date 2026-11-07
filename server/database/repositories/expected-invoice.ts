@@ -326,8 +326,8 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
    * Fields of a reimported row that differ from the stored expected invoice.
    *
    * Every field the Excel provides overwrites the stored one, except the key
-   * used to find the duplicate (CUIT + CAE, or CUIT + type + point of sale +
-   * number when there is no CAE). An empty cell never erases a stored value.
+   * used to find the duplicate (see findDuplicate). An empty cell never
+   * erases a stored value.
    * Local fields (status, category, notes, links) are never touched.
    *
    * Returns undefined when nothing changed.
@@ -349,18 +349,9 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     }
     if (differs(incoming.currency, stored.currency)) changes.currency = incoming.currency;
 
-    // Matched by CAE: type, point of sale and number are data, not key.
-    // Without CAE they are the key, and the CAE stays absent.
-    if (incoming.cae) {
-      if (differs(incoming.invoiceType, stored.invoiceType)) {
-        changes.invoiceType = incoming.invoiceType;
-      }
-      if (differs(incoming.pointOfSale, stored.pointOfSale)) {
-        changes.pointOfSale = incoming.pointOfSale;
-      }
-      if (differs(incoming.invoiceNumber, stored.invoiceNumber)) {
-        changes.invoiceNumber = incoming.invoiceNumber;
-      }
+    // Matched by CAE: the type is data, not key. Without CAE it is the key.
+    if (incoming.cae && differs(incoming.invoiceType, stored.invoiceType)) {
+      changes.invoiceType = incoming.invoiceType;
     }
 
     const taxColumns = this.changedTaxColumns(incoming.taxColumns, stored);
@@ -559,7 +550,10 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
 
   /**
    * Busca duplicados según las reglas de AFIP:
-   * - Si existe CAE: busca por emisor (CUIT) + CAE
+   * - Si existe CAE: busca por emisor (CUIT) + CAE + sucursal + numero. El CAE
+   *   solo no alcanza: ARCA informa a veces una factura y su nota de crédito
+   *   con el mismo CAE. El tipo queda afuera para que un tipo mal guardado se
+   *   pueda corregir al reimportar.
    * - Si NO existe CAE: busca por emisor + tipo + sucursal + numero
    */
   async findDuplicate(invoice: {
@@ -572,11 +566,17 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     let result;
 
     if (invoice.cae) {
-      // Búsqueda por CUIT + CAE (clave única)
       result = await getDb()
         .select()
         .from(expectedInvoices)
-        .where(and(eq(expectedInvoices.cuit, invoice.cuit), eq(expectedInvoices.cae, invoice.cae)));
+        .where(
+          and(
+            eq(expectedInvoices.cuit, invoice.cuit),
+            eq(expectedInvoices.cae, invoice.cae),
+            eq(expectedInvoices.pointOfSale, invoice.pointOfSale),
+            eq(expectedInvoices.invoiceNumber, invoice.invoiceNumber)
+          )
+        );
     } else {
       // Búsqueda por CUIT + tipo + sucursal + numero
       result = await getDb()
@@ -604,8 +604,6 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
       emitterName?: string;
       issueDate?: string;
       invoiceType?: number;
-      pointOfSale?: number;
-      invoiceNumber?: number;
       total?: number;
       cae?: string;
       caeExpiration?: string;
@@ -621,8 +619,6 @@ export class ExpectedInvoiceRepository implements IExpectedInvoiceRepository {
     if (data.emitterName !== undefined) updates.emitterName = data.emitterName;
     if (data.issueDate !== undefined) updates.issueDate = data.issueDate;
     if (data.invoiceType !== undefined) updates.invoiceType = data.invoiceType;
-    if (data.pointOfSale !== undefined) updates.pointOfSale = data.pointOfSale;
-    if (data.invoiceNumber !== undefined) updates.invoiceNumber = data.invoiceNumber;
     if (data.total !== undefined) updates.total = data.total;
     if (data.cae !== undefined) updates.cae = data.cae;
     if (data.caeExpiration !== undefined) updates.caeExpiration = data.caeExpiration;
