@@ -8,6 +8,9 @@ import {
   buildMonthlyData,
   buildPeriodKey,
   buildTaxBreakdownData,
+  buildIncomeExpensesRows,
+  formatMonthList,
+  formatShortMonthList,
   categoryColor,
   categoryQuery,
   changePeriodKind,
@@ -301,5 +304,58 @@ describe('buildTaxBreakdownData', () => {
     expect(data.rows[0]).toEqual({ month: '2026-07', net: 1000, vat: 210, other: 30 });
     expect(data.rows[1]).toEqual({ month: '2026-08', net: 0, vat: 0, other: 0 });
     expect(data.rows[2].net).toBe(-100);
+  });
+});
+
+describe('buildIncomeExpensesRows', () => {
+  it('zero-fills the period and derives result, credit total and balance', () => {
+    const rows = buildIncomeExpensesRows(
+      [
+        {
+          month: '2026-02',
+          income: 1000,
+          expenses: 400,
+          vatDebit: 210,
+          vatCredit: 80,
+          vatPerception: 10,
+          vatBalance: 130,
+          expectedNotLoadedCount: 2,
+          expectedNotLoadedTotal: 300,
+        },
+      ],
+      ['2026-01', '2026-02', '2026-03']
+    );
+    expect(rows.map((r) => r.month)).toEqual(['2026-01', '2026-02', '2026-03']);
+    expect(rows[0]).toMatchObject({ income: 0, expenses: 0, result: 0, vatBalance: 0 });
+    expect(rows[1]).toMatchObject({ result: 600, vatCredit: 80, vatBalance: 130 });
+    expect(rows[0]).toMatchObject({ expectedNotLoadedCount: 0, expectedNotLoadedTotal: 0 });
+    expect(rows[1]).toMatchObject({ expectedNotLoadedCount: 2, expectedNotLoadedTotal: 300 });
+  });
+});
+
+describe('formatShortMonthList', () => {
+  it('joins short month names', () => {
+    expect(formatShortMonthList([])).toBe('');
+    expect(formatShortMonthList(['2025-02'])).toBe('feb');
+    expect(formatShortMonthList(['2025-02', '2025-03'])).toBe('feb y mar');
+  });
+
+  it('compresses runs of 3 or more consecutive months', () => {
+    expect(formatShortMonthList(['2025-02', '2025-03', '2025-04'])).toBe('de feb a abr');
+    const all = Array.from({ length: 12 }, (_, i) => `2025-${String(i + 1).padStart(2, '0')}`);
+    expect(formatShortMonthList(all)).toBe('de ene a dic');
+    expect(formatShortMonthList(['2025-09', '2025-02', '2025-04', '2025-05', '2025-06'])).toBe(
+      'feb, de abr a jun y sep'
+    );
+  });
+});
+
+describe('formatMonthList', () => {
+  it('joins month names in Spanish', () => {
+    expect(formatMonthList([])).toBe('');
+    expect(formatMonthList(['2025-01'])).toBe('enero de 2025');
+    expect(formatMonthList(['2025-01', '2025-02', '2025-03'])).toBe(
+      'enero de 2025, febrero de 2025 y marzo de 2025'
+    );
   });
 });

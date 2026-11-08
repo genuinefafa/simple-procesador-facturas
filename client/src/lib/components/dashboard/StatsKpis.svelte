@@ -23,29 +23,80 @@
 
 <div class="kpis">
   <div class="kpi">
-    <div class="kpi-label">Total del período</div>
+    <div class="kpi-label">Gastos (total)</div>
     <div class="kpi-value">{formatCurrency(summary.totals.total)}</div>
-    <p class="kpi-hint">En pesos, notas de crédito restadas</p>
+    <p class="kpi-hint">Recibidos cargados, con IVA; notas de crédito restadas</p>
   </div>
   <div class="kpi">
-    <div class="kpi-label">Facturas</div>
+    <div class="kpi-label">Recibidos cargados</div>
     <div class="kpi-value">{intFormatter.format(summary.totals.count)}</div>
-    <p class="kpi-hint">Comprobantes cargados en el período</p>
+    <p class="kpi-hint">Comprobantes recibidos en el período</p>
   </div>
   <div class="kpi">
-    <div class="kpi-label">Con IVA computable</div>
+    <div class="kpi-label">Recibidos A y M (total)</div>
     <div class="kpi-value">{formatCurrency(summary.totals.vatRecoverableTotal)}</div>
-    <p class="kpi-hint">Facturas A y M</p>
+    <p class="kpi-hint">Los que dan crédito fiscal</p>
   </div>
 </div>
+
+{#if summary.incomeVsExpenses.coverage.issuedCount > 0}
+  {@const t = summary.incomeVsExpenses.totals}
+  <div class="kpis-six">
+    <div class="kpis">
+      <div class="kpi">
+        <div class="kpi-label">Ingresos (neto)</div>
+        <div class="kpi-value">{formatCurrency(t.income)}</div>
+        <p class="kpi-hint">Comprobantes emitidos, sin IVA</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Gastos (neto)</div>
+        <div class="kpi-value">{formatCurrency(t.expenses)}</div>
+        <p class="kpi-hint">Recibidos cargados con desglose, sin IVA</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Resultado</div>
+        <div class="kpi-value">{formatCurrency(t.result)}</div>
+        <p class="kpi-hint">
+          {#if summary.incomeVsExpenses.coverage.expectedNotLoaded.count > 0}
+            Faltan {formatCurrency(summary.incomeVsExpenses.coverage.expectedNotLoaded.total)} (total
+            con IVA) de recibidos informados por ARCA sin cargar
+          {:else}
+            Ingresos menos gastos
+          {/if}
+        </p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">IVA ventas</div>
+        <div class="kpi-value">{formatCurrency(t.vatDebit)}</div>
+        <p class="kpi-hint">De comprobantes emitidos</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">IVA compras</div>
+        <div class="kpi-value">{formatCurrency(t.vatCredit)}</div>
+        <p class="kpi-hint">De recibidos A y M cargados; B y C no dan crédito</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Saldo técnico de IVA</div>
+        <div class="kpi-value">{formatCurrency(t.vatBalance)}</div>
+        <p class="kpi-hint">
+          {t.vatBalance < 0 ? 'A favor (técnico)' : 'A pagar (técnico)'}
+          {#if t.vatPerception > 0}
+            · Percepciones de IVA cargadas: {formatCurrency(t.vatPerception)} (pago a cuenta, no incluidas)
+          {/if}
+        </p>
+      </div>
+    </div>
+  </div>
+{/if}
 
 {#if showPending && pending.count > 0}
   <button type="button" class="pending" onclick={() => onpendingclick?.()}>
     <Info size={14} />
     <span>
       {intFormatter.format(pending.count)}
-      {pending.count === 1 ? 'comprobante informado' : 'comprobantes informados'} por ARCA sin validar,
-      por {formatCurrency(pending.total)}
+      {pending.count === 1 ? 'recibido informado' : 'recibidos informados'} por ARCA sin cargar, por {formatCurrency(
+        pending.total
+      )}
     </span>
   </button>
 {/if}
@@ -68,6 +119,27 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: var(--spacing-4);
+  }
+
+  /* Six KPIs: 6 columns when there is room, else 3 (never 5+1) */
+  .kpis-six {
+    container-type: inline-size;
+  }
+
+  .kpis-six .kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @container (min-width: 96rem) {
+    .kpis-six .kpis {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  @container (max-width: 40rem) {
+    .kpis-six .kpis {
+      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    }
   }
 
   .kpi {

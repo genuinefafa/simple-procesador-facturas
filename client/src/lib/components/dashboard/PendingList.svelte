@@ -24,8 +24,8 @@
       <Info size={14} />
       <span>
         {intFormatter.format(pending.count)}
-        {pending.count === 1 ? 'comprobante informado' : 'comprobantes informados'} por ARCA sin validar,
-        por {formatCurrency(pending.total)}
+        {pending.count === 1 ? 'recibido informado' : 'recibidos informados'} por ARCA sin cargar, por
+        {formatCurrency(pending.total)}
       </span>
     </button>
   {:else}

@@ -7,7 +7,12 @@
  */
 
 import { getRawDb } from '../db';
-import { getInvoiceSign, type InvoiceLetter } from '../../utils/afip-codes';
+import {
+  getInvoiceLetter,
+  getInvoiceSign,
+  isVatRecoverable,
+  type InvoiceLetter,
+} from '../../utils/afip-codes';
 import type { PeriodRange } from '../../contracts/stats';
 
 export interface StatsTotals {
@@ -52,19 +57,78 @@ export interface TaxBreakdownMonth {
   month: string;
   /** net_taxed + net_untaxed + exempt + undiscriminated */
   net: number;
-  /** vat + vat_perception */
+  /** vat only (VAT perception is a payment on account, not a credit) */
   vat: number;
-  /** iibb_perception + other_taxes */
+  /** vat_perception + iibb_perception + other_taxes */
   other: number;
 }
 
 export interface TaxBreakdownStats {
   /** Only invoices with a loaded breakdown (any letter), signed */
   byMonth: TaxBreakdownMonth[];
-  /** SUM(vat + vat_perception) over A/M invoices with a loaded breakdown */
+  /** SUM(vat) over A/M invoices with a loaded breakdown */
   vatCredit: number;
   /** Coverage over A/M invoices (vat_recoverable = 1) */
   coverage: { withBreakdown: number; total: number };
+}
+
+export interface IncomeVsExpensesMonth {
+  /** YYYY-MM */
+  month: string;
+  /** Issued net (v_emitidas_oro), credit notes subtract */
+  income: number;
+  /** Received net (v_comprobantes_oro), same expression as the tax breakdown net */
+  expenses: number;
+  /** Issued VAT */
+  vatDebit: number;
+  /** Recoverable VAT (A/M) of loaded received invoices; perception excluded */
+  vatCredit: number;
+  /** VAT perception (A/M) of loaded received invoices; informative, not part of the balance */
+  vatPerception: number;
+  /** vatDebit - vatCredit; positive = payable (perception is a payment on account) */
+  vatBalance: number;
+  /** ARCA-informed received invoices of the month with no linked invoice */
+  expectedNotLoadedCount: number;
+  /** Their signed total (credit notes subtract) */
+  expectedNotLoadedTotal: number;
+}
+
+export interface IncomeVsExpensesTotals {
+  income: number;
+  expenses: number;
+  /** income - expenses */
+  result: number;
+  vatDebit: number;
+  vatCredit: number;
+  vatPerception: number;
+  vatBalance: number;
+}
+
+export interface IncomeVsExpensesCoverage {
+  /** Issued invoices in the period */
+  issuedCount: number;
+  /** Received ARS invoices with no tax breakdown (no net, not estimated) */
+  invoicesWithoutBreakdown: number;
+  /** Their signed_total (credit notes subtract), informative only */
+  invoicesWithoutBreakdownTotal: number;
+  /** Their absolute total (invoices and credit notes added), never negative */
+  invoicesWithoutBreakdownGross: number;
+  /** Months (YYYY-MM) with issued invoices and no received invoices loaded */
+  monthsWithIncomeWithoutExpenses: string[];
+  /** Same criterion as pendingExpected: received ARCA rows with no linked invoice */
+  expectedNotLoaded: PendingExpectedStat;
+  /** Months (YYYY-MM) with at least one expected invoice not loaded */
+  monthsWithExpectedNotLoaded: string[];
+  /** Subset of expectedNotLoaded with letter A/M (their VAT would be credit) */
+  expectedNotLoadedVat: PendingExpectedStat;
+  /** Months (YYYY-MM) with at least one A/M expected invoice not loaded */
+  monthsWithExpectedNotLoadedVat: string[];
+}
+
+export interface IncomeVsExpensesStats {
+  months: IncomeVsExpensesMonth[];
+  totals: IncomeVsExpensesTotals;
+  coverage: IncomeVsExpensesCoverage;
 }
 
 export interface StatsSummary {
@@ -74,6 +138,7 @@ export interface StatsSummary {
   byLetter: LetterStat[];
   pendingExpected: PendingExpectedStat;
   taxBreakdown: TaxBreakdownStats;
+  incomeVsExpenses: IncomeVsExpensesStats;
 }
 
 /**
@@ -81,6 +146,28 @@ export interface StatsSummary {
  * they are left out and counted apart (foreignCurrencyCount).
  */
 const PERIOD_FILTER = "issue_date >= ? AND issue_date < ? AND COALESCE(currency, 'ARS') = 'ARS'";
+
+/**
+ * Issued invoices come from the ARCA Excel, where the currency is the literal
+ * text of the sheet ("$" for pesos). Same ARS-only criterion as PERIOD_FILTER.
+ * TODO: See issue #199 (multi-currency: convert instead of excluding)
+ */
+const ISSUED_PERIOD_FILTER =
+  "issue_date >= ? AND issue_date < ? AND COALESCE(NULLIF(TRIM(currency), ''), '$') IN ('$', 'ARS')";
+
+/**
+ * Expected invoices informed by ARCA and not yet validated as an invoice.
+ * Shared by getPendingExpected and the income vs expenses coverage so both
+ * always count the same rows.
+ */
+const PENDING_EXPECTED_FROM = `FROM expected_invoices ei
+         WHERE ei.status = 'pending'
+           AND substr(ei.issue_date, 1, 10) >= ? AND substr(ei.issue_date, 1, 10) < ?
+           AND COALESCE(ei.currency, 'ARS') = 'ARS'
+           AND NOT EXISTS (SELECT 1 FROM facturas f WHERE f.expected_invoice_id = ei.id)`;
+
+/** Rounds to cents so float noise never reaches the API */
+const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
 
 export class StatsRepository {
   getSummary(range: PeriodRange): StatsSummary {
@@ -91,6 +178,7 @@ export class StatsRepository {
       byLetter: this.getByLetter(range),
       pendingExpected: this.getPendingExpected(range),
       taxBreakdown: this.getTaxBreakdown(range),
+      incomeVsExpenses: this.getIncomeVsExpenses(range),
     };
   }
 
@@ -173,8 +261,8 @@ export class StatsRepository {
         `SELECT
            issue_month AS month,
            COALESCE(SUM(net_taxed + net_untaxed + exempt + undiscriminated), 0) AS net,
-           COALESCE(SUM(vat + vat_perception), 0) AS vat,
-           COALESCE(SUM(iibb_perception + other_taxes), 0) AS other
+           COALESCE(SUM(vat), 0) AS vat,
+           COALESCE(SUM(vat_perception + iibb_perception + other_taxes), 0) AS other
          FROM v_comprobantes_oro
          WHERE ${PERIOD_FILTER} AND has_tax_breakdown = 1
          GROUP BY issue_month
@@ -185,7 +273,7 @@ export class StatsRepository {
     const credit = db
       .prepare(
         `SELECT
-           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 THEN vat + vat_perception END), 0) AS vatCredit,
+           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 THEN vat END), 0) AS vatCredit,
            COALESCE(SUM(has_tax_breakdown), 0) AS withBreakdown,
            COUNT(*) AS total
          FROM v_comprobantes_oro
@@ -201,24 +289,191 @@ export class StatsRepository {
   }
 
   /**
+   * Issued (v_emitidas_oro) vs received (v_comprobantes_oro) by month, all by
+   * issue date. Expenses use the same net expression as getTaxBreakdown;
+   * the VAT credit is the same criterion as TaxBreakdownStats.vatCredit
+   * (vat only, vat_recoverable = 1); the perception is reported apart. Received invoices
+   * without a breakdown contribute no net: they are only reported as coverage.
+   * Issued amounts are filtered to pesos like the received side (no FX).
+   * Coverage also reports ARCA-informed received rows with no linked invoice
+   * (same rows as getPendingExpected), by month and in total.
+   */
+  getIncomeVsExpenses({ from, to }: PeriodRange): IncomeVsExpensesStats {
+    const db = getRawDb();
+    const issued = db
+      .prepare(
+        `SELECT
+           issue_month AS month,
+           COALESCE(SUM(net), 0) AS income,
+           COALESCE(SUM(vat), 0) AS vatDebit,
+           COUNT(*) AS count
+         FROM v_emitidas_oro
+         WHERE ${ISSUED_PERIOD_FILTER}
+         GROUP BY issue_month`
+      )
+      .all(from, to) as Array<{ month: string; income: number; vatDebit: number; count: number }>;
+
+    const received = db
+      .prepare(
+        `SELECT
+           issue_month AS month,
+           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 THEN
+             COALESCE(net_taxed, 0) + COALESCE(net_untaxed, 0) + COALESCE(exempt, 0) + COALESCE(undiscriminated, 0)
+           END), 0) AS expenses,
+           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 AND vat_recoverable = 1 THEN COALESCE(vat, 0) END), 0) AS vatCredit,
+           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 AND vat_recoverable = 1 THEN COALESCE(vat_perception, 0) END), 0) AS vatPerception
+         FROM v_comprobantes_oro
+         WHERE ${PERIOD_FILTER}
+         GROUP BY issue_month`
+      )
+      .all(from, to) as Array<{
+      month: string;
+      expenses: number;
+      vatCredit: number;
+      vatPerception: number;
+    }>;
+
+    const noBreakdown = db
+      .prepare(
+        `SELECT COUNT(*) AS count,
+                COALESCE(SUM(signed_total), 0) AS total,
+                COALESCE(SUM(ABS(signed_total)), 0) AS gross
+         FROM v_comprobantes_oro
+         WHERE ${PERIOD_FILTER} AND has_tax_breakdown = 0`
+      )
+      .get(from, to) as { count: number; total: number; gross: number };
+
+    const notLoaded = this.queryPendingExpected({ from, to });
+
+    const loadedMonths = new Set(
+      (
+        db
+          .prepare(
+            `SELECT DISTINCT issue_month AS month FROM v_comprobantes_oro WHERE ${PERIOD_FILTER}`
+          )
+          .all(from, to) as Array<{ month: string }>
+      ).map((r) => r.month)
+    );
+
+    const byMonth = new Map<string, IncomeVsExpensesMonth>();
+    const rowOf = (month: string): IncomeVsExpensesMonth => {
+      let row = byMonth.get(month);
+      if (!row) {
+        row = {
+          month,
+          income: 0,
+          expenses: 0,
+          vatDebit: 0,
+          vatCredit: 0,
+          vatPerception: 0,
+          vatBalance: 0,
+          expectedNotLoadedCount: 0,
+          expectedNotLoadedTotal: 0,
+        };
+        byMonth.set(month, row);
+      }
+      return row;
+    };
+    for (const r of issued) {
+      const row = rowOf(r.month);
+      row.income = r.income;
+      row.vatDebit = r.vatDebit;
+    }
+    for (const r of received) {
+      const row = rowOf(r.month);
+      row.expenses = r.expenses;
+      row.vatCredit = r.vatCredit;
+      row.vatPerception = r.vatPerception;
+    }
+    for (const r of notLoaded) {
+      const row = rowOf(r.month);
+      row.expectedNotLoadedCount += 1;
+      row.expectedNotLoadedTotal += getInvoiceSign(r.invoiceType) * (r.total ?? 0);
+    }
+    const notLoadedVat = notLoaded.filter((r) => isVatRecoverable(getInvoiceLetter(r.invoiceType)));
+    const months = [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
+    for (const m of months) {
+      m.vatBalance = m.vatDebit - m.vatCredit;
+      m.income = round2(m.income);
+      m.expenses = round2(m.expenses);
+      m.vatDebit = round2(m.vatDebit);
+      m.vatCredit = round2(m.vatCredit);
+      m.vatPerception = round2(m.vatPerception);
+      m.vatBalance = round2(m.vatBalance);
+      m.expectedNotLoadedTotal = round2(m.expectedNotLoadedTotal);
+    }
+
+    const sum = (pick: (m: IncomeVsExpensesMonth) => number): number =>
+      months.reduce((acc, m) => acc + pick(m), 0);
+    const totals: IncomeVsExpensesTotals = {
+      income: round2(sum((m) => m.income)),
+      expenses: round2(sum((m) => m.expenses)),
+      result: 0,
+      vatDebit: round2(sum((m) => m.vatDebit)),
+      vatCredit: round2(sum((m) => m.vatCredit)),
+      vatPerception: round2(sum((m) => m.vatPerception)),
+      vatBalance: round2(sum((m) => m.vatBalance)),
+    };
+    totals.result = round2(totals.income - totals.expenses);
+
+    return {
+      months,
+      totals,
+      coverage: {
+        issuedCount: issued.reduce((acc, r) => acc + r.count, 0),
+        invoicesWithoutBreakdown: noBreakdown.count,
+        invoicesWithoutBreakdownTotal: round2(noBreakdown.total),
+        invoicesWithoutBreakdownGross: round2(noBreakdown.gross),
+        monthsWithIncomeWithoutExpenses: issued
+          .filter((r) => !loadedMonths.has(r.month))
+          .map((r) => r.month)
+          .sort(),
+        expectedNotLoaded: {
+          count: notLoaded.length,
+          total: round2(
+            notLoaded.reduce((acc, r) => acc + getInvoiceSign(r.invoiceType) * (r.total ?? 0), 0)
+          ),
+        },
+        monthsWithExpectedNotLoaded: months
+          .filter((m) => m.expectedNotLoadedCount > 0)
+          .map((m) => m.month),
+        expectedNotLoadedVat: {
+          count: notLoadedVat.length,
+          total: round2(
+            notLoadedVat.reduce((acc, r) => acc + getInvoiceSign(r.invoiceType) * (r.total ?? 0), 0)
+          ),
+        },
+        monthsWithExpectedNotLoadedVat: [...new Set(notLoadedVat.map((r) => r.month))].sort(),
+      },
+    };
+  }
+
+  /**
    * Expected invoices informed by ARCA and not yet validated as an invoice.
    * Signed with the same ARCA map as the gold view (credit notes subtract).
    */
-  getPendingExpected({ from, to }: PeriodRange): PendingExpectedStat {
-    const rows = getRawDb()
-      .prepare(
-        `SELECT ei.invoice_type AS invoiceType, ei.total AS total
-         FROM expected_invoices ei
-         WHERE ei.status = 'pending'
-           AND substr(ei.issue_date, 1, 10) >= ? AND substr(ei.issue_date, 1, 10) < ?
-           AND COALESCE(ei.currency, 'ARS') = 'ARS'
-           AND NOT EXISTS (SELECT 1 FROM facturas f WHERE f.expected_invoice_id = ei.id)`
-      )
-      .all(from, to) as Array<{ invoiceType: number | null; total: number | null }>;
-
+  getPendingExpected(range: PeriodRange): PendingExpectedStat {
+    const rows = this.queryPendingExpected(range);
     return {
       count: rows.length,
       total: rows.reduce((sum, r) => sum + getInvoiceSign(r.invoiceType) * (r.total ?? 0), 0),
     };
+  }
+
+  private queryPendingExpected({ from, to }: PeriodRange): Array<{
+    month: string;
+    invoiceType: number | null;
+    total: number | null;
+  }> {
+    return getRawDb()
+      .prepare(
+        `SELECT substr(ei.issue_date, 1, 7) AS month, ei.invoice_type AS invoiceType, ei.total AS total
+         ${PENDING_EXPECTED_FROM}`
+      )
+      .all(from, to) as Array<{
+      month: string;
+      invoiceType: number | null;
+      total: number | null;
+    }>;
   }
 }

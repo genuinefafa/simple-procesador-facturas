@@ -11,6 +11,8 @@
     color?: string;
     amount: number;
     percent?: number | null;
+    /** Breakdown of the row above: indented and muted, no swatch */
+    detail?: boolean;
   }
 
   interface Props {
@@ -18,9 +20,11 @@
     rows: TooltipRow[];
     /** Optional total line shown below the rows */
     total?: number | null;
+    /** Label of the total line (default "Total") */
+    totalLabel?: string;
   }
 
-  let { title, rows, total = null }: Props = $props();
+  let { title, rows, total = null, totalLabel = 'Total' }: Props = $props();
 </script>
 
 <div class="tooltip-body">
@@ -29,7 +33,7 @@
   {/if}
   <ul class="tooltip-rows">
     {#each rows as row, i (i)}
-      <li class="tooltip-row">
+      <li class="tooltip-row" class:detail={row.detail}>
         {#if row.color}
           <span class="swatch" style:background={row.color}></span>
         {/if}
@@ -43,7 +47,7 @@
   </ul>
   {#if total !== null}
     <p class="tooltip-total">
-      <span>Total</span>
+      <span>{totalLabel}</span>
       <span>{formatCurrency(total)}</span>
     </p>
   {/if}
@@ -82,6 +86,16 @@
 
   .tooltip-row:not(:has(.swatch)) {
     grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  .tooltip-row.detail {
+    grid-template-columns: minmax(0, 1fr) auto;
+    padding-left: var(--spacing-5);
+    color: var(--color-text-tertiary);
+  }
+
+  .tooltip-row.detail .tooltip-amount {
+    font-weight: var(--font-weight-normal);
   }
 
   .swatch {

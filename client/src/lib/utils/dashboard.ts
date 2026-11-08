@@ -5,6 +5,7 @@
 
 import type {
   CategoryStat,
+  IncomeVsExpensesMonth,
   LetterStat,
   MonthCategoryStat,
   TaxBreakdownMonth,
@@ -378,8 +379,7 @@ export const TAX_BREAKDOWN_SERIES: MonthlySeries[] = [
 
 /**
  * Wide rows (one per month of the period, zero-filled) for the tax breakdown
- * chart: net / VAT (with VAT perception) / other (IIBB perception and other
- * taxes). Months without loaded breakdowns show 0, never an estimate.
+ * chart: net / VAT / other (VAT and IIBB perceptions, other taxes). Months without loaded breakdowns show 0, never an estimate.
  */
 export function buildTaxBreakdownData(
   byMonth: TaxBreakdownMonth[],
@@ -508,4 +508,89 @@ function pad2(n: number): string {
 
 function daysInMonth(year: number, month: number): number {
   return new Date(year, month, 0).getDate();
+}
+
+// ============================================================================
+// Income vs expenses
+// ============================================================================
+
+/** Series of the income vs expenses chart (semantic: green in, orange out) */
+export const INCOME_EXPENSES_SERIES: MonthlySeries[] = [
+  { key: 'income', label: 'Ingresos', color: 'var(--color-chart-3)', categoryKey: undefined },
+  { key: 'expenses', label: 'Gastos', color: 'var(--color-chart-2)', categoryKey: undefined },
+];
+
+/** Series of the VAT chart: VAT on sales vs VAT on purchases (perception excluded) */
+export const VAT_SERIES: MonthlySeries[] = [
+  { key: 'vatDebit', label: 'IVA ventas', color: 'var(--color-chart-1)', categoryKey: undefined },
+  {
+    key: 'vatCredit',
+    label: 'IVA compras',
+    color: 'var(--color-chart-4)',
+    categoryKey: undefined,
+  },
+];
+
+/**
+ * Wide rows (one per month of the period, zero-filled) for both charts.
+ * `result` and `vatBalance` are not series: they only feed the tooltips.
+ * The VAT purchases series is VAT only; the perception is a payment on
+ * account and stays out of the balance (it is kept as informative data).
+ */
+export function buildIncomeExpensesRows(
+  months: IncomeVsExpensesMonth[],
+  periodMonths: string[]
+): MonthlyRow[] {
+  const all = [...new Set([...periodMonths, ...months.map((m) => m.month)])].sort();
+  const index = new Map(months.map((m) => [m.month, m]));
+  return all.map((month) => {
+    const m = index.get(month);
+    const income = m?.income ?? 0;
+    const expenses = m?.expenses ?? 0;
+    const vatDebit = m?.vatDebit ?? 0;
+    const vatCredit = m?.vatCredit ?? 0;
+    const vatPerception = m?.vatPerception ?? 0;
+    return {
+      expectedNotLoadedCount: m?.expectedNotLoadedCount ?? 0,
+      expectedNotLoadedTotal: m?.expectedNotLoadedTotal ?? 0,
+      month,
+      income,
+      expenses,
+      result: income - expenses,
+      vatDebit,
+      vatCredit,
+      vatPerception,
+      vatBalance: vatDebit - vatCredit,
+    };
+  });
+}
+
+/**
+ * Short month list for YYYY-MM strings: runs of 3+ consecutive months become
+ * "de X a Y". E.g. "feb, mar y sep", "feb, de abr a jun y sep", "de ene a dic".
+ */
+export function formatShortMonthList(months: string[]): string {
+  const index = (m: string): number => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7));
+  const sorted = [...new Set(months)].sort();
+  const parts: string[] = [];
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i;
+    while (j + 1 < sorted.length && index(sorted[j + 1]!) === index(sorted[j]!) + 1) j++;
+    if (j - i >= 2) {
+      parts.push(`de ${shortMonthLabel(sorted[i]!)} a ${shortMonthLabel(sorted[j]!)}`);
+    } else {
+      for (let k = i; k <= j; k++) parts.push(shortMonthLabel(sorted[k]!));
+    }
+    i = j + 1;
+  }
+  if (parts.length <= 1) return parts.join('');
+  return `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
+}
+
+/** "enero de 2025, febrero de 2025 y marzo de 2025" for YYYY-MM strings */
+export function formatMonthList(months: string[]): string {
+  const names = months.map((m) => `${monthName(Number(m.slice(5, 7)))} de ${m.slice(0, 4)}`);
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
 }

@@ -382,10 +382,10 @@ describe('StatsRepository.getTaxBreakdown', () => {
 
     expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
       byMonth: [
-        { month: '2026-03', net: 900, vat: 199, other: 70 },
+        { month: '2026-03', net: 900, vat: 189, other: 80 },
         { month: '2026-04', net: 100, vat: 10, other: 0 },
       ],
-      vatCredit: 209,
+      vatCredit: 199,
       coverage: { withBreakdown: 3, total: 4 },
     });
   });
@@ -453,6 +453,212 @@ describe('StatsRepository period boundaries', () => {
   });
 });
 
+describe('StatsRepository.getIncomeVsExpenses', () => {
+  const RECEIVER = '20-12345678-9';
+
+  function insertIssued(opts: {
+    type: number;
+    date: string;
+    net: number;
+    vat: number;
+    currency?: string | null;
+  }): void {
+    getRawDb()
+      .prepare(
+        `INSERT INTO issued_invoices
+           (issue_date, invoice_type, point_of_sale, invoice_number, receiver_doc_number,
+            currency, net_taxed_total, vat_total, total)
+         VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(
+        opts.date,
+        opts.type,
+        nextNumber++,
+        RECEIVER,
+        opts.currency === undefined ? '$' : opts.currency,
+        opts.net,
+        opts.vat,
+        opts.net + opts.vat
+      );
+  }
+
+  beforeEach(() => {
+    resetTestDb();
+    nextNumber = 1;
+    getRawDb()
+      .prepare('INSERT INTO emisores (cuit, nombre) VALUES (?, ?)')
+      .run(CUIT, 'Emisor Test');
+  });
+
+  it('empty period: no months, zero totals and coverage', () => {
+    expect(new StatsRepository().getIncomeVsExpenses(YEAR)).toEqual({
+      months: [],
+      totals: {
+        income: 0,
+        expenses: 0,
+        result: 0,
+        vatDebit: 0,
+        vatCredit: 0,
+        vatPerception: 0,
+        vatBalance: 0,
+      },
+      coverage: {
+        issuedCount: 0,
+        invoicesWithoutBreakdown: 0,
+        invoicesWithoutBreakdownTotal: 0,
+        invoicesWithoutBreakdownGross: 0,
+        monthsWithIncomeWithoutExpenses: [],
+        expectedNotLoaded: { count: 0, total: 0 },
+        monthsWithExpectedNotLoaded: [],
+        expectedNotLoadedVat: { count: 0, total: 0 },
+        monthsWithExpectedNotLoadedVat: [],
+      },
+    });
+  });
+
+  it('subtracts issued and received credit notes, and keeps perception out of the VAT credit and balance', () => {
+    insertIssued({ type: 1, date: '2026-03-05', net: 1000, vat: 210 });
+    insertIssued({ type: 3, date: '2026-03-20', net: 100, vat: 21 }); // issued NC
+    const a = insertInvoice({ type: 1, total: 1210 + 10, date: '2026-03-10' });
+    insertTaxLine(a, 'NET_TAXED', 500, 21);
+    insertTaxLine(a, 'VAT', 105, 21);
+    insertTaxLine(a, 'VAT_PERCEPTION', 10);
+    const nc = insertInvoice({ type: 3, total: 121, date: '2026-03-15' }); // received NC
+    insertTaxLine(nc, 'NET_TAXED', 50, 21);
+    insertTaxLine(nc, 'VAT', 10.5, 21);
+
+    const r = new StatsRepository().getIncomeVsExpenses(YEAR);
+    expect(r.months).toEqual([
+      {
+        month: '2026-03',
+        income: 900,
+        expenses: 450,
+        vatDebit: 189,
+        vatCredit: 94.5,
+        vatPerception: 10,
+        vatBalance: 94.5,
+        expectedNotLoadedCount: 0,
+        expectedNotLoadedTotal: 0,
+      },
+    ]);
+    expect(r.totals).toEqual({
+      income: 900,
+      expenses: 450,
+      result: 450,
+      vatDebit: 189,
+      vatCredit: 94.5,
+      vatPerception: 10,
+      vatBalance: 94.5,
+    });
+    expect(r.coverage.issuedCount).toBe(2);
+    expect(r.coverage.monthsWithIncomeWithoutExpenses).toEqual([]);
+  });
+
+  it('B/C invoice adds to expenses via undiscriminated but not to the VAT credit', () => {
+    const b = insertInvoice({ type: 6, total: 150, date: '2026-04-02' });
+    insertTaxLine(b, 'UNDISCRIMINATED', 120);
+    insertTaxLine(b, 'OTHER_TAXES', 30);
+    const c = insertInvoice({ type: 11, total: 80, date: '2026-04-03' });
+    insertTaxLine(c, 'UNDISCRIMINATED', 80);
+
+    const r = new StatsRepository().getIncomeVsExpenses(YEAR);
+    expect(r.months).toEqual([
+      {
+        month: '2026-04',
+        income: 0,
+        expenses: 200,
+        vatDebit: 0,
+        vatCredit: 0,
+        vatPerception: 0,
+        vatBalance: 0,
+        expectedNotLoadedCount: 0,
+        expectedNotLoadedTotal: 0,
+      },
+    ]);
+  });
+
+  it('reports invoices without breakdown as coverage and months with income but no expenses', () => {
+    insertIssued({ type: 11, date: '2026-01-10', net: 300, vat: 0 });
+    insertIssued({ type: 1, date: '2026-05-10', net: 700, vat: 147 });
+    insertInvoice({ type: 1, total: 999, date: '2026-05-11' }); // loaded, no breakdown
+    insertInvoice({ type: 3, total: 100, date: '2026-05-12' }); // NC without breakdown
+    insertInvoice({ type: 1, total: 5, date: '2025-12-31' }); // out of period
+
+    const r = new StatsRepository().getIncomeVsExpenses(YEAR);
+    expect(r.totals.expenses).toBe(0);
+    expect(r.totals.income).toBe(1000);
+    expect(r.coverage).toEqual({
+      issuedCount: 2,
+      invoicesWithoutBreakdown: 2,
+      invoicesWithoutBreakdownTotal: 899,
+      invoicesWithoutBreakdownGross: 1099,
+      monthsWithIncomeWithoutExpenses: ['2026-01'],
+      expectedNotLoaded: { count: 0, total: 0 },
+      monthsWithExpectedNotLoaded: [],
+      expectedNotLoadedVat: { count: 0, total: 0 },
+      monthsWithExpectedNotLoadedVat: [],
+    });
+  });
+
+  it('reports ARCA expected invoices not loaded, by month and in total, like pendingExpected', () => {
+    insertIssued({ type: 1, date: '2026-03-05', net: 1000, vat: 210 });
+    // March has one loaded invoice, so it is not a "month without expenses"
+    const loaded = insertInvoice({ type: 1, total: 121, date: '2026-03-10' });
+    insertTaxLine(loaded, 'NET_TAXED', 100, 21);
+    insertTaxLine(loaded, 'VAT', 21, 21);
+    insertExpected({ type: 1, total: 500, date: '2026-03-02' });
+    insertExpected({ type: 3, total: 100, date: '2026-03-03' }); // NC subtracts
+    insertExpected({ type: 11, total: 40, date: '2026-04-01' });
+    // Excluded by the pendingExpected criterion
+    insertExpected({ type: 1, total: 999, date: '2026-03-04', status: 'matched' });
+    const linked = insertExpected({ type: 1, total: 888, date: '2026-03-05' });
+    insertInvoice({ type: 1, total: 888, date: '2026-03-06', expectedId: linked });
+    insertExpected({ type: 1, total: 777, date: '2025-12-31' });
+
+    const repo = new StatsRepository();
+    const r = repo.getIncomeVsExpenses(YEAR);
+    expect(r.coverage.monthsWithIncomeWithoutExpenses).toEqual([]);
+    expect(r.coverage.expectedNotLoaded).toEqual({ count: 3, total: 440 });
+    expect(r.coverage.expectedNotLoaded).toEqual(repo.getPendingExpected(YEAR));
+    expect(r.coverage.monthsWithExpectedNotLoaded).toEqual(['2026-03', '2026-04']);
+    // Only A/M rows (the C ticket is out; the A credit note subtracts)
+    expect(r.coverage.expectedNotLoadedVat).toEqual({ count: 2, total: 400 });
+    expect(r.coverage.monthsWithExpectedNotLoadedVat).toEqual(['2026-03']);
+    expect(
+      r.months.map((m) => [m.month, m.expectedNotLoadedCount, m.expectedNotLoadedTotal])
+    ).toEqual([
+      ['2026-03', 2, 400],
+      ['2026-04', 1, 40],
+    ]);
+  });
+
+  it('counts issued pesos ("$", null, ARS) and leaves out other currencies', () => {
+    insertIssued({ type: 1, date: '2026-03-01', net: 100, vat: 21 });
+    insertIssued({ type: 1, date: '2026-03-02', net: 200, vat: 42, currency: null });
+    insertIssued({ type: 1, date: '2026-03-03', net: 400, vat: 84, currency: 'ARS' });
+    insertIssued({ type: 1, date: '2026-03-04', net: 800, vat: 168, currency: 'USD' });
+
+    const r = new StatsRepository().getIncomeVsExpenses(YEAR);
+    expect(r.totals.income).toBe(700);
+    expect(r.coverage.issuedCount).toBe(3);
+  });
+
+  it('rounds amounts to cents', () => {
+    insertIssued({ type: 1, date: '2026-03-01', net: 0.1, vat: 0.02 });
+    insertIssued({ type: 1, date: '2026-03-02', net: 0.2, vat: 0.01 });
+    const r = new StatsRepository().getIncomeVsExpenses(YEAR);
+    expect(r.months[0].income).toBe(0.3);
+    expect(r.totals.income).toBe(0.3);
+    expect(r.totals.vatDebit).toBe(0.03);
+  });
+
+  it('respects the period range', () => {
+    insertIssued({ type: 1, date: '2025-12-31', net: 100, vat: 21 });
+    insertIssued({ type: 1, date: '2026-01-01', net: 200, vat: 42 });
+    expect(new StatsRepository().getIncomeVsExpenses(YEAR).totals.income).toBe(200);
+  });
+});
+
 describe('GET /api/stats/summary', () => {
   beforeEach(() => {
     resetTestDb();
@@ -483,5 +689,7 @@ describe('GET /api/stats/summary', () => {
       vatCredit: 0,
       coverage: { withBreakdown: 0, total: 0 },
     });
+    expect(body.incomeVsExpenses.months).toEqual([]);
+    expect(body.incomeVsExpenses.coverage.issuedCount).toBe(0);
   });
 });

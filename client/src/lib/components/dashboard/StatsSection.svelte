@@ -19,6 +19,7 @@
     buildCumulativeData,
     buildMonthlyData,
     buildTaxBreakdownData,
+    buildIncomeExpensesRows,
     categoryQuery,
     comprobantesUrl,
     letterQuery,
@@ -43,6 +44,7 @@
   import CategoryBarChart from './CategoryBarChart.svelte';
   import MonthlyStackedChart from './MonthlyStackedChart.svelte';
   import TaxBreakdownChart from './TaxBreakdownChart.svelte';
+  import IncomeVsExpensesChart from './IncomeVsExpensesChart.svelte';
   import CumulativeAreaChart from './CumulativeAreaChart.svelte';
   import LetterDonutChart from './LetterDonutChart.svelte';
 
@@ -105,6 +107,11 @@
       ? buildTaxBreakdownData(summary.taxBreakdown.byMonth, monthsOfPeriod(summary.period.key))
       : null
   );
+  const incomeRows = $derived(
+    summary
+      ? buildIncomeExpensesRows(summary.incomeVsExpenses.months, monthsOfPeriod(summary.period.key))
+      : []
+  );
   // Running total; needs at least two months to show growth
   const cumulative = $derived.by(() => {
     if (!monthly) return null;
@@ -113,6 +120,10 @@
   });
   const letterSlices = $derived(summary ? buildLetterSlices(summary.byLetter) : []);
   const isEmpty = $derived(!!summary && summary.totals.count === 0);
+  // Nothing received and nothing issued: only the empty-state message
+  const showIncomePanels = $derived(
+    !!summary && !(isEmpty && summary.incomeVsExpenses.coverage.issuedCount === 0)
+  );
 
   function open(q: string) {
     goto(comprobantesUrl(q));
@@ -150,6 +161,27 @@
           showPending
           onpendingclick={() => open(pendingExpectedQuery(period))}
         />
+      {/if}
+
+      {#if showIncomePanels}
+        <div class="panel">
+          <h3>Ingresos vs gastos (neto)</h3>
+          <IncomeVsExpensesChart
+            mode="result"
+            rows={incomeRows}
+            coverage={summary.incomeVsExpenses.coverage}
+          />
+        </div>
+
+        <div class="panel">
+          <h3>IVA ventas vs IVA compras</h3>
+          <IncomeVsExpensesChart
+            mode="vat"
+            rows={incomeRows}
+            coverage={summary.incomeVsExpenses.coverage}
+            vatCoverage={summary.taxBreakdown.coverage}
+          />
+        </div>
       {/if}
 
       {#if isEmpty}
