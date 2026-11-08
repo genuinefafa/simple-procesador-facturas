@@ -58,8 +58,8 @@
         <div class="kpi-value">{formatCurrency(t.result)}</div>
         <p class="kpi-hint">
           {#if summary.incomeVsExpenses.coverage.expectedNotLoaded.count > 0}
-            Faltan {formatCurrency(summary.incomeVsExpenses.coverage.expectedNotLoaded.total)} de recibidos
-            informados por ARCA sin cargar
+            Faltan {formatCurrency(summary.incomeVsExpenses.coverage.expectedNotLoaded.total)} (total
+            con IVA) de recibidos informados por ARCA sin cargar
           {:else}
             Ingresos menos gastos
           {/if}
