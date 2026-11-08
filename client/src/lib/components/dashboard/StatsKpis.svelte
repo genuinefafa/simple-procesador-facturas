@@ -68,12 +68,12 @@
       <div class="kpi">
         <div class="kpi-label">IVA ventas</div>
         <div class="kpi-value">{formatCurrency(t.vatDebit)}</div>
-        <p class="kpi-hint">IVA de los comprobantes emitidos</p>
+        <p class="kpi-hint">De comprobantes emitidos</p>
       </div>
       <div class="kpi">
         <div class="kpi-label">IVA compras</div>
         <div class="kpi-value">{formatCurrency(t.vatCredit)}</div>
-        <p class="kpi-hint">IVA de los comprobantes recibidos A y M cargados</p>
+        <p class="kpi-hint">De recibidos A y M cargados; B y C no dan crédito</p>
       </div>
       <div class="kpi">
         <div class="kpi-label">Saldo técnico de IVA</div>

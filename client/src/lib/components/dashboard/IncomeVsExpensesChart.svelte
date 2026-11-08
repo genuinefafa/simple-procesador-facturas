@@ -162,7 +162,7 @@
           <li>
             Recibidos informados por ARCA sin cargar: {intFormatter.format(notLoaded.count)} ({formatCurrency(
               notLoaded.total
-            )}), en {formatShortMonthList(coverage.monthsWithExpectedNotLoaded)}.
+            )}); meses: {formatShortMonthList(coverage.monthsWithExpectedNotLoaded)}.
           </li>
         {/if}
       {:else}
@@ -171,7 +171,7 @@
             Recibidos A y M informados por ARCA sin cargar: {intFormatter.format(
               notLoadedVat.count
             )}
-            ({formatCurrency(notLoadedVat.total)}), en {formatShortMonthList(
+            ({formatCurrency(notLoadedVat.total)}); meses: {formatShortMonthList(
               coverage.monthsWithExpectedNotLoadedVat
             )}. Su IVA no entra en IVA compras.
           </li>
