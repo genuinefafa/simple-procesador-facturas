@@ -5,7 +5,6 @@
 
 import type {
   CategoryStat,
-  IncomeVsExpensesCoverage,
   IncomeVsExpensesMonth,
   LetterStat,
   MonthCategoryStat,
@@ -380,8 +379,7 @@ export const TAX_BREAKDOWN_SERIES: MonthlySeries[] = [
 
 /**
  * Wide rows (one per month of the period, zero-filled) for the tax breakdown
- * chart: net / VAT (with VAT perception) / other (IIBB perception and other
- * taxes). Months without loaded breakdowns show 0, never an estimate.
+ * chart: net / VAT / other (VAT and IIBB perceptions, other taxes). Months without loaded breakdowns show 0, never an estimate.
  */
 export function buildTaxBreakdownData(
   byMonth: TaxBreakdownMonth[],
@@ -522,12 +520,12 @@ export const INCOME_EXPENSES_SERIES: MonthlySeries[] = [
   { key: 'expenses', label: 'Gastos', color: 'var(--color-chart-2)', categoryKey: undefined },
 ];
 
-/** Series of the VAT chart: debit vs credit (VAT + perception) */
+/** Series of the VAT chart: VAT on sales vs VAT on purchases (perception excluded) */
 export const VAT_SERIES: MonthlySeries[] = [
-  { key: 'vatDebit', label: 'IVA débito', color: 'var(--color-chart-1)', categoryKey: undefined },
+  { key: 'vatDebit', label: 'IVA ventas', color: 'var(--color-chart-1)', categoryKey: undefined },
   {
-    key: 'vatCreditTotal',
-    label: 'IVA crédito',
+    key: 'vatCredit',
+    label: 'IVA compras',
     color: 'var(--color-chart-4)',
     categoryKey: undefined,
   },
@@ -536,8 +534,8 @@ export const VAT_SERIES: MonthlySeries[] = [
 /**
  * Wide rows (one per month of the period, zero-filled) for both charts.
  * `result` and `vatBalance` are not series: they only feed the tooltips.
- * `vatCreditTotal` is VAT + perception, the same criterion as the fiscal
- * credit KPI.
+ * The VAT purchases series is VAT only; the perception is a payment on
+ * account and stays out of the balance (it is kept as informative data).
  */
 export function buildIncomeExpensesRows(
   months: IncomeVsExpensesMonth[],
@@ -562,32 +560,32 @@ export function buildIncomeExpensesRows(
       vatDebit,
       vatCredit,
       vatPerception,
-      vatCreditTotal: vatCredit + vatPerception,
-      vatBalance: vatDebit - vatCredit - vatPerception,
+      vatBalance: vatDebit - vatCredit,
     };
   });
 }
 
-/** Months (YYYY-MM) whose received side is incomplete: nothing loaded, or ARCA rows not loaded */
-export function incompleteMonths(
-  coverage: Pick<
-    IncomeVsExpensesCoverage,
-    'monthsWithIncomeWithoutExpenses' | 'monthsWithExpectedNotLoaded'
-  >
-): string[] {
-  return [
-    ...new Set([
-      ...coverage.monthsWithIncomeWithoutExpenses,
-      ...coverage.monthsWithExpectedNotLoaded,
-    ]),
-  ].sort();
-}
-
-/** "feb, mar y abr" for YYYY-MM strings of the same period */
+/**
+ * Short month list for YYYY-MM strings: runs of 3+ consecutive months become
+ * "de X a Y". E.g. "feb, mar y sep", "feb, de abr a jun y sep", "de ene a dic".
+ */
 export function formatShortMonthList(months: string[]): string {
-  const names = months.map((m) => shortMonthLabel(m));
-  if (names.length <= 1) return names.join('');
-  return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
+  const index = (m: string): number => Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7));
+  const sorted = [...new Set(months)].sort();
+  const parts: string[] = [];
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i;
+    while (j + 1 < sorted.length && index(sorted[j + 1]!) === index(sorted[j]!) + 1) j++;
+    if (j - i >= 2) {
+      parts.push(`de ${shortMonthLabel(sorted[i]!)} a ${shortMonthLabel(sorted[j]!)}`);
+    } else {
+      for (let k = i; k <= j; k++) parts.push(shortMonthLabel(sorted[k]!));
+    }
+    i = j + 1;
+  }
+  if (parts.length <= 1) return parts.join('');
+  return `${parts.slice(0, -1).join(', ')} y ${parts[parts.length - 1]}`;
 }
 
 /** "enero de 2025, febrero de 2025 y marzo de 2025" for YYYY-MM strings */

@@ -11,7 +11,6 @@ import {
   buildIncomeExpensesRows,
   formatMonthList,
   formatShortMonthList,
-  incompleteMonths,
   categoryColor,
   categoryQuery,
   changePeriodKind,
@@ -319,7 +318,7 @@ describe('buildIncomeExpensesRows', () => {
           vatDebit: 210,
           vatCredit: 80,
           vatPerception: 10,
-          vatBalance: 120,
+          vatBalance: 130,
           expectedNotLoadedCount: 2,
           expectedNotLoadedTotal: 300,
         },
@@ -328,26 +327,26 @@ describe('buildIncomeExpensesRows', () => {
     );
     expect(rows.map((r) => r.month)).toEqual(['2026-01', '2026-02', '2026-03']);
     expect(rows[0]).toMatchObject({ income: 0, expenses: 0, result: 0, vatBalance: 0 });
-    expect(rows[1]).toMatchObject({ result: 600, vatCreditTotal: 90, vatBalance: 120 });
+    expect(rows[1]).toMatchObject({ result: 600, vatCredit: 80, vatBalance: 130 });
     expect(rows[0]).toMatchObject({ expectedNotLoadedCount: 0, expectedNotLoadedTotal: 0 });
     expect(rows[1]).toMatchObject({ expectedNotLoadedCount: 2, expectedNotLoadedTotal: 300 });
   });
 });
 
-describe('incompleteMonths / formatShortMonthList', () => {
-  it('merges both coverage lists, sorted and without duplicates', () => {
-    expect(
-      incompleteMonths({
-        monthsWithIncomeWithoutExpenses: ['2025-03', '2025-01'],
-        monthsWithExpectedNotLoaded: ['2025-02', '2025-03'],
-      })
-    ).toEqual(['2025-01', '2025-02', '2025-03']);
-  });
-
+describe('formatShortMonthList', () => {
   it('joins short month names', () => {
     expect(formatShortMonthList([])).toBe('');
     expect(formatShortMonthList(['2025-02'])).toBe('feb');
-    expect(formatShortMonthList(['2025-02', '2025-03', '2025-04'])).toBe('feb, mar y abr');
+    expect(formatShortMonthList(['2025-02', '2025-03'])).toBe('feb y mar');
+  });
+
+  it('compresses runs of 3 or more consecutive months', () => {
+    expect(formatShortMonthList(['2025-02', '2025-03', '2025-04'])).toBe('de feb a abr');
+    const all = Array.from({ length: 12 }, (_, i) => `2025-${String(i + 1).padStart(2, '0')}`);
+    expect(formatShortMonthList(all)).toBe('de ene a dic');
+    expect(formatShortMonthList(['2025-09', '2025-02', '2025-04', '2025-05', '2025-06'])).toBe(
+      'feb, de abr a jun y sep'
+    );
   });
 });
 

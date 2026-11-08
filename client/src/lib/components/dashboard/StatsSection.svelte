@@ -174,7 +174,7 @@
         </div>
 
         <div class="panel">
-          <h3>IVA débito vs crédito</h3>
+          <h3>IVA ventas vs IVA compras</h3>
           <IncomeVsExpensesChart
             mode="vat"
             rows={incomeRows}

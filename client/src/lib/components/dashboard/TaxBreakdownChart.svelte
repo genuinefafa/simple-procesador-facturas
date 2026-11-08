@@ -31,7 +31,7 @@
   const hasData = $derived(stats.byMonth.length > 0);
   const hasCredit = $derived(stats.coverage.withBreakdown > 0);
   const coverageText = $derived(
-    `${intFormatter.format(stats.coverage.withBreakdown)} de ${intFormatter.format(stats.coverage.total)} facturas A/M con desglose`
+    `${intFormatter.format(stats.coverage.withBreakdown)} de ${intFormatter.format(stats.coverage.total)} comprobantes recibidos A/M con desglose`
   );
 
   const chartSeries = $derived(
@@ -57,7 +57,7 @@
   <div class="summary">
     {#if hasCredit}
       <div class="kpi">
-        <div class="kpi-label">IVA crédito fiscal del período</div>
+        <div class="kpi-label">IVA compras del período</div>
         <div class="kpi-value">{formatCurrency(stats.vatCredit)}</div>
       </div>
     {/if}
@@ -98,8 +98,8 @@
     />
   {:else}
     <p class="empty">
-      Todavía no hay facturas con desglose impositivo en {periodLabel}. Cargalo desde el detalle de
-      cada comprobante.
+      Todavía no hay comprobantes con desglose impositivo en {periodLabel}. Cargalo desde el detalle
+      de cada comprobante.
     </p>
   {/if}
 </div>

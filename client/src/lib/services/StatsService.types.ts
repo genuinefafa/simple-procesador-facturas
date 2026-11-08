@@ -54,16 +54,16 @@ export interface TaxBreakdownMonth {
   month: string;
   /** net_taxed + net_untaxed + exempt + undiscriminated */
   net: number;
-  /** vat + vat_perception */
+  /** vat only (perception is a payment on account) */
   vat: number;
-  /** iibb_perception + other_taxes */
+  /** vat_perception + iibb_perception + other_taxes */
   other: number;
 }
 
 export interface TaxBreakdownStats {
   /** Only invoices with a loaded breakdown (any letter), signed */
   byMonth: TaxBreakdownMonth[];
-  /** VAT fiscal credit: vat + vat_perception of A/M invoices with breakdown */
+  /** VAT on purchases: vat (no perception) of A/M invoices with breakdown */
   vatCredit: number;
   /** Coverage over A/M invoices */
   coverage: { withBreakdown: number; total: number };
@@ -79,9 +79,9 @@ export interface IncomeVsExpensesMonth {
   vatDebit: number;
   /** Recoverable VAT (A/M), without perception */
   vatCredit: number;
-  /** Recoverable VAT perception (A/M) */
+  /** VAT perception (A/M); informative, not part of the balance */
   vatPerception: number;
-  /** vatDebit - (vatCredit + vatPerception); positive = payable */
+  /** vatDebit - vatCredit; positive = payable */
   vatBalance: number;
   /** ARCA-informed received invoices of the month with no linked invoice */
   expectedNotLoadedCount: number;
@@ -114,6 +114,10 @@ export interface IncomeVsExpensesCoverage {
   expectedNotLoaded: { count: number; total: number };
   /** YYYY-MM months with at least one expected invoice not loaded */
   monthsWithExpectedNotLoaded: string[];
+  /** Subset of expectedNotLoaded with letter A/M */
+  expectedNotLoadedVat: { count: number; total: number };
+  /** YYYY-MM months with at least one A/M expected invoice not loaded */
+  monthsWithExpectedNotLoadedVat: string[];
 }
 
 export interface IncomeVsExpensesStats {

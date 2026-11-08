@@ -4,12 +4,12 @@
    *
    * - `result` mode: net income vs net expenses; the result (income - expenses)
    *   goes in the tooltip.
-   * - `vat` mode: VAT debit vs VAT credit (VAT + perception, same criterion as
-   *   the fiscal credit KPI); the split and the balance go in the tooltip.
+   * - `vat` mode: VAT on sales vs VAT on purchases (VAT only: perceptions are a
+   *   payment on account, not credit); the technical balance goes in the tooltip.
    *
    * Coverage notes explain what is NOT in the numbers; nothing is estimated.
    * The `result` panel carries the breakdown and ARCA-not-loaded notes; the
-   * `vat` panel only notes what affects the VAT credit.
+   * `vat` panel only notes what affects VAT on purchases.
    */
   import { BarChart, Tooltip } from 'layerchart';
   import { formatCurrency } from '$lib/formatters';
@@ -18,7 +18,6 @@
     VAT_SERIES,
     formatCompact,
     formatShortMonthList,
-    incompleteMonths,
     monthName,
     shortMonthLabel,
     type MonthlyRow,
@@ -42,17 +41,19 @@
   const chartSeries = $derived(
     series.map((s) => ({ key: s.key, label: s.label, color: s.color, value: s.key }))
   );
-  const title = $derived(mode === 'result' ? 'Ingresos vs gastos (neto)' : 'IVA débito vs crédito');
+  const title = $derived(
+    mode === 'result' ? 'Ingresos vs gastos (neto)' : 'IVA ventas vs IVA compras'
+  );
   const hasIssued = $derived(coverage.issuedCount > 0);
-  const missingMonths = $derived(incompleteMonths(coverage));
   const vatWithoutBreakdown = $derived(
     vatCoverage ? vatCoverage.total - vatCoverage.withBreakdown : 0
   );
   const notLoaded = $derived(coverage.expectedNotLoaded);
+  const notLoadedVat = $derived(coverage.expectedNotLoadedVat);
   const hasNotes = $derived(
     mode === 'result'
-      ? coverage.invoicesWithoutBreakdown > 0 || notLoaded.count > 0 || missingMonths.length > 0
-      : vatWithoutBreakdown > 0 || missingMonths.length > 0
+      ? coverage.invoicesWithoutBreakdown > 0 || notLoaded.count > 0
+      : vatWithoutBreakdown > 0 || notLoadedVat.count > 0
   );
 
   function monthTitle(month: string): string {
@@ -78,19 +79,25 @@
       ];
       if (num(row, 'expectedNotLoadedCount') > 0) {
         list.push({
-          label: `Sin cargar (ARCA): ${num(row, 'expectedNotLoadedCount')}`,
+          label: `Recibidos informados por ARCA sin cargar: ${num(row, 'expectedNotLoadedCount')}`,
           amount: num(row, 'expectedNotLoadedTotal'),
           detail: true,
         });
       }
       return list;
     }
-    return [
-      { label: 'IVA débito', color: VAT_SERIES[0].color, amount: num(row, 'vatDebit') },
-      { label: 'IVA crédito', color: VAT_SERIES[1].color, amount: num(row, 'vatCreditTotal') },
-      { label: 'IVA', amount: num(row, 'vatCredit'), detail: true },
-      { label: 'Percepción', amount: num(row, 'vatPerception'), detail: true },
+    const list: TipRow[] = [
+      { label: 'IVA ventas', color: VAT_SERIES[0].color, amount: num(row, 'vatDebit') },
+      { label: 'IVA compras', color: VAT_SERIES[1].color, amount: num(row, 'vatCredit') },
     ];
+    if (num(row, 'vatPerception') > 0) {
+      list.push({
+        label: 'Percepciones de IVA cargadas (pago a cuenta, no incluidas)',
+        amount: num(row, 'vatPerception'),
+        detail: true,
+      });
+    }
+    return list;
   }
 </script>
 
@@ -121,7 +128,11 @@
                 title={monthTitle(row.month)}
                 rows={tooltipRows(row)}
                 total={mode === 'result' ? num(row, 'result') : num(row, 'vatBalance')}
-                totalLabel={mode === 'result' ? 'Resultado' : 'Saldo (positivo = a pagar)'}
+                totalLabel={mode === 'result'
+                  ? 'Resultado'
+                  : num(row, 'vatBalance') < 0
+                    ? 'Saldo técnico de IVA (a favor)'
+                    : 'Saldo técnico de IVA (a pagar)'}
               />
             {/snippet}
           </Tooltip.Root>
@@ -141,34 +152,35 @@
           <li>
             {intFormatter.format(coverage.invoicesWithoutBreakdown)}
             {coverage.invoicesWithoutBreakdown === 1
-              ? 'factura sin desglose'
-              : 'facturas sin desglose'}
+              ? 'comprobante cargado sin desglose'
+              : 'comprobantes cargados sin desglose'}
             (bruto {formatCurrency(coverage.invoicesWithoutBreakdownGross)}) no
             {coverage.invoicesWithoutBreakdown === 1 ? 'entra' : 'entran'} en el neto.
           </li>
         {/if}
         {#if notLoaded.count > 0}
           <li>
-            {intFormatter.format(notLoaded.count)}
-            {notLoaded.count === 1
-              ? 'comprobante recibido informado'
-              : 'comprobantes recibidos informados'} por ARCA sin cargar ({formatCurrency(
+            Recibidos informados por ARCA sin cargar: {intFormatter.format(notLoaded.count)} ({formatCurrency(
               notLoaded.total
-            )}) no {notLoaded.count === 1 ? 'entra' : 'entran'} en gastos.
+            )}), en {formatShortMonthList(coverage.monthsWithExpectedNotLoaded)}.
           </li>
         {/if}
-        {#if missingMonths.length > 0}
-          <li>Meses incompletos: {formatShortMonthList(missingMonths)}.</li>
-        {/if}
       {:else}
+        {#if notLoadedVat.count > 0}
+          <li>
+            Recibidos A y M informados por ARCA sin cargar: {intFormatter.format(
+              notLoadedVat.count
+            )}
+            ({formatCurrency(notLoadedVat.total)}), en {formatShortMonthList(
+              coverage.monthsWithExpectedNotLoadedVat
+            )}. Su IVA no entra en IVA compras.
+          </li>
+        {/if}
         {#if vatWithoutBreakdown > 0 && vatCoverage}
           <li>
             {intFormatter.format(vatWithoutBreakdown)} de {intFormatter.format(vatCoverage.total)}
-            facturas A y M sin desglose: su IVA no entra en el crédito.
+            comprobantes recibidos A y M cargados sin desglose: su IVA no entra en IVA compras.
           </li>
-        {/if}
-        {#if missingMonths.length > 0}
-          <li>Crédito de IVA incompleto en: {formatShortMonthList(missingMonths)}.</li>
         {/if}
       {/if}
     </ul>

@@ -56,27 +56,34 @@
       <div class="kpi">
         <div class="kpi-label">Resultado</div>
         <div class="kpi-value">{formatCurrency(t.result)}</div>
-        <p class="kpi-hint">Ingresos menos gastos</p>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">IVA débito</div>
-        <div class="kpi-value">{formatCurrency(t.vatDebit)}</div>
-        <p class="kpi-hint">IVA de lo emitido</p>
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">IVA crédito</div>
-        <div class="kpi-value">{formatCurrency(t.vatCredit + t.vatPerception)}</div>
         <p class="kpi-hint">
-          IVA computable
-          {t.vatPerception !== 0
-            ? `(incluye ${formatCurrency(t.vatPerception)} de percepciones)`
-            : ''}
+          {#if summary.incomeVsExpenses.coverage.expectedNotLoaded.count > 0}
+            Faltan {formatCurrency(summary.incomeVsExpenses.coverage.expectedNotLoaded.total)} de recibidos
+            informados por ARCA sin cargar
+          {:else}
+            Ingresos menos gastos
+          {/if}
         </p>
       </div>
       <div class="kpi">
-        <div class="kpi-label">Saldo de IVA</div>
+        <div class="kpi-label">IVA ventas</div>
+        <div class="kpi-value">{formatCurrency(t.vatDebit)}</div>
+        <p class="kpi-hint">IVA de los comprobantes emitidos</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">IVA compras</div>
+        <div class="kpi-value">{formatCurrency(t.vatCredit)}</div>
+        <p class="kpi-hint">IVA de los comprobantes recibidos A y M cargados</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Saldo técnico de IVA</div>
         <div class="kpi-value">{formatCurrency(t.vatBalance)}</div>
-        <p class="kpi-hint">{t.vatBalance >= 0 ? 'A pagar' : 'A favor'}</p>
+        <p class="kpi-hint">
+          {t.vatBalance < 0 ? 'A favor (técnico)' : 'A pagar (técnico)'}
+          {#if t.vatPerception > 0}
+            · Percepciones de IVA cargadas: {formatCurrency(t.vatPerception)} (pago a cuenta, no incluidas)
+          {/if}
+        </p>
       </div>
     </div>
   </div>
