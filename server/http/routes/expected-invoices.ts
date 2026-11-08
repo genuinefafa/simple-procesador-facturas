@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import path from 'path';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 
 import {
@@ -218,6 +218,7 @@ expectedInvoicesRouter.post('/import', async (c) => {
     const cuitCheck = await checkFileCompanyCuit(filePath);
     if (!cuitCheck.ok) {
       console.warn(`   ❌ ${cuitCheck.error}`);
+      await unlink(filePath).catch(() => undefined);
       return c.json({ success: false, error: cuitCheck.error }, 400);
     }
 
