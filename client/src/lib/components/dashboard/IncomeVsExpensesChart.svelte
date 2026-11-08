@@ -7,8 +7,9 @@
    * - `vat` mode: VAT debit vs VAT credit (VAT + perception, same criterion as
    *   the fiscal credit KPI); the split and the balance go in the tooltip.
    *
-   * Coverage notes explain what is NOT in the numbers (received invoices
-   * without breakdown, months without received invoices); nothing is estimated.
+   * Coverage notes explain what is NOT in the numbers; nothing is estimated.
+   * The `result` panel carries the breakdown and ARCA-not-loaded notes; the
+   * `vat` panel only notes what affects the VAT credit.
    */
   import { BarChart, Tooltip } from 'layerchart';
   import { formatCurrency } from '$lib/formatters';
@@ -16,7 +17,8 @@
     INCOME_EXPENSES_SERIES,
     VAT_SERIES,
     formatCompact,
-    formatMonthList,
+    formatShortMonthList,
+    incompleteMonths,
     monthName,
     shortMonthLabel,
     type MonthlyRow,
@@ -29,9 +31,11 @@
     mode: 'result' | 'vat';
     rows: MonthlyRow[];
     coverage: IncomeVsExpensesCoverage;
+    /** A/M invoices with a loaded breakdown vs total (feeds the VAT credit) */
+    vatCoverage?: { withBreakdown: number; total: number };
   }
 
-  let { mode, rows, coverage }: Props = $props();
+  let { mode, rows, coverage, vatCoverage }: Props = $props();
 
   const intFormatter = new Intl.NumberFormat('es-AR');
   const series = $derived(mode === 'result' ? INCOME_EXPENSES_SERIES : VAT_SERIES);
@@ -40,7 +44,16 @@
   );
   const title = $derived(mode === 'result' ? 'Ingresos vs gastos (neto)' : 'IVA débito vs crédito');
   const hasIssued = $derived(coverage.issuedCount > 0);
-  const missingMonths = $derived(coverage.monthsWithIncomeWithoutExpenses);
+  const missingMonths = $derived(incompleteMonths(coverage));
+  const vatWithoutBreakdown = $derived(
+    vatCoverage ? vatCoverage.total - vatCoverage.withBreakdown : 0
+  );
+  const notLoaded = $derived(coverage.expectedNotLoaded);
+  const hasNotes = $derived(
+    mode === 'result'
+      ? coverage.invoicesWithoutBreakdown > 0 || notLoaded.count > 0 || missingMonths.length > 0
+      : vatWithoutBreakdown > 0 || missingMonths.length > 0
+  );
 
   function monthTitle(month: string): string {
     return `${monthName(Number(month.slice(5, 7)))} de ${month.slice(0, 4)}`;
@@ -50,17 +63,33 @@
     return Number(row[key]) || 0;
   }
 
-  function tooltipRows(row: MonthlyRow) {
+  interface TipRow {
+    label: string;
+    color?: string;
+    amount: number;
+    detail?: boolean;
+  }
+
+  function tooltipRows(row: MonthlyRow): TipRow[] {
     if (mode === 'result') {
-      return [
+      const list: TipRow[] = [
         { label: 'Ingresos', color: INCOME_EXPENSES_SERIES[0].color, amount: num(row, 'income') },
         { label: 'Gastos', color: INCOME_EXPENSES_SERIES[1].color, amount: num(row, 'expenses') },
       ];
+      if (num(row, 'expectedNotLoadedCount') > 0) {
+        list.push({
+          label: `Sin cargar (ARCA): ${num(row, 'expectedNotLoadedCount')}`,
+          amount: num(row, 'expectedNotLoadedTotal'),
+          detail: true,
+        });
+      }
+      return list;
     }
     return [
       { label: 'IVA débito', color: VAT_SERIES[0].color, amount: num(row, 'vatDebit') },
-      { label: 'IVA crédito', color: VAT_SERIES[1].color, amount: num(row, 'vatCredit') },
-      { label: 'Percepción de IVA', color: VAT_SERIES[1].color, amount: num(row, 'vatPerception') },
+      { label: 'IVA crédito', color: VAT_SERIES[1].color, amount: num(row, 'vatCreditTotal') },
+      { label: 'IVA', amount: num(row, 'vatCredit'), detail: true },
+      { label: 'Percepción', amount: num(row, 'vatPerception'), detail: true },
     ];
   }
 </script>
@@ -105,20 +134,42 @@
     />
   {/if}
 
-  {#if hasIssued}
+  {#if hasIssued && hasNotes}
     <ul class="notes">
-      {#if coverage.invoicesWithoutBreakdown > 0}
-        <li>
-          {intFormatter.format(coverage.invoicesWithoutBreakdown)}
-          {coverage.invoicesWithoutBreakdown === 1
-            ? 'factura sin desglose'
-            : 'facturas sin desglose'}
-          ({formatCurrency(coverage.invoicesWithoutBreakdownTotal)}) no
-          {coverage.invoicesWithoutBreakdown === 1 ? 'entra' : 'entran'} en el neto.
-        </li>
-      {/if}
-      {#if missingMonths.length > 0}
-        <li>Meses sin gastos cargados: {formatMonthList(missingMonths)}.</li>
+      {#if mode === 'result'}
+        {#if coverage.invoicesWithoutBreakdown > 0}
+          <li>
+            {intFormatter.format(coverage.invoicesWithoutBreakdown)}
+            {coverage.invoicesWithoutBreakdown === 1
+              ? 'factura sin desglose'
+              : 'facturas sin desglose'}
+            (bruto {formatCurrency(coverage.invoicesWithoutBreakdownGross)}) no
+            {coverage.invoicesWithoutBreakdown === 1 ? 'entra' : 'entran'} en el neto.
+          </li>
+        {/if}
+        {#if notLoaded.count > 0}
+          <li>
+            {intFormatter.format(notLoaded.count)}
+            {notLoaded.count === 1
+              ? 'comprobante recibido informado'
+              : 'comprobantes recibidos informados'} por ARCA sin cargar ({formatCurrency(
+              notLoaded.total
+            )}) no {notLoaded.count === 1 ? 'entra' : 'entran'} en gastos.
+          </li>
+        {/if}
+        {#if missingMonths.length > 0}
+          <li>Meses incompletos: {formatShortMonthList(missingMonths)}.</li>
+        {/if}
+      {:else}
+        {#if vatWithoutBreakdown > 0 && vatCoverage}
+          <li>
+            {intFormatter.format(vatWithoutBreakdown)} de {intFormatter.format(vatCoverage.total)}
+            facturas A y M sin desglose: su IVA no entra en el crédito.
+          </li>
+        {/if}
+        {#if missingMonths.length > 0}
+          <li>Crédito de IVA incompleto en: {formatShortMonthList(missingMonths)}.</li>
+        {/if}
       {/if}
     </ul>
   {/if}

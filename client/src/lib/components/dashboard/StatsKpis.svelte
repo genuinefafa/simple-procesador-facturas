@@ -41,41 +41,43 @@
 
 {#if summary.incomeVsExpenses.coverage.issuedCount > 0}
   {@const t = summary.incomeVsExpenses.totals}
-  <div class="kpis">
-    <div class="kpi">
-      <div class="kpi-label">Ingresos (neto)</div>
-      <div class="kpi-value">{formatCurrency(t.income)}</div>
-      <p class="kpi-hint">Comprobantes emitidos, sin IVA</p>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Gastos (neto)</div>
-      <div class="kpi-value">{formatCurrency(t.expenses)}</div>
-      <p class="kpi-hint">Facturas con desglose, sin IVA</p>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Resultado</div>
-      <div class="kpi-value">{formatCurrency(t.result)}</div>
-      <p class="kpi-hint">Ingresos menos gastos</p>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">IVA débito</div>
-      <div class="kpi-value">{formatCurrency(t.vatDebit)}</div>
-      <p class="kpi-hint">IVA de lo emitido</p>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">IVA crédito</div>
-      <div class="kpi-value">{formatCurrency(t.vatCredit + t.vatPerception)}</div>
-      <p class="kpi-hint">
-        IVA computable
-        {t.vatPerception !== 0
-          ? `(incluye ${formatCurrency(t.vatPerception)} de percepciones)`
-          : ''}
-      </p>
-    </div>
-    <div class="kpi">
-      <div class="kpi-label">Saldo de IVA</div>
-      <div class="kpi-value">{formatCurrency(t.vatBalance)}</div>
-      <p class="kpi-hint">{t.vatBalance >= 0 ? 'A pagar' : 'A favor'}</p>
+  <div class="kpis-six">
+    <div class="kpis">
+      <div class="kpi">
+        <div class="kpi-label">Ingresos (neto)</div>
+        <div class="kpi-value">{formatCurrency(t.income)}</div>
+        <p class="kpi-hint">Comprobantes emitidos, sin IVA</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Gastos (neto)</div>
+        <div class="kpi-value">{formatCurrency(t.expenses)}</div>
+        <p class="kpi-hint">Facturas con desglose, sin IVA</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Resultado</div>
+        <div class="kpi-value">{formatCurrency(t.result)}</div>
+        <p class="kpi-hint">Ingresos menos gastos</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">IVA débito</div>
+        <div class="kpi-value">{formatCurrency(t.vatDebit)}</div>
+        <p class="kpi-hint">IVA de lo emitido</p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">IVA crédito</div>
+        <div class="kpi-value">{formatCurrency(t.vatCredit + t.vatPerception)}</div>
+        <p class="kpi-hint">
+          IVA computable
+          {t.vatPerception !== 0
+            ? `(incluye ${formatCurrency(t.vatPerception)} de percepciones)`
+            : ''}
+        </p>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">Saldo de IVA</div>
+        <div class="kpi-value">{formatCurrency(t.vatBalance)}</div>
+        <p class="kpi-hint">{t.vatBalance >= 0 ? 'A pagar' : 'A favor'}</p>
+      </div>
     </div>
   </div>
 {/if}
@@ -109,6 +111,27 @@
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     gap: var(--spacing-4);
+  }
+
+  /* Six KPIs: 6 columns when there is room, else 3 (never 5+1) */
+  .kpis-six {
+    container-type: inline-size;
+  }
+
+  .kpis-six .kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  @container (min-width: 78rem) {
+    .kpis-six .kpis {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+    }
+  }
+
+  @container (max-width: 40rem) {
+    .kpis-six .kpis {
+      grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    }
   }
 
   .kpi {

@@ -120,6 +120,10 @@
   });
   const letterSlices = $derived(summary ? buildLetterSlices(summary.byLetter) : []);
   const isEmpty = $derived(!!summary && summary.totals.count === 0);
+  // Nothing received and nothing issued: only the empty-state message
+  const showIncomePanels = $derived(
+    !!summary && !(isEmpty && summary.incomeVsExpenses.coverage.issuedCount === 0)
+  );
 
   function open(q: string) {
     goto(comprobantesUrl(q));
@@ -159,23 +163,26 @@
         />
       {/if}
 
-      <div class="panel">
-        <h3>Ingresos vs gastos (neto)</h3>
-        <IncomeVsExpensesChart
-          mode="result"
-          rows={incomeRows}
-          coverage={summary.incomeVsExpenses.coverage}
-        />
-      </div>
+      {#if showIncomePanels}
+        <div class="panel">
+          <h3>Ingresos vs gastos (neto)</h3>
+          <IncomeVsExpensesChart
+            mode="result"
+            rows={incomeRows}
+            coverage={summary.incomeVsExpenses.coverage}
+          />
+        </div>
 
-      <div class="panel">
-        <h3>IVA débito vs crédito</h3>
-        <IncomeVsExpensesChart
-          mode="vat"
-          rows={incomeRows}
-          coverage={summary.incomeVsExpenses.coverage}
-        />
-      </div>
+        <div class="panel">
+          <h3>IVA débito vs crédito</h3>
+          <IncomeVsExpensesChart
+            mode="vat"
+            rows={incomeRows}
+            coverage={summary.incomeVsExpenses.coverage}
+            vatCoverage={summary.taxBreakdown.coverage}
+          />
+        </div>
+      {/if}
 
       {#if isEmpty}
         <p class="state">No hay facturas cargadas en {periodLabel(period)}.</p>

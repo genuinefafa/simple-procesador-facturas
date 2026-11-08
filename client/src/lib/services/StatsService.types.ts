@@ -83,6 +83,10 @@ export interface IncomeVsExpensesMonth {
   vatPerception: number;
   /** vatDebit - (vatCredit + vatPerception); positive = payable */
   vatBalance: number;
+  /** ARCA-informed received invoices of the month with no linked invoice */
+  expectedNotLoadedCount: number;
+  /** Their signed total (credit notes subtract) */
+  expectedNotLoadedTotal: number;
 }
 
 export interface IncomeVsExpensesTotals {
@@ -100,9 +104,16 @@ export interface IncomeVsExpensesCoverage {
   issuedCount: number;
   /** Received ARS invoices without breakdown: no net, never estimated */
   invoicesWithoutBreakdown: number;
+  /** Signed total (credit notes subtract); may be negative */
   invoicesWithoutBreakdownTotal: number;
+  /** Absolute total (invoices and credit notes added), never negative */
+  invoicesWithoutBreakdownGross: number;
   /** YYYY-MM months with issued invoices and no received invoices loaded */
   monthsWithIncomeWithoutExpenses: string[];
+  /** ARCA-informed received invoices with no linked invoice (same as pendingExpected) */
+  expectedNotLoaded: { count: number; total: number };
+  /** YYYY-MM months with at least one expected invoice not loaded */
+  monthsWithExpectedNotLoaded: string[];
 }
 
 export interface IncomeVsExpensesStats {

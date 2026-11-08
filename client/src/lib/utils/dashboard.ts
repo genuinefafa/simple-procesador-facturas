@@ -5,6 +5,7 @@
 
 import type {
   CategoryStat,
+  IncomeVsExpensesCoverage,
   IncomeVsExpensesMonth,
   LetterStat,
   MonthCategoryStat,
@@ -552,6 +553,8 @@ export function buildIncomeExpensesRows(
     const vatCredit = m?.vatCredit ?? 0;
     const vatPerception = m?.vatPerception ?? 0;
     return {
+      expectedNotLoadedCount: m?.expectedNotLoadedCount ?? 0,
+      expectedNotLoadedTotal: m?.expectedNotLoadedTotal ?? 0,
       month,
       income,
       expenses,
@@ -563,6 +566,28 @@ export function buildIncomeExpensesRows(
       vatBalance: vatDebit - vatCredit - vatPerception,
     };
   });
+}
+
+/** Months (YYYY-MM) whose received side is incomplete: nothing loaded, or ARCA rows not loaded */
+export function incompleteMonths(
+  coverage: Pick<
+    IncomeVsExpensesCoverage,
+    'monthsWithIncomeWithoutExpenses' | 'monthsWithExpectedNotLoaded'
+  >
+): string[] {
+  return [
+    ...new Set([
+      ...coverage.monthsWithIncomeWithoutExpenses,
+      ...coverage.monthsWithExpectedNotLoaded,
+    ]),
+  ].sort();
+}
+
+/** "feb, mar y abr" for YYYY-MM strings of the same period */
+export function formatShortMonthList(months: string[]): string {
+  const names = months.map((m) => shortMonthLabel(m));
+  if (names.length <= 1) return names.join('');
+  return `${names.slice(0, -1).join(', ')} y ${names[names.length - 1]}`;
 }
 
 /** "enero de 2025, febrero de 2025 y marzo de 2025" for YYYY-MM strings */
