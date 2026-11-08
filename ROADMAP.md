@@ -97,6 +97,8 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | #221 | Tique factura A (81) se reconoce como Factura A (1) al leer el PDF | Pendiente |
 | - | Reimport ARCA actualiza todos los campos (tipo incluido); clave CAE + punto de venta + número | ✅ PR #227 |
 | #231 | Aviso de importación cuenta completables que el filtro no muestra (secundarias de balance group) | Pendiente |
+| - | Importar comprobantes emitidos (Mis Comprobantes Emitidos), tabla `issued_invoices` + vista `v_emitidas_oro`, validación de CUIT propio (`COMPANY_CUIT`) | ✅ PR #228 |
+| - | Gráficos ingresos vs gastos (neto) e IVA ventas vs IVA compras (sin percepciones), cobertura de recibidos sin cargar | ✅ PR #229 |
 | #212 | Crear factura desde archivo ya finalizado borra el archivo (copyFile origen = destino) | ✅ PR #214 |
 | #213 | Rediseñar comparación archivo ↔ esperada del pendiente | Pendiente |
 
