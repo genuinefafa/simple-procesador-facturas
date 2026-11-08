@@ -149,6 +149,11 @@ export function parseIssuedWorksheet(worksheet: ExcelJS.Worksheet): {
         currency: text(cCurrency) || null,
         total: cTotal ? amountCell(data[cTotal]) : null,
       };
+      // Every tax field is set (null when the export lacks the column), so a
+      // reimport overwrites stale values instead of keeping them.
+      for (const [, key] of TAX_COLUMN_HEADERS) {
+        parsed[key] = null;
+      }
       for (const [key, h] of taxCols) {
         parsed[key] = amountCell(data[h]);
       }

@@ -162,6 +162,25 @@ describe('parseIssuedWorksheet', () => {
     expect(rows[0]!.otherTaxes).toBe(0);
   });
 
+  it('sets tax fields missing from the export to null so a reimport clears them', () => {
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('x');
+    ws.addRow([
+      'Fecha',
+      'Tipo',
+      'Punto de Venta',
+      'Número Desde',
+      'Nro. Doc. Receptor',
+      'Imp. Total',
+    ]);
+    ws.addRow(['05/01/2026', '1 - Factura A', 2, 7, '30123456789', 1210]);
+    const { rows, errors } = parseIssuedWorksheet(ws);
+    expect(errors).toEqual([]);
+    expect(rows[0]!.otherTaxes).toBeNull();
+    expect(rows[0]!.vatTotal).toBeNull();
+    expect(rows[0]!.netTaxedTotal).toBeNull();
+  });
+
   it('reports invalid rows without aborting the rest', () => {
     const { rows, errors } = parseIssuedWorksheet(
       buildSheet([
