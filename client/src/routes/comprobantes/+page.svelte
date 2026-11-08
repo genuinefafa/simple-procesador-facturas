@@ -14,6 +14,7 @@
   import type {
     ArcaImportEntry,
     ArcaImportResult,
+    ArcaIssuedImportResult,
     ReconciliationSummary,
   } from '$lib/components/ArcaImportReport.types';
   import UploadReport from '$lib/components/UploadReport.svelte';
@@ -741,16 +742,22 @@
     entries: ArcaImportEntry[],
     reconciliation: ReconciliationSummary | null
   ): boolean {
-    if (!reconciliation || reconciliation.completable > 0 || reconciliation.divergent > 0) {
+    // Issued files have nothing to reconcile; only received ones need the summary
+    const needsReconciliation = entries.some((e) => e.status === 'done');
+    if (
+      needsReconciliation &&
+      (!reconciliation || reconciliation.completable > 0 || reconciliation.divergent > 0)
+    ) {
       return false;
     }
     return entries.every(
       (e) =>
-        e.status === 'done' &&
-        e.result.errors.length === 0 &&
-        e.result.updated === 0 &&
-        e.result.unchanged === 0 &&
-        e.result.imported > 0
+        (e.status === 'issued' && e.result.errors.length === 0) ||
+        (e.status === 'done' &&
+          e.result.errors.length === 0 &&
+          e.result.updated === 0 &&
+          e.result.unchanged === 0 &&
+          e.result.imported > 0)
     );
   }
 
@@ -786,7 +793,14 @@
       try {
         const response = await fetch('/api/expected-invoices/import', { method: 'POST', body: fd });
         const data = await response.json();
-        if (data.success) {
+        if (data.success && data.kind === 'issued') {
+          // Issued invoices live apart from received ones: nothing to reconcile
+          setEntry(i, {
+            filename: f.name,
+            status: 'issued',
+            result: data as ArcaIssuedImportResult,
+          });
+        } else if (data.success) {
           setEntry(i, { filename: f.name, status: 'done', result: data as ArcaImportResult });
         } else {
           setEntry(i, {

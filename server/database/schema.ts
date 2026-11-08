@@ -413,6 +413,58 @@ const reconciliationAcks_ = sqliteTable(
 export { reconciliationAcks_ as reconciliationAcks };
 
 // =============================================================================
+// ISSUED INVOICES (ARCA "Mis Comprobantes Emitidos") - single layer, ARCA is
+// the source of truth for what was issued; a reimport overwrites every field.
+// =============================================================================
+
+const issuedInvoices_ = sqliteTable(
+  'issued_invoices',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    issueDate: text('issue_date').notNull(), // YYYY-MM-DD
+    invoiceType: integer('invoice_type').notNull(), // ARCA code (1, 3, 201, ...)
+    pointOfSale: integer('point_of_sale').notNull(),
+    invoiceNumber: integer('invoice_number').notNull(), // "Número Desde"
+    invoiceNumberTo: integer('invoice_number_to'), // "Número Hasta"
+    cae: text('cae'),
+    receiverDocType: text('receiver_doc_type'),
+    receiverDocNumber: text('receiver_doc_number'), // digits only
+    receiverName: text('receiver_name'),
+    currency: text('currency'),
+    exchangeRate: real('exchange_rate'),
+    netTaxed0: real('net_taxed_0'),
+    netTaxed2_5: real('net_taxed_2_5'),
+    netTaxed5: real('net_taxed_5'),
+    netTaxed10_5: real('net_taxed_10_5'),
+    netTaxed21: real('net_taxed_21'),
+    netTaxed27: real('net_taxed_27'),
+    vat2_5: real('vat_2_5'),
+    vat5: real('vat_5'),
+    vat10_5: real('vat_10_5'),
+    vat21: real('vat_21'),
+    vat27: real('vat_27'),
+    netTaxedTotal: real('net_taxed_total'),
+    netUntaxed: real('net_untaxed'),
+    exempt: real('exempt'),
+    otherTaxes: real('other_taxes'),
+    vatTotal: real('vat_total'),
+    total: real('total'),
+    importedAt: text('imported_at').default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text('updated_at').default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => ({
+    uniqueIssued: uniqueIndex('unique_issued_invoice').on(
+      table.invoiceType,
+      table.pointOfSale,
+      table.invoiceNumber
+    ),
+    issueDateIdx: index('idx_issued_invoices_date').on(table.issueDate),
+  })
+);
+
+export { issuedInvoices_ as issuedInvoices };
+
+// =============================================================================
 // TIPOS TYPESCRIPT
 // =============================================================================
 
@@ -444,6 +496,9 @@ export type NewImportBatch = typeof importBatches_.$inferInsert;
 
 export type ExpectedInvoice = typeof expectedInvoices_.$inferSelect;
 export type NewExpectedInvoice = typeof expectedInvoices_.$inferInsert;
+
+export type IssuedInvoice = typeof issuedInvoices_.$inferSelect;
+export type NewIssuedInvoice = typeof issuedInvoices_.$inferInsert;
 
 export type Category = typeof categories_.$inferSelect;
 export type NewCategory = typeof categories_.$inferInsert;

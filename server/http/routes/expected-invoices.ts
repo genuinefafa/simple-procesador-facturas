@@ -7,7 +7,7 @@
 
 import { Hono } from 'hono';
 import path from 'path';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, unlink } from 'fs/promises';
 import { existsSync } from 'fs';
 
 import {
@@ -26,6 +26,8 @@ import {
   type BalanceGroupMember,
   type BalanceGroupResponse,
 } from '../../contracts';
+import { checkFileCompanyCuit } from '../../config/company';
+import { IssuedInvoiceImportService } from '../../services/issued-invoice-import.service';
 import { isUniqueViolation, UNIQUE_VIOLATION_MESSAGE } from '../../services/invoice-link-guard';
 
 const balanceRepo = new ExpectedInvoiceRepository();
@@ -211,6 +213,23 @@ expectedInvoicesRouter.post('/import', async (c) => {
     await writeFile(filePath, Buffer.from(arrayBuffer));
 
     console.info(`   💾 Archivo guardado: ${filePath}`);
+
+    // Reject exports of another taxpayer before writing anything
+    const cuitCheck = await checkFileCompanyCuit(filePath);
+    if (!cuitCheck.ok) {
+      console.warn(`   ❌ ${cuitCheck.error}`);
+      await unlink(filePath).catch(() => undefined);
+      return c.json({ success: false, error: cuitCheck.error }, 400);
+    }
+
+    // "Mis Comprobantes Emitidos" (Receptor columns) goes to issued_invoices
+    const issued = await new IssuedInvoiceImportService().importIfIssued(filePath);
+    if (issued) {
+      console.info(
+        `   ✅ Emitidos: ${issued.created} nuevos, ${issued.updated} actualizados, ${issued.unchanged} sin cambios, ${issued.errors.length} errores`
+      );
+      return c.json(issued);
+    }
 
     const importService = await createExcelImportService();
     const result = await importService.importFromFile(filePath);
