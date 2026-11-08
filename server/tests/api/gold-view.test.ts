@@ -382,10 +382,10 @@ describe('StatsRepository.getTaxBreakdown', () => {
 
     expect(new StatsRepository().getTaxBreakdown(YEAR)).toEqual({
       byMonth: [
-        { month: '2026-03', net: 900, vat: 199, other: 70 },
+        { month: '2026-03', net: 900, vat: 189, other: 80 },
         { month: '2026-04', net: 100, vat: 10, other: 0 },
       ],
-      vatCredit: 209,
+      vatCredit: 199,
       coverage: { withBreakdown: 3, total: 4 },
     });
   });
@@ -510,11 +510,13 @@ describe('StatsRepository.getIncomeVsExpenses', () => {
         monthsWithIncomeWithoutExpenses: [],
         expectedNotLoaded: { count: 0, total: 0 },
         monthsWithExpectedNotLoaded: [],
+        expectedNotLoadedVat: { count: 0, total: 0 },
+        monthsWithExpectedNotLoadedVat: [],
       },
     });
   });
 
-  it('subtracts issued and received credit notes, and splits VAT credit from perception', () => {
+  it('subtracts issued and received credit notes, and keeps perception out of the VAT credit and balance', () => {
     insertIssued({ type: 1, date: '2026-03-05', net: 1000, vat: 210 });
     insertIssued({ type: 3, date: '2026-03-20', net: 100, vat: 21 }); // issued NC
     const a = insertInvoice({ type: 1, total: 1210 + 10, date: '2026-03-10' });
@@ -534,7 +536,7 @@ describe('StatsRepository.getIncomeVsExpenses', () => {
         vatDebit: 189,
         vatCredit: 94.5,
         vatPerception: 10,
-        vatBalance: 84.5,
+        vatBalance: 94.5,
         expectedNotLoadedCount: 0,
         expectedNotLoadedTotal: 0,
       },
@@ -546,7 +548,7 @@ describe('StatsRepository.getIncomeVsExpenses', () => {
       vatDebit: 189,
       vatCredit: 94.5,
       vatPerception: 10,
-      vatBalance: 84.5,
+      vatBalance: 94.5,
     });
     expect(r.coverage.issuedCount).toBe(2);
     expect(r.coverage.monthsWithIncomeWithoutExpenses).toEqual([]);
@@ -593,6 +595,8 @@ describe('StatsRepository.getIncomeVsExpenses', () => {
       monthsWithIncomeWithoutExpenses: ['2026-01'],
       expectedNotLoaded: { count: 0, total: 0 },
       monthsWithExpectedNotLoaded: [],
+      expectedNotLoadedVat: { count: 0, total: 0 },
+      monthsWithExpectedNotLoadedVat: [],
     });
   });
 
@@ -617,6 +621,9 @@ describe('StatsRepository.getIncomeVsExpenses', () => {
     expect(r.coverage.expectedNotLoaded).toEqual({ count: 3, total: 440 });
     expect(r.coverage.expectedNotLoaded).toEqual(repo.getPendingExpected(YEAR));
     expect(r.coverage.monthsWithExpectedNotLoaded).toEqual(['2026-03', '2026-04']);
+    // Only A/M rows (the C ticket is out; the A credit note subtracts)
+    expect(r.coverage.expectedNotLoadedVat).toEqual({ count: 2, total: 400 });
+    expect(r.coverage.monthsWithExpectedNotLoadedVat).toEqual(['2026-03']);
     expect(
       r.months.map((m) => [m.month, m.expectedNotLoadedCount, m.expectedNotLoadedTotal])
     ).toEqual([

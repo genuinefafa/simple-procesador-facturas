@@ -7,7 +7,12 @@
  */
 
 import { getRawDb } from '../db';
-import { getInvoiceSign, type InvoiceLetter } from '../../utils/afip-codes';
+import {
+  getInvoiceLetter,
+  getInvoiceSign,
+  isVatRecoverable,
+  type InvoiceLetter,
+} from '../../utils/afip-codes';
 import type { PeriodRange } from '../../contracts/stats';
 
 export interface StatsTotals {
@@ -52,16 +57,16 @@ export interface TaxBreakdownMonth {
   month: string;
   /** net_taxed + net_untaxed + exempt + undiscriminated */
   net: number;
-  /** vat + vat_perception */
+  /** vat only (VAT perception is a payment on account, not a credit) */
   vat: number;
-  /** iibb_perception + other_taxes */
+  /** vat_perception + iibb_perception + other_taxes */
   other: number;
 }
 
 export interface TaxBreakdownStats {
   /** Only invoices with a loaded breakdown (any letter), signed */
   byMonth: TaxBreakdownMonth[];
-  /** SUM(vat + vat_perception) over A/M invoices with a loaded breakdown */
+  /** SUM(vat) over A/M invoices with a loaded breakdown */
   vatCredit: number;
   /** Coverage over A/M invoices (vat_recoverable = 1) */
   coverage: { withBreakdown: number; total: number };
@@ -76,11 +81,11 @@ export interface IncomeVsExpensesMonth {
   expenses: number;
   /** Issued VAT */
   vatDebit: number;
-  /** Recoverable VAT (A/M) of received invoices, without perception */
+  /** Recoverable VAT (A/M) of loaded received invoices; perception excluded */
   vatCredit: number;
-  /** Recoverable VAT perception (A/M) of received invoices */
+  /** VAT perception (A/M) of loaded received invoices; informative, not part of the balance */
   vatPerception: number;
-  /** vatDebit - (vatCredit + vatPerception); positive = payable */
+  /** vatDebit - vatCredit; positive = payable (perception is a payment on account) */
   vatBalance: number;
   /** ARCA-informed received invoices of the month with no linked invoice */
   expectedNotLoadedCount: number;
@@ -114,6 +119,10 @@ export interface IncomeVsExpensesCoverage {
   expectedNotLoaded: PendingExpectedStat;
   /** Months (YYYY-MM) with at least one expected invoice not loaded */
   monthsWithExpectedNotLoaded: string[];
+  /** Subset of expectedNotLoaded with letter A/M (their VAT would be credit) */
+  expectedNotLoadedVat: PendingExpectedStat;
+  /** Months (YYYY-MM) with at least one A/M expected invoice not loaded */
+  monthsWithExpectedNotLoadedVat: string[];
 }
 
 export interface IncomeVsExpensesStats {
@@ -252,8 +261,8 @@ export class StatsRepository {
         `SELECT
            issue_month AS month,
            COALESCE(SUM(net_taxed + net_untaxed + exempt + undiscriminated), 0) AS net,
-           COALESCE(SUM(vat + vat_perception), 0) AS vat,
-           COALESCE(SUM(iibb_perception + other_taxes), 0) AS other
+           COALESCE(SUM(vat), 0) AS vat,
+           COALESCE(SUM(vat_perception + iibb_perception + other_taxes), 0) AS other
          FROM v_comprobantes_oro
          WHERE ${PERIOD_FILTER} AND has_tax_breakdown = 1
          GROUP BY issue_month
@@ -264,7 +273,7 @@ export class StatsRepository {
     const credit = db
       .prepare(
         `SELECT
-           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 THEN vat + vat_perception END), 0) AS vatCredit,
+           COALESCE(SUM(CASE WHEN has_tax_breakdown = 1 THEN vat END), 0) AS vatCredit,
            COALESCE(SUM(has_tax_breakdown), 0) AS withBreakdown,
            COUNT(*) AS total
          FROM v_comprobantes_oro
@@ -283,7 +292,7 @@ export class StatsRepository {
    * Issued (v_emitidas_oro) vs received (v_comprobantes_oro) by month, all by
    * issue date. Expenses use the same net expression as getTaxBreakdown;
    * the VAT credit is the same criterion as TaxBreakdownStats.vatCredit
-   * (vat_recoverable = 1) but split from the perception. Received invoices
+   * (vat only, vat_recoverable = 1); the perception is reported apart. Received invoices
    * without a breakdown contribute no net: they are only reported as coverage.
    * Issued amounts are filtered to pesos like the received side (no FX).
    * Coverage also reports ARCA-informed received rows with no linked invoice
@@ -381,9 +390,10 @@ export class StatsRepository {
       row.expectedNotLoadedCount += 1;
       row.expectedNotLoadedTotal += getInvoiceSign(r.invoiceType) * (r.total ?? 0);
     }
+    const notLoadedVat = notLoaded.filter((r) => isVatRecoverable(getInvoiceLetter(r.invoiceType)));
     const months = [...byMonth.values()].sort((a, b) => a.month.localeCompare(b.month));
     for (const m of months) {
-      m.vatBalance = m.vatDebit - m.vatCredit - m.vatPerception;
+      m.vatBalance = m.vatDebit - m.vatCredit;
       m.income = round2(m.income);
       m.expenses = round2(m.expenses);
       m.vatDebit = round2(m.vatDebit);
@@ -427,6 +437,13 @@ export class StatsRepository {
         monthsWithExpectedNotLoaded: months
           .filter((m) => m.expectedNotLoadedCount > 0)
           .map((m) => m.month),
+        expectedNotLoadedVat: {
+          count: notLoadedVat.length,
+          total: round2(
+            notLoadedVat.reduce((acc, r) => acc + getInvoiceSign(r.invoiceType) * (r.total ?? 0), 0)
+          ),
+        },
+        monthsWithExpectedNotLoadedVat: [...new Set(notLoadedVat.map((r) => r.month))].sort(),
       },
     };
   }
