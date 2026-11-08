@@ -274,6 +274,78 @@ describe('expected_invoices tax columns (#129)', () => {
     expect(again.unchanged).toBe(1);
   });
 
+  it('reimport matched by CAE corrects a wrong invoice type and keeps local fields', async () => {
+    const file = await writeXlsx({
+      headers: ARCA_HEADERS,
+      rows: [baseRow(6, { Tipo: '11 - Factura C', 'Imp. Total': 500 })],
+    });
+    await new ExcelImportService().importFromFile(file);
+    const [before] = allExpected();
+    const id = Number(before?.id);
+    // Legacy data: an old parser stored "11 - Factura C" as Factura A
+    getRawDb()
+      .prepare(
+        "UPDATE expected_invoices SET invoice_type = 1, notes = 'nota local', status = 'matched' WHERE id = ?"
+      )
+      .run(id);
+
+    const result = await new ExcelImportService().importFromFile(file);
+    expect(result.updated).toBe(1);
+    expect(allExpected()).toHaveLength(1);
+    expect(allExpected()[0]).toMatchObject({
+      id,
+      invoice_type: 11,
+      notes: 'nota local',
+      status: 'matched',
+    });
+
+    const again = await new ExcelImportService().importFromFile(file);
+    expect(again.updated).toBe(0);
+    expect(again.unchanged).toBe(1);
+  });
+
+  it('reimport matched by CAE overwrites every field the Excel provides', async () => {
+    const file = await writeXlsx({
+      headers: ARCA_HEADERS,
+      rows: [baseRow(7, { 'Imp. Total': 800 })],
+    });
+    await new ExcelImportService().importFromFile(file);
+    getRawDb()
+      .prepare(
+        `UPDATE expected_invoices
+         SET emitter_name = 'NOMBRE VIEJO', issue_date = '2026-03-01', total = 1`
+      )
+      .run();
+
+    const result = await new ExcelImportService().importFromFile(file);
+    expect(result.updated).toBe(1);
+    expect(allExpected()[0]).toMatchObject({
+      emitter_name: 'EMISOR DE PRUEBA SA',
+      issue_date: '2026-03-10',
+      total: 800,
+    });
+  });
+
+  it('keeps an invoice and its credit note apart when ARCA reports both with the same CAE', async () => {
+    const file = await writeXlsx({
+      headers: ARCA_HEADERS,
+      rows: [
+        baseRow(14176, { 'Imp. Total': 1000 }),
+        baseRow(5649, { Tipo: '3 - Nota de Crédito A', 'Imp. Total': 200 }),
+      ],
+    });
+    const result = await new ExcelImportService().importFromFile(file);
+    expect(result.imported).toBe(2);
+
+    const again = await new ExcelImportService().importFromFile(file);
+    expect(again.updated).toBe(0);
+    expect(again.unchanged).toBe(2);
+    expect(allExpected()).toMatchObject([
+      { invoice_number: 5649, invoice_type: 3, total: 200 },
+      { invoice_number: 14176, invoice_type: 1, total: 1000 },
+    ]);
+  });
+
   it('reimport with an empty breakdown does not erase stored values', async () => {
     const full = await writeXlsx({
       headers: ARCA_HEADERS,
