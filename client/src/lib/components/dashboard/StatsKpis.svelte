@@ -23,19 +23,19 @@
 
 <div class="kpis">
   <div class="kpi">
-    <div class="kpi-label">Total del período</div>
+    <div class="kpi-label">Gastos (total)</div>
     <div class="kpi-value">{formatCurrency(summary.totals.total)}</div>
-    <p class="kpi-hint">En pesos, notas de crédito restadas</p>
+    <p class="kpi-hint">Recibidos cargados, con IVA; notas de crédito restadas</p>
   </div>
   <div class="kpi">
-    <div class="kpi-label">Facturas</div>
+    <div class="kpi-label">Recibidos cargados</div>
     <div class="kpi-value">{intFormatter.format(summary.totals.count)}</div>
-    <p class="kpi-hint">Comprobantes cargados en el período</p>
+    <p class="kpi-hint">Comprobantes recibidos en el período</p>
   </div>
   <div class="kpi">
-    <div class="kpi-label">Con IVA computable</div>
+    <div class="kpi-label">Recibidos A y M (total)</div>
     <div class="kpi-value">{formatCurrency(summary.totals.vatRecoverableTotal)}</div>
-    <p class="kpi-hint">Facturas A y M</p>
+    <p class="kpi-hint">Los que dan crédito fiscal</p>
   </div>
 </div>
 
@@ -51,7 +51,7 @@
       <div class="kpi">
         <div class="kpi-label">Gastos (neto)</div>
         <div class="kpi-value">{formatCurrency(t.expenses)}</div>
-        <p class="kpi-hint">Facturas con desglose, sin IVA</p>
+        <p class="kpi-hint">Recibidos cargados con desglose, sin IVA</p>
       </div>
       <div class="kpi">
         <div class="kpi-label">Resultado</div>
@@ -94,8 +94,9 @@
     <Info size={14} />
     <span>
       {intFormatter.format(pending.count)}
-      {pending.count === 1 ? 'comprobante informado' : 'comprobantes informados'} por ARCA sin validar,
-      por {formatCurrency(pending.total)}
+      {pending.count === 1 ? 'recibido informado' : 'recibidos informados'} por ARCA sin cargar, por {formatCurrency(
+        pending.total
+      )}
     </span>
   </button>
 {/if}
