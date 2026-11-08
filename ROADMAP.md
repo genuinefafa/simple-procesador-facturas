@@ -96,6 +96,7 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | #206 | Tique factura A (81): desglose ARCA no suma el total | ✅ PR #225 (otros tributos implícitos derivados del total) |
 | #221 | Tique factura A (81) se reconoce como Factura A (1) al leer el PDF | Pendiente |
 | - | Reimport ARCA actualiza todos los campos (tipo incluido); clave CAE + punto de venta + número | ✅ PR #227 |
+| #231 | Aviso de importación cuenta completables que el filtro no muestra (secundarias de balance group) | Pendiente |
 | #212 | Crear factura desde archivo ya finalizado borra el archivo (copyFile origen = destino) | ✅ PR #214 |
 | #213 | Rediseñar comparación archivo ↔ esperada del pendiente | Pendiente |
 
