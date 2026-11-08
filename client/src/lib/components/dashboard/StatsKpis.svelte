@@ -122,7 +122,7 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  @container (min-width: 78rem) {
+  @container (min-width: 96rem) {
     .kpis-six .kpis {
       grid-template-columns: repeat(6, minmax(0, 1fr));
     }
