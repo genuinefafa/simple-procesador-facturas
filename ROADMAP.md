@@ -101,6 +101,8 @@ Plan de trabajo organizado en fases progresivas, alternando features con tech de
 | - | Gráficos ingresos vs gastos (neto) e IVA ventas vs IVA compras (sin percepciones), cobertura de recibidos sin cargar | ✅ PR #229 |
 | #212 | Crear factura desde archivo ya finalizado borra el archivo (copyFile origen = destino) | ✅ PR #214 |
 | #213 | Rediseñar comparación archivo ↔ esperada del pendiente | Pendiente |
+| #234 | Detalle con id sin prefijo da 500; total vacío se muestra como $0,00 | Pendiente |
+| #235 | Corregir divergencias en lote y vincular factura con esperada con el PDF a la vista | Pendiente (a analizar) |
 
 ## Milestones
 
