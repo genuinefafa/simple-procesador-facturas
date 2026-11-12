@@ -109,8 +109,6 @@ server/config.json
 categorias.json
 
 # Claude Code settings + runtime artifacts
-.claude/settings.local.json
-.claude/scheduled_tasks.lock
 
 # Archivos de prueba generados
 test-output/
@@ -153,3 +151,7 @@ eng.traineddata
 # Playwright MCP (screenshots and snapshots)
 .playwright-mcp/
 
+# Claude Code: local settings and session artifacts
+.claude/settings.local.json
+.claude/worktrees/
+.claude/scheduled_tasks.lock
