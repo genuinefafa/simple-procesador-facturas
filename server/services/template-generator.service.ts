@@ -35,7 +35,7 @@ export class TemplateGeneratorService {
 
     // Crear workbook
     const workbook = new ExcelJS.Workbook();
-    workbook.creator = 'Procesador de Facturas';
+    workbook.creator = 'Procesador Contable';
     workbook.created = new Date();
     workbook.modified = new Date();
 

@@ -32,7 +32,7 @@
 </script>
 
 <svelte:head>
-  <title>Procesador de Facturas</title>
+  <title>Procesador Contable</title>
 </svelte:head>
 
 <div class="app-container">

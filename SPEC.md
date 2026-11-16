@@ -1,4 +1,4 @@
-# Especificación Técnica - Procesador de Facturas
+# Especificación Técnica - Procesador Contable
 
 **Versión actual**: v0.6.0
 **Última actualización**: 2026-02-02

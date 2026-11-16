@@ -1,6 +1,6 @@
 # Directorio de Datos
 
-Este directorio contiene todos los datos del procesador de facturas.
+Este directorio contiene todos los datos del procesador contable.
 
 **⚠️ IMPORTANTE**: Este directorio está en `.gitignore` y NO se sube al repositorio para proteger información sensible.
 

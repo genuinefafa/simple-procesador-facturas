@@ -1,4 +1,4 @@
-# Roadmap - Procesador de Facturas
+# Roadmap - Procesador Contable
 
 ## Estado Actual (2026-11-07)
 

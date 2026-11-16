@@ -1,4 +1,4 @@
-# 📄 Simple Procesador de Facturas
+# 📄 Procesador Contable
 
 [![CI](https://github.com/genuinefafa/procesador-contable/actions/workflows/ci.yml/badge.svg)](https://github.com/genuinefafa/procesador-contable/actions/workflows/ci.yml)
 [![Tests](https://img.shields.io/badge/tests-61%20passing-brightgreen)](https://github.com/genuinefafa/procesador-contable/actions/workflows/ci.yml)
