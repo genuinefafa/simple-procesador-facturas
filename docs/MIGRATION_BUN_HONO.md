@@ -4,7 +4,7 @@
 
 ## Motivación
 
-Ver `~/Develop/homelab/claude-context/personal/procesador-facturas.md` sección "Decisión 2026-05-13". Resumen:
+Ver `~/Develop/genuinefafa/ai-context/proyectos/procesador-contable.md` sección "Decisión 2026-05-13". Resumen:
 
 - Bundle Kit pesado y `__dirname` post-build rompe paths runtime (issue #180 A).
 - Inlining ESM/CJS de `libheif-bundle.js` en chunk SSR rompe `/api/comprobantes` (issue #180 B).
@@ -320,7 +320,7 @@ curl localhost:3001/api/_hono/health
 - `serveStatic` SPA fallback: confirmar que la sintaxis Hono soporta fallback HTML — sino, agregar handler explícito `app.get('*', c => c.html(readFileSync('client/build/client/index.html')))`.
 
 **Cómo arrancar el próximo contexto:**
-1. Leer este archivo (`docs/MIGRATION_BUN_HONO.md`) y la sección "Decisión 2026-05-13" en `~/Develop/homelab/claude-context/personal/procesador-facturas.md` si necesita más motivación.
+1. Leer este archivo (`docs/MIGRATION_BUN_HONO.md`) y la sección "Decisión 2026-05-13" en `~/Develop/genuinefafa/ai-context/proyectos/procesador-contable.md` si necesita más motivación.
 2. Branch `feat/migrate-bun-hono` ya pusheado. `git pull origin feat/migrate-bun-hono` por las dudas.
 3. Arrancar por sub-commit 1 (bun-sqlite). Confirmar approach del import condicional con el usuario antes de tocar tests.
 
@@ -394,7 +394,7 @@ curl localhost:3001/api/_hono/health
 **Verificado en sesión 2026-05-18 (extensión de la del 17):**
 
 - **CI run de PR #185:** Code Quality, TypeScript Validation, Build Frontend, CI Summary → **pass**. Tests & Coverage → **fail** (esperado): `Only URLs with a scheme in: file, data, and node are supported by the default ESM loader. Received protocol 'bun:'` — vitest corre bajo Node (workflow usa `bun run test` que invoca `vitest` directo, sin `--bun`). Fix va en sub-commit 6.
-- **Smoke E2E con DB real:** `docker run -v $(pwd)/data:/app/data -e DB_PATH=/app/data/database.sqlite procesador-facturas:bun-test`. `/api/_hono/health` → 200; `/api/comprobantes?limit=2` → 200 con `{"count":475, "comprobantes":[…]}`. Listing real OK con bun:sqlite + drizzle/bun-sqlite. *Nota:* primer intento dio 404 transitorio — sleep 4s post-start no siempre alcanza, sleep 6s sí. No es bug.
+- **Smoke E2E con DB real:** `docker run -v $(pwd)/data:/app/data -e DB_PATH=/app/data/database.sqlite procesador-contable:bun-test`. `/api/_hono/health` → 200; `/api/comprobantes?limit=2` → 200 con `{"count":475, "comprobantes":[…]}`. Listing real OK con bun:sqlite + drizzle/bun-sqlite. *Nota:* primer intento dio 404 transitorio — sleep 4s post-start no siempre alcanza, sleep 6s sí. No es bug.
 - **PR #185 sigue draft.** Pendiente: cerrar sub-commit 6 + README ejemplo + ready → squash merge (decisión del usuario en sesión 2026-05-18).
 
 **Bloqueantes / unknowns:**

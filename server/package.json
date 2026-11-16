@@ -1,5 +1,5 @@
 {
-  "name": "procesador-facturas-server",
+  "name": "procesador-contable-server",
   "version": "0.2.0",
   "description": "Backend y servicios del procesador de facturas",
   "type": "module",

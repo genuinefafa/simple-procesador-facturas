@@ -147,7 +147,7 @@ CUIT === expected.cuit
 ### 4.1 Docker
 
 ```bash
-docker build -t procesador-facturas .
+docker build -t procesador-contable .
 docker compose up -d
 ```
 

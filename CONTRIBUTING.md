@@ -12,8 +12,8 @@ Gracias por tu interés en contribuir al proyecto. Esta guía te ayudará a empe
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/genuinefafa/simple-procesador-facturas.git
-cd simple-procesador-facturas
+git clone https://github.com/genuinefafa/procesador-contable.git
+cd procesador-contable
 
 # 2. Instalar dependencias
 npm install
@@ -31,7 +31,7 @@ npm run dev
 ## Estructura del Proyecto
 
 ```
-simple-procesador-facturas/
+procesador-contable/
 ├── client/              # Frontend (SvelteKit)
 │   └── src/
 │       ├── lib/
@@ -327,7 +327,7 @@ El proyecto usa CSS puro con design tokens para mayor control y consistencia. Ve
 
 ## Contacto
 
-- Issues: [GitHub Issues](https://github.com/genuinefafa/simple-procesador-facturas/issues)
+- Issues: [GitHub Issues](https://github.com/genuinefafa/procesador-contable/issues)
 - Mantenedor: [@fcaldera](https://github.com/fcaldera)
 
 ---
