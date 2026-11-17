@@ -18,13 +18,10 @@ cd procesador-contable
 # 2. Instalar dependencias
 npm install
 
-# 3. Configurar git hooks
-git config core.hooksPath .githooks
-
-# 4. Inicializar base de datos
+# 3. Inicializar base de datos
 npm run db:migrate
 
-# 5. Levantar servidor de desarrollo
+# 4. Levantar servidor de desarrollo
 npm run dev
 ```
 
@@ -290,18 +287,9 @@ npm run preview          # Preview del build
 
 ---
 
-## Git Hooks
+## Validaciones
 
-El proyecto usa hooks personalizados en `.githooks/`:
-
-1. **Auto-formateo**: Prettier en archivos staged
-2. **Validación Svelte**: Detecta errores de sintaxis
-3. **svelte-check**: Opcional, con confirmación
-
-Si el hook no se ejecuta:
-```bash
-git config core.hooksPath .githooks
-```
+El repo no usa git hooks (ver #241). El formato, el lint, `svelte-check`, el build y los tests los valida el CI en cada PR. Antes de pushear conviene correr `bun run format` y `bun run check`.
 
 ---
 
