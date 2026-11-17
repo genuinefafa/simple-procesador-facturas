@@ -5,7 +5,6 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"postinstall": ".githooks/install.sh 2>/dev/null || echo '⚠️  Nota: No se pudieron instalar git hooks'",
 		"dev": "cd client && bun run dev",
 		"dev:hono": "cd server && bun run dev:hono",
 		"build": "bun run check && ( cd client && bun run build )",

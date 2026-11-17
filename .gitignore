@@ -16,7 +16,6 @@ build/
 !client/vite.config.js
 !server/vitest.config.js
 !server/drizzle.config.js
-!.githooks/install.sh
 
 # SvelteKit
 web/.svelte-kit/
