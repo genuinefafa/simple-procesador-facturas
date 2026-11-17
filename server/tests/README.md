@@ -1,6 +1,6 @@
 # Tests
 
-Suite de tests del procesador de facturas.
+Suite de tests del procesador contable.
 
 ## 🧪 Estructura
 

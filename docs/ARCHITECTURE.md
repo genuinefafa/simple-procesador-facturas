@@ -35,7 +35,7 @@ El sistema es una **aplicación fullstack** construida con SvelteKit que procesa
 ## 3. Estructura de Directorios
 
 ```
-simple-procesador-facturas/
+procesador-contable/
 ├── client/                         # Frontend (SvelteKit)
 │   ├── src/
 │   │   ├── lib/
@@ -363,7 +363,7 @@ Cada campo detectado recibe un score de confianza:
 
 ```bash
 # Build
-docker build -t procesador-facturas .
+docker build -t procesador-contable .
 
 # Run
 docker compose up -d

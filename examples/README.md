@@ -1,6 +1,6 @@
 # Ejemplos y Datos de Prueba
 
-Este directorio contiene recursos de ejemplo para testing y desarrollo del Procesador de Facturas.
+Este directorio contiene recursos de ejemplo para testing y desarrollo del Procesador Contable.
 
 ## 📁 Estructura
 

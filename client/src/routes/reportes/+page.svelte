@@ -13,7 +13,7 @@
 </script>
 
 <svelte:head>
-  <title>Reportes - Procesador de Facturas</title>
+  <title>Reportes - Procesador Contable</title>
 </svelte:head>
 
 <header class="header">

@@ -49,7 +49,7 @@ Este directorio contiene los workflows de CI/CD del proyecto.
 Para agregar badges al README:
 
 ```markdown
-[![CI](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml/badge.svg)](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml)
+[![CI](https://github.com/genuinefafa/procesador-contable/actions/workflows/ci.yml/badge.svg)](https://github.com/genuinefafa/procesador-contable/actions/workflows/ci.yml)
 ```
 
 ## 🔧 Configuración

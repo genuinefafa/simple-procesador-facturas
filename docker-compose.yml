@@ -6,12 +6,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: procesador-facturas
+    container_name: procesador-contable
     restart: unless-stopped
     ports:
       - "${APP_PORT:-3000}:3000"
     volumes:
-      - procesador-data:/app/data
+      - procesador-contable-data:/app/data
       - ./google-credentials.json:/app/google-credentials.json:ro
       - ./server/config.json:/app/server/config.json:ro
       - ./server/scripts/seed-data:/app/server/scripts/seed-data:ro
@@ -22,5 +22,5 @@ services:
       - DB_PATH=/app/data/database.sqlite
 
 volumes:
-  procesador-data:
+  procesador-contable-data:
     driver: local

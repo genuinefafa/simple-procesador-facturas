@@ -1,4 +1,4 @@
-# Especificación Técnica - Procesador de Facturas
+# Especificación Técnica - Procesador Contable
 
 **Versión actual**: v0.6.0
 **Última actualización**: 2026-02-02
@@ -147,7 +147,7 @@ CUIT === expected.cuit
 ### 4.1 Docker
 
 ```bash
-docker build -t procesador-facturas .
+docker build -t procesador-contable .
 docker compose up -d
 ```
 

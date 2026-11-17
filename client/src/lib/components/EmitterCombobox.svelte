@@ -8,7 +8,7 @@
    * components — use SelectDropdown from '$lib/components/ui' instead.
    *
    * TODO: Refactor to use SelectDropdown or equivalent. See issue #150.
-   * https://github.com/genuinefafa/simple-procesador-facturas/issues/150
+   * https://github.com/genuinefafa/procesador-contable/issues/150
    */
 
   import { Combobox as ComboboxBuilder } from 'melt/builders';

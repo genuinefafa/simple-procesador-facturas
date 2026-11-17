@@ -45,7 +45,7 @@
       </button>
       <a href="/" class="logo app-logo" aria-label="Ir al dashboard">
         <img src="/favicon.svg" alt="Logo" class="logo-icon" />
-        <span>Simple procesador de facturas</span>
+        <span>Procesador contable</span>
       </a>
     </div>
 

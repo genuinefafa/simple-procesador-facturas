@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-  <title>Dashboard - Procesador de Facturas</title>
+  <title>Dashboard - Procesador Contable</title>
 </svelte:head>
 
 <StatsSection period={year} />

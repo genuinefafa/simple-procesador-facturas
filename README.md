@@ -1,7 +1,7 @@
-# 📄 Simple Procesador de Facturas
+# 📄 Procesador Contable
 
-[![CI](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml/badge.svg)](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-61%20passing-brightgreen)](https://github.com/genuinefafa/simple-procesador-facturas/actions/workflows/ci.yml)
+[![CI](https://github.com/genuinefafa/procesador-contable/actions/workflows/ci.yml/badge.svg)](https://github.com/genuinefafa/procesador-contable/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-61%20passing-brightgreen)](https://github.com/genuinefafa/procesador-contable/actions/workflows/ci.yml)
 [![Bun Version](https://img.shields.io/badge/bun-%3E%3D1.3.0-brightgreen.svg)](https://bun.sh/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg)](https://www.typescriptlang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
@@ -33,8 +33,8 @@ Requiere [Bun](https://bun.sh/) ≥ 1.3.0.
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/genuinefafa/simple-procesador-facturas.git
-cd simple-procesador-facturas
+git clone https://github.com/genuinefafa/procesador-contable.git
+cd procesador-contable
 
 # 2. Instalar dependencias
 bun install
@@ -68,7 +68,7 @@ docker compose logs -f
 # http://localhost:3000   (override con APP_PORT en .env)
 ```
 
-`docker-compose.yml` monta `procesador-data` (volumen named) en `/app/data` para persistir la DB SQLite y archivos subidos. Variables relevantes:
+`docker-compose.yml` monta `procesador-contable-data` (volumen named) en `/app/data` para persistir la DB SQLite y archivos subidos. Variables relevantes:
 
 | Variable | Default | Descripción |
 |----------|---------|-------------|
@@ -83,7 +83,7 @@ La imagen es multi-arch (arm64/amd64), por lo que corre en cualquier host con Do
 ## 📁 Estructura del Proyecto
 
 ```
-simple-procesador-facturas/
+procesador-contable/
 ├── client/                    # 🎨 Frontend (SvelteKit)
 │   ├── src/
 │   │   ├── lib/
@@ -246,8 +246,8 @@ Para más detalles técnicos, consulta:
 
 El proyecto usa GitHub Issues para tracking de tareas:
 
-- **[Issues](https://github.com/genuinefafa/simple-procesador-facturas/issues)**
-- **[Milestones](https://github.com/genuinefafa/simple-procesador-facturas/milestones)**
+- **[Issues](https://github.com/genuinefafa/procesador-contable/issues)**
+- **[Milestones](https://github.com/genuinefafa/procesador-contable/milestones)**
 
 ### Milestones Activos
 

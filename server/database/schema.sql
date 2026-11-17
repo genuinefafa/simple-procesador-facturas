@@ -1,4 +1,4 @@
--- Schema de base de datos para el procesador de facturas
+-- Schema de base de datos para el procesador contable
 -- SQLite 3
 
 -- =============================================================================

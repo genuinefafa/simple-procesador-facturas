@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "simple-procesador-facturas",
+      "name": "procesador-contable",
       "dependencies": {
         "drizzle-orm": "1.0.0-beta.15-859cf75",
       },
@@ -39,7 +39,7 @@
       },
     },
     "server": {
-      "name": "procesador-facturas-server",
+      "name": "procesador-contable-server",
       "version": "0.2.0",
       "dependencies": {
         "@hono/node-server": "^2.0.2",
@@ -1013,7 +1013,7 @@
 
     "pretty-format": ["pretty-format@29.7.0", "", { "dependencies": { "@jest/schemas": "^29.6.3", "ansi-styles": "^5.0.0", "react-is": "^18.0.0" } }, "sha512-Pdlw/oPxN+aXdmM9R00JVC9WVFoCLTKJvDVLgmJ+qAffBMxsV85l/Lu7sNx4zSzPyoL2euImuEwHhOXdEgNFZQ=="],
 
-    "procesador-facturas-server": ["procesador-facturas-server@workspace:server"],
+    "procesador-contable-server": ["procesador-contable-server@workspace:server"],
 
     "process": ["process@0.11.10", "", {}, "sha512-cdGef/drWFoydD1JsMzuFf8100nZl+GT+yacc2bEced5f9Rjk4z+WtFUTBu9PhOi9j/jfmBPu0mMEY4wIdAF8A=="],
 

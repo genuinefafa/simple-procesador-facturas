@@ -1,5 +1,5 @@
 {
-	"name": "simple-procesador-facturas",
+	"name": "procesador-contable",
 	"version": "0.2.0",
 	"description": "Sistema automatizado para procesamiento, extracción y gestión de facturas argentinas con reconocimiento OCR y aprendizaje de patrones",
 	"private": true,
